@@ -94,6 +94,7 @@ void load_fen(Board *board, char *fen) {
     board->en_passant_index = 0;
   }
   fen = fen + 2;
+  sscanf(fen, "%hhd %hhd", &board->half_moves, &board->number_of_moves);
 }
 
 int main(void) {
