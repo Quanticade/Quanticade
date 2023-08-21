@@ -94,11 +94,6 @@ void load_fen(Board *board, char *fen) {
     board->en_passant_index = 0;
   }
   fen = fen + 2;
-  sscanf(fen, "%hhd %hhd", &board->half_moves, &board->number_of_moves);
-  printf("Turn: %c, Castling Rights: %d, En passant index: %d, Half Moves: %d, "
-         "Moves: %d\n",
-         board->turn, board->castling_rights, board->en_passant_index,
-         board->half_moves, board->number_of_moves);
 }
 
 int main(void) {
@@ -110,15 +105,5 @@ int main(void) {
       "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
   load_fen(board, fen);
   
-  int index = 18;
-  while (index != 91) {
-    if (floorf((float)index / 10) == 9) {
-      printf("\n");
-      index -= 81;
-    }
-    else {
-      printf("%c", board->squares[index]);
-      index += 10;
-    }
-  } 
+  
 }
