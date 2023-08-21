@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,20 +38,20 @@ typedef struct board {
 Board *board;
 
 void load_fen(Board *board, char *fen) {
-  int index = 70;
+  int index = 18;
   while (*fen != ' ') {
     if (*fen > '0' && *fen < '9') {
-      index += *fen - '0';
-      if ((index % 10) == 8) {
-        index--;
+      index += (*fen - '0') * 10;
+      if (floorf((float)index / 10) == 9) {
+        index -= 10;
       }
     } else if (*fen == '/') {
-      index -= 17;
+      index -= 71;
     } else {
       board->squares[index] = *fen;
       char *fen_next = fen + 1;
       if (*fen_next != '/') {
-        index++;
+        index += 10;
       }
     }
     fen++;
@@ -102,16 +103,22 @@ void load_fen(Board *board, char *fen) {
 
 int main(void) {
   board = (Board *)malloc(sizeof(Board));
-  for (int i = 0; i <= 77; i++) {
+  for (int i = 0; i <= 99; i++) {
     board->squares[i] = '0';
   }
   char fen[] =
-      "r3k2r/p1pp1pb1/bn2Qnp1/2qPN3/1p2P3/2N5/PPPBBPPP/R3K2R b KQkq e3 0 1";
+      "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
   load_fen(board, fen);
-  for (int i = 7; i >= 0; i--) {
-    for (int j = 0; j < 8; j++) {
-      printf("%c", board->squares[(i * 10) + j]);
+  
+  int index = 18;
+  while (index != 91) {
+    if (floorf((float)index / 10) == 9) {
+      printf("\n");
+      index -= 81;
     }
-    printf("\n");
-  }
+    else {
+      printf("%c", board->squares[index]);
+      index += 10;
+    }
+  } 
 }
