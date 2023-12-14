@@ -1,0 +1,1 @@
+/usr/bin/cc CMakeFiles/Quanticade.dir/src/quanticade.c.o -o Quanticade 
