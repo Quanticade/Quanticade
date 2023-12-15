@@ -3557,7 +3557,7 @@ static inline int negamax(int alpha, int beta, int depth) {
 // search position for the best move
 void search_position(int depth) {
   // search start time
-  int start = get_time_ms();
+  uint64_t start = get_time_ms();
 
   // define best score variable
   int score = 0;
