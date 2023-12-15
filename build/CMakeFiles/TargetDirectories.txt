@@ -1,3 +1,0 @@
-/home/darkneutrino/Quanticade/build/CMakeFiles/Quanticade.dir
-/home/darkneutrino/Quanticade/build/CMakeFiles/edit_cache.dir
-/home/darkneutrino/Quanticade/build/CMakeFiles/rebuild_cache.dir
