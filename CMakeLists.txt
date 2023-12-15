@@ -8,4 +8,21 @@ add_compile_options(-Wall -Werror -Wextra -Wpedantic -std=gnu2x)
 # Optimizations
 add_compile_options(-march=native -flto -O3)
 
-add_executable(${PROJECT_NAME} src/quanticade.c)
+add_executable(Quanticade "")
+
+set(QUANTICADE_SOURCES
+    Source/quanticade.c
+)
+
+set(QUANTICADE_HEADERS
+    Source/consts.h
+    Source/structs.h
+    Source/enums.h
+)
+
+target_sources(Quanticade
+    PRIVATE
+        ${QUANTICADE_SOURCES}
+    PUBLIC
+        ${QUANTICADE_HEADERS}
+)
