@@ -10,8 +10,8 @@
 #include <sys/time.h>
 #endif
 
-#include "enums.h"
 #include "consts.h"
+#include "enums.h"
 
 // define version
 #define version "0.22"
@@ -3621,8 +3621,8 @@ void search_position(int depth) {
                get_time_ms() - start);
 
       else
-        printf("info depth %d score cp %d nodes %ld time %ld pv ", current_depth,
-               score, nodes, get_time_ms() - start);
+        printf("info depth %d score cp %d nodes %ld time %ld pv ",
+               current_depth, score, nodes, get_time_ms() - start);
 
       // loop over the moves within a PV line
       for (int count = 0; count < pv_length[0]; count++) {
