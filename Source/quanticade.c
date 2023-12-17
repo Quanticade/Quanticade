@@ -13,25 +13,10 @@
 #include "consts.h"
 #include "enums.h"
 #include "structs.h"
+#include "macros.h"
 
 // define version
-#define version "0.22"
 
-// preserve board state
-#define copy_board(bitboards, occupancies, side, enpassant, castle, hash_key)                                                           \
-  uint64_t bitboards_copy[12], occupancies_copy[3];                            \
-  int side_copy, enpassant_copy, castle_copy;                                  \
-  memcpy(bitboards_copy, bitboards, 96);                                       \
-  memcpy(occupancies_copy, occupancies, 24);                                   \
-  side_copy = side, enpassant_copy = enpassant, castle_copy = castle;          \
-  uint64_t hash_key_copy = hash_key;
-
-// restore board state
-#define take_back(bitboards, occupancies, side, enpassant, castle, hash_key)                                                            \
-  memcpy(bitboards, bitboards_copy, 96);                                       \
-  memcpy(occupancies, occupancies_copy, 24);                                   \
-  side = side_copy, enpassant = enpassant_copy, castle = castle_copy;          \
-  hash_key = hash_key_copy;
 
 /**********************************\
  ==================================
@@ -217,11 +202,6 @@ uint64_t generate_magic_number() {
 
  ==================================
 \**********************************/
-
-// set/get/pop bit macros
-#define set_bit(bitboard, square) ((bitboard) |= (1ULL << (square)))
-#define get_bit(bitboard, square) ((bitboard) & (1ULL << (square)))
-#define pop_bit(bitboard, square) ((bitboard) &= ~(1ULL << (square)))
 
 // count bits within a bitboard (Brian Kernighan's way)
 static inline uint8_t count_bits(uint64_t bitboard) {
@@ -1132,36 +1112,6 @@ static inline int is_square_attacked(engine_t* engine, int square, int side) {
     1000 0000 0000 0000 0000 0000    castling flag       0x800000
 */
 
-// encode move
-#define encode_move(source, target, piece, promoted, capture, double,          \
-                    enpassant, castling)                                       \
-  (source) | (target << 6) | (piece << 12) | (promoted << 16) |                \
-      (capture << 20) | (double << 21) | (enpassant << 22) | (castling << 23)
-
-// extract source square
-#define get_move_source(move) (move & 0x3f)
-
-// extract target square
-#define get_move_target(move) ((move & 0xfc0) >> 6)
-
-// extract piece
-#define get_move_piece(move) ((move & 0xf000) >> 12)
-
-// extract promoted piece
-#define get_move_promoted(move) ((move & 0xf0000) >> 16)
-
-// extract capture flag
-#define get_move_capture(move) (move & 0x100000)
-
-// extract double pawn push flag
-#define get_move_double(move) (move & 0x200000)
-
-// extract enpassant flag
-#define get_move_enpassant(move) (move & 0x400000)
-
-// extract castling flag
-#define get_move_castling(move) (move & 0x800000)
-
 // add move to the move list
 static inline void add_move(moves *move_list, int move) {
   // strore move
@@ -1478,7 +1428,7 @@ static inline int make_move(engine_t* engine, int move, int move_flag) {
                                            : get_ls1b_index(engine->board.bitboards[K]),
                            engine->board.side)) {
       // take move back
-      take_back(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
+      restore_board(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
               engine->board.hash_key);
 
       // return illegal move
@@ -1988,7 +1938,7 @@ static inline void perft_driver(engine_t* engine, int depth) {
     perft_driver(engine, depth - 1);
 
     // take back
-    take_back(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
+    restore_board(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
               engine->board.hash_key);
   }
 }
@@ -2027,7 +1977,7 @@ void perft_test(engine_t* engine, int depth) {
     long old_nodes = nodes - cummulative_nodes;
 
     // take back
-    take_back(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
+    restore_board(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
               engine->board.hash_key);
 
     // print move
@@ -2752,9 +2702,7 @@ static inline int evaluate(engine_t* engine) {
    mate_value, infinity]
 */
 
-#define infinity 50000
-#define mate_value 49000
-#define mate_score 48000
+
 
 // most valuable victim & less valuable attacker
 
@@ -2787,8 +2735,7 @@ static int mvv_lva[12][12] = {
     {101, 201, 301, 401, 501, 601, 101, 201, 301, 401, 501, 601},
     {100, 200, 300, 400, 500, 600, 100, 200, 300, 400, 500, 600}};
 
-// max ply that we can reach within a search
-#define max_ply 64
+
 
 // killer moves [id][ply]
 int killer_moves[2][max_ply];
@@ -2837,14 +2784,6 @@ int follow_pv, score_pv;
 
 // number hash table entries
 int hash_entries = 0;
-
-// no hash entry found constant
-#define no_hash_entry 100000
-
-// transposition table hash flags
-#define hash_flag_exact 0
-#define hash_flag_alpha 1
-#define hash_flag_beta 2
 
 // transposition table data structure
 typedef struct {
@@ -3190,7 +3129,7 @@ static inline int quiescence(engine_t* engine, int alpha, int beta) {
     engine->repetition_index--;
 
     // take move back
-    take_back(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
+    restore_board(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
               engine->board.hash_key);
 
     // reutrn 0 if time is up
@@ -3319,7 +3258,7 @@ static inline int negamax(engine_t* engine, int alpha, int beta, int depth) {
     engine->repetition_index--;
 
     // restore board state
-    take_back(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
+    restore_board(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
               engine->board.hash_key);
 
     // reutrn 0 if time is up
@@ -3424,7 +3363,7 @@ static inline int negamax(engine_t* engine, int alpha, int beta, int depth) {
     engine->repetition_index--;
 
     // take move back
-    take_back(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
+    restore_board(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
               engine->board.hash_key);
 
     // reutrn 0 if time is up
@@ -3595,7 +3534,7 @@ void search_position(engine_t* engine, int depth) {
 
  ==================================
 \**********************************/
-
+//TODO REDO entire UCI
 // parse user/GUI move string input (e.g. "e7e8q")
 int parse_move(engine_t* engine, char *move_string) {
   // create move list instance

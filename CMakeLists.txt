@@ -18,6 +18,7 @@ set(QUANTICADE_HEADERS
     Source/consts.h
     Source/structs.h
     Source/enums.h
+    Source/macros.h
 )
 
 target_sources(Quanticade
