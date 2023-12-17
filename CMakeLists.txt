@@ -13,6 +13,7 @@ add_executable(Quanticade "")
 set(QUANTICADE_SOURCES
     Source/quanticade.c
     Source/utils.c
+    Source/uci.c
 )
 
 set(QUANTICADE_HEADERS
@@ -21,6 +22,8 @@ set(QUANTICADE_HEADERS
     Source/enums.h
     Source/macros.h
     Source/utils.h
+    Source/uci.h
+    Source/quanticade.h
 )
 
 target_sources(Quanticade

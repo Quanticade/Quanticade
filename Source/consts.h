@@ -10,9 +10,6 @@ const int full_depth_moves = 4;
 // depth limit to consider reduction
 const int reduction_limit = 3;
 
-#define start_position                                                         \
-  "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 "
-
 // convert squares to coordinates
 const char *square_to_coordinates[] = {
     "a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8", "a7", "b7", "c7",

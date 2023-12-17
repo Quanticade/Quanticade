@@ -12,9 +12,10 @@
 
 #include "consts.h"
 #include "enums.h"
-#include "structs.h"
 #include "macros.h"
+#include "structs.h"
 #include "utils.h"
+#include "uci.h"
 
 // random piece keys [piece][square]
 uint64_t piece_keys[12][64];
@@ -90,7 +91,7 @@ int hash_entries = 0;
 tt *hash_table = NULL;
 
 // a bridge function to interact between search and GUI input
-static void communicate(engine_t* engine) {
+void communicate(engine_t *engine) {
   // if time is up break here
   if (engine->timeset == 1 && get_time_ms() > engine->stoptime) {
     // tell engine to stop calculating
@@ -159,7 +160,7 @@ uint64_t generate_magic_number() {
 \**********************************/
 
 // count bits within a bitboard (Brian Kernighan's way)
-static inline uint8_t count_bits(uint64_t bitboard) {
+inline uint8_t count_bits(uint64_t bitboard) {
   // bit counter
   uint8_t count = 0;
 
@@ -177,7 +178,7 @@ static inline uint8_t count_bits(uint64_t bitboard) {
 }
 
 // get least significant 1st bit index
-static inline uint8_t get_ls1b_index(uint64_t bitboard) {
+inline uint8_t get_ls1b_index(uint64_t bitboard) {
   // make sure bitboard is not 0
   if (bitboard) {
     // count trailing bits before LS1B
@@ -226,7 +227,7 @@ void init_random_keys() {
 }
 
 // generate "almost" unique position ID aka hash key from scratch
-uint64_t generate_hash_key(engine_t* engine) {
+uint64_t generate_hash_key(engine_t *engine) {
   // final hash key
   uint64_t final_key = 0ULL;
 
@@ -276,7 +277,7 @@ uint64_t generate_hash_key(engine_t* engine) {
 \**********************************/
 
 // reset board variables
-void reset_board(engine_t* engine) {
+void reset_board(engine_t *engine) {
   // reset board position (bitboards)
   memset(engine->board.bitboards, 0ULL, sizeof(engine->board.bitboards));
 
@@ -296,7 +297,7 @@ void reset_board(engine_t* engine) {
 }
 
 // parse FEN string
-void parse_fen(engine_t* engine, char *fen) {
+void parse_fen(engine_t *engine, char *fen) {
   // prepare for new game
   reset_board(engine);
 
@@ -478,8 +479,6 @@ uint64_t bishop_magic_numbers[64] = {
     0x4a02012000ULL,       0x500201010098b028ULL, 0x8040002811040900ULL,
     0x28000010020204ULL,   0x6000020202d0240ULL,  0x8918844842082200ULL,
     0x4010011029020020ULL};
-
-
 
 // generate pawn attacks
 uint64_t mask_pawn_attacks(int side, int square) {
@@ -836,16 +835,13 @@ uint64_t find_magic_number(int square, int relevant_bits, int bishop) {
 // init magic numbers
 void init_magic_numbers() {
   // loop over 64 board squares
-  for (int square = 0; square < 64; square++)
-    // init rook magic numbers
+  for (int square = 0; square < 64; square++) {
+    // init rook and bishop magic numbers
     rook_magic_numbers[square] =
         find_magic_number(square, rook_relevant_bits[square], rook);
-
-  // loop over 64 board squares
-  for (int square = 0; square < 64; square++)
-    // init bishop magic numbers
     bishop_magic_numbers[square] =
         find_magic_number(square, bishop_relevant_bits[square], bishop);
+  }
 }
 
 // init slider piece's attack tables
@@ -901,7 +897,7 @@ void init_sliders_attacks(int bishop) {
 }
 
 // get bishop attacks
-static inline uint64_t get_bishop_attacks(int square, uint64_t occupancy) {
+inline uint64_t get_bishop_attacks(int square, uint64_t occupancy) {
   // get bishop attacks assuming current board occupancy
   occupancy &= bishop_masks[square];
   occupancy *= bishop_magic_numbers[square];
@@ -912,7 +908,7 @@ static inline uint64_t get_bishop_attacks(int square, uint64_t occupancy) {
 }
 
 // get rook attacks
-static inline uint64_t get_rook_attacks(int square, uint64_t occupancy) {
+inline uint64_t get_rook_attacks(int square, uint64_t occupancy) {
   // get rook attacks assuming current board occupancy
   occupancy &= rook_masks[square];
   occupancy *= rook_magic_numbers[square];
@@ -923,7 +919,7 @@ static inline uint64_t get_rook_attacks(int square, uint64_t occupancy) {
 }
 
 // get queen attacks
-static inline uint64_t get_queen_attacks(int square, uint64_t occupancy) {
+inline uint64_t get_queen_attacks(int square, uint64_t occupancy) {
   // init result attacks bitboard
   uint64_t queen_attacks = 0ULL;
 
@@ -962,36 +958,43 @@ static inline uint64_t get_queen_attacks(int square, uint64_t occupancy) {
 \**********************************/
 
 // is square current given attacked by the current given side
-static inline int is_square_attacked(engine_t* engine, int square, int side) {
+inline int is_square_attacked(engine_t *engine, int square, int side) {
   // attacked by white pawns
-  if ((side == white) && (pawn_attacks[black][square] & engine->board.bitboards[P]))
+  if ((side == white) &&
+      (pawn_attacks[black][square] & engine->board.bitboards[P]))
     return 1;
 
   // attacked by black pawns
-  if ((side == black) && (pawn_attacks[white][square] & engine->board.bitboards[p]))
+  if ((side == black) &&
+      (pawn_attacks[white][square] & engine->board.bitboards[p]))
     return 1;
 
   // attacked by knights
-  if (knight_attacks[square] & ((side == white) ? engine->board.bitboards[N] : engine->board.bitboards[n]))
+  if (knight_attacks[square] & ((side == white) ? engine->board.bitboards[N]
+                                                : engine->board.bitboards[n]))
     return 1;
 
   // attacked by bishops
   if (get_bishop_attacks(square, engine->board.occupancies[both]) &
-      ((side == white) ? engine->board.bitboards[B] : engine->board.bitboards[b]))
+      ((side == white) ? engine->board.bitboards[B]
+                       : engine->board.bitboards[b]))
     return 1;
 
   // attacked by rooks
   if (get_rook_attacks(square, engine->board.occupancies[both]) &
-      ((side == white) ? engine->board.bitboards[R] : engine->board.bitboards[r]))
+      ((side == white) ? engine->board.bitboards[R]
+                       : engine->board.bitboards[r]))
     return 1;
 
   // attacked by bishops
   if (get_queen_attacks(square, engine->board.occupancies[both]) &
-      ((side == white) ? engine->board.bitboards[Q] : engine->board.bitboards[q]))
+      ((side == white) ? engine->board.bitboards[Q]
+                       : engine->board.bitboards[q]))
     return 1;
 
   // attacked by kings
-  if (king_attacks[square] & ((side == white) ? engine->board.bitboards[K] : engine->board.bitboards[k]))
+  if (king_attacks[square] & ((side == white) ? engine->board.bitboards[K]
+                                              : engine->board.bitboards[k]))
     return 1;
 
   // by default return false
@@ -1012,7 +1015,7 @@ static inline int is_square_attacked(engine_t* engine, int square, int side) {
 */
 
 // add move to the move list
-static inline void add_move(moves *move_list, int move) {
+inline void add_move(moves *move_list, int move) {
   // strore move
   move_list->moves[move_list->count] = move;
 
@@ -1074,12 +1077,13 @@ void print_move_list(moves *move_list) {
 }
 
 // make move on chess board
-static inline int make_move(engine_t* engine, int move, int move_flag) {
+int make_move(engine_t *engine, int move, int move_flag) {
   // quiet moves
   if (move_flag == all_moves) {
     // preserve board state
-    copy_board(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
-              engine->board.hash_key);
+    copy_board(engine->board.bitboards, engine->board.occupancies,
+               engine->board.side, engine->board.enpassant,
+               engine->board.castle, engine->board.hash_key);
 
     // parse move
     int source_square = get_move_source(move);
@@ -1096,8 +1100,9 @@ static inline int make_move(engine_t* engine, int move, int move_flag) {
     set_bit(engine->board.bitboards[piece], target_square);
 
     // hash piece
-    engine->board.hash_key ^= piece_keys[piece][source_square]; // remove piece from source
-                                                  // square in hash key
+    engine->board.hash_key ^=
+        piece_keys[piece][source_square]; // remove piece from source
+                                          // square in hash key
     engine->board.hash_key ^=
         piece_keys[piece]
                   [target_square]; // set piece to the target square in hash key
@@ -1163,8 +1168,9 @@ static inline int make_move(engine_t* engine, int move, int move_flag) {
     // handle enpassant captures
     if (enpass) {
       // erase the pawn depending on side to move
-      (engine->board.side == white) ? pop_bit(engine->board.bitboards[p], target_square + 8)
-                      : pop_bit(engine->board.bitboards[P], target_square - 8);
+      (engine->board.side == white)
+          ? pop_bit(engine->board.bitboards[p], target_square + 8)
+          : pop_bit(engine->board.bitboards[P], target_square - 8);
 
       // white to move
       if (engine->board.side == white) {
@@ -1224,8 +1230,10 @@ static inline int make_move(engine_t* engine, int move, int move_flag) {
         set_bit(engine->board.bitboards[R], f1);
 
         // hash rook
-        engine->board.hash_key ^= piece_keys[R][h1]; // remove rook from h1 from hash key
-        engine->board.hash_key ^= piece_keys[R][f1]; // put rook on f1 into a hash key
+        engine->board.hash_key ^=
+            piece_keys[R][h1]; // remove rook from h1 from hash key
+        engine->board.hash_key ^=
+            piece_keys[R][f1]; // put rook on f1 into a hash key
         break;
 
       // white castles queen side
@@ -1235,8 +1243,10 @@ static inline int make_move(engine_t* engine, int move, int move_flag) {
         set_bit(engine->board.bitboards[R], d1);
 
         // hash rook
-        engine->board.hash_key ^= piece_keys[R][a1]; // remove rook from a1 from hash key
-        engine->board.hash_key ^= piece_keys[R][d1]; // put rook on d1 into a hash key
+        engine->board.hash_key ^=
+            piece_keys[R][a1]; // remove rook from a1 from hash key
+        engine->board.hash_key ^=
+            piece_keys[R][d1]; // put rook on d1 into a hash key
         break;
 
       // black castles king side
@@ -1246,8 +1256,10 @@ static inline int make_move(engine_t* engine, int move, int move_flag) {
         set_bit(engine->board.bitboards[r], f8);
 
         // hash rook
-        engine->board.hash_key ^= piece_keys[r][h8]; // remove rook from h8 from hash key
-        engine->board.hash_key ^= piece_keys[r][f8]; // put rook on f8 into a hash key
+        engine->board.hash_key ^=
+            piece_keys[r][h8]; // remove rook from h8 from hash key
+        engine->board.hash_key ^=
+            piece_keys[r][f8]; // put rook on f8 into a hash key
         break;
 
       // black castles queen side
@@ -1257,8 +1269,10 @@ static inline int make_move(engine_t* engine, int move, int move_flag) {
         set_bit(engine->board.bitboards[r], d8);
 
         // hash rook
-        engine->board.hash_key ^= piece_keys[r][a8]; // remove rook from a8 from hash key
-        engine->board.hash_key ^= piece_keys[r][d8]; // put rook on d8 into a hash key
+        engine->board.hash_key ^=
+            piece_keys[r][a8]; // remove rook from a8 from hash key
+        engine->board.hash_key ^=
+            piece_keys[r][d8]; // put rook on d8 into a hash key
         break;
       }
     }
@@ -1297,12 +1311,15 @@ static inline int make_move(engine_t* engine, int move, int move_flag) {
     engine->board.hash_key ^= side_key;
 
     // make sure that king has not been exposed into a check
-    if (is_square_attacked(engine, (engine->board.side == white) ? get_ls1b_index(engine->board.bitboards[k])
-                                           : get_ls1b_index(engine->board.bitboards[K]),
+    if (is_square_attacked(engine,
+                           (engine->board.side == white)
+                               ? get_ls1b_index(engine->board.bitboards[k])
+                               : get_ls1b_index(engine->board.bitboards[K]),
                            engine->board.side)) {
       // take move back
-      restore_board(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
-              engine->board.hash_key);
+      restore_board(engine->board.bitboards, engine->board.occupancies,
+                    engine->board.side, engine->board.enpassant,
+                    engine->board.castle, engine->board.hash_key);
 
       // return illegal move
       return 0;
@@ -1329,7 +1346,7 @@ static inline int make_move(engine_t* engine, int move, int move_flag) {
 }
 
 // generate all moves
-static inline void generate_moves(engine_t* engine, moves *move_list) {
+void generate_moves(engine_t *engine, moves *move_list) {
   // init move count
   move_list->count = 0;
 
@@ -1386,7 +1403,8 @@ static inline void generate_moves(engine_t* engine, moves *move_list) {
           }
 
           // init pawn attacks bitboard
-          attacks = pawn_attacks[engine->board.side][source_square] & engine->board.occupancies[black];
+          attacks = pawn_attacks[engine->board.side][source_square] &
+                    engine->board.occupancies[black];
 
           // generate pawn captures
           while (attacks) {
@@ -1418,7 +1436,8 @@ static inline void generate_moves(engine_t* engine, moves *move_list) {
           if (engine->board.enpassant != no_sq) {
             // lookup pawn attacks and bitwise AND with enpassant square (bit)
             uint64_t enpassant_attacks =
-                pawn_attacks[engine->board.side][source_square] & (1ULL << engine->board.enpassant);
+                pawn_attacks[engine->board.side][source_square] &
+                (1ULL << engine->board.enpassant);
 
             // make sure enpassant capture available
             if (enpassant_attacks) {
@@ -1505,7 +1524,8 @@ static inline void generate_moves(engine_t* engine, moves *move_list) {
           }
 
           // init pawn attacks bitboard
-          attacks = pawn_attacks[engine->board.side][source_square] & engine->board.occupancies[white];
+          attacks = pawn_attacks[engine->board.side][source_square] &
+                    engine->board.occupancies[white];
 
           // generate pawn captures
           while (attacks) {
@@ -1537,7 +1557,8 @@ static inline void generate_moves(engine_t* engine, moves *move_list) {
           if (engine->board.enpassant != no_sq) {
             // lookup pawn attacks and bitwise AND with enpassant square (bit)
             uint64_t enpassant_attacks =
-                pawn_attacks[engine->board.side][source_square] & (1ULL << engine->board.enpassant);
+                pawn_attacks[engine->board.side][source_square] &
+                (1ULL << engine->board.enpassant);
 
             // make sure enpassant capture available
             if (enpassant_attacks) {
@@ -1590,8 +1611,10 @@ static inline void generate_moves(engine_t* engine, moves *move_list) {
         source_square = get_ls1b_index(bitboard);
 
         // init piece attacks in order to get set of target squares
-        attacks = knight_attacks[source_square] &
-                  ((engine->board.side == white) ? ~engine->board.occupancies[white] : ~engine->board.occupancies[black]);
+        attacks =
+            knight_attacks[source_square] &
+            ((engine->board.side == white) ? ~engine->board.occupancies[white]
+                                           : ~engine->board.occupancies[black]);
 
         // loop over target squares available from generated attacks
         while (attacks) {
@@ -1599,9 +1622,10 @@ static inline void generate_moves(engine_t* engine, moves *move_list) {
           target_square = get_ls1b_index(attacks);
 
           // quiet move
-          if (!get_bit(
-                  ((engine->board.side == white) ? engine->board.occupancies[black] : engine->board.occupancies[white]),
-                  target_square))
+          if (!get_bit(((engine->board.side == white)
+                            ? engine->board.occupancies[black]
+                            : engine->board.occupancies[white]),
+                       target_square))
             add_move(move_list, encode_move(source_square, target_square, piece,
                                             0, 0, 0, 0, 0));
 
@@ -1627,8 +1651,10 @@ static inline void generate_moves(engine_t* engine, moves *move_list) {
         source_square = get_ls1b_index(bitboard);
 
         // init piece attacks in order to get set of target squares
-        attacks = get_bishop_attacks(source_square, engine->board.occupancies[both]) &
-                  ((engine->board.side == white) ? ~engine->board.occupancies[white] : ~engine->board.occupancies[black]);
+        attacks =
+            get_bishop_attacks(source_square, engine->board.occupancies[both]) &
+            ((engine->board.side == white) ? ~engine->board.occupancies[white]
+                                           : ~engine->board.occupancies[black]);
 
         // loop over target squares available from generated attacks
         while (attacks) {
@@ -1636,9 +1662,10 @@ static inline void generate_moves(engine_t* engine, moves *move_list) {
           target_square = get_ls1b_index(attacks);
 
           // quiet move
-          if (!get_bit(
-                  ((engine->board.side == white) ? engine->board.occupancies[black] : engine->board.occupancies[white]),
-                  target_square))
+          if (!get_bit(((engine->board.side == white)
+                            ? engine->board.occupancies[black]
+                            : engine->board.occupancies[white]),
+                       target_square))
             add_move(move_list, encode_move(source_square, target_square, piece,
                                             0, 0, 0, 0, 0));
 
@@ -1664,8 +1691,10 @@ static inline void generate_moves(engine_t* engine, moves *move_list) {
         source_square = get_ls1b_index(bitboard);
 
         // init piece attacks in order to get set of target squares
-        attacks = get_rook_attacks(source_square, engine->board.occupancies[both]) &
-                  ((engine->board.side == white) ? ~engine->board.occupancies[white] : ~engine->board.occupancies[black]);
+        attacks =
+            get_rook_attacks(source_square, engine->board.occupancies[both]) &
+            ((engine->board.side == white) ? ~engine->board.occupancies[white]
+                                           : ~engine->board.occupancies[black]);
 
         // loop over target squares available from generated attacks
         while (attacks) {
@@ -1673,9 +1702,10 @@ static inline void generate_moves(engine_t* engine, moves *move_list) {
           target_square = get_ls1b_index(attacks);
 
           // quiet move
-          if (!get_bit(
-                  ((engine->board.side == white) ? engine->board.occupancies[black] : engine->board.occupancies[white]),
-                  target_square))
+          if (!get_bit(((engine->board.side == white)
+                            ? engine->board.occupancies[black]
+                            : engine->board.occupancies[white]),
+                       target_square))
             add_move(move_list, encode_move(source_square, target_square, piece,
                                             0, 0, 0, 0, 0));
 
@@ -1701,8 +1731,10 @@ static inline void generate_moves(engine_t* engine, moves *move_list) {
         source_square = get_ls1b_index(bitboard);
 
         // init piece attacks in order to get set of target squares
-        attacks = get_queen_attacks(source_square, engine->board.occupancies[both]) &
-                  ((engine->board.side == white) ? ~engine->board.occupancies[white] : ~engine->board.occupancies[black]);
+        attacks =
+            get_queen_attacks(source_square, engine->board.occupancies[both]) &
+            ((engine->board.side == white) ? ~engine->board.occupancies[white]
+                                           : ~engine->board.occupancies[black]);
 
         // loop over target squares available from generated attacks
         while (attacks) {
@@ -1710,9 +1742,10 @@ static inline void generate_moves(engine_t* engine, moves *move_list) {
           target_square = get_ls1b_index(attacks);
 
           // quiet move
-          if (!get_bit(
-                  ((engine->board.side == white) ? engine->board.occupancies[black] : engine->board.occupancies[white]),
-                  target_square))
+          if (!get_bit(((engine->board.side == white)
+                            ? engine->board.occupancies[black]
+                            : engine->board.occupancies[white]),
+                       target_square))
             add_move(move_list, encode_move(source_square, target_square, piece,
                                             0, 0, 0, 0, 0));
 
@@ -1738,8 +1771,10 @@ static inline void generate_moves(engine_t* engine, moves *move_list) {
         source_square = get_ls1b_index(bitboard);
 
         // init piece attacks in order to get set of target squares
-        attacks = king_attacks[source_square] &
-                  ((engine->board.side == white) ? ~engine->board.occupancies[white] : ~engine->board.occupancies[black]);
+        attacks =
+            king_attacks[source_square] &
+            ((engine->board.side == white) ? ~engine->board.occupancies[white]
+                                           : ~engine->board.occupancies[black]);
 
         // loop over target squares available from generated attacks
         while (attacks) {
@@ -1747,9 +1782,10 @@ static inline void generate_moves(engine_t* engine, moves *move_list) {
           target_square = get_ls1b_index(attacks);
 
           // quiet move
-          if (!get_bit(
-                  ((engine->board.side == white) ? engine->board.occupancies[black] : engine->board.occupancies[white]),
-                  target_square))
+          if (!get_bit(((engine->board.side == white)
+                            ? engine->board.occupancies[black]
+                            : engine->board.occupancies[white]),
+                       target_square))
             add_move(move_list, encode_move(source_square, target_square, piece,
                                             0, 0, 0, 0, 0));
 
@@ -1778,7 +1814,7 @@ static inline void generate_moves(engine_t* engine, moves *move_list) {
 \**********************************/
 
 // perft driver
-static inline void perft_driver(engine_t* engine, int depth) {
+inline void perft_driver(engine_t *engine, int depth) {
   // reccursion escape condition
   if (depth == 0) {
     // increment nodes count (count reached positions)
@@ -1795,8 +1831,9 @@ static inline void perft_driver(engine_t* engine, int depth) {
   // loop over generated moves
   for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
     // preserve board state
-    copy_board(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
-              engine->board.hash_key);
+    copy_board(engine->board.bitboards, engine->board.occupancies,
+               engine->board.side, engine->board.enpassant,
+               engine->board.castle, engine->board.hash_key);
 
     // make move
     if (!make_move(engine, move_list->moves[move_count], all_moves))
@@ -1807,13 +1844,14 @@ static inline void perft_driver(engine_t* engine, int depth) {
     perft_driver(engine, depth - 1);
 
     // take back
-    restore_board(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
-              engine->board.hash_key);
+    restore_board(engine->board.bitboards, engine->board.occupancies,
+                  engine->board.side, engine->board.enpassant,
+                  engine->board.castle, engine->board.hash_key);
   }
 }
 
 // perft test
-void perft_test(engine_t* engine, int depth) {
+void perft_test(engine_t *engine, int depth) {
   printf("\n     Performance test\n\n");
 
   // create move list instance
@@ -1828,8 +1866,9 @@ void perft_test(engine_t* engine, int depth) {
   // loop over generated moves
   for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
     // preserve board state
-    copy_board(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
-              engine->board.hash_key);
+    copy_board(engine->board.bitboards, engine->board.occupancies,
+               engine->board.side, engine->board.enpassant,
+               engine->board.castle, engine->board.hash_key);
 
     // make move
     if (!make_move(engine, move_list->moves[move_count], all_moves))
@@ -1846,8 +1885,9 @@ void perft_test(engine_t* engine, int depth) {
     long old_nodes = nodes - cummulative_nodes;
 
     // take back
-    restore_board(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
-              engine->board.hash_key);
+    restore_board(engine->board.bitboards, engine->board.occupancies,
+                  engine->board.side, engine->board.enpassant,
+                  engine->board.castle, engine->board.hash_key);
 
     // print move
     printf(
@@ -1923,67 +1963,18 @@ void init_evaluation_masks() {
 
       // init file mask for a current square
       file_masks[square] |= set_file_rank_mask(file, -1);
-    }
-  }
-
-  /******** Init rank masks ********/
-
-  // loop over ranks
-  for (int rank = 0; rank < 8; rank++) {
-    // loop over files
-    for (int file = 0; file < 8; file++) {
-      // init square
-      int square = rank * 8 + file;
 
       // init rank mask for a current square
       rank_masks[square] |= set_file_rank_mask(-1, rank);
-    }
-  }
-
-  /******** Init isolated masks ********/
-
-  // loop over ranks
-  for (int rank = 0; rank < 8; rank++) {
-    // loop over files
-    for (int file = 0; file < 8; file++) {
-      // init square
-      int square = rank * 8 + file;
 
       // init isolated pawns masks for a current square
       isolated_masks[square] |= set_file_rank_mask(file - 1, -1);
       isolated_masks[square] |= set_file_rank_mask(file + 1, -1);
-    }
-  }
-
-  /******** White passed masks ********/
-
-  // loop over ranks
-  for (int rank = 0; rank < 8; rank++) {
-    // loop over files
-    for (int file = 0; file < 8; file++) {
-      // init square
-      int square = rank * 8 + file;
 
       // init white passed pawns mask for a current square
       white_passed_masks[square] |= set_file_rank_mask(file - 1, -1);
       white_passed_masks[square] |= set_file_rank_mask(file, -1);
       white_passed_masks[square] |= set_file_rank_mask(file + 1, -1);
-
-      // loop over redudant ranks
-      for (int i = 0; i < (8 - rank); i++)
-        // reset redudant bits
-        white_passed_masks[square] &= ~rank_masks[(7 - i) * 8 + file];
-    }
-  }
-
-  /******** Black passed masks ********/
-
-  // loop over ranks
-  for (int rank = 0; rank < 8; rank++) {
-    // loop over files
-    for (int file = 0; file < 8; file++) {
-      // init square
-      int square = rank * 8 + file;
 
       // init black passed pawns mask for a current square
       black_passed_masks[square] |= set_file_rank_mask(file - 1, -1);
@@ -1991,15 +1982,22 @@ void init_evaluation_masks() {
       black_passed_masks[square] |= set_file_rank_mask(file + 1, -1);
 
       // loop over redudant ranks
-      for (int i = 0; i < rank + 1; i++)
+      for (int i = 0; i < (8 - rank); i++) {
+        // reset redudant bits
+        white_passed_masks[square] &= ~rank_masks[(7 - i) * 8 + file];
+      }
+
+      // loop over redudant ranks
+      for (int i = 0; i < rank + 1; i++) {
         // reset redudant bits
         black_passed_masks[square] &= ~rank_masks[i * 8 + file];
+      }
     }
   }
 }
 
 // get game phase score
-static inline int get_game_phase_score(engine_t* engine) {
+inline int get_game_phase_score(engine_t *engine) {
   /*
       The game phase score of the game is derived from the pieces
       (not counting pawns and kings) that are still on the board.
@@ -2016,20 +2014,20 @@ static inline int get_game_phase_score(engine_t* engine) {
 
   // loop over white pieces
   for (int piece = N; piece <= Q; piece++)
-    white_piece_scores +=
-        count_bits(engine->board.bitboards[piece]) * material_score[opening][piece];
+    white_piece_scores += count_bits(engine->board.bitboards[piece]) *
+                          material_score[opening][piece];
 
   // loop over white pieces
   for (int piece = n; piece <= q; piece++)
-    black_piece_scores +=
-        count_bits(engine->board.bitboards[piece]) * -material_score[opening][piece];
+    black_piece_scores += count_bits(engine->board.bitboards[piece]) *
+                          -material_score[opening][piece];
 
   // return game phase score
   return white_piece_scores + black_piece_scores;
 }
 
 // position evaluation
-static inline int evaluate(engine_t* engine) {
+int evaluate(engine_t *engine) {
   // get game phase score
   int game_phase_score = get_game_phase_score(engine);
 
@@ -2082,7 +2080,8 @@ static inline int evaluate(engine_t* engine) {
         score_endgame += positional_score[endgame][PAWN][square];
 
         // double pawn penalty
-        double_pawns = count_bits(engine->board.bitboards[P] & file_masks[square]);
+        double_pawns =
+            count_bits(engine->board.bitboards[P] & file_masks[square]);
 
         // on double pawns (tripple, etc)
         if (double_pawns > 1) {
@@ -2120,14 +2119,14 @@ static inline int evaluate(engine_t* engine) {
         score_endgame += positional_score[endgame][BISHOP][square];
 
         // mobility
-        score_opening +=
-            (count_bits(get_bishop_attacks(square, engine->board.occupancies[both])) -
-             bishop_unit) *
-            bishop_mobility_opening;
-        score_endgame +=
-            (count_bits(get_bishop_attacks(square, engine->board.occupancies[both])) -
-             bishop_unit) *
-            bishop_mobility_endgame;
+        score_opening += (count_bits(get_bishop_attacks(
+                              square, engine->board.occupancies[both])) -
+                          bishop_unit) *
+                         bishop_mobility_opening;
+        score_endgame += (count_bits(get_bishop_attacks(
+                              square, engine->board.occupancies[both])) -
+                          bishop_unit) *
+                         bishop_mobility_endgame;
         break;
 
       // evaluate white rooks
@@ -2144,7 +2143,8 @@ static inline int evaluate(engine_t* engine) {
         }
 
         // semi open file
-        if (((engine->board.bitboards[P] | engine->board.bitboards[p]) & file_masks[square]) == 0) {
+        if (((engine->board.bitboards[P] | engine->board.bitboards[p]) &
+             file_masks[square]) == 0) {
           // add semi open file bonus
           score_opening += open_file_score;
           score_endgame += open_file_score;
@@ -2159,14 +2159,14 @@ static inline int evaluate(engine_t* engine) {
         score_endgame += positional_score[endgame][QUEEN][square];
 
         // mobility
-        score_opening +=
-            (count_bits(get_queen_attacks(square, engine->board.occupancies[both])) -
-             queen_unit) *
-            queen_mobility_opening;
-        score_endgame +=
-            (count_bits(get_queen_attacks(square, engine->board.occupancies[both])) -
-             queen_unit) *
-            queen_mobility_endgame;
+        score_opening += (count_bits(get_queen_attacks(
+                              square, engine->board.occupancies[both])) -
+                          queen_unit) *
+                         queen_mobility_opening;
+        score_endgame += (count_bits(get_queen_attacks(
+                              square, engine->board.occupancies[both])) -
+                          queen_unit) *
+                         queen_mobility_endgame;
         break;
 
       // evaluate white king
@@ -2183,16 +2183,19 @@ static inline int evaluate(engine_t* engine) {
         }
 
         // semi open file
-        if (((engine->board.bitboards[P] | engine->board.bitboards[p]) & file_masks[square]) == 0) {
+        if (((engine->board.bitboards[P] | engine->board.bitboards[p]) &
+             file_masks[square]) == 0) {
           // add semi open file penalty
           score_opening -= open_file_score;
           score_endgame -= open_file_score;
         }
 
         // king safety bonus
-        score_opening += count_bits(king_attacks[square] & engine->board.occupancies[white]) *
+        score_opening += count_bits(king_attacks[square] &
+                                    engine->board.occupancies[white]) *
                          king_shield_bonus;
-        score_endgame += count_bits(king_attacks[square] & engine->board.occupancies[white]) *
+        score_endgame += count_bits(king_attacks[square] &
+                                    engine->board.occupancies[white]) *
                          king_shield_bonus;
 
         break;
@@ -2204,7 +2207,8 @@ static inline int evaluate(engine_t* engine) {
         score_endgame -= positional_score[endgame][PAWN][mirror_score[square]];
 
         // double pawn penalty
-        double_pawns = count_bits(engine->board.bitboards[p] & file_masks[square]);
+        double_pawns =
+            count_bits(engine->board.bitboards[p] & file_masks[square]);
 
         // on double pawns (tripple, etc)
         if (double_pawns > 1) {
@@ -2246,14 +2250,14 @@ static inline int evaluate(engine_t* engine) {
             positional_score[endgame][BISHOP][mirror_score[square]];
 
         // mobility
-        score_opening -=
-            (count_bits(get_bishop_attacks(square, engine->board.occupancies[both])) -
-             bishop_unit) *
-            bishop_mobility_opening;
-        score_endgame -=
-            (count_bits(get_bishop_attacks(square, engine->board.occupancies[both])) -
-             bishop_unit) *
-            bishop_mobility_endgame;
+        score_opening -= (count_bits(get_bishop_attacks(
+                              square, engine->board.occupancies[both])) -
+                          bishop_unit) *
+                         bishop_mobility_opening;
+        score_endgame -= (count_bits(get_bishop_attacks(
+                              square, engine->board.occupancies[both])) -
+                          bishop_unit) *
+                         bishop_mobility_endgame;
         break;
 
       // evaluate black rooks
@@ -2270,7 +2274,8 @@ static inline int evaluate(engine_t* engine) {
         }
 
         // semi open file
-        if (((engine->board.bitboards[P] | engine->board.bitboards[p]) & file_masks[square]) == 0) {
+        if (((engine->board.bitboards[P] | engine->board.bitboards[p]) &
+             file_masks[square]) == 0) {
           // add semi open file bonus
           score_opening -= open_file_score;
           score_endgame -= open_file_score;
@@ -2285,14 +2290,14 @@ static inline int evaluate(engine_t* engine) {
         score_endgame -= positional_score[endgame][QUEEN][mirror_score[square]];
 
         // mobility
-        score_opening -=
-            (count_bits(get_queen_attacks(square, engine->board.occupancies[both])) -
-             queen_unit) *
-            queen_mobility_opening;
-        score_endgame -=
-            (count_bits(get_queen_attacks(square, engine->board.occupancies[both])) -
-             queen_unit) *
-            queen_mobility_endgame;
+        score_opening -= (count_bits(get_queen_attacks(
+                              square, engine->board.occupancies[both])) -
+                          queen_unit) *
+                         queen_mobility_opening;
+        score_endgame -= (count_bits(get_queen_attacks(
+                              square, engine->board.occupancies[both])) -
+                          queen_unit) *
+                         queen_mobility_endgame;
         break;
 
       // evaluate black king
@@ -2309,16 +2314,19 @@ static inline int evaluate(engine_t* engine) {
         }
 
         // semi open file
-        if (((engine->board.bitboards[P] | engine->board.bitboards[p]) & file_masks[square]) == 0) {
+        if (((engine->board.bitboards[P] | engine->board.bitboards[p]) &
+             file_masks[square]) == 0) {
           // add semi open file penalty
           score_opening += open_file_score;
           score_endgame += open_file_score;
         }
 
         // king safety bonus
-        score_opening -= count_bits(king_attacks[square] & engine->board.occupancies[black]) *
+        score_opening -= count_bits(king_attacks[square] &
+                                    engine->board.occupancies[black]) *
                          king_shield_bonus;
-        score_endgame -= count_bits(king_attacks[square] & engine->board.occupancies[black]) *
+        score_endgame -= count_bits(king_attacks[square] &
+                                    engine->board.occupancies[black]) *
                          king_shield_bonus;
         break;
       }
@@ -2421,7 +2429,8 @@ void init_hash_table(int mb) {
 }
 
 // read hash entry data
-static inline int read_hash_entry(engine_t* engine, int alpha, int beta, int depth) {
+inline int read_hash_entry(engine_t *engine, int alpha, int beta,
+                                  int depth) {
   // create a TT instance pointer to particular hash entry storing
   // the scoring data for the current board position if available
   tt *hash_entry = &hash_table[engine->board.hash_key % hash_entries];
@@ -2462,7 +2471,8 @@ static inline int read_hash_entry(engine_t* engine, int alpha, int beta, int dep
 }
 
 // write hash entry data
-static inline void write_hash_entry(engine_t* engine, int score, int depth, int hash_flag) {
+inline void write_hash_entry(engine_t *engine, int score, int depth,
+                                    int hash_flag) {
   // create a TT instance pointer to particular hash entry storing
   // the scoring data for the current board position if available
   tt *hash_entry = &hash_table[engine->board.hash_key % hash_entries];
@@ -2482,7 +2492,7 @@ static inline void write_hash_entry(engine_t* engine, int score, int depth, int 
 }
 
 // enable PV move scoring
-static inline void enable_pv_scoring(engine_t* engine, moves *move_list) {
+inline void enable_pv_scoring(engine_t *engine, moves *move_list) {
   // disable following PV
   follow_pv = 0;
 
@@ -2512,7 +2522,7 @@ static inline void enable_pv_scoring(engine_t* engine, moves *move_list) {
 */
 
 // score moves
-static inline int score_move(engine_t* engine, int move) {
+inline int score_move(engine_t *engine, int move) {
   // if PV move scoring is allowed
   if (score_pv) {
     // make sure we are dealing with PV move
@@ -2575,7 +2585,7 @@ static inline int score_move(engine_t* engine, int move) {
 }
 
 // sort moves in descending order
-static inline void sort_moves(engine_t* engine, moves *move_list) {
+inline void sort_moves(engine_t *engine, moves *move_list) {
   // move scores
   int move_scores[move_list->count];
 
@@ -2585,7 +2595,8 @@ static inline void sort_moves(engine_t* engine, moves *move_list) {
     move_scores[count] = score_move(engine, move_list->moves[count]);
 
   // loop over current move within a move list
-  for (uint32_t current_move = 0; current_move < move_list->count; current_move++) {
+  for (uint32_t current_move = 0; current_move < move_list->count;
+       current_move++) {
     // loop over next move within a move list
     for (uint32_t next_move = current_move + 1; next_move < move_list->count;
          next_move++) {
@@ -2606,7 +2617,7 @@ static inline void sort_moves(engine_t* engine, moves *move_list) {
 }
 
 // print move scores
-void print_move_scores(engine_t* engine, moves *move_list) {
+void print_move_scores(engine_t *engine, moves *move_list) {
   printf("     Move scores:\n\n");
 
   // loop over moves within a move list
@@ -2618,7 +2629,7 @@ void print_move_scores(engine_t* engine, moves *move_list) {
 }
 
 // position repetition detection
-static inline int is_repetition(engine_t* engine) {
+inline int is_repetition(engine_t *engine) {
   // loop over repetition indicies range
   for (uint32_t index = 0; index < engine->repetition_index; index++)
     // if we found the hash key same with a current
@@ -2631,7 +2642,7 @@ static inline int is_repetition(engine_t* engine) {
 }
 
 // quiescence search
-static inline int quiescence(engine_t* engine, int alpha, int beta) {
+inline int quiescence(engine_t *engine, int alpha, int beta) {
   // every 2047 nodes
   if ((nodes & 2047) == 0)
     // "listen" to the GUI/user input
@@ -2670,8 +2681,9 @@ static inline int quiescence(engine_t* engine, int alpha, int beta) {
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
     // preserve board state
-    copy_board(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
-              engine->board.hash_key);
+    copy_board(engine->board.bitboards, engine->board.occupancies,
+               engine->board.side, engine->board.enpassant,
+               engine->board.castle, engine->board.hash_key);
 
     // increment ply
     engine->ply++;
@@ -2702,8 +2714,9 @@ static inline int quiescence(engine_t* engine, int alpha, int beta) {
     engine->repetition_index--;
 
     // take move back
-    restore_board(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
-              engine->board.hash_key);
+    restore_board(engine->board.bitboards, engine->board.occupancies,
+                  engine->board.side, engine->board.enpassant,
+                  engine->board.castle, engine->board.hash_key);
 
     // reutrn 0 if time is up
     if (engine->stopped == 1)
@@ -2727,7 +2740,7 @@ static inline int quiescence(engine_t* engine, int alpha, int beta) {
 }
 
 // negamax alpha beta search
-static inline int negamax(engine_t* engine, int alpha, int beta, int depth) {
+int negamax(engine_t *engine, int alpha, int beta, int depth) {
   // init PV length
   pv_length[engine->ply] = engine->ply;
 
@@ -2749,7 +2762,8 @@ static inline int negamax(engine_t* engine, int alpha, int beta, int depth) {
 
   // read hash entry if we're not in a root ply and hash entry is available
   // and current node is not a PV node
-  if (engine->ply && (score = read_hash_entry(engine, alpha, beta, depth)) != no_hash_entry &&
+  if (engine->ply &&
+      (score = read_hash_entry(engine, alpha, beta, depth)) != no_hash_entry &&
       pv_node == 0)
     // if the move has already been searched (hence has a value)
     // we just return the score for this move without searching it
@@ -2777,8 +2791,10 @@ static inline int negamax(engine_t* engine, int alpha, int beta, int depth) {
 
   // is king in check
   int in_check =
-      is_square_attacked(engine, (engine->board.side == white) ? get_ls1b_index(engine->board.bitboards[K])
-                                         : get_ls1b_index(engine->board.bitboards[k]),
+      is_square_attacked(engine,
+                         (engine->board.side == white)
+                             ? get_ls1b_index(engine->board.bitboards[K])
+                             : get_ls1b_index(engine->board.bitboards[k]),
                          engine->board.side ^ 1);
 
   // increase search depth if the king has been exposed into a check
@@ -2791,8 +2807,9 @@ static inline int negamax(engine_t* engine, int alpha, int beta, int depth) {
   // null move pruning
   if (depth >= 3 && in_check == 0 && engine->ply) {
     // preserve board state
-    copy_board(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
-              engine->board.hash_key);
+    copy_board(engine->board.bitboards, engine->board.occupancies,
+               engine->board.side, engine->board.enpassant,
+               engine->board.castle, engine->board.hash_key);
 
     // increment ply
     engine->ply++;
@@ -2825,8 +2842,9 @@ static inline int negamax(engine_t* engine, int alpha, int beta, int depth) {
     engine->repetition_index--;
 
     // restore board state
-    restore_board(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
-              engine->board.hash_key);
+    restore_board(engine->board.bitboards, engine->board.occupancies,
+                  engine->board.side, engine->board.enpassant,
+                  engine->board.castle, engine->board.hash_key);
 
     // reutrn 0 if time is up
     if (engine->stopped == 1)
@@ -2858,8 +2876,9 @@ static inline int negamax(engine_t* engine, int alpha, int beta, int depth) {
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
     // preserve board state
-    copy_board(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
-              engine->board.hash_key);
+    copy_board(engine->board.bitboards, engine->board.occupancies,
+               engine->board.side, engine->board.enpassant,
+               engine->board.castle, engine->board.hash_key);
 
     // increment ply
     engine->ply++;
@@ -2930,8 +2949,9 @@ static inline int negamax(engine_t* engine, int alpha, int beta, int depth) {
     engine->repetition_index--;
 
     // take move back
-    restore_board(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
-              engine->board.hash_key);
+    restore_board(engine->board.bitboards, engine->board.occupancies,
+                  engine->board.side, engine->board.enpassant,
+                  engine->board.castle, engine->board.hash_key);
 
     // reutrn 0 if time is up
     if (engine->stopped == 1)
@@ -2959,7 +2979,8 @@ static inline int negamax(engine_t* engine, int alpha, int beta, int depth) {
       pv_table[engine->ply][engine->ply] = move_list->moves[count];
 
       // loop over the next ply
-      for (int next_ply = engine->ply + 1; next_ply < pv_length[engine->ply + 1]; next_ply++)
+      for (int next_ply = engine->ply + 1;
+           next_ply < pv_length[engine->ply + 1]; next_ply++)
         // copy move from deeper ply into a current ply's line
         pv_table[engine->ply][next_ply] = pv_table[engine->ply + 1][next_ply];
 
@@ -3005,7 +3026,7 @@ static inline int negamax(engine_t* engine, int alpha, int beta, int depth) {
 }
 
 // search position for the best move
-void search_position(engine_t* engine, int depth) {
+void search_position(engine_t *engine, int depth) {
   // search start time
   uint64_t start = get_time_ms();
 
@@ -3092,152 +3113,8 @@ void search_position(engine_t* engine, int depth) {
   printf("\n");
 }
 
-/**********************************\
- ==================================
-
-                UCI
-          forked from VICE
-         by Richard Allbert
-
- ==================================
-\**********************************/
-//TODO REDO entire UCI
-// parse user/GUI move string input (e.g. "e7e8q")
-int parse_move(engine_t* engine, char *move_string) {
-  // create move list instance
-  moves move_list[1];
-
-  // generate moves
-  generate_moves(engine, move_list);
-
-  // parse source square
-  int source_square = (move_string[0] - 'a') + (8 - (move_string[1] - '0')) * 8;
-
-  // parse target square
-  int target_square = (move_string[2] - 'a') + (8 - (move_string[3] - '0')) * 8;
-
-  // loop over the moves within a move list
-  for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
-    // init move
-    int move = move_list->moves[move_count];
-
-    // make sure source & target squares are available within the generated move
-    if (source_square == get_move_source(move) &&
-        target_square == get_move_target(move)) {
-      // init promoted piece
-      int promoted_piece = get_move_promoted(move);
-
-      // promoted piece is available
-      if (promoted_piece) {
-        // promoted to queen
-        if ((promoted_piece == Q || promoted_piece == q) &&
-            move_string[4] == 'q')
-          // return legal move
-          return move;
-
-        // promoted to rook
-        else if ((promoted_piece == R || promoted_piece == r) &&
-                 move_string[4] == 'r')
-          // return legal move
-          return move;
-
-        // promoted to bishop
-        else if ((promoted_piece == B || promoted_piece == b) &&
-                 move_string[4] == 'b')
-          // return legal move
-          return move;
-
-        // promoted to knight
-        else if ((promoted_piece == N || promoted_piece == n) &&
-                 move_string[4] == 'n')
-          // return legal move
-          return move;
-
-        // continue the loop on possible wrong promotions (e.g. "e7e8f")
-        continue;
-      }
-
-      // return legal move
-      return move;
-    }
-  }
-
-  // return illegal move
-  return 0;
-}
-
-// parse UCI "position" command
-void parse_position(engine_t* engine, char *command) {
-  // shift pointer to the right where next token begins
-  command += 9;
-
-  // init pointer to the current character in the command string
-  char *current_char = command;
-
-  // parse UCI "startpos" command
-  if (strncmp(command, "startpos", 8) == 0)
-    // init chess board with start position
-    parse_fen(engine, start_position);
-
-  // parse UCI "fen" command
-  else {
-    // make sure "fen" command is available within command string
-    current_char = strstr(command, "fen");
-
-    // if no "fen" command is available within command string
-    if (current_char == NULL)
-      // init chess board with start position
-      parse_fen(engine, start_position);
-
-    // found "fen" substring
-    else {
-      // shift pointer to the right where next token begins
-      current_char += 4;
-
-      // init chess board with position from FEN string
-      parse_fen(engine, current_char);
-    }
-  }
-
-  // parse moves after position
-  current_char = strstr(command, "moves");
-
-  // moves available
-  if (current_char != NULL) {
-    // shift pointer to the right where next token begins
-    current_char += 6;
-
-    // loop over moves within a move string
-    while (*current_char) {
-      // parse next move
-      int move = parse_move(engine, current_char);
-
-      // if no more moves
-      if (move == 0)
-        // break out of the loop
-        break;
-
-      // increment repetition index
-      engine->repetition_index++;
-
-      // wtire hash key into a repetition table
-      engine->repetition_table[engine->repetition_index] = engine->board.hash_key;
-
-      // make move on the chess board
-      make_move(engine, move, all_moves);
-
-      // move current character mointer to the end of current move
-      while (*current_char && *current_char != ' ')
-        current_char++;
-
-      // go to the next move
-      current_char++;
-    }
-  }
-}
-
 // reset time control variables
-void reset_time_control(engine_t* engine) {
+void reset_time_control(engine_t *engine) {
   // reset timing
   engine->quit = 0;
   engine->movestogo = 30;
@@ -3247,184 +3124,6 @@ void reset_time_control(engine_t* engine) {
   engine->stoptime = 0;
   engine->timeset = 0;
   engine->stopped = 0;
-}
-
-// parse UCI command "go"
-void parse_go(engine_t* engine, char *command) {
-  // reset time control
-  reset_time_control(engine);
-
-  // init parameters
-  int depth = -1;
-
-  // init argument
-  char *argument = NULL;
-
-  // infinite search
-  if ((argument = strstr(command, "infinite"))) {
-  }
-
-  // match UCI "binc" command
-  if ((argument = strstr(command, "binc")) && engine->board.side == black)
-    // parse black time increment
-    engine->inc = atoi(argument + 5);
-
-  // match UCI "winc" command
-  if ((argument = strstr(command, "winc")) && engine->board.side == white)
-    // parse white time increment
-    engine->inc = atoi(argument + 5);
-
-  // match UCI "wtime" command
-  if ((argument = strstr(command, "wtime")) && engine->board.side == white)
-    // parse white time limit
-    engine->time = atoi(argument + 6);
-
-  // match UCI "btime" command
-  if ((argument = strstr(command, "btime")) && engine->board.side == black)
-    // parse black time limit
-    engine->time = atoi(argument + 6);
-
-  // match UCI "movestogo" command
-  if ((argument = strstr(command, "movestogo")))
-    // parse number of moves to go
-    engine->movestogo = atoi(argument + 10);
-
-  // match UCI "movetime" command
-  if ((argument = strstr(command, "movetime"))) {
-    // parse amount of time allowed to spend to make a move
-    engine->time = atoi(argument + 9);
-    engine->movestogo = 1;
-  }
-
-  // match UCI "depth" command
-  if ((argument = strstr(command, "depth")))
-    // parse search depth
-    depth = atoi(argument + 6);
-
-  // init start time
-  engine->starttime = get_time_ms();
-
-  // if time control is available
-  if (engine->time != -1) {
-    // flag we're playing with time control
-    engine->timeset = 1;
-
-    // set up timing
-    engine->time /= engine->movestogo;
-
-    // disable time buffer when time is almost up
-    if (engine->time > 1500)
-      engine->time -= 50;
-
-    // init stoptime
-    engine->stoptime = engine->starttime + engine->time + engine->inc;
-
-    // treat increment as seconds per move when time is almost up
-    if (engine->time < 1500 && engine->inc && depth == 64)
-      engine->stoptime = engine->starttime + engine->inc - 50;
-  }
-
-  // if depth is not available
-  if (depth == -1)
-    // set depth to 64 plies (takes ages to complete...)
-    depth = 64;
-
-  // search position
-  search_position(engine, depth);
-}
-
-// main UCI loop
-void uci_loop(engine_t* engine) {
-  // max hash MB
-  int max_hash = 1024;
-
-  // default MB value
-  int mb = 64;
-
-  // reset STDIN & STDOUT buffers
-  setbuf(stdin, NULL);
-  setbuf(stdout, NULL);
-
-  // define user / GUI input buffer
-  char input[2000];
-
-  // print engine info
-  printf("Quanticade %s by DarkNeutrino\n", version);
-
-  // main loop
-  while (1) {
-    // reset user /GUI input
-    memset(input, 0, sizeof(input));
-
-    // make sure output reaches the GUI
-    fflush(stdout);
-
-    // get user / GUI input
-    if (!fgets(input, 2000, stdin))
-      // continue the loop
-      continue;
-
-    // make sure input is available
-    if (input[0] == '\n')
-      // continue the loop
-      continue;
-
-    // parse UCI "isready" command
-    if (strncmp(input, "isready", 7) == 0) {
-      printf("readyok\n");
-      continue;
-    }
-
-    // parse UCI "position" command
-    else if (strncmp(input, "position", 8) == 0) {
-      // call parse position function
-      parse_position(engine, input);
-
-      // clear hash table
-      clear_hash_table();
-    }
-    // parse UCI "ucinewgame" command
-    else if (strncmp(input, "ucinewgame", 10) == 0) {
-      // call parse position function
-      parse_position(engine, "position startpos");
-
-      // clear hash table
-      clear_hash_table();
-    }
-    // parse UCI "go" command
-    else if (strncmp(input, "go", 2) == 0)
-      // call parse go function
-      parse_go(engine, input);
-
-    // parse UCI "quit" command
-    else if (strncmp(input, "quit", 4) == 0)
-      // quit from the UCI loop (terminate program)
-      break;
-
-    // parse UCI "uci" command
-    else if (strncmp(input, "uci", 3) == 0) {
-      // print engine info
-      printf("id name Quanticade %s\n", version);
-      printf("id author DarkNeutrino\n\n");
-      printf("option name Hash type spin default 64 min 4 max %d\n", max_hash);
-      printf("uciok\n");
-    }
-
-    else if (!strncmp(input, "setoption name Hash value ", 26)) {
-      // init MB
-      sscanf(input, "%*s %*s %*s %*s %d", &mb);
-
-      // adjust MB if going beyond the aloowed bounds
-      if (mb < 4)
-        mb = 4;
-      if (mb > max_hash)
-        mb = max_hash;
-
-      // set hash table size in MB
-      printf("    Set hash table size to %dMB\n", mb);
-      init_hash_table(mb);
-    }
-  }
 }
 
 /**********************************\
