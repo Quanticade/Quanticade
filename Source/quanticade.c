@@ -1162,15 +1162,6 @@ static inline int is_square_attacked(engine_t* engine, int square, int side) {
 // extract castling flag
 #define get_move_castling(move) (move & 0x800000)
 
-// move list structure
-typedef struct {
-  // moves
-  int moves[256];
-
-  // move count
-  uint32_t count;
-} moves;
-
 // add move to the move list
 static inline void add_move(moves *move_list, int move) {
   // strore move

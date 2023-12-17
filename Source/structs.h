@@ -3,6 +3,15 @@
 
 #include <stdint.h>
 
+// move list structure
+typedef struct moves {
+  // moves
+  int moves[256];
+
+  // move count
+  uint32_t count;
+} moves;
+
 typedef struct board {
   uint64_t bitboards[12];
   uint64_t occupancies[3];
@@ -14,7 +23,6 @@ typedef struct board {
 
 typedef struct engine {
   board_t board;
-  board_t board_copy;
   uint64_t repetition_table[1000];
   uint32_t repetition_index;
   uint32_t ply;
