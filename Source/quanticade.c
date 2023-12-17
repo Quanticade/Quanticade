@@ -14,125 +14,80 @@
 #include "enums.h"
 #include "structs.h"
 #include "macros.h"
+#include "utils.h"
 
-// define version
+// random piece keys [piece][square]
+uint64_t piece_keys[12][64];
 
+// random enpassant keys [square]
+uint64_t enpassant_keys[64];
 
-/**********************************\
- ==================================
+// random castling keys
+uint64_t castle_keys[16];
 
-       Miscellaneous functions
-          forked from VICE
-         by Richard Allbert
+// random side key
+uint64_t side_key;
 
- ==================================
-\**********************************/
+// pawn attacks table [side][square]
+uint64_t pawn_attacks[2][64];
 
-// get time in milliseconds
-uint64_t get_time_ms() {
-#ifdef WIN64
-  return GetTickCount();
-#else
-  struct timeval time_value;
-  gettimeofday(&time_value, NULL);
-  return time_value.tv_sec * 1000 + time_value.tv_usec / 1000;
-#endif
-}
+// knight attacks table [square]
+uint64_t knight_attacks[64];
 
-/*
+// king attacks table [square]
+uint64_t king_attacks[64];
 
-  Function to "listen" to GUI's input during search.
-  It's waiting for the user input from STDIN.
-  OS dependent.
+// bishop attack masks
+uint64_t bishop_masks[64];
 
-  First Richard Allbert aka BluefeverSoftware grabbed it from somewhere...
-  And then Code Monkey King has grabbed it from VICE)
+// rook attack masks
+uint64_t rook_masks[64];
 
-*/
+// bishop attacks table [square][occupancies]
+uint64_t bishop_attacks[64][512];
 
-int input_waiting() {
-#ifndef WIN32
-  fd_set readfds;
-  struct timeval tv;
-  FD_ZERO(&readfds);
-  FD_SET(fileno(stdin), &readfds);
-  tv.tv_sec = 0;
-  tv.tv_usec = 0;
-  select(16, &readfds, 0, 0, &tv);
+// rook attacks rable [square][occupancies]
+uint64_t rook_attacks[64][4096];
 
-  return (FD_ISSET(fileno(stdin), &readfds));
-#else
-  static int init = 0, pipe;
-  static HANDLE inh;
-  DWORD dw;
+// leaf nodes (number of positions reached during the test of the move generator
+// at a given depth)
+uint64_t nodes;
 
-  if (!init) {
-    init = 1;
-    inh = GetStdHandle(STD_INPUT_HANDLE);
-    pipe = !GetConsoleMode(inh, &dw);
-    if (!pipe) {
-      SetConsoleMode(inh, dw & ~(ENABLE_MOUSE_INPUT | ENABLE_WINDOW_INPUT));
-      FlushConsoleInputBuffer(inh);
-    }
-  }
+// file masks [square]
+uint64_t file_masks[64];
 
-  if (pipe) {
-    if (!PeekNamedPipe(inh, NULL, 0, NULL, &dw, NULL))
-      return 1;
-    return dw;
-  }
+// rank masks [square]
+uint64_t rank_masks[64];
 
-  else {
-    GetNumberOfConsoleInputEvents(inh, &dw);
-    return dw <= 1 ? 0 : dw;
-  }
+// isolated pawn masks [square]
+uint64_t isolated_masks[64];
 
-#endif
-}
+// white passed pawn masks [square]
+uint64_t white_passed_masks[64];
 
-// read GUI/user input
-void read_input(engine_t* engine) {
-  // bytes to read holder
-  int bytes;
+// black passed pawn masks [square]
+uint64_t black_passed_masks[64];
 
-  // GUI/user input
-  char input[256] = "", *endc;
+// killer moves [id][ply]
+int killer_moves[2][max_ply];
 
-  // "listen" to STDIN
-  if (input_waiting()) {
-    // tell engine to stop calculating
-    engine->stopped = 1;
+// history moves [piece][square]
+int history_moves[12][64];
 
-    // loop to read bytes from STDIN
-    do {
-      // read bytes from STDIN
-      bytes = read(fileno(stdin), input, 256);
-    }
+// PV length [ply]
+int pv_length[max_ply];
 
-    // until bytes available
-    while (bytes < 0);
+// PV table [ply][ply]
+int pv_table[max_ply][max_ply];
 
-    // searches for the first occurrence of '\n'
-    endc = strchr(input, '\n');
+// follow PV & score PV move
+int follow_pv, score_pv;
 
-    // if found new line set value at pointer to 0
-    if (endc)
-      *endc = 0;
+// number hash table entries
+int hash_entries = 0;
 
-    // if input is available
-    if (strlen(input) > 0) {
-      // match UCI "quit" command
-      if (!strncmp(input, "quit", 4))
-        // tell engine to terminate exacution
-        engine->quit = 1;
-
-      // // match UCI "stop" command
-      else if (!strncmp(input, "stop", 4))
-        // tell engine to terminate exacution
-        engine->quit = 1;
-    }
-  }
-}
+// define TT instance
+tt *hash_table = NULL;
 
 // a bridge function to interact between search and GUI input
 static void communicate(engine_t* engine) {
@@ -242,18 +197,6 @@ static inline uint8_t get_ls1b_index(uint64_t bitboard) {
 
  ==================================
 \**********************************/
-
-// random piece keys [piece][square]
-uint64_t piece_keys[12][64];
-
-// random enpassant keys [square]
-uint64_t enpassant_keys[64];
-
-// random castling keys
-uint64_t castle_keys[16];
-
-// random side key
-uint64_t side_key;
 
 // init random hash keys
 void init_random_keys() {
@@ -486,31 +429,6 @@ void parse_fen(engine_t* engine, char *fen) {
  ==================================
 \**********************************/
 
-// not A file constant
-const uint64_t not_a_file = 18374403900871474942ULL;
-
-// not H file constant
-const uint64_t not_h_file = 9187201950435737471ULL;
-
-// not HG file constant
-const uint64_t not_hg_file = 4557430888798830399ULL;
-
-// not AB file constant
-const uint64_t not_ab_file = 18229723555195321596ULL;
-
-// bishop relevant occupancy bit count for every square on board
-const int bishop_relevant_bits[64] = {
-    6, 5, 5, 5, 5, 5, 5, 6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 7, 7, 7, 7,
-    5, 5, 5, 5, 7, 9, 9, 7, 5, 5, 5, 5, 7, 9, 9, 7, 5, 5, 5, 5, 7, 7,
-    7, 7, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 5, 5, 5, 5, 5, 5, 6};
-
-// rook relevant occupancy bit count for every square on board
-const int rook_relevant_bits[64] = {
-    12, 11, 11, 11, 11, 11, 11, 12, 11, 10, 10, 10, 10, 10, 10, 11,
-    11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11,
-    11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11,
-    11, 10, 10, 10, 10, 10, 10, 11, 12, 11, 11, 11, 11, 11, 11, 12};
-
 // rook magic numbers
 uint64_t rook_magic_numbers[64] = {
     0x8a80104000800020ULL, 0x140002000100040ULL,  0x2801880a0017001ULL,
@@ -561,26 +479,7 @@ uint64_t bishop_magic_numbers[64] = {
     0x28000010020204ULL,   0x6000020202d0240ULL,  0x8918844842082200ULL,
     0x4010011029020020ULL};
 
-// pawn attacks table [side][square]
-uint64_t pawn_attacks[2][64];
 
-// knight attacks table [square]
-uint64_t knight_attacks[64];
-
-// king attacks table [square]
-uint64_t king_attacks[64];
-
-// bishop attack masks
-uint64_t bishop_masks[64];
-
-// rook attack masks
-uint64_t rook_masks[64];
-
-// bishop attacks table [square][occupancies]
-uint64_t bishop_attacks[64][512];
-
-// rook attacks rable [square][occupancies]
-uint64_t rook_attacks[64][4096];
 
 // generate pawn attacks
 uint64_t mask_pawn_attacks(int side, int square) {
@@ -1173,32 +1072,6 @@ void print_move_list(moves *move_list) {
   // print total number of moves
   printf("\n\n     Total number of moves: %d\n\n", move_list->count);
 }
-
-// move types
-enum { all_moves, only_captures };
-
-/*
-                           castling   move     in      in
-                              right update     binary  decimal
-
- king & rooks didn't move:     1111 & 1111  =  1111    15
-
-        white king  moved:     1111 & 1100  =  1100    12
-  white king's rook moved:     1111 & 1110  =  1110    14
- white queen's rook moved:     1111 & 1101  =  1101    13
-
-         black king moved:     1111 & 0011  =  1011    3
-  black king's rook moved:     1111 & 1011  =  1011    11
- black queen's rook moved:     1111 & 0111  =  0111    7
-
-*/
-
-// castling rights update constants
-const int castling_rights[64] = {
-    7,  15, 15, 15, 3,  15, 15, 11, 15, 15, 15, 15, 15, 15, 15, 15,
-    15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-    15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-    15, 15, 15, 15, 15, 15, 15, 15, 13, 15, 15, 15, 12, 15, 15, 14};
 
 // make move on chess board
 static inline int make_move(engine_t* engine, int move, int move_flag) {
@@ -1904,10 +1777,6 @@ static inline void generate_moves(engine_t* engine, moves *move_list) {
  ==================================
 \**********************************/
 
-// leaf nodes (number of positions reached during the test of the move generator
-// at a given depth)
-uint64_t nodes;
-
 // perft driver
 static inline void perft_driver(engine_t* engine, int depth) {
   // reccursion escape condition
@@ -2004,202 +1873,6 @@ void perft_test(engine_t* engine, int depth) {
 
  ==================================
 \**********************************/
-
-// material scrore
-
-/*
-    ♙ =   100   = ♙
-    ♘ =   300   = ♙ * 3
-    ♗ =   350   = ♙ * 3 + ♙ * 0.5
-    ♖ =   500   = ♙ * 5
-    ♕ =   1000  = ♙ * 10
-    ♔ =   10000 = ♙ * 100
-
-*/
-
-// material score [game phase][piece]
-const int material_score[2][12] = {
-    // opening material score
-    {82, 337, 365, 477, 1025, 12000, -82, -337, -365, -477, -1025, -12000},
-
-    // endgame material score
-    {94, 281, 297, 512, 936, 12000, -94, -281, -297, -512, -936, -12000}};
-
-// game phase scores
-const int opening_phase_score = 6192;
-const int endgame_phase_score = 518;
-
-// game phases
-enum { opening, endgame, middlegame };
-
-// piece types
-enum { PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING };
-
-// positional piece scores [game phase][piece][square]
-const int positional_score[2][6][64] =
-
-    // opening positional piece scores //
-    {
-        // pawn
-        {{0,   0,   0,   0,   0,   0,   0,   0,  98,  134, 61,  95,  68,
-          126, 34,  -11, -6,  7,   26,  31,  65, 56,  25,  -20, -14, 13,
-          6,   21,  23,  12,  17,  -23, -27, -2, -5,  12,  17,  6,   10,
-          -25, -26, -4,  -4,  -10, 3,   3,   33, -12, -35, -1,  -20, -23,
-          -15, 24,  38,  -22, 0,   0,   0,   0,  0,   0,   0,   0},
-
-         // knight
-         {-167, -89, -34, -49, 61,   -97, -15, -107, -73, -41, 72,  36,  23,
-          62,   7,   -17, -47, 60,   37,  65,  84,   129, 73,  44,  -9,  17,
-          19,   53,  37,  69,  18,   22,  -13, 4,    16,  13,  28,  19,  21,
-          -8,   -23, -9,  12,  10,   19,  17,  25,   -16, -29, -53, -12, -3,
-          -1,   18,  -14, -19, -105, -21, -58, -33,  -17, -28, -19, -23},
-
-         // bishop
-         {-29, 4,  -82, -37, -25, -42, 7,   -8,  -26, 16,  -18, -13, 30,
-          59,  18, -47, -16, 37,  43,  40,  35,  50,  37,  -2,  -4,  5,
-          19,  50, 37,  37,  7,   -2,  -6,  13,  13,  26,  34,  12,  10,
-          4,   0,  15,  15,  15,  14,  27,  18,  10,  4,   15,  16,  0,
-          7,   21, 33,  1,   -33, -3,  -14, -21, -13, -12, -39, -21},
-
-         // rook
-         {32,  42,  32,  51,  63,  9,   31,  43,  27,  32,  58,  62,  80,
-          67,  26,  44,  -5,  19,  26,  36,  17,  45,  61,  16,  -24, -11,
-          7,   26,  24,  35,  -8,  -20, -36, -26, -12, -1,  9,   -7,  6,
-          -23, -45, -25, -16, -17, 3,   0,   -5,  -33, -44, -16, -20, -9,
-          -1,  11,  -6,  -71, -19, -13, 1,   17,  16,  7,   -37, -26},
-
-         // queen
-         {-28, 0,   29, 12,  59,  44,  43, 45,  -24, -39, -5,  1,   -16,
-          57,  28,  54, -13, -17, 7,   8,  29,  56,  47,  57,  -27, -27,
-          -16, -16, -1, 17,  -2,  1,   -9, -26, -9,  -10, -2,  -4,  3,
-          -3,  -14, 2,  -11, -2,  -5,  2,  14,  5,   -35, -8,  11,  2,
-          8,   15,  -3, 1,   -1,  -18, -9, 10,  -15, -25, -31, -50},
-
-         // king
-         {-65, 23,  16,  -15, -56, -34, 2,   13,  29,  -1,  -20, -7,  -8,
-          -4,  -38, -29, -9,  24,  2,   -16, -20, 6,   22,  -22, -17, -20,
-          -12, -27, -30, -25, -14, -36, -49, -1,  -27, -39, -46, -44, -33,
-          -51, -14, -14, -22, -46, -44, -30, -15, -27, 1,   7,   -8,  -64,
-          -43, -16, 9,   8,   -15, 36,  12,  -54, 8,   -28, 24,  14}},
-
-        // Endgame positional piece scores //
-
-        // pawn
-        {{0,   0,   0,   0,  0,   0,  0,  0,  178, 173, 158, 134, 147,
-          132, 165, 187, 94, 100, 85, 67, 56, 53,  82,  84,  32,  24,
-          13,  5,   -2,  4,  17,  17, 13, 9,  -3,  -7,  -7,  -8,  3,
-          -1,  4,   7,   -6, 1,   0,  -5, -1, -8,  13,  8,   8,   10,
-          13,  0,   2,   -7, 0,   0,  0,  0,  0,   0,   0,   0},
-
-         // knight
-         {-58, -38, -13, -28, -31, -27, -63, -99, -25, -8,  -25, -2,  -9,
-          -25, -24, -52, -24, -20, 10,  9,   -1,  -9,  -19, -41, -17, 3,
-          22,  22,  22,  11,  8,   -18, -18, -6,  16,  25,  16,  17,  4,
-          -18, -23, -3,  -1,  15,  10,  -3,  -20, -22, -42, -20, -10, -5,
-          -2,  -20, -23, -44, -29, -51, -23, -15, -22, -18, -50, -64},
-
-         // bishop
-         {-14, -21, -11, -8,  -7,  -9, -17, -24, -8,  -4,  7,   -12, -3,
-          -13, -4,  -14, 2,   -8,  0,  -1,  -2,  6,   0,   4,   -3,  9,
-          12,  9,   14,  10,  3,   2,  -6,  3,   13,  19,  7,   10,  -3,
-          -9,  -12, -3,  8,   10,  13, 3,   -7,  -15, -14, -18, -7,  -1,
-          4,   -9,  -15, -27, -23, -9, -23, -5,  -9,  -16, -5,  -17},
-
-         // rook
-         {13, 10, 18, 15, 12, 12, 8,   5,   11, 13, 13, 11, -3, 3,   8,  3,
-          7,  7,  7,  5,  4,  -3, -5,  -3,  4,  3,  13, 1,  2,  1,   -1, 2,
-          3,  5,  8,  4,  -5, -6, -8,  -11, -4, 0,  -5, -1, -7, -12, -8, -16,
-          -6, -6, 0,  2,  -9, -9, -11, -3,  -9, 2,  3,  -1, -5, -13, 4,  -20},
-
-         // queen
-         {-9,  22,  22,  27,  27,  19,  10,  20,  -17, 20,  32,  41,  58,
-          25,  30,  0,   -20, 6,   9,   49,  47,  35,  19,  9,   3,   22,
-          24,  45,  57,  40,  57,  36,  -18, 28,  19,  47,  31,  34,  39,
-          23,  -16, -27, 15,  6,   9,   17,  10,  5,   -22, -23, -30, -16,
-          -16, -23, -36, -32, -33, -28, -22, -43, -5,  -32, -20, -41},
-
-         // king
-         {-74, -35, -18, -18, -11, 15,  4,   -17, -12, 17,  14,  17, 17,
-          38,  23,  11,  10,  17,  23,  15,  20,  45,  44,  13,  -8, 22,
-          24,  27,  26,  33,  26,  3,   -18, -4,  21,  24,  27,  23, 9,
-          -11, -19, -3,  11,  21,  23,  16,  7,   -9,  -27, -11, 4,  13,
-          14,  4,   -5,  -17, -53, -34, -21, -11, -28, -14, -24, -43}}};
-// mirror positional score tables for opposite side
-const int mirror_score[128] = {
-    a1, b1, c1, d1, e1, f1, g1, h1, a2, b2, c2, d2, e2, f2, g2, h2,
-    a3, b3, c3, d3, e3, f3, g3, h3, a4, b4, c4, d4, e4, f4, g4, h4,
-    a5, b5, c5, d5, e5, f5, g5, h5, a6, b6, c6, d6, e6, f6, g6, h6,
-    a7, b7, c7, d7, e7, f7, g7, h7, a8, b8, c8, d8, e8, f8, g8, h8};
-
-/*
-          Rank mask            File mask           Isolated mask        Passed
-   pawn mask for square a6        for square f2         for square g2 for square
-   c4
-
-    8  0 0 0 0 0 0 0 0    8  0 0 0 0 0 1 0 0    8  0 0 0 0 0 1 0 1     8  0 1 1
-   1 0 0 0 0 7  0 0 0 0 0 0 0 0    7  0 0 0 0 0 1 0 0    7  0 0 0 0 0 1 0 1 7  0
-   1 1 1 0 0 0 0 6  1 1 1 1 1 1 1 1    6  0 0 0 0 0 1 0 0    6  0 0 0 0 0 1 0 1
-   6  0 1 1 1 0 0 0 0 5  0 0 0 0 0 0 0 0    5  0 0 0 0 0 1 0 0    5  0 0 0 0 0 1
-   0 1     5  0 1 1 1 0 0 0 0 4  0 0 0 0 0 0 0 0    4  0 0 0 0 0 1 0 0    4  0 0
-   0 0 0 1 0 1     4  0 0 0 0 0 0 0 0 3  0 0 0 0 0 0 0 0    3  0 0 0 0 0 1 0 0
-   3  0 0 0 0 0 1 0 1     3  0 0 0 0 0 0 0 0 2  0 0 0 0 0 0 0 0    2  0 0 0 0 0
-   1 0 0    2  0 0 0 0 0 1 0 1     2  0 0 0 0 0 0 0 0 1  0 0 0 0 0 0 0 0    1  0
-   0 0 0 0 1 0 0    1  0 0 0 0 0 1 0 1     1  0 0 0 0 0 0 0 0
-
-       a b c d e f g h       a b c d e f g h       a b c d e f g h        a b c
-   d e f g h
-*/
-
-// file masks [square]
-uint64_t file_masks[64];
-
-// rank masks [square]
-uint64_t rank_masks[64];
-
-// isolated pawn masks [square]
-uint64_t isolated_masks[64];
-
-// white passed pawn masks [square]
-uint64_t white_passed_masks[64];
-
-// black passed pawn masks [square]
-uint64_t black_passed_masks[64];
-
-// extract rank from a square [square]
-const int get_rank[64] = {7, 7, 7, 7, 7, 7, 7, 7, 6, 6, 6, 6, 6, 6, 6, 6,
-                          5, 5, 5, 5, 5, 5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4,
-                          3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2,
-                          1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0};
-
-// double pawns penalty
-const int double_pawn_penalty_opening = -5;
-const int double_pawn_penalty_endgame = -10;
-
-// isolated pawn penalty
-const int isolated_pawn_penalty_opening = -5;
-const int isolated_pawn_penalty_endgame = -10;
-
-// passed pawn bonus
-const int passed_pawn_bonus[8] = {0, 10, 30, 50, 75, 100, 150, 200};
-
-// semi open file score
-const int semi_open_file_score = 10;
-
-// open file score
-const int open_file_score = 15;
-
-// mobility units (values from engine Fruit reloaded)
-static const int bishop_unit = 4;
-static const int queen_unit = 9;
-
-// mobility bonuses (values from engine Fruit reloaded)
-static const int bishop_mobility_opening = 5;
-static const int bishop_mobility_endgame = 5;
-static const int queen_mobility_opening = 1;
-static const int queen_mobility_endgame = 2;
-
-// king's shield bonus
-const int king_shield_bonus = 5;
 
 // set file or rank mask
 uint64_t set_file_rank_mask(int file_number, int rank_number) {
@@ -2696,106 +2369,6 @@ static inline int evaluate(engine_t* engine) {
  ==================================
 \**********************************/
 
-/*
-     These are the score bounds for the range of the mating scores
-   [-infinity, -mate_value ... -mate_score, ... score ... mate_score ...
-   mate_value, infinity]
-*/
-
-
-
-// most valuable victim & less valuable attacker
-
-/*
-
-    (Victims) Pawn Knight Bishop   Rook  Queen   King
-  (Attackers)
-        Pawn   105    205    305    405    505    605
-      Knight   104    204    304    404    504    604
-      Bishop   103    203    303    403    503    603
-        Rook   102    202    302    402    502    602
-       Queen   101    201    301    401    501    601
-        King   100    200    300    400    500    600
-
-*/
-
-// MVV LVA [attacker][victim]
-static int mvv_lva[12][12] = {
-    {105, 205, 305, 405, 505, 605, 105, 205, 305, 405, 505, 605},
-    {104, 204, 304, 404, 504, 604, 104, 204, 304, 404, 504, 604},
-    {103, 203, 303, 403, 503, 603, 103, 203, 303, 403, 503, 603},
-    {102, 202, 302, 402, 502, 602, 102, 202, 302, 402, 502, 602},
-    {101, 201, 301, 401, 501, 601, 101, 201, 301, 401, 501, 601},
-    {100, 200, 300, 400, 500, 600, 100, 200, 300, 400, 500, 600},
-
-    {105, 205, 305, 405, 505, 605, 105, 205, 305, 405, 505, 605},
-    {104, 204, 304, 404, 504, 604, 104, 204, 304, 404, 504, 604},
-    {103, 203, 303, 403, 503, 603, 103, 203, 303, 403, 503, 603},
-    {102, 202, 302, 402, 502, 602, 102, 202, 302, 402, 502, 602},
-    {101, 201, 301, 401, 501, 601, 101, 201, 301, 401, 501, 601},
-    {100, 200, 300, 400, 500, 600, 100, 200, 300, 400, 500, 600}};
-
-
-
-// killer moves [id][ply]
-int killer_moves[2][max_ply];
-
-// history moves [piece][square]
-int history_moves[12][64];
-
-/*
-      ================================
-            Triangular PV table
-      --------------------------------
-        PV line: e2e4 e7e5 g1f3 b8c6
-      ================================
-
-           0    1    2    3    4    5
-
-      0    m1   m2   m3   m4   m5   m6
-
-      1    0    m2   m3   m4   m5   m6
-
-      2    0    0    m3   m4   m5   m6
-
-      3    0    0    0    m4   m5   m6
-
-      4    0    0    0    0    m5   m6
-
-      5    0    0    0    0    0    m6
-*/
-
-// PV length [ply]
-int pv_length[max_ply];
-
-// PV table [ply][ply]
-int pv_table[max_ply][max_ply];
-
-// follow PV & score PV move
-int follow_pv, score_pv;
-
-/**********************************\
- ==================================
-
-        Transposition table
-
- ==================================
-\**********************************/
-
-// number hash table entries
-int hash_entries = 0;
-
-// transposition table data structure
-typedef struct {
-  uint64_t hash_key; // "almost" unique chess position identifier
-  int depth;         // current search depth
-  int flag;          // flag the type of node (fail-low/fail-high/PV)
-  int score;         // score (alpha/beta/PV)
-} tt;                // transposition table (TT aka hash table)
-
-// define TT instance
-tt *hash_table = NULL;
-
 // clear TT (hash table)
 void clear_hash_table() {
   // init hash table entry pointer
@@ -3152,12 +2725,6 @@ static inline int quiescence(engine_t* engine, int alpha, int beta) {
   // node (position) fails low
   return alpha;
 }
-
-// full depth moves counter
-const int full_depth_moves = 4;
-
-// depth limit to consider reduction
-const int reduction_limit = 3;
 
 // negamax alpha beta search
 static inline int negamax(engine_t* engine, int alpha, int beta, int depth) {
@@ -3895,7 +3462,7 @@ void init_all() {
  ==================================
 \**********************************/
 
-int main() {
+int main(void) {
   engine_t engine;
   engine.board.enpassant = no_sq;
   engine.quit = 0;

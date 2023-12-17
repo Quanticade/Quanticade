@@ -1,6 +1,8 @@
 #ifndef ENUMS_H
 #define ENUMS_H
 
+enum { all_moves, only_captures };
+
 // board squares
 enum {
   a8,
@@ -80,5 +82,11 @@ enum { white, black, both };
 enum { rook, bishop };
 
 enum { wk = 1, wq = 2, bk = 4, bq = 8 };
+
+// game phases
+enum { opening, endgame, middlegame };
+
+// piece types
+enum { PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING };
 
 #endif
