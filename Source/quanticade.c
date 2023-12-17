@@ -1211,7 +1211,7 @@ typedef struct {
   int moves[256];
 
   // move count
-  int count;
+  uint32_t count;
 } moves;
 
 // add move to the move list
@@ -1245,7 +1245,7 @@ void print_move_list(moves *move_list) {
   printf("\n     move    piece     capture   double    enpass    castling\n\n");
 
   // loop over moves within a move list
-  for (int move_count = 0; move_count < move_list->count; move_count++) {
+  for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
     // init move
     int move = move_list->moves[move_count];
 
@@ -2040,7 +2040,7 @@ static inline void perft_driver(int depth) {
   generate_moves(move_list);
 
   // loop over generated moves
-  for (int move_count = 0; move_count < move_list->count; move_count++) {
+  for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
     // preserve board state
     copy_board();
 
@@ -2071,7 +2071,7 @@ void perft_test(int depth) {
   long start = get_time_ms();
 
   // loop over generated moves
-  for (int move_count = 0; move_count < move_list->count; move_count++) {
+  for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
     // preserve board state
     copy_board();
 
@@ -2956,7 +2956,7 @@ void init_hash_table(int mb) {
 
   // if allocation has failed
   if (hash_table == NULL) {
-    printf("    Couldn't allocate memory for hash table, tryinr %dMB...",
+    printf("    Couldn't allocate memory for hash table, trying %dMB...",
            mb / 2);
 
     // try to allocate with half size
@@ -3037,7 +3037,7 @@ static inline void enable_pv_scoring(moves *move_list) {
   follow_pv = 0;
 
   // loop over the moves within a move list
-  for (int count = 0; count < move_list->count; count++) {
+  for (uint32_t count = 0; count < move_list->count; count++) {
     // make sure we hit PV move
     if (pv_table[0][ply] == move_list->moves[count]) {
       // enable move scoring
@@ -3130,14 +3130,14 @@ static inline void sort_moves(moves *move_list) {
   int move_scores[move_list->count];
 
   // score all the moves within a move list
-  for (int count = 0; count < move_list->count; count++)
+  for (uint32_t count = 0; count < move_list->count; count++)
     // score move
     move_scores[count] = score_move(move_list->moves[count]);
 
   // loop over current move within a move list
-  for (int current_move = 0; current_move < move_list->count; current_move++) {
+  for (uint32_t current_move = 0; current_move < move_list->count; current_move++) {
     // loop over next move within a move list
-    for (int next_move = current_move + 1; next_move < move_list->count;
+    for (uint32_t next_move = current_move + 1; next_move < move_list->count;
          next_move++) {
       // compare current and next move scores
       if (move_scores[current_move] < move_scores[next_move]) {
@@ -3160,7 +3160,7 @@ void print_move_scores(moves *move_list) {
   printf("     Move scores:\n\n");
 
   // loop over moves within a move list
-  for (int count = 0; count < move_list->count; count++) {
+  for (uint32_t count = 0; count < move_list->count; count++) {
     printf("     move: ");
     print_move(move_list->moves[count]);
     printf(" score: %d\n", score_move(move_list->moves[count]));
@@ -3218,7 +3218,7 @@ static inline int quiescence(int alpha, int beta) {
   sort_moves(move_list);
 
   // loop over moves within a movelist
-  for (int count = 0; count < move_list->count; count++) {
+  for (uint32_t count = 0; count < move_list->count; count++) {
     // preserve board state
     copy_board();
 
@@ -3408,7 +3408,7 @@ static inline int negamax(int alpha, int beta, int depth) {
   int moves_searched = 0;
 
   // loop over moves within a movelist
-  for (int count = 0; count < move_list->count; count++) {
+  for (uint32_t count = 0; count < move_list->count; count++) {
     // preserve board state
     copy_board();
 
@@ -3667,7 +3667,7 @@ int parse_move(char *move_string) {
   int target_square = (move_string[2] - 'a') + (8 - (move_string[3] - '0')) * 8;
 
   // loop over the moves within a move list
-  for (int move_count = 0; move_count < move_list->count; move_count++) {
+  for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
     // init move
     int move = move_list->moves[move_count];
 
