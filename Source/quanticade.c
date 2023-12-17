@@ -17,6 +17,22 @@
 // define version
 #define version "0.22"
 
+// preserve board state
+#define copy_board(bitboards, occupancies, side, enpassant, castle, hash_key)                                                           \
+  uint64_t bitboards_copy[12], occupancies_copy[3];                            \
+  int side_copy, enpassant_copy, castle_copy;                                  \
+  memcpy(bitboards_copy, bitboards, 96);                                       \
+  memcpy(occupancies_copy, occupancies, 24);                                   \
+  side_copy = side, enpassant_copy = enpassant, castle_copy = castle;          \
+  uint64_t hash_key_copy = hash_key;
+
+// restore board state
+#define take_back(bitboards, occupancies, side, enpassant, castle, hash_key)                                                            \
+  memcpy(bitboards, bitboards_copy, 96);                                       \
+  memcpy(occupancies, occupancies_copy, 24);                                   \
+  side = side_copy, enpassant = enpassant_copy, castle = castle_copy;          \
+  hash_key = hash_key_copy;
+
 /**********************************\
  ==================================
 
@@ -87,15 +103,6 @@ int input_waiting() {
   }
 
 #endif
-}
-
-void copy_board(engine_t* engine) {                                                         
-  engine->board_copy = engine->board;
-}
-
-// restore board state
-void take_back(engine_t* engine) {
-  engine->board = engine->board_copy;
 }
 
 // read GUI/user input
@@ -1257,7 +1264,8 @@ static inline int make_move(engine_t* engine, int move, int move_flag) {
   // quiet moves
   if (move_flag == all_moves) {
     // preserve board state
-    copy_board(engine);
+    copy_board(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
+              engine->board.hash_key);
 
     // parse move
     int source_square = get_move_source(move);
@@ -1479,7 +1487,8 @@ static inline int make_move(engine_t* engine, int move, int move_flag) {
                                            : get_ls1b_index(engine->board.bitboards[K]),
                            engine->board.side)) {
       // take move back
-      take_back(engine);
+      take_back(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
+              engine->board.hash_key);
 
       // return illegal move
       return 0;
@@ -1976,7 +1985,8 @@ static inline void perft_driver(engine_t* engine, int depth) {
   // loop over generated moves
   for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
     // preserve board state
-    copy_board(engine);
+    copy_board(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
+              engine->board.hash_key);
 
     // make move
     if (!make_move(engine, move_list->moves[move_count], all_moves))
@@ -1987,7 +1997,8 @@ static inline void perft_driver(engine_t* engine, int depth) {
     perft_driver(engine, depth - 1);
 
     // take back
-    take_back(engine);
+    take_back(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
+              engine->board.hash_key);
   }
 }
 
@@ -2007,7 +2018,8 @@ void perft_test(engine_t* engine, int depth) {
   // loop over generated moves
   for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
     // preserve board state
-    copy_board(engine);
+    copy_board(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
+              engine->board.hash_key);
 
     // make move
     if (!make_move(engine, move_list->moves[move_count], all_moves))
@@ -2024,7 +2036,8 @@ void perft_test(engine_t* engine, int depth) {
     long old_nodes = nodes - cummulative_nodes;
 
     // take back
-    take_back(engine);
+    take_back(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
+              engine->board.hash_key);
 
     // print move
     printf(
@@ -3154,7 +3167,8 @@ static inline int quiescence(engine_t* engine, int alpha, int beta) {
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
     // preserve board state
-    copy_board(engine);
+    copy_board(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
+              engine->board.hash_key);
 
     // increment ply
     engine->ply++;
@@ -3185,7 +3199,8 @@ static inline int quiescence(engine_t* engine, int alpha, int beta) {
     engine->repetition_index--;
 
     // take move back
-    take_back(engine);
+    take_back(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
+              engine->board.hash_key);
 
     // reutrn 0 if time is up
     if (engine->stopped == 1)
@@ -3279,7 +3294,8 @@ static inline int negamax(engine_t* engine, int alpha, int beta, int depth) {
   // null move pruning
   if (depth >= 3 && in_check == 0 && engine->ply) {
     // preserve board state
-    copy_board(engine);
+    copy_board(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
+              engine->board.hash_key);
 
     // increment ply
     engine->ply++;
@@ -3312,7 +3328,8 @@ static inline int negamax(engine_t* engine, int alpha, int beta, int depth) {
     engine->repetition_index--;
 
     // restore board state
-    take_back(engine);
+    take_back(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
+              engine->board.hash_key);
 
     // reutrn 0 if time is up
     if (engine->stopped == 1)
@@ -3344,7 +3361,8 @@ static inline int negamax(engine_t* engine, int alpha, int beta, int depth) {
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
     // preserve board state
-    copy_board(engine);
+    copy_board(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
+              engine->board.hash_key);
 
     // increment ply
     engine->ply++;
@@ -3415,7 +3433,8 @@ static inline int negamax(engine_t* engine, int alpha, int beta, int depth) {
     engine->repetition_index--;
 
     // take move back
-    take_back(engine);
+    take_back(engine->board.bitboards, engine->board.occupancies, engine->board.side, engine->board.enpassant, engine->board.castle,
+              engine->board.hash_key);
 
     // reutrn 0 if time is up
     if (engine->stopped == 1)
