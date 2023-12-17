@@ -12,6 +12,7 @@
 
 #include "consts.h"
 #include "enums.h"
+#include "structs.h"
 
 // define version
 #define version "0.22"
@@ -72,9 +73,6 @@ uint64_t stoptime = 0;
 
 // variable to flag time control availability
 uint8_t timeset = 0;
-
-// variable to flag when the time is up
-uint8_t stopped = 0;
 
 /**********************************\
  ==================================
@@ -149,7 +147,7 @@ int input_waiting() {
 }
 
 // read GUI/user input
-void read_input() {
+void read_input(engine_t* engine) {
   // bytes to read holder
   int bytes;
 
@@ -159,7 +157,7 @@ void read_input() {
   // "listen" to STDIN
   if (input_waiting()) {
     // tell engine to stop calculating
-    stopped = 1;
+    engine->stopped = 1;
 
     // loop to read bytes from STDIN
     do {
@@ -193,15 +191,15 @@ void read_input() {
 }
 
 // a bridge function to interact between search and GUI input
-static void communicate() {
+static void communicate(engine_t* engine) {
   // if time is up break here
   if (timeset == 1 && get_time_ms() > stoptime) {
     // tell engine to stop calculating
-    stopped = 1;
+    engine->stopped = 1;
   }
 
   // read GUI input
-  read_input();
+  read_input(engine);
 }
 
 /**********************************\
@@ -3181,11 +3179,11 @@ static inline int is_repetition() {
 }
 
 // quiescence search
-static inline int quiescence(int alpha, int beta) {
+static inline int quiescence(engine_t* engine, int alpha, int beta) {
   // every 2047 nodes
   if ((nodes & 2047) == 0)
     // "listen" to the GUI/user input
-    communicate();
+    communicate(engine);
 
   // we are too deep, hence there's an overflow of arrays relying on max ply
   // constant
@@ -3242,7 +3240,7 @@ static inline int quiescence(int alpha, int beta) {
     }
 
     // score current move
-    int score = -quiescence(-beta, -alpha);
+    int score = -quiescence(engine, -beta, -alpha);
 
     // decrement ply
     ply--;
@@ -3254,7 +3252,7 @@ static inline int quiescence(int alpha, int beta) {
     take_back();
 
     // reutrn 0 if time is up
-    if (stopped == 1)
+    if (engine->stopped == 1)
       return 0;
 
     // found a better move
@@ -3281,7 +3279,7 @@ const int full_depth_moves = 4;
 const int reduction_limit = 3;
 
 // negamax alpha beta search
-static inline int negamax(int alpha, int beta, int depth) {
+static inline int negamax(engine_t* engine, int alpha, int beta, int depth) {
   // init PV length
   pv_length[ply] = ply;
 
@@ -3312,12 +3310,12 @@ static inline int negamax(int alpha, int beta, int depth) {
   // every 2047 nodes
   if ((nodes & 2047) == 0)
     // "listen" to the GUI/user input
-    communicate();
+    communicate(engine);
 
   // recursion escapre condition
   if (depth == 0) {
     // run quiescence search
-    return quiescence(alpha, beta);
+    return quiescence(engine, alpha, beta);
   }
 
   // we are too deep, hence there's an overflow of arrays relying on max ply
@@ -3369,7 +3367,7 @@ static inline int negamax(int alpha, int beta, int depth) {
 
     /* search moves with reduced depth to find beta cutoffs
        depth - 1 - R where R is a reduction limit */
-    score = -negamax(-beta, -beta + 1, depth - 1 - 2);
+    score = -negamax(engine, -beta, -beta + 1, depth - 1 - 2);
 
     // decrement ply
     ply--;
@@ -3381,7 +3379,7 @@ static inline int negamax(int alpha, int beta, int depth) {
     take_back();
 
     // reutrn 0 if time is up
-    if (stopped == 1)
+    if (engine->stopped == 1)
       return 0;
 
     // fail-hard beta cutoff
@@ -3437,7 +3435,7 @@ static inline int negamax(int alpha, int beta, int depth) {
     // full depth search
     if (moves_searched == 0)
       // do normal alpha beta search
-      score = -negamax(-beta, -alpha, depth - 1);
+      score = -negamax(engine, -beta, -alpha, depth - 1);
 
     // late move reduction (LMR)
     else {
@@ -3446,7 +3444,7 @@ static inline int negamax(int alpha, int beta, int depth) {
           in_check == 0 && get_move_capture(move_list->moves[count]) == 0 &&
           get_move_promoted(move_list->moves[count]) == 0)
         // search current move with reduced depth:
-        score = -negamax(-alpha - 1, -alpha, depth - 2);
+        score = -negamax(engine, -alpha - 1, -alpha, depth - 2);
 
       // hack to ensure that full-depth search is done
       else
@@ -3459,7 +3457,7 @@ static inline int negamax(int alpha, int beta, int depth) {
            are all bad. It's possible to do this a bit faster than a search that
            worries that one of the remaining moves might be good. */
         nodes++;
-        score = -negamax(-alpha - 1, -alpha, depth - 1);
+        score = -negamax(engine, -alpha - 1, -alpha, depth - 1);
 
         /* If the algorithm finds out that it was wrong, and that one of the
            subsequent moves was better than the first PV move, it has to search
@@ -3470,7 +3468,7 @@ static inline int negamax(int alpha, int beta, int depth) {
         if ((score > alpha) && (score < beta))
           /* re-search the move that has failed to be proved to be bad
              with normal alpha beta score bounds*/
-          score = -negamax(-beta, -alpha, depth - 1);
+          score = -negamax(engine, -beta, -alpha, depth - 1);
       }
     }
 
@@ -3484,7 +3482,7 @@ static inline int negamax(int alpha, int beta, int depth) {
     take_back();
 
     // reutrn 0 if time is up
-    if (stopped == 1)
+    if (engine->stopped == 1)
       return 0;
 
     // increment the counter of moves searched so far
@@ -3555,7 +3553,7 @@ static inline int negamax(int alpha, int beta, int depth) {
 }
 
 // search position for the best move
-void search_position(int depth) {
+void search_position(engine_t* engine, int depth) {
   // search start time
   uint64_t start = get_time_ms();
 
@@ -3566,7 +3564,7 @@ void search_position(int depth) {
   nodes = 0;
 
   // reset "time is up" flag
-  stopped = 0;
+  engine->stopped = 0;
 
   // reset follow PV flags
   follow_pv = 0;
@@ -3585,7 +3583,7 @@ void search_position(int depth) {
   // iterative deepening
   for (int current_depth = 1; current_depth <= depth; current_depth++) {
     // if time is up
-    if (stopped == 1)
+    if (engine->stopped == 1)
       // stop calculating and return best move so far
       break;
 
@@ -3593,7 +3591,7 @@ void search_position(int depth) {
     follow_pv = 1;
 
     // find best move within a given position
-    score = negamax(alpha, beta, current_depth);
+    score = negamax(engine, alpha, beta, current_depth);
 
     // we fell outside the window, so try again with a full-width window (and
     // the same depth)
@@ -3787,7 +3785,7 @@ void parse_position(char *command) {
 }
 
 // reset time control variables
-void reset_time_control() {
+void reset_time_control(engine_t* engine) {
   // reset timing
   quit = 0;
   movestogo = 30;
@@ -3796,13 +3794,13 @@ void reset_time_control() {
   starttime = 0;
   stoptime = 0;
   timeset = 0;
-  stopped = 0;
+  engine->stopped = 0;
 }
 
 // parse UCI command "go"
-void parse_go(char *command) {
+void parse_go(engine_t* engine, char *command) {
   // reset time control
-  reset_time_control();
+  reset_time_control(engine);
 
   // init parameters
   int depth = -1;
@@ -3880,11 +3878,11 @@ void parse_go(char *command) {
     depth = 64;
 
   // search position
-  search_position(depth);
+  search_position(engine, depth);
 }
 
 // main UCI loop
-void uci_loop() {
+void uci_loop(engine_t* engine) {
   // max hash MB
   int max_hash = 1024;
 
@@ -3944,7 +3942,7 @@ void uci_loop() {
     // parse UCI "go" command
     else if (strncmp(input, "go", 2) == 0)
       // call parse go function
-      parse_go(input);
+      parse_go(engine, input);
 
     // parse UCI "quit" command
     else if (strncmp(input, "quit", 4) == 0)
@@ -4013,11 +4011,21 @@ void init_all() {
 \**********************************/
 
 int main() {
+  engine_t engine;
+  engine.enpassant = no_sq;
+  engine.quit = 0;
+  engine.movestogo = 30;
+  engine.time = -1;
+  engine.inc = 0;
+  engine.starttime = 0;
+  engine.stoptime = 0;
+  engine.timeset = 0;
+  engine.stopped = 0;
   // init all
   init_all();
 
   // connect to GUI
-  uci_loop();
+  uci_loop(&engine);
 
   // free hash table memory on exit
   free(hash_table);
