@@ -1904,8 +1904,8 @@ void perft_test(engine_t *engine, int depth) {
 
   // print results
   printf("\n    Depth: %d\n", depth);
-  printf("    Nodes: %lld\n", nodes);
-  printf("     Time: %lld\n\n", get_time_ms() - start);
+  printf("    Nodes: %ld\n", nodes);
+  printf("     Time: %ld\n\n", get_time_ms() - start);
 }
 
 /**********************************\
@@ -3149,17 +3149,17 @@ void search_position(engine_t *engine, int depth) {
     if (pv_length[0]) {
       // print search info
       if (score > -mate_value && score < -mate_score)
-        printf("info depth %d score mate %d nodes %lld time %lld pv ",
+        printf("info depth %d score mate %d nodes %ld time %ld pv ",
                current_depth, -(score + mate_value) / 2 - 1, nodes,
                get_time_ms() - start);
 
       else if (score > mate_score && score < mate_value)
-        printf("info depth %d score mate %d nodes %lld time %lld pv ",
+        printf("info depth %d score mate %d nodes %ld time %ld pv ",
                current_depth, (mate_value - score) / 2 + 1, nodes,
                get_time_ms() - start);
 
       else
-        printf("info depth %d score cp %d nodes %lld time %lld pv ",
+        printf("info depth %d score cp %d nodes %ld time %ld pv ",
                current_depth, score, nodes, get_time_ms() - start);
 
       // loop over the moves within a PV line
