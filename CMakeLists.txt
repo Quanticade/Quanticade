@@ -1,29 +1,37 @@
 cmake_minimum_required(VERSION 3.5)
-project(Quanticade VERSION 0.22 LANGUAGES C)
+project(Quanticade VERSION 0.3 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 23)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
-add_compile_options(-Wall -Werror -Wextra -Wpedantic -std=gnu2x)
+add_compile_options(-Wall -Werror -Wextra -Wpedantic -Wno-error=vla)
 # Optimizations
 add_compile_options(-march=native -flto -O3)
 
+add_subdirectory(Source/nnue)
+
 add_executable(Quanticade "")
 
+target_link_libraries(Quanticade
+    PRIVATE
+        nnue
+)
+
 set(QUANTICADE_SOURCES
-    Source/quanticade.c
-    Source/utils.c
-    Source/uci.c
+    "Source/quanticade.c"
+    "Source/utils.c"
+    "Source/uci.c"
 )
 
 set(QUANTICADE_HEADERS
-    Source/consts.h
-    Source/structs.h
-    Source/enums.h
-    Source/macros.h
-    Source/utils.h
-    Source/uci.h
-    Source/quanticade.h
+    "Source/consts.h"
+    "Source/structs.h"
+    "Source/enums.h"
+    "Source/macros.h"
+    "Source/utils.h"
+    "Source/uci.h"
+    "Source/quanticade.h"
+    "Source/nnue_consts.h"
 )
 
 target_sources(Quanticade

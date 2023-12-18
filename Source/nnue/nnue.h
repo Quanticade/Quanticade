@@ -27,6 +27,8 @@
 #   define _CDECL
 #   define DLLExport EXTERNC
 #endif
+#include <stdint.h>
+#include "../enums.h"
 
 /**
 * Internal piece representation
@@ -36,9 +38,6 @@
 * Make sure the piecesyou pass to the library from your engine
 * use this format.
 */
-enum colors {
-    white,black
-};
 enum pieces {
     blank=0,wking,wqueen,wrook,wbishop,wknight,wpawn,
             bking,bqueen,brook,bbishop,bknight,bpawn
@@ -98,18 +97,40 @@ int nnue_evaluate_pos(Position* pos);
 /**
 * Load NNUE file
 */
-DLLExport void _CDECL nnue_init(
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void nnue_init(
   const char * evalFile             /** Path to NNUE file */
 );
+
+#ifdef __cplusplus
+}
+#endif
+
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
 * Evaluate on FEN string
 * Returns
 *   Score relative to side to move in approximate centi-pawns
 */
-DLLExport int _CDECL nnue_evaluate_fen(
+int nnue_evaluate_fen(
   const char* fen                   /** FEN string to probe evaluation for */
 );
+
+#ifdef __cplusplus
+}
+#endif
+
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
 * Evaluation subroutine suitable for chess engines.
@@ -129,7 +150,7 @@ DLLExport int _CDECL nnue_evaluate_fen(
 * Returns
 *   Score relative to side to move in approximate centi-pawns
 */
-DLLExport int _CDECL nnue_evaluate(
+int nnue_evaluate(
   int player,                       /** Side to move: white=0 black=1 */
   int* pieces,                      /** Array of pieces */
   int* squares                      /** Corresponding array of squares each piece stands on */
@@ -151,5 +172,8 @@ DLLExport int _CDECL nnue_evaluate_incremental(
   int* squares,                     /** Corresponding array of squares each piece stands on */
   NNUEdata** nnue_data              /** Pointer to NNUEdata* for current and previous plies */
 );
+#ifdef __cplusplus
+}
+#endif
 
 #endif

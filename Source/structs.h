@@ -41,7 +41,7 @@ typedef struct engine {
   uint64_t stoptime;
   uint8_t timeset;
   uint8_t stopped;
-
+  uint8_t nnue;
 } engine_t;
 
 #endif

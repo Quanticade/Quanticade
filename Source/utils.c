@@ -3,8 +3,13 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
-#include <sys/time.h>
 #include <unistd.h>
+
+#ifdef WIN64
+#include <windows.h>
+#else
+#include <sys/time.h>
+#endif
 
 //Misc functions. Some of them from VICE by Richard Allbert
 

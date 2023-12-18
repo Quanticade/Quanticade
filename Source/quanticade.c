@@ -13,9 +13,11 @@
 #include "consts.h"
 #include "enums.h"
 #include "macros.h"
+#include "nnue/nnue.h"
+#include "nnue_consts.h"
 #include "structs.h"
-#include "utils.h"
 #include "uci.h"
+#include "utils.h"
 
 // random piece keys [piece][square]
 uint64_t piece_keys[12][64];
@@ -160,7 +162,7 @@ uint64_t generate_magic_number() {
 \**********************************/
 
 // count bits within a bitboard (Brian Kernighan's way)
-inline uint8_t count_bits(uint64_t bitboard) {
+static inline uint8_t count_bits(uint64_t bitboard) {
   // bit counter
   uint8_t count = 0;
 
@@ -178,7 +180,7 @@ inline uint8_t count_bits(uint64_t bitboard) {
 }
 
 // get least significant 1st bit index
-inline uint8_t get_ls1b_index(uint64_t bitboard) {
+static inline uint8_t get_ls1b_index(uint64_t bitboard) {
   // make sure bitboard is not 0
   if (bitboard) {
     // count trailing bits before LS1B
@@ -897,7 +899,7 @@ void init_sliders_attacks(int bishop) {
 }
 
 // get bishop attacks
-inline uint64_t get_bishop_attacks(int square, uint64_t occupancy) {
+static inline uint64_t get_bishop_attacks(int square, uint64_t occupancy) {
   // get bishop attacks assuming current board occupancy
   occupancy &= bishop_masks[square];
   occupancy *= bishop_magic_numbers[square];
@@ -908,7 +910,7 @@ inline uint64_t get_bishop_attacks(int square, uint64_t occupancy) {
 }
 
 // get rook attacks
-inline uint64_t get_rook_attacks(int square, uint64_t occupancy) {
+static inline uint64_t get_rook_attacks(int square, uint64_t occupancy) {
   // get rook attacks assuming current board occupancy
   occupancy &= rook_masks[square];
   occupancy *= rook_magic_numbers[square];
@@ -919,7 +921,7 @@ inline uint64_t get_rook_attacks(int square, uint64_t occupancy) {
 }
 
 // get queen attacks
-inline uint64_t get_queen_attacks(int square, uint64_t occupancy) {
+static inline uint64_t get_queen_attacks(int square, uint64_t occupancy) {
   // init result attacks bitboard
   uint64_t queen_attacks = 0ULL;
 
@@ -958,7 +960,7 @@ inline uint64_t get_queen_attacks(int square, uint64_t occupancy) {
 \**********************************/
 
 // is square current given attacked by the current given side
-inline int is_square_attacked(engine_t *engine, int square, int side) {
+static inline int is_square_attacked(engine_t *engine, int square, int side) {
   // attacked by white pawns
   if ((side == white) &&
       (pawn_attacks[black][square] & engine->board.bitboards[P]))
@@ -1015,7 +1017,7 @@ inline int is_square_attacked(engine_t *engine, int square, int side) {
 */
 
 // add move to the move list
-inline void add_move(moves *move_list, int move) {
+static inline void add_move(moves *move_list, int move) {
   // strore move
   move_list->moves[move_list->count] = move;
 
@@ -1814,7 +1816,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
 \**********************************/
 
 // perft driver
-inline void perft_driver(engine_t *engine, int depth) {
+static inline void perft_driver(engine_t *engine, int depth) {
   // reccursion escape condition
   if (depth == 0) {
     // increment nodes count (count reached positions)
@@ -1902,8 +1904,8 @@ void perft_test(engine_t *engine, int depth) {
 
   // print results
   printf("\n    Depth: %d\n", depth);
-  printf("    Nodes: %ld\n", nodes);
-  printf("     Time: %ld\n\n", get_time_ms() - start);
+  printf("    Nodes: %lld\n", nodes);
+  printf("     Time: %lld\n\n", get_time_ms() - start);
 }
 
 /**********************************\
@@ -1997,7 +1999,7 @@ void init_evaluation_masks() {
 }
 
 // get game phase score
-inline int get_game_phase_score(engine_t *engine) {
+static inline int get_game_phase_score(engine_t *engine) {
   /*
       The game phase score of the game is derived from the pieces
       (not counting pawns and kings) that are still on the board.
@@ -2054,6 +2056,15 @@ int evaluate(engine_t *engine) {
   // penalties
   int double_pawns = 0;
 
+  // array of piece codes converted to Stockfish piece codes
+  int pieces[33];
+
+  // array of square indices converted to Stockfish square indices
+  int squares[33];
+
+  // pieces and squares current index to write next piece square pair at
+  int index = 2;
+
   // loop over piece bitboards
   for (int bb_piece = P; bb_piece <= k; bb_piece++) {
     // init piece bitboard copy
@@ -2067,306 +2078,362 @@ int evaluate(engine_t *engine) {
       // init square
       square = get_ls1b_index(bitboard);
 
-      // get opening/endgame material score
-      score_opening += material_score[opening][piece];
-      score_endgame += material_score[endgame][piece];
+      if (engine->nnue) {
+        /*
+                    Code to initialize pieces and squares arrays
+                    to serve the purpose of direct probing of NNUE
+                */
 
-      // score positional piece scores
-      switch (piece) {
-      // evaluate white pawns
-      case P:
-        // get opening/endgame positional score
-        score_opening += positional_score[opening][PAWN][square];
-        score_endgame += positional_score[endgame][PAWN][square];
+        // case white king
+        if (piece == K) {
+          /* convert white king piece code to stockfish piece code and
+             store it at the first index of pieces array
+          */
+          pieces[0] = nnue_pieces[piece];
 
-        // double pawn penalty
-        double_pawns =
-            count_bits(engine->board.bitboards[P] & file_masks[square]);
-
-        // on double pawns (tripple, etc)
-        if (double_pawns > 1) {
-          score_opening += (double_pawns - 1) * double_pawn_penalty_opening;
-          score_endgame += (double_pawns - 1) * double_pawn_penalty_endgame;
+          /* convert white king square index to stockfish square index and
+             store it at the first index of pieces array
+          */
+          squares[0] = nnue_squares[square];
         }
 
-        // on isolated pawn
-        if ((engine->board.bitboards[P] & isolated_masks[square]) == 0) {
-          // give an isolated pawn penalty
-          score_opening += isolated_pawn_penalty_opening;
-          score_endgame += isolated_pawn_penalty_endgame;
-        }
-        // on passed pawn
-        if ((white_passed_masks[square] & engine->board.bitboards[p]) == 0) {
-          // give passed pawn bonus
-          score_opening += passed_pawn_bonus[get_rank[square]];
-          score_endgame += passed_pawn_bonus[get_rank[square]];
-        }
+        // case black king
+        else if (piece == k) {
+          /* convert black king piece code to stockfish piece code and
+             store it at the second index of pieces array
+          */
+          pieces[1] = nnue_pieces[piece];
 
-        break;
-
-      // evaluate white knights
-      case N:
-        // get opening/endgame positional score
-        score_opening += positional_score[opening][KNIGHT][square];
-        score_endgame += positional_score[endgame][KNIGHT][square];
-
-        break;
-
-      // evaluate white bishops
-      case B:
-        // get opening/endgame positional score
-        score_opening += positional_score[opening][BISHOP][square];
-        score_endgame += positional_score[endgame][BISHOP][square];
-
-        // mobility
-        score_opening += (count_bits(get_bishop_attacks(
-                              square, engine->board.occupancies[both])) -
-                          bishop_unit) *
-                         bishop_mobility_opening;
-        score_endgame += (count_bits(get_bishop_attacks(
-                              square, engine->board.occupancies[both])) -
-                          bishop_unit) *
-                         bishop_mobility_endgame;
-        break;
-
-      // evaluate white rooks
-      case R:
-        // get opening/endgame positional score
-        score_opening += positional_score[opening][ROOK][square];
-        score_endgame += positional_score[endgame][ROOK][square];
-
-        // semi open file
-        if ((engine->board.bitboards[P] & file_masks[square]) == 0) {
-          // add semi open file bonus
-          score_opening += semi_open_file_score;
-          score_endgame += semi_open_file_score;
+          /* convert black king square index to stockfish square index and
+             store it at the second index of pieces array
+          */
+          squares[1] = nnue_squares[square];
         }
 
-        // semi open file
-        if (((engine->board.bitboards[P] | engine->board.bitboards[p]) &
-             file_masks[square]) == 0) {
-          // add semi open file bonus
-          score_opening += open_file_score;
-          score_endgame += open_file_score;
+        // all the rest pieces
+        else {
+          /*  convert all the rest of piece code with corresponding square codes
+              to stockfish piece codes and square indices respectively
+          */
+          pieces[index] = nnue_pieces[piece];
+          squares[index] = nnue_squares[square];
+          index++;
         }
+      } else {
+        // get opening/endgame material score
+        score_opening += material_score[opening][piece];
+        score_endgame += material_score[endgame][piece];
 
-        break;
+        // score positional piece scores
+        switch (piece) {
+        // evaluate white pawns
+        case P:
+          // get opening/endgame positional score
+          score_opening += positional_score[opening][PAWN][square];
+          score_endgame += positional_score[endgame][PAWN][square];
 
-      // evaluate white queens
-      case Q:
-        // get opening/endgame positional score
-        score_opening += positional_score[opening][QUEEN][square];
-        score_endgame += positional_score[endgame][QUEEN][square];
+          // double pawn penalty
+          double_pawns =
+              count_bits(engine->board.bitboards[P] & file_masks[square]);
 
-        // mobility
-        score_opening += (count_bits(get_queen_attacks(
-                              square, engine->board.occupancies[both])) -
-                          queen_unit) *
-                         queen_mobility_opening;
-        score_endgame += (count_bits(get_queen_attacks(
-                              square, engine->board.occupancies[both])) -
-                          queen_unit) *
-                         queen_mobility_endgame;
-        break;
+          // on double pawns (tripple, etc)
+          if (double_pawns > 1) {
+            score_opening += (double_pawns - 1) * double_pawn_penalty_opening;
+            score_endgame += (double_pawns - 1) * double_pawn_penalty_endgame;
+          }
 
-      // evaluate white king
-      case K:
-        // get opening/endgame positional score
-        score_opening += positional_score[opening][KING][square];
-        score_endgame += positional_score[endgame][KING][square];
+          // on isolated pawn
+          if ((engine->board.bitboards[P] & isolated_masks[square]) == 0) {
+            // give an isolated pawn penalty
+            score_opening += isolated_pawn_penalty_opening;
+            score_endgame += isolated_pawn_penalty_endgame;
+          }
+          // on passed pawn
+          if ((white_passed_masks[square] & engine->board.bitboards[p]) == 0) {
+            // give passed pawn bonus
+            score_opening += passed_pawn_bonus[get_rank[square]];
+            score_endgame += passed_pawn_bonus[get_rank[square]];
+          }
 
-        // semi open file
-        if ((engine->board.bitboards[P] & file_masks[square]) == 0) {
-          // add semi open file penalty
-          score_opening -= semi_open_file_score;
-          score_endgame -= semi_open_file_score;
+          break;
+
+        // evaluate white knights
+        case N:
+          // get opening/endgame positional score
+          score_opening += positional_score[opening][KNIGHT][square];
+          score_endgame += positional_score[endgame][KNIGHT][square];
+
+          break;
+
+        // evaluate white bishops
+        case B:
+          // get opening/endgame positional score
+          score_opening += positional_score[opening][BISHOP][square];
+          score_endgame += positional_score[endgame][BISHOP][square];
+
+          // mobility
+          score_opening += (count_bits(get_bishop_attacks(
+                                square, engine->board.occupancies[both])) -
+                            bishop_unit) *
+                           bishop_mobility_opening;
+          score_endgame += (count_bits(get_bishop_attacks(
+                                square, engine->board.occupancies[both])) -
+                            bishop_unit) *
+                           bishop_mobility_endgame;
+          break;
+
+        // evaluate white rooks
+        case R:
+          // get opening/endgame positional score
+          score_opening += positional_score[opening][ROOK][square];
+          score_endgame += positional_score[endgame][ROOK][square];
+
+          // semi open file
+          if ((engine->board.bitboards[P] & file_masks[square]) == 0) {
+            // add semi open file bonus
+            score_opening += semi_open_file_score;
+            score_endgame += semi_open_file_score;
+          }
+
+          // semi open file
+          if (((engine->board.bitboards[P] | engine->board.bitboards[p]) &
+               file_masks[square]) == 0) {
+            // add semi open file bonus
+            score_opening += open_file_score;
+            score_endgame += open_file_score;
+          }
+
+          break;
+
+        // evaluate white queens
+        case Q:
+          // get opening/endgame positional score
+          score_opening += positional_score[opening][QUEEN][square];
+          score_endgame += positional_score[endgame][QUEEN][square];
+
+          // mobility
+          score_opening += (count_bits(get_queen_attacks(
+                                square, engine->board.occupancies[both])) -
+                            queen_unit) *
+                           queen_mobility_opening;
+          score_endgame += (count_bits(get_queen_attacks(
+                                square, engine->board.occupancies[both])) -
+                            queen_unit) *
+                           queen_mobility_endgame;
+          break;
+
+        // evaluate white king
+        case K:
+          // get opening/endgame positional score
+          score_opening += positional_score[opening][KING][square];
+          score_endgame += positional_score[endgame][KING][square];
+
+          // semi open file
+          if ((engine->board.bitboards[P] & file_masks[square]) == 0) {
+            // add semi open file penalty
+            score_opening -= semi_open_file_score;
+            score_endgame -= semi_open_file_score;
+          }
+
+          // semi open file
+          if (((engine->board.bitboards[P] | engine->board.bitboards[p]) &
+               file_masks[square]) == 0) {
+            // add semi open file penalty
+            score_opening -= open_file_score;
+            score_endgame -= open_file_score;
+          }
+
+          // king safety bonus
+          score_opening += count_bits(king_attacks[square] &
+                                      engine->board.occupancies[white]) *
+                           king_shield_bonus;
+          score_endgame += count_bits(king_attacks[square] &
+                                      engine->board.occupancies[white]) *
+                           king_shield_bonus;
+
+          break;
+
+        // evaluate black pawns
+        case p:
+          // get opening/endgame positional score
+          score_opening -=
+              positional_score[opening][PAWN][mirror_score[square]];
+          score_endgame -=
+              positional_score[endgame][PAWN][mirror_score[square]];
+
+          // double pawn penalty
+          double_pawns =
+              count_bits(engine->board.bitboards[p] & file_masks[square]);
+
+          // on double pawns (tripple, etc)
+          if (double_pawns > 1) {
+            score_opening -= (double_pawns - 1) * double_pawn_penalty_opening;
+            score_endgame -= (double_pawns - 1) * double_pawn_penalty_endgame;
+          }
+
+          // on isolated pawn
+          if ((engine->board.bitboards[p] & isolated_masks[square]) == 0) {
+            // give an isolated pawn penalty
+            score_opening -= isolated_pawn_penalty_opening;
+            score_endgame -= isolated_pawn_penalty_endgame;
+          }
+          // on passed pawn
+          if ((black_passed_masks[square] & engine->board.bitboards[P]) == 0) {
+            // give passed pawn bonus
+            score_opening -= passed_pawn_bonus[get_rank[square]];
+            score_endgame -= passed_pawn_bonus[get_rank[square]];
+          }
+
+          break;
+
+        // evaluate black knights
+        case n:
+          // get opening/endgame positional score
+          score_opening -=
+              positional_score[opening][KNIGHT][mirror_score[square]];
+          score_endgame -=
+              positional_score[endgame][KNIGHT][mirror_score[square]];
+
+          break;
+
+        // evaluate black bishops
+        case b:
+          // get opening/endgame positional score
+          score_opening -=
+              positional_score[opening][BISHOP][mirror_score[square]];
+          score_endgame -=
+              positional_score[endgame][BISHOP][mirror_score[square]];
+
+          // mobility
+          score_opening -= (count_bits(get_bishop_attacks(
+                                square, engine->board.occupancies[both])) -
+                            bishop_unit) *
+                           bishop_mobility_opening;
+          score_endgame -= (count_bits(get_bishop_attacks(
+                                square, engine->board.occupancies[both])) -
+                            bishop_unit) *
+                           bishop_mobility_endgame;
+          break;
+
+        // evaluate black rooks
+        case r:
+          // get opening/endgame positional score
+          score_opening -=
+              positional_score[opening][ROOK][mirror_score[square]];
+          score_endgame -=
+              positional_score[endgame][ROOK][mirror_score[square]];
+
+          // semi open file
+          if ((engine->board.bitboards[p] & file_masks[square]) == 0) {
+            // add semi open file bonus
+            score_opening -= semi_open_file_score;
+            score_endgame -= semi_open_file_score;
+          }
+
+          // semi open file
+          if (((engine->board.bitboards[P] | engine->board.bitboards[p]) &
+               file_masks[square]) == 0) {
+            // add semi open file bonus
+            score_opening -= open_file_score;
+            score_endgame -= open_file_score;
+          }
+
+          break;
+
+        // evaluate black queens
+        case q:
+          // get opening/endgame positional score
+          score_opening -=
+              positional_score[opening][QUEEN][mirror_score[square]];
+          score_endgame -=
+              positional_score[endgame][QUEEN][mirror_score[square]];
+
+          // mobility
+          score_opening -= (count_bits(get_queen_attacks(
+                                square, engine->board.occupancies[both])) -
+                            queen_unit) *
+                           queen_mobility_opening;
+          score_endgame -= (count_bits(get_queen_attacks(
+                                square, engine->board.occupancies[both])) -
+                            queen_unit) *
+                           queen_mobility_endgame;
+          break;
+
+        // evaluate black king
+        case k:
+          // get opening/endgame positional score
+          score_opening -=
+              positional_score[opening][KING][mirror_score[square]];
+          score_endgame -=
+              positional_score[endgame][KING][mirror_score[square]];
+
+          // semi open file
+          if ((engine->board.bitboards[p] & file_masks[square]) == 0) {
+            // add semi open file penalty
+            score_opening += semi_open_file_score;
+            score_endgame += semi_open_file_score;
+          }
+
+          // semi open file
+          if (((engine->board.bitboards[P] | engine->board.bitboards[p]) &
+               file_masks[square]) == 0) {
+            // add semi open file penalty
+            score_opening += open_file_score;
+            score_endgame += open_file_score;
+          }
+
+          // king safety bonus
+          score_opening -= count_bits(king_attacks[square] &
+                                      engine->board.occupancies[black]) *
+                           king_shield_bonus;
+          score_endgame -= count_bits(king_attacks[square] &
+                                      engine->board.occupancies[black]) *
+                           king_shield_bonus;
+          break;
         }
-
-        // semi open file
-        if (((engine->board.bitboards[P] | engine->board.bitboards[p]) &
-             file_masks[square]) == 0) {
-          // add semi open file penalty
-          score_opening -= open_file_score;
-          score_endgame -= open_file_score;
-        }
-
-        // king safety bonus
-        score_opening += count_bits(king_attacks[square] &
-                                    engine->board.occupancies[white]) *
-                         king_shield_bonus;
-        score_endgame += count_bits(king_attacks[square] &
-                                    engine->board.occupancies[white]) *
-                         king_shield_bonus;
-
-        break;
-
-      // evaluate black pawns
-      case p:
-        // get opening/endgame positional score
-        score_opening -= positional_score[opening][PAWN][mirror_score[square]];
-        score_endgame -= positional_score[endgame][PAWN][mirror_score[square]];
-
-        // double pawn penalty
-        double_pawns =
-            count_bits(engine->board.bitboards[p] & file_masks[square]);
-
-        // on double pawns (tripple, etc)
-        if (double_pawns > 1) {
-          score_opening -= (double_pawns - 1) * double_pawn_penalty_opening;
-          score_endgame -= (double_pawns - 1) * double_pawn_penalty_endgame;
-        }
-
-        // on isolated pawn
-        if ((engine->board.bitboards[p] & isolated_masks[square]) == 0) {
-          // give an isolated pawn penalty
-          score_opening -= isolated_pawn_penalty_opening;
-          score_endgame -= isolated_pawn_penalty_endgame;
-        }
-        // on passed pawn
-        if ((black_passed_masks[square] & engine->board.bitboards[P]) == 0) {
-          // give passed pawn bonus
-          score_opening -= passed_pawn_bonus[get_rank[square]];
-          score_endgame -= passed_pawn_bonus[get_rank[square]];
-        }
-
-        break;
-
-      // evaluate black knights
-      case n:
-        // get opening/endgame positional score
-        score_opening -=
-            positional_score[opening][KNIGHT][mirror_score[square]];
-        score_endgame -=
-            positional_score[endgame][KNIGHT][mirror_score[square]];
-
-        break;
-
-      // evaluate black bishops
-      case b:
-        // get opening/endgame positional score
-        score_opening -=
-            positional_score[opening][BISHOP][mirror_score[square]];
-        score_endgame -=
-            positional_score[endgame][BISHOP][mirror_score[square]];
-
-        // mobility
-        score_opening -= (count_bits(get_bishop_attacks(
-                              square, engine->board.occupancies[both])) -
-                          bishop_unit) *
-                         bishop_mobility_opening;
-        score_endgame -= (count_bits(get_bishop_attacks(
-                              square, engine->board.occupancies[both])) -
-                          bishop_unit) *
-                         bishop_mobility_endgame;
-        break;
-
-      // evaluate black rooks
-      case r:
-        // get opening/endgame positional score
-        score_opening -= positional_score[opening][ROOK][mirror_score[square]];
-        score_endgame -= positional_score[endgame][ROOK][mirror_score[square]];
-
-        // semi open file
-        if ((engine->board.bitboards[p] & file_masks[square]) == 0) {
-          // add semi open file bonus
-          score_opening -= semi_open_file_score;
-          score_endgame -= semi_open_file_score;
-        }
-
-        // semi open file
-        if (((engine->board.bitboards[P] | engine->board.bitboards[p]) &
-             file_masks[square]) == 0) {
-          // add semi open file bonus
-          score_opening -= open_file_score;
-          score_endgame -= open_file_score;
-        }
-
-        break;
-
-      // evaluate black queens
-      case q:
-        // get opening/endgame positional score
-        score_opening -= positional_score[opening][QUEEN][mirror_score[square]];
-        score_endgame -= positional_score[endgame][QUEEN][mirror_score[square]];
-
-        // mobility
-        score_opening -= (count_bits(get_queen_attacks(
-                              square, engine->board.occupancies[both])) -
-                          queen_unit) *
-                         queen_mobility_opening;
-        score_endgame -= (count_bits(get_queen_attacks(
-                              square, engine->board.occupancies[both])) -
-                          queen_unit) *
-                         queen_mobility_endgame;
-        break;
-
-      // evaluate black king
-      case k:
-        // get opening/endgame positional score
-        score_opening -= positional_score[opening][KING][mirror_score[square]];
-        score_endgame -= positional_score[endgame][KING][mirror_score[square]];
-
-        // semi open file
-        if ((engine->board.bitboards[p] & file_masks[square]) == 0) {
-          // add semi open file penalty
-          score_opening += semi_open_file_score;
-          score_endgame += semi_open_file_score;
-        }
-
-        // semi open file
-        if (((engine->board.bitboards[P] | engine->board.bitboards[p]) &
-             file_masks[square]) == 0) {
-          // add semi open file penalty
-          score_opening += open_file_score;
-          score_endgame += open_file_score;
-        }
-
-        // king safety bonus
-        score_opening -= count_bits(king_attacks[square] &
-                                    engine->board.occupancies[black]) *
-                         king_shield_bonus;
-        score_endgame -= count_bits(king_attacks[square] &
-                                    engine->board.occupancies[black]) *
-                         king_shield_bonus;
-        break;
       }
-
       // pop ls1b
       pop_bit(bitboard, square);
     }
   }
 
-  /*
-      Now in order to calculate interpolated score
-      for a given game phase we use this formula
-      (same for material and positional scores):
+  if (engine->nnue) {
+    pieces[index] = 0;
+    squares[index] = 0;
+    return nnue_evaluate(engine->board.side, pieces, squares);
+  } else {
+    /*
+        Now in order to calculate interpolated score
+        for a given game phase we use this formula
+        (same for material and positional scores):
 
-      (
-        score_opening * game_phase_score +
-        score_endgame * (opening_phase_score - game_phase_score)
-      ) / opening_phase_score
+        (
+          score_opening * game_phase_score +
+          score_endgame * (opening_phase_score - game_phase_score)
+        ) / opening_phase_score
 
-      E.g. the score for pawn on d4 at phase say 5000 would be
-      interpolated_score = (12 * 5000 + (-7) * (6192 - 5000)) / 6192 =
-     8,342377261
-  */
+        E.g. the score for pawn on d4 at phase say 5000 would be
+        interpolated_score = (12 * 5000 + (-7) * (6192 - 5000)) / 6192 =
+       8,342377261
+    */
 
-  // interpolate score in the middlegame
-  if (game_phase == middlegame)
-    score = (score_opening * game_phase_score +
-             score_endgame * (opening_phase_score - game_phase_score)) /
-            opening_phase_score;
+    // interpolate score in the middlegame
+    if (game_phase == middlegame)
+      score = (score_opening * game_phase_score +
+               score_endgame * (opening_phase_score - game_phase_score)) /
+              opening_phase_score;
 
-  // return pure opening score in opening
-  else if (game_phase == opening)
-    score = score_opening;
+    // return pure opening score in opening
+    else if (game_phase == opening)
+      score = score_opening;
 
-  // return pure endgame score in endgame
-  else if (game_phase == endgame)
-    score = score_endgame;
+    // return pure endgame score in endgame
+    else if (game_phase == endgame)
+      score = score_endgame;
 
-  // return final evaluation based on side
-  return (engine->board.side == white) ? score : -score;
+    // return final evaluation based on side
+    return (engine->board.side == white) ? score : -score;
+  }
 }
 
 /**********************************\
@@ -2429,7 +2496,7 @@ void init_hash_table(int mb) {
 }
 
 // read hash entry data
-inline int read_hash_entry(engine_t *engine, int alpha, int beta,
+static inline int read_hash_entry(engine_t *engine, int alpha, int beta,
                                   int depth) {
   // create a TT instance pointer to particular hash entry storing
   // the scoring data for the current board position if available
@@ -2471,7 +2538,7 @@ inline int read_hash_entry(engine_t *engine, int alpha, int beta,
 }
 
 // write hash entry data
-inline void write_hash_entry(engine_t *engine, int score, int depth,
+static inline void write_hash_entry(engine_t *engine, int score, int depth,
                                     int hash_flag) {
   // create a TT instance pointer to particular hash entry storing
   // the scoring data for the current board position if available
@@ -2492,7 +2559,7 @@ inline void write_hash_entry(engine_t *engine, int score, int depth,
 }
 
 // enable PV move scoring
-inline void enable_pv_scoring(engine_t *engine, moves *move_list) {
+static inline void enable_pv_scoring(engine_t *engine, moves *move_list) {
   // disable following PV
   follow_pv = 0;
 
@@ -2522,7 +2589,7 @@ inline void enable_pv_scoring(engine_t *engine, moves *move_list) {
 */
 
 // score moves
-inline int score_move(engine_t *engine, int move) {
+static inline int score_move(engine_t *engine, int move) {
   // if PV move scoring is allowed
   if (score_pv) {
     // make sure we are dealing with PV move
@@ -2585,7 +2652,7 @@ inline int score_move(engine_t *engine, int move) {
 }
 
 // sort moves in descending order
-inline void sort_moves(engine_t *engine, moves *move_list) {
+static inline void sort_moves(engine_t *engine, moves *move_list) {
   // move scores
   int move_scores[move_list->count];
 
@@ -2629,7 +2696,7 @@ void print_move_scores(engine_t *engine, moves *move_list) {
 }
 
 // position repetition detection
-inline int is_repetition(engine_t *engine) {
+static inline int is_repetition(engine_t *engine) {
   // loop over repetition indicies range
   for (uint32_t index = 0; index < engine->repetition_index; index++)
     // if we found the hash key same with a current
@@ -2642,7 +2709,7 @@ inline int is_repetition(engine_t *engine) {
 }
 
 // quiescence search
-inline int quiescence(engine_t *engine, int alpha, int beta) {
+static inline int quiescence(engine_t *engine, int alpha, int beta) {
   // every 2047 nodes
   if ((nodes & 2047) == 0)
     // "listen" to the GUI/user input
@@ -3082,17 +3149,17 @@ void search_position(engine_t *engine, int depth) {
     if (pv_length[0]) {
       // print search info
       if (score > -mate_value && score < -mate_score)
-        printf("info depth %d score mate %d nodes %ld time %ld pv ",
+        printf("info depth %d score mate %d nodes %lld time %lld pv ",
                current_depth, -(score + mate_value) / 2 - 1, nodes,
                get_time_ms() - start);
 
       else if (score > mate_score && score < mate_value)
-        printf("info depth %d score mate %d nodes %ld time %ld pv ",
+        printf("info depth %d score mate %d nodes %lld time %lld pv ",
                current_depth, (mate_value - score) / 2 + 1, nodes,
                get_time_ms() - start);
 
       else
-        printf("info depth %d score cp %d nodes %ld time %ld pv ",
+        printf("info depth %d score cp %d nodes %lld time %lld pv ",
                current_depth, score, nodes, get_time_ms() - start);
 
       // loop over the moves within a PV line
@@ -3109,7 +3176,12 @@ void search_position(engine_t *engine, int depth) {
 
   // print best move
   printf("bestmove ");
-  print_move(pv_table[0][0]);
+  if (pv_table[0][0]) {
+    print_move(pv_table[0][0]);
+  }
+  else {
+    printf("(none)");
+  }
   printf("\n");
 }
 
@@ -3135,7 +3207,7 @@ void reset_time_control(engine_t *engine) {
 \**********************************/
 
 // init all variables
-void init_all() {
+void init_all(engine_t *engine) {
   // init leaper pieces attacks
   init_leapers_attacks();
 
@@ -3151,6 +3223,10 @@ void init_all() {
 
   // init hash table with default 64 MB
   init_hash_table(64);
+
+  if (engine->nnue) {
+    nnue_init("nn-eba324f53044.nnue");
+  }
 }
 
 /**********************************\
@@ -3172,8 +3248,9 @@ int main(void) {
   engine.stoptime = 0;
   engine.timeset = 0;
   engine.stopped = 0;
+  engine.nnue = 1;
   // init all
-  init_all();
+  init_all(&engine);
 
   // connect to GUI
   uci_loop(&engine);
