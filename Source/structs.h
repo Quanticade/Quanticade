@@ -42,6 +42,7 @@ typedef struct engine {
   uint8_t timeset;
   uint8_t stopped;
   uint8_t nnue;
+  uint32_t fifty;
 } engine_t;
 
 #endif

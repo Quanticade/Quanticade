@@ -17,19 +17,21 @@
 #define hash_flag_beta 2
 
 // preserve board state
-#define copy_board(bitboards, occupancies, side, enpassant, castle, hash_key)                                                           \
+#define copy_board(bitboards, occupancies, side, enpassant, castle, fifty, hash_key)                                                           \
   uint64_t bitboards_copy[12], occupancies_copy[3];                            \
-  int side_copy, enpassant_copy, castle_copy;                                  \
+  int side_copy, enpassant_copy, castle_copy, fifty_copy;                                  \
   memcpy(bitboards_copy, bitboards, 96);                                       \
   memcpy(occupancies_copy, occupancies, 24);                                   \
   side_copy = side, enpassant_copy = enpassant, castle_copy = castle;          \
+  fifty_copy = fifty;                                                          \
   uint64_t hash_key_copy = hash_key;
 
 // restore board state
-#define restore_board(bitboards, occupancies, side, enpassant, castle, hash_key)                                                            \
+#define restore_board(bitboards, occupancies, side, enpassant, castle, fifty, hash_key)                                                            \
   memcpy(bitboards, bitboards_copy, 96);                                       \
   memcpy(occupancies, occupancies_copy, 24);                                   \
   side = side_copy, enpassant = enpassant_copy, castle = castle_copy;          \
+  fifty = fifty_copy;                                                          \
   hash_key = hash_key_copy;
 
 #define set_bit(bitboard, square) ((bitboard) |= (1ULL << (square)))

@@ -294,6 +294,8 @@ void reset_board(engine_t *engine) {
   // reset repetition index
   engine->repetition_index = 0;
 
+  engine->fifty = 0;
+
   // reset repetition table
   memset(engine->repetition_table, 0ULL, sizeof(engine->repetition_table));
 }
@@ -405,6 +407,12 @@ void parse_fen(engine_t *engine, char *fen) {
   // no enpassant square
   else
     engine->board.enpassant = no_sq;
+
+  // go to parsing half move counter (increment pointer to FEN string)
+  fen++;
+
+  // parse half move counter to init fifty move counter
+  engine->fifty = atoi(fen);
 
   // loop over white pieces bitboards
   for (int piece = P; piece <= K; piece++)
@@ -1085,7 +1093,7 @@ int make_move(engine_t *engine, int move, int move_flag) {
     // preserve board state
     copy_board(engine->board.bitboards, engine->board.occupancies,
                engine->board.side, engine->board.enpassant,
-               engine->board.castle, engine->board.hash_key);
+               engine->board.castle, engine->fifty, engine->board.hash_key);
 
     // parse move
     int source_square = get_move_source(move);
@@ -1109,10 +1117,21 @@ int make_move(engine_t *engine, int move, int move_flag) {
         piece_keys[piece]
                   [target_square]; // set piece to the target square in hash key
 
+    // increment fifty move rule counter
+    engine->fifty++;
+
+    // if pawn moved
+    if (piece == P || piece == p)
+      // reset fifty move rule counter
+      engine->fifty = 0;
+
     // handling capture moves
     if (capture) {
       // pick up bitboard piece index ranges depending on side
       int start_piece, end_piece;
+
+      // reset fifty move rule counter
+      engine->fifty = 0;
 
       // white to move
       if (engine->board.side == white) {
@@ -1321,7 +1340,8 @@ int make_move(engine_t *engine, int move, int move_flag) {
       // take move back
       restore_board(engine->board.bitboards, engine->board.occupancies,
                     engine->board.side, engine->board.enpassant,
-                    engine->board.castle, engine->board.hash_key);
+                    engine->board.castle, engine->fifty,
+                    engine->board.hash_key);
 
       // return illegal move
       return 0;
@@ -1835,7 +1855,7 @@ static inline void perft_driver(engine_t *engine, int depth) {
     // preserve board state
     copy_board(engine->board.bitboards, engine->board.occupancies,
                engine->board.side, engine->board.enpassant,
-               engine->board.castle, engine->board.hash_key);
+               engine->board.castle, engine->fifty, engine->board.hash_key);
 
     // make move
     if (!make_move(engine, move_list->moves[move_count], all_moves))
@@ -1848,7 +1868,7 @@ static inline void perft_driver(engine_t *engine, int depth) {
     // take back
     restore_board(engine->board.bitboards, engine->board.occupancies,
                   engine->board.side, engine->board.enpassant,
-                  engine->board.castle, engine->board.hash_key);
+                  engine->board.castle, engine->fifty, engine->board.hash_key);
   }
 }
 
@@ -1870,7 +1890,7 @@ void perft_test(engine_t *engine, int depth) {
     // preserve board state
     copy_board(engine->board.bitboards, engine->board.occupancies,
                engine->board.side, engine->board.enpassant,
-               engine->board.castle, engine->board.hash_key);
+               engine->board.castle, engine->fifty, engine->board.hash_key);
 
     // make move
     if (!make_move(engine, move_list->moves[move_count], all_moves))
@@ -1889,7 +1909,7 @@ void perft_test(engine_t *engine, int depth) {
     // take back
     restore_board(engine->board.bitboards, engine->board.occupancies,
                   engine->board.side, engine->board.enpassant,
-                  engine->board.castle, engine->board.hash_key);
+                  engine->board.castle, engine->fifty, engine->board.hash_key);
 
     // print move
     printf(
@@ -2400,7 +2420,9 @@ int evaluate(engine_t *engine) {
   if (engine->nnue) {
     pieces[index] = 0;
     squares[index] = 0;
-    return nnue_evaluate(engine->board.side, pieces, squares);
+    return nnue_evaluate(engine->board.side, pieces, squares) *
+           (100 - engine->fifty) / 100;
+    ;
   } else {
     /*
         Now in order to calculate interpolated score
@@ -2750,7 +2772,7 @@ static inline int quiescence(engine_t *engine, int alpha, int beta) {
     // preserve board state
     copy_board(engine->board.bitboards, engine->board.occupancies,
                engine->board.side, engine->board.enpassant,
-               engine->board.castle, engine->board.hash_key);
+               engine->board.castle, engine->fifty, engine->board.hash_key);
 
     // increment ply
     engine->ply++;
@@ -2783,7 +2805,7 @@ static inline int quiescence(engine_t *engine, int alpha, int beta) {
     // take move back
     restore_board(engine->board.bitboards, engine->board.occupancies,
                   engine->board.side, engine->board.enpassant,
-                  engine->board.castle, engine->board.hash_key);
+                  engine->board.castle, engine->fifty, engine->board.hash_key);
 
     // reutrn 0 if time is up
     if (engine->stopped == 1)
@@ -2819,7 +2841,7 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
   int hash_flag = hash_flag_alpha;
 
   // if position repetition occurs
-  if (engine->ply && is_repetition(engine))
+  if ((engine->ply && is_repetition(engine)) || engine->fifty >= 100)
     // return draw score
     return 0;
 
@@ -2876,7 +2898,7 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
     // preserve board state
     copy_board(engine->board.bitboards, engine->board.occupancies,
                engine->board.side, engine->board.enpassant,
-               engine->board.castle, engine->board.hash_key);
+               engine->board.castle, engine->fifty, engine->board.hash_key);
 
     // increment ply
     engine->ply++;
@@ -2911,7 +2933,7 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
     // restore board state
     restore_board(engine->board.bitboards, engine->board.occupancies,
                   engine->board.side, engine->board.enpassant,
-                  engine->board.castle, engine->board.hash_key);
+                  engine->board.castle, engine->fifty, engine->board.hash_key);
 
     // reutrn 0 if time is up
     if (engine->stopped == 1)
@@ -2945,7 +2967,7 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
     // preserve board state
     copy_board(engine->board.bitboards, engine->board.occupancies,
                engine->board.side, engine->board.enpassant,
-               engine->board.castle, engine->board.hash_key);
+               engine->board.castle, engine->fifty, engine->board.hash_key);
 
     // increment ply
     engine->ply++;
@@ -3018,7 +3040,7 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
     // take move back
     restore_board(engine->board.bitboards, engine->board.occupancies,
                   engine->board.side, engine->board.enpassant,
-                  engine->board.castle, engine->board.hash_key);
+                  engine->board.castle, engine->fifty, engine->board.hash_key);
 
     // reutrn 0 if time is up
     if (engine->stopped == 1)
@@ -3178,8 +3200,7 @@ void search_position(engine_t *engine, int depth) {
   printf("bestmove ");
   if (pv_table[0][0]) {
     print_move(pv_table[0][0]);
-  }
-  else {
+  } else {
     printf("(none)");
   }
   printf("\n");
@@ -3249,6 +3270,7 @@ int main(void) {
   engine.timeset = 0;
   engine.stopped = 0;
   engine.nnue = 1;
+  engine.fifty = 0;
   // init all
   init_all(&engine);
 
