@@ -2421,7 +2421,7 @@ int evaluate(engine_t *engine) {
     pieces[index] = 0;
     squares[index] = 0;
     return nnue_evaluate(engine->board.side, pieces, squares) *
-           (100 - engine->fifty) / 100;
+           ((100 - engine->fifty) / 100);
     ;
   } else {
     /*
