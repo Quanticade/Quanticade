@@ -1,7 +1,7 @@
-#include "structs.h"
-#include "quanticade.h"
-#include "macros.h"
 #include "enums.h"
+#include "macros.h"
+#include "quanticade.h"
+#include "structs.h"
 #include "utils.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -217,16 +217,24 @@ static void parse_go(engine_t *engine, char *command) {
     // set up timing
     engine->time /= engine->movestogo;
 
-    // disable time buffer when time is almost up
-    if (engine->time > 1500)
-      engine->time -= 50;
+    // lag compensation
+    engine->time -= 50;
+
+    // if time is up
+    if (engine->time < 0) {
+      // restore negative time to 0
+      engine->time = 0;
+
+      // inc lag compensation on 0+inc time controls
+      engine->inc -= 50;
+
+      // timing for 0 seconds left and no inc
+      if (engine->inc < 0)
+        engine->inc = 1;
+    }
 
     // init stoptime
     engine->stoptime = engine->starttime + engine->time + engine->inc;
-
-    // treat increment as seconds per move when time is almost up
-    if (engine->time < 1500 && engine->inc && depth == 64)
-      engine->stoptime = engine->starttime + engine->inc - 50;
   }
 
   // if depth is not available
@@ -251,7 +259,7 @@ void uci_loop(engine_t *engine) {
   setbuf(stdout, NULL);
 
   // define user / GUI input buffer
-  char input[2000];
+  char input[10000];
 
   // print engine info
   printf("Quanticade %s by DarkNeutrino\n", version);
@@ -265,7 +273,7 @@ void uci_loop(engine_t *engine) {
     fflush(stdout);
 
     // get user / GUI input
-    if (!fgets(input, 2000, stdin))
+    if (!fgets(input, 10000, stdin))
       // continue the loop
       continue;
 

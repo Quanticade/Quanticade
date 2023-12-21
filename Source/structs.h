@@ -36,7 +36,7 @@ typedef struct engine {
   uint8_t quit;
   uint16_t movestogo;
   int64_t time;
-  uint32_t inc;
+  int32_t inc;
   uint64_t starttime;
   uint64_t stoptime;
   uint8_t timeset;
