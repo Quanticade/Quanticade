@@ -2420,9 +2420,8 @@ int evaluate(engine_t *engine) {
   if (engine->nnue) {
     pieces[index] = 0;
     squares[index] = 0;
-    return nnue_evaluate(engine->board.side, pieces, squares) *
-           ((100 - engine->fifty) / 100);
-    ;
+    return (int)(nnue_evaluate(engine->board.side, pieces, squares) *
+                 (float)((100 - (float)engine->fifty) / 100));
   } else {
     /*
         Now in order to calculate interpolated score
