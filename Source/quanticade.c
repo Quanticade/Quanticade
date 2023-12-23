@@ -2903,6 +2903,21 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
   // legal moves counter
   int legal_moves = 0;
 
+  // evaluation pruning / static null move pruning
+	if (depth < 3 && !pv_node && !in_check &&  abs(beta - 1) > -infinity + 100)
+	{
+		// get static evaluation score
+		int static_eval = evaluate(engine);
+
+        // define evaluation margin
+		int eval_margin = 120 * depth;
+
+		// evaluation margin substracted from static evaluation score fails high
+		if (static_eval - eval_margin >= beta)
+		    // evaluation margin substracted from static evaluation score
+			return static_eval - eval_margin;
+	}
+
   // null move pruning
   if (depth >= 3 && in_check == 0 && engine->ply) {
     // preserve board state
