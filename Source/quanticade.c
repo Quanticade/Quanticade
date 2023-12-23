@@ -1,4 +1,5 @@
 // system headers
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -3234,19 +3235,19 @@ void search_position(engine_t *engine, int depth) {
     // if PV is available
     if (pv_length[0]) {
       // print search info
+      uint64_t time = get_time_ms() - start;
+      uint64_t nps = (nodes / fmax(time, 1)) * 100;
       if (score > -mate_value && score < -mate_score)
-        printf("info depth %d score mate %d nodes %ld time %ld pv ",
-               current_depth, -(score + mate_value) / 2 - 1, nodes,
-               get_time_ms() - start);
+        printf("info depth %d score mate %d nodes %ld nps %ld time %ld pv ",
+               current_depth, -(score + mate_value) / 2 - 1, nodes, nps, time);
 
       else if (score > mate_score && score < mate_value)
-        printf("info depth %d score mate %d nodes %ld time %ld pv ",
-               current_depth, (mate_value - score) / 2 + 1, nodes,
-               get_time_ms() - start);
+        printf("info depth %d score mate %d nodes %ld nps %ld time %ld pv ",
+               current_depth, (mate_value - score) / 2 + 1, nodes, nps, time);
 
       else
-        printf("info depth %d score cp %d nodes %ld time %ld pv ",
-               current_depth, score, nodes, get_time_ms() - start);
+        printf("info depth %d score cp %d nodes %ld nps %ld time %ld pv ",
+               current_depth, score, nodes, nps, time);
 
       // loop over the moves within a PV line
       for (int count = 0; count < pv_length[0]; count++) {
@@ -3257,6 +3258,8 @@ void search_position(engine_t *engine, int depth) {
 
       // print new line
       printf("\n");
+    } else {
+      printf("No pv line\n");
     }
   }
 
@@ -3264,6 +3267,10 @@ void search_position(engine_t *engine, int depth) {
   printf("bestmove ");
   if (pv_table[0][0]) {
     print_move(pv_table[0][0]);
+    if (pv_table[0][1]) {
+      printf(" ponder ");
+      print_move(pv_table[0][1]);
+    }
   } else {
     printf("(none)");
   }

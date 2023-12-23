@@ -15,6 +15,7 @@ add_executable(Quanticade "")
 target_link_libraries(Quanticade
     PRIVATE
         nnue
+        m
 )
 
 set(QUANTICADE_SOURCES
