@@ -2862,7 +2862,8 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
   // read hash entry if we're not in a root ply and hash entry is available
   // and current node is not a PV node
   if (engine->ply &&
-      (score = read_hash_entry(engine, alpha, &move, beta, depth)) != no_hash_entry &&
+      (score = read_hash_entry(engine, alpha, &move, beta, depth)) !=
+          no_hash_entry &&
       pv_node == 0)
     // if the move has already been searched (hence has a value)
     // we just return the score for this move without searching it
@@ -2903,20 +2904,20 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
   // legal moves counter
   int legal_moves = 0;
 
+  int static_eval = evaluate(engine);
+
   // evaluation pruning / static null move pruning
-	if (depth < 3 && !pv_node && !in_check &&  abs(beta - 1) > -infinity + 100)
-	{
-		// get static evaluation score
-		int static_eval = evaluate(engine);
+  if (depth < 3 && !pv_node && !in_check && abs(beta - 1) > -infinity + 100) {
+    // get static evaluation score
 
-        // define evaluation margin
-		int eval_margin = 120 * depth;
+    // define evaluation margin
+    int eval_margin = 120 * depth;
 
-		// evaluation margin substracted from static evaluation score fails high
-		if (static_eval - eval_margin >= beta)
-		    // evaluation margin substracted from static evaluation score
-			return static_eval - eval_margin;
-	}
+    // evaluation margin substracted from static evaluation score fails high
+    if (static_eval - eval_margin >= beta)
+      // evaluation margin substracted from static evaluation score
+      return static_eval - eval_margin;
+  }
 
   // null move pruning
   if (depth >= 3 && in_check == 0 && engine->ply) {
@@ -2968,6 +2969,42 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
     if (score >= beta)
       // node (position) fails high
       return beta;
+  }
+
+  // razoring
+  if (!pv_node && !in_check && depth <= 3) {
+    // get static eval and add first bonus
+    score = static_eval + 125;
+
+    // define new score
+    int new_score;
+
+    // static evaluation indicates a fail-low node
+    if (score < beta) {
+      // on depth 1
+      if (depth == 1) {
+        // get quiscence score
+        new_score = quiescence(engine, alpha, beta);
+
+        // return quiescence score if it's greater then static evaluation score
+        return (new_score > score) ? new_score : score;
+      }
+
+      // add second bonus to static evaluation
+      score += 175;
+
+      // static evaluation indicates a fail-low node
+      if (score < beta && depth <= 2) {
+        // get quiscence score
+        new_score = quiescence(engine, alpha, beta);
+
+        // quiescence score indicates fail-low node
+        if (new_score < beta)
+          // return quiescence score if it's greater then static evaluation
+          // score
+          return (new_score > score) ? new_score : score;
+      }
+    }
   }
 
   // create move list instance
