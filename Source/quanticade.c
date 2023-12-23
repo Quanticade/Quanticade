@@ -2517,8 +2517,8 @@ void init_hash_table(int mb) {
 }
 
 // read hash entry data
-static inline int read_hash_entry(engine_t *engine, int alpha, int beta,
-                                  int depth) {
+static inline int read_hash_entry(engine_t *engine, int alpha, int *move,
+                                  int beta, int depth) {
   // create a TT instance pointer to particular hash entry storing
   // the scoring data for the current board position if available
   tt *hash_entry = &hash_table[engine->board.hash_key % hash_entries];
@@ -2552,6 +2552,7 @@ static inline int read_hash_entry(engine_t *engine, int alpha, int beta,
         // return beta (fail-high node) score
         return beta;
     }
+    *move = hash_entry->move;
   }
 
   // if hash entry doesn't exist
@@ -2560,7 +2561,7 @@ static inline int read_hash_entry(engine_t *engine, int alpha, int beta,
 
 // write hash entry data
 static inline void write_hash_entry(engine_t *engine, int score, int depth,
-                                    int hash_flag) {
+                                    int move, int hash_flag) {
   // create a TT instance pointer to particular hash entry storing
   // the scoring data for the current board position if available
   tt *hash_entry = &hash_table[engine->board.hash_key % hash_entries];
@@ -2577,6 +2578,7 @@ static inline void write_hash_entry(engine_t *engine, int score, int depth,
   hash_entry->score = score;
   hash_entry->flag = hash_flag;
   hash_entry->depth = depth;
+  hash_entry->move = move;
 }
 
 // enable PV move scoring
@@ -2673,14 +2675,21 @@ static inline int score_move(engine_t *engine, int move) {
 }
 
 // sort moves in descending order
-static inline void sort_moves(engine_t *engine, moves *move_list) {
+static inline void sort_moves(engine_t *engine, moves *move_list, int move) {
   // move scores
   int move_scores[move_list->count];
 
   // score all the moves within a move list
-  for (uint32_t count = 0; count < move_list->count; count++)
-    // score move
-    move_scores[count] = score_move(engine, move_list->moves[count]);
+  for (uint32_t count = 0; count < move_list->count; count++) {
+    // if hash move available
+    if (move == move_list->moves[count])
+      // score move
+      move_scores[count] = 30000;
+
+    else
+      // score move
+      move_scores[count] = score_move(engine, move_list->moves[count]);
+  }
 
   // loop over current move within a move list
   for (uint32_t current_move = 0; current_move < move_list->count;
@@ -2764,7 +2773,7 @@ static inline int quiescence(engine_t *engine, int alpha, int beta) {
   generate_moves(engine, move_list);
 
   // sort moves
-  sort_moves(engine, move_list);
+  sort_moves(engine, move_list, 0);
 
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
@@ -2836,6 +2845,8 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
   // perspective)
   int score;
 
+  int move = 0;
+
   // define hash flag
   int hash_flag = hash_flag_alpha;
 
@@ -2851,7 +2862,7 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
   // read hash entry if we're not in a root ply and hash entry is available
   // and current node is not a PV node
   if (engine->ply &&
-      (score = read_hash_entry(engine, alpha, beta, depth)) != no_hash_entry &&
+      (score = read_hash_entry(engine, alpha, &move, beta, depth)) != no_hash_entry &&
       pv_node == 0)
     // if the move has already been searched (hence has a value)
     // we just return the score for this move without searching it
@@ -2956,7 +2967,7 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
     enable_pv_scoring(engine, move_list);
 
   // sort moves
-  sort_moves(engine, move_list);
+  sort_moves(engine, move_list, move);
 
   // number of moves searched in a move list
   int moves_searched = 0;
@@ -3054,6 +3065,8 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
       // to the one storing score for PV node
       hash_flag = hash_flag_exact;
 
+      move = move_list->moves[count];
+
       // on quiet moves
       if (get_move_capture(move_list->moves[count]) == 0)
         // store history moves
@@ -3078,7 +3091,7 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
       // fail-hard beta cutoff
       if (score >= beta) {
         // store hash entry with the score equal to beta
-        write_hash_entry(engine, beta, depth, hash_flag_beta);
+        write_hash_entry(engine, beta, depth, move, hash_flag_beta);
 
         // on quiet moves
         if (get_move_capture(move_list->moves[count]) == 0) {
@@ -3107,7 +3120,7 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
   }
 
   // store hash entry with the score equal to alpha
-  write_hash_entry(engine, alpha, depth, hash_flag);
+  write_hash_entry(engine, alpha, depth, move, hash_flag);
 
   // node (position) fails low
   return alpha;
@@ -3242,7 +3255,7 @@ void init_all(engine_t *engine) {
   init_evaluation_masks();
 
   // init hash table with default 64 MB
-  init_hash_table(64);
+  init_hash_table(128);
 
   if (engine->nnue) {
     nnue_init("nn-eba324f53044.nnue");
