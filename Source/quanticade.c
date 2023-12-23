@@ -3220,7 +3220,7 @@ void search_position(engine_t *engine, int depth) {
     // find best move within a given position
     score = negamax(engine, alpha, beta, current_depth);
 
-    printf("Current depth: %d\n", current_depth);
+    //printf("Current depth: %d\n", current_depth);
 
     // we fell outside the window, so try again with a full-width window (and
     // the same depth)
