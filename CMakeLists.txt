@@ -6,7 +6,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 add_compile_options(-Wall -Werror -Wextra -Wpedantic -Wno-error=vla)
 # Optimizations
-add_compile_options(-march=native -flto -O3)
+add_compile_options(-march=native -flto -Ofast -fomit-frame-pointer -DUSE_SSE41 -msse4.1 -DUSE_SSSE3 -mssse3 -DUSE_SSE2 -msse2 -DUSE_SSE -msse -DUSE_AVX2 -mavx2 -DUSE_AVX512 -mavx512f)
 
 add_subdirectory(Source/nnue)
 
