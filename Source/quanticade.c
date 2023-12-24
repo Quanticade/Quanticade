@@ -3209,25 +3209,29 @@ void search_position(engine_t *engine, int depth) {
 
   // iterative deepening
   for (int current_depth = 1; current_depth <= depth; current_depth++) {
+  repeat:
     // if time is up
-    if (engine->stopped == 1)
+    if (engine->stopped == 1) {
       // stop calculating and return best move so far
       break;
+    }
 
     // enable follow PV flag
     follow_pv = 1;
 
     // find best move within a given position
     score = negamax(engine, alpha, beta, current_depth);
-
-    //printf("Current depth: %d\n", current_depth);
+    if (engine->stopped == 1) {
+      // stop calculating and return best move so far
+      break;
+    }
 
     // we fell outside the window, so try again with a full-width window (and
     // the same depth)
     if ((score <= alpha) || (score >= beta)) {
       alpha = -infinity;
       beta = infinity;
-      continue;
+      goto repeat;
     }
 
     // set up the window for the next iteration
