@@ -2852,7 +2852,7 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
   int hash_flag = hash_flag_alpha;
 
   // if position repetition occurs
-  if ((engine->ply && is_repetition(engine)) || engine->fifty >= 100)
+  if ((is_repetition(engine) || engine->fifty >= 100) && engine->ply)
     // return draw score
     return 0;
 
