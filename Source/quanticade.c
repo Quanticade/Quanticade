@@ -2817,8 +2817,9 @@ static inline int quiescence(engine_t *engine, int alpha, int beta) {
                   engine->board.castle, engine->fifty, engine->board.hash_key);
 
     // reutrn 0 if time is up
-    if (engine->stopped == 1)
+    if (engine->stopped == 1) {
       return 0;
+    }
 
     // found a better move
     if (score > alpha) {
@@ -2963,8 +2964,9 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
                   engine->board.castle, engine->fifty, engine->board.hash_key);
 
     // reutrn 0 if time is up
-    if (engine->stopped == 1)
+    if (engine->stopped == 1) {
       return 0;
+    }
 
     // fail-hard beta cutoff
     if (score >= beta)
@@ -3055,22 +3057,25 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
     legal_moves++;
 
     // full depth search
-    if (moves_searched == 0)
+    if (moves_searched == 0) {
       // do normal alpha beta search
       score = -negamax(engine, -beta, -alpha, depth - 1);
+    }
 
     // late move reduction (LMR)
     else {
       // condition to consider LMR
       if (moves_searched >= full_depth_moves && depth >= reduction_limit &&
           in_check == 0 && get_move_capture(move_list->moves[count]) == 0 &&
-          get_move_promoted(move_list->moves[count]) == 0)
+          get_move_promoted(move_list->moves[count]) == 0) {
         // search current move with reduced depth:
         score = -negamax(engine, -alpha - 1, -alpha, depth - 2);
+      }
 
       // hack to ensure that full-depth search is done
-      else
+      else {
         score = alpha + 1;
+      }
 
       // principle variation search PVS
       if (score > alpha) {
@@ -3087,10 +3092,11 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
            it's a waste of time, but generally not often enough to counteract
            the savings gained from doing the "bad move proof" search referred to
            earlier. */
-        if ((score > alpha) && (score < beta))
+        if ((score > alpha) && (score < beta)) {
           /* re-search the move that has failed to be proved to be bad
              with normal alpha beta score bounds*/
           score = -negamax(engine, -beta, -alpha, depth - 1);
+        }
       }
     }
 
@@ -3106,8 +3112,9 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
                   engine->board.castle, engine->fifty, engine->board.hash_key);
 
     // reutrn 0 if time is up
-    if (engine->stopped == 1)
-      return 0;
+    if (engine->stopped == 1) {
+      return infinity;
+    }
 
     // increment the counter of moves searched so far
     moves_searched++;
@@ -3187,6 +3194,11 @@ void search_position(engine_t *engine, int depth) {
   // define best score variable
   int score = 0;
 
+  int pv_table_copy[max_ply][max_ply];
+  int pv_length_copy[max_ply];
+
+  uint8_t window_ok = 1;
+
   // reset nodes counter
   nodes = 0;
 
@@ -3210,23 +3222,53 @@ void search_position(engine_t *engine, int depth) {
   // iterative deepening
   for (int current_depth = 1; current_depth <= depth; current_depth++) {
     // if time is up
-    if (engine->stopped == 1)
+    if (engine->stopped == 1) {
       // stop calculating and return best move so far
       break;
+    }
 
     // enable follow PV flag
     follow_pv = 1;
 
+    // We should not save PV move from unfinished depth for example if depth 12
+    // finishes and goes to search depth 13 now but this triggers window cutoff
+    // we dont want the info from depth 13 as its incomplete and in case depth
+    // 14 search doesnt finish in time we will at least have an full PV line
+    // from depth 12
+    if (window_ok) {
+      memcpy(pv_table_copy, pv_table, sizeof(pv_table));
+      memcpy(pv_length_copy, pv_length, sizeof(pv_length));
+    }
+
     // find best move within a given position
     score = negamax(engine, alpha, beta, current_depth);
 
-    //printf("Current depth: %d\n", current_depth);
+    // Reset aspiration window OK flag back to 1
+    window_ok = 1;
+
+    // We hit an apspiration window cut-off before time ran out and we jumped to
+    // another depth with wider search which we didnt finish
+    if (score == infinity) {
+      // Restore the saved best line
+      memcpy(pv_table, pv_table_copy, sizeof(pv_table_copy));
+      memcpy(pv_length, pv_length_copy, sizeof(pv_length_copy));
+      // Break out of the loop without printing info about the unfinished depth
+      break;
+    }
 
     // we fell outside the window, so try again with a full-width window (and
     // the same depth)
     if ((score <= alpha) || (score >= beta)) {
-      alpha = -infinity;
-      beta = infinity;
+      //Do a much wider research in case we fail on low depth
+      if (current_depth <= 3) {
+        alpha = score - 1100;
+        beta = score + 1100;
+      } else {
+        alpha = score - 500;
+        beta = score + 500;
+      }
+      window_ok = 0;
+      current_depth--;
       continue;
     }
 
