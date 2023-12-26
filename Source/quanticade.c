@@ -3111,7 +3111,7 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
                   engine->board.side, engine->board.enpassant,
                   engine->board.castle, engine->fifty, engine->board.hash_key);
 
-    // reutrn 0 if time is up
+    // return infinity so we can deal with timeout in case we are doing re-search
     if (engine->stopped == 1) {
       return infinity;
     }
@@ -3196,7 +3196,6 @@ void search_position(engine_t *engine, int depth) {
 
   int pv_table_copy[max_ply][max_ply];
   int pv_length_copy[max_ply];
-  int score_copy = 0;
 
   uint8_t window_ok = 1;
   uint8_t double_fail = 0;
@@ -3240,7 +3239,6 @@ void search_position(engine_t *engine, int depth) {
     if (window_ok) {
       memcpy(pv_table_copy, pv_table, sizeof(pv_table));
       memcpy(pv_length_copy, pv_length, sizeof(pv_length));
-      score_copy = score;
     }
 
     // find best move within a given position
@@ -3253,10 +3251,8 @@ void search_position(engine_t *engine, int depth) {
     // another depth with wider search which we didnt finish
     if (score == infinity) {
       // Restore the saved best line
-      printf("Restore best saved line\n");
       memcpy(pv_table, pv_table_copy, sizeof(pv_table_copy));
       memcpy(pv_length, pv_length_copy, sizeof(pv_length_copy));
-      score = score_copy;
       // Break out of the loop without printing info about the unfinished depth
       break;
     }
