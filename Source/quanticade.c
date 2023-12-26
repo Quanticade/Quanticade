@@ -3199,6 +3199,7 @@ void search_position(engine_t *engine, int depth) {
   int score_copy = 0;
 
   uint8_t window_ok = 1;
+  uint8_t double_fail = 0;
 
   // reset nodes counter
   nodes = 0;
@@ -3252,6 +3253,7 @@ void search_position(engine_t *engine, int depth) {
     // another depth with wider search which we didnt finish
     if (score == infinity) {
       // Restore the saved best line
+      printf("Restore best saved line\n");
       memcpy(pv_table, pv_table_copy, sizeof(pv_table_copy));
       memcpy(pv_length, pv_length_copy, sizeof(pv_length_copy));
       score = score_copy;
@@ -3262,21 +3264,26 @@ void search_position(engine_t *engine, int depth) {
     // we fell outside the window, so try again with a full-width window (and
     // the same depth)
     if ((score <= alpha) || (score >= beta)) {
-      /*
-      // TODO make sure we are able to do a full re-search in case we fail with score -/+ 500 bounds
-      if (current_depth <= 3) {
+      if (current_depth <= 4) {
         alpha = score - 1100;
         beta = score + 1100;
+      } else if (double_fail) {
+        // Do a full window re-search
+        alpha = -infinity;
+        beta = infinity;
       } else {
+        double_fail = 1;
         alpha = score - 500;
         beta = score + 500;
-      }*/
-      alpha = -infinity;
-      beta = infinity;
+      }
+
       window_ok = 0;
       current_depth--;
       continue;
     }
+
+    // Reset the double_fail flag
+    double_fail = 0;
 
     // set up the window for the next iteration
     alpha = score - 50;
