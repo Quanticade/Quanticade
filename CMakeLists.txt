@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(Quanticade VERSION 0.3 LANGUAGES C)
+project(Quanticade VERSION 0.4 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 23)
 set(CMAKE_C_STANDARD_REQUIRED ON)
