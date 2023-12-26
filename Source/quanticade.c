@@ -3359,7 +3359,7 @@ void init_all(engine_t *engine) {
   init_hash_table(128);
 
   if (engine->nnue) {
-    nnue_init("nn-eba324f53044.nnue");
+    nnue_init("nn-62ef826d1a6d.nnue");
   }
 }
 
