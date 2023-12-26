@@ -3253,7 +3253,6 @@ void search_position(engine_t *engine, int depth) {
     // another depth with wider search which we didnt finish
     if (score == infinity) {
       // Restore the saved best line
-      printf("Restore best saved line\n");
       memcpy(pv_table, pv_table_copy, sizeof(pv_table_copy));
       memcpy(pv_length, pv_length_copy, sizeof(pv_length_copy));
       score = score_copy;
