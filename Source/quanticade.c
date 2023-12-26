@@ -3196,6 +3196,7 @@ void search_position(engine_t *engine, int depth) {
 
   int pv_table_copy[max_ply][max_ply];
   int pv_length_copy[max_ply];
+  int score_copy = 0;
 
   uint8_t window_ok = 1;
 
@@ -3238,6 +3239,7 @@ void search_position(engine_t *engine, int depth) {
     if (window_ok) {
       memcpy(pv_table_copy, pv_table, sizeof(pv_table));
       memcpy(pv_length_copy, pv_length, sizeof(pv_length));
+      score_copy = score;
     }
 
     // find best move within a given position
@@ -3252,6 +3254,7 @@ void search_position(engine_t *engine, int depth) {
       // Restore the saved best line
       memcpy(pv_table, pv_table_copy, sizeof(pv_table_copy));
       memcpy(pv_length, pv_length_copy, sizeof(pv_length_copy));
+      score = score_copy;
       // Break out of the loop without printing info about the unfinished depth
       break;
     }
@@ -3259,14 +3262,17 @@ void search_position(engine_t *engine, int depth) {
     // we fell outside the window, so try again with a full-width window (and
     // the same depth)
     if ((score <= alpha) || (score >= beta)) {
-      //Do a much wider research in case we fail on low depth
+      /*
+      // TODO make sure we are able to do a full re-search in case we fail with score -/+ 500 bounds
       if (current_depth <= 3) {
         alpha = score - 1100;
         beta = score + 1100;
       } else {
         alpha = score - 500;
         beta = score + 500;
-      }
+      }*/
+      alpha = -infinity;
+      beta = infinity;
       window_ok = 0;
       current_depth--;
       continue;
