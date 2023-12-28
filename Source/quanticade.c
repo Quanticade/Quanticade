@@ -3318,10 +3318,6 @@ void search_position(engine_t *engine, int depth) {
   printf("bestmove ");
   if (pv_table[0][0]) {
     print_move(pv_table[0][0]);
-    if (pv_length[0] > 1) {
-      printf(" ponder ");
-      print_move(pv_table[0][1]);
-    }
   } else {
     printf("(none)");
   }
