@@ -252,7 +252,7 @@ void uci_loop(engine_t *engine) {
   int max_hash = 1024;
 
   // default MB value
-  int mb = 64;
+  int mb = 128;
 
   // reset STDIN & STDOUT buffers
   setbuf(stdin, NULL);

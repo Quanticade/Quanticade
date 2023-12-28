@@ -3378,17 +3378,11 @@ void init_all(engine_t *engine) {
 
 int main(void) {
   engine_t engine;
+  memset(&engine, 0, sizeof(engine));
   engine.board.enpassant = no_sq;
-  engine.quit = 0;
   engine.movestogo = 30;
   engine.time = -1;
-  engine.inc = 0;
-  engine.starttime = 0;
-  engine.stoptime = 0;
-  engine.timeset = 0;
-  engine.stopped = 0;
   engine.nnue = 1;
-  engine.fifty = 0;
   // init all
   init_all(&engine);
 
