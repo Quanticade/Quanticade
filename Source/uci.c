@@ -254,9 +254,11 @@ void uci_loop(engine_t *engine) {
   // default MB value
   int mb = 128;
 
-  // reset STDIN & STDOUT buffers
+// reset STDIN & STDOUT buffers
+#ifndef WIN64
   setbuf(stdin, NULL);
   setbuf(stdout, NULL);
+#endif
 
   // define user / GUI input buffer
   char input[10000];
