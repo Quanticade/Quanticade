@@ -3268,7 +3268,7 @@ void search_position(engine_t *engine, int depth) {
         alpha = -infinity;
         beta = infinity;
       } else {
-        double_fail = 1;
+        //double_fail = 1;
         alpha = score - 500;
         beta = score + 500;
       }
