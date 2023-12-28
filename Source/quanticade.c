@@ -1925,8 +1925,13 @@ void perft_test(engine_t *engine, int depth) {
 
   // print results
   printf("\n    Depth: %d\n", depth);
-  printf("    Nodes: %ld\n", nodes);
-  printf("     Time: %ld\n\n", get_time_ms() - start);
+#ifdef WIN64
+  printf("    Nodes: %llu\n", nodes);
+  printf("     Time: %llu\n\n", get_time_ms() - start);
+#else
+  printf("    Nodes: %lu\n", nodes);
+  printf("     Time: %lu\n\n", get_time_ms() - start);
+#endif
 }
 
 /**********************************\
@@ -3111,7 +3116,8 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
                   engine->board.side, engine->board.enpassant,
                   engine->board.castle, engine->fifty, engine->board.hash_key);
 
-    // return infinity so we can deal with timeout in case we are doing re-search
+    // return infinity so we can deal with timeout in case we are doing
+    // re-search
     if (engine->stopped == 1) {
       return infinity;
     }
@@ -3268,7 +3274,7 @@ void search_position(engine_t *engine, int depth) {
         alpha = -infinity;
         beta = infinity;
       } else {
-        //double_fail = 1;
+        double_fail = 1;
         alpha = score - 500;
         beta = score + 500;
       }
@@ -3290,17 +3296,35 @@ void search_position(engine_t *engine, int depth) {
       // print search info
       uint64_t time = get_time_ms() - start;
       uint64_t nps = (nodes / fmax(time, 1)) * 100;
-      if (score > -mate_value && score < -mate_score)
-        printf("info depth %d score mate %d nodes %ld nps %ld time %ld pv ",
+      if (score > -mate_value && score < -mate_score) {
+#ifdef WIN64
+        printf("info depth %d score mate %d nodes %llu nps %ld time %llu pv ",
                current_depth, -(score + mate_value) / 2 - 1, nodes, nps, time);
+#else
+        printf("info depth %d score mate %d nodes %lu nps %ld time %lu pv ",
+               current_depth, -(score + mate_value) / 2 - 1, nodes, nps, time);
+#endif
+      }
 
-      else if (score > mate_score && score < mate_value)
-        printf("info depth %d score mate %d nodes %ld nps %ld time %ld pv ",
+      else if (score > mate_score && score < mate_value) {
+#ifdef WIN64
+        printf("info depth %d score mate %d nodes %llu nps %ld time %llu pv ",
                current_depth, (mate_value - score) / 2 + 1, nodes, nps, time);
+#else
+        printf("info depth %d score mate %d nodes %lu nps %ld time %lu pv ",
+               current_depth, (mate_value - score) / 2 + 1, nodes, nps, time);
+#endif
+      }
 
-      else
-        printf("info depth %d score cp %d nodes %ld nps %ld time %ld pv ",
+      else {
+#ifdef WIN64
+        printf("info depth %d score cp %d nodes %llu nps %ld time %llu pv ",
                current_depth, score, nodes, nps, time);
+#else
+        printf("info depth %d score cp %d nodes %lu nps %ld time %lu pv ",
+               current_depth, score, nodes, nps, time);
+#endif
+      }
 
       // loop over the moves within a PV line
       for (int count = 0; count < pv_length[0]; count++) {
