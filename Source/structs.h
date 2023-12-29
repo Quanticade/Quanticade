@@ -1,7 +1,6 @@
 #ifndef STRUCTS_H
 #define STRUCTS_H
 
-#include "macros.h"
 #include <stdint.h>
 
 typedef struct tt {
@@ -73,10 +72,10 @@ typedef struct engine {
   uint8_t nnue;
   uint32_t fifty;
   uint64_t nodes;
-  int killer_moves[2][max_ply];
+  int killer_moves[2][64];
   int history_moves[12][64];
-  int pv_length[max_ply];
-  int pv_table[max_ply][max_ply];
+  int pv_length[64];
+  int pv_table[64][64];
   int follow_pv;
   int score_pv;
   int hash_entries;
