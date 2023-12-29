@@ -296,7 +296,7 @@ void uci_loop(engine_t *engine) {
       parse_position(engine, input);
 
       // clear hash table
-      clear_hash_table();
+      clear_hash_table(engine);
     }
     // parse UCI "ucinewgame" command
     else if (strncmp(input, "ucinewgame", 10) == 0) {
@@ -304,7 +304,7 @@ void uci_loop(engine_t *engine) {
       parse_position(engine, "position startpos");
 
       // clear hash table
-      clear_hash_table();
+      clear_hash_table(engine);
     }
     // parse UCI "go" command
     else if (strncmp(input, "go", 2) == 0)
@@ -337,7 +337,7 @@ void uci_loop(engine_t *engine) {
 
       // set hash table size in MB
       printf("    Set hash table size to %dMB\n", mb);
-      init_hash_table(mb);
+      init_hash_table(engine, mb);
     }
   }
 }

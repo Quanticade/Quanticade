@@ -78,9 +78,6 @@ enum { P, N, B, R, Q, K, p, n, b, r, q, k };
 // sides to move (colors)
 enum { white, black, both };
 
-// bishop and rook
-enum { rook, bishop };
-
 enum { wk = 1, wq = 2, bk = 4, bq = 8 };
 
 // game phases

@@ -1,6 +1,7 @@
 #ifndef STRUCTS_H
 #define STRUCTS_H
 
+#include "macros.h"
 #include <stdint.h>
 
 typedef struct tt {
@@ -52,12 +53,14 @@ typedef struct board {
 } board_t;
 
 typedef struct engine {
-  board_t board;
-  masks_t masks;
   attacks_t attacks;
+  board_t board;
+  tt *hash_table;
   keys_t keys;
+  masks_t masks;
   uint64_t repetition_table[1000];
   uint32_t repetition_index;
+  uint32_t random_state;
   uint32_t ply;
   uint8_t quit;
   uint16_t movestogo;
@@ -70,6 +73,13 @@ typedef struct engine {
   uint8_t nnue;
   uint32_t fifty;
   uint64_t nodes;
+  int killer_moves[2][max_ply];
+  int history_moves[12][64];
+  int pv_length[max_ply];
+  int pv_table[max_ply][max_ply];
+  int follow_pv;
+  int score_pv;
+  int hash_entries;
 } engine_t;
 
 #endif

@@ -20,27 +20,6 @@
 #include "uci.h"
 #include "utils.h"
 
-// killer moves [id][ply]
-int killer_moves[2][max_ply];
-
-// history moves [piece][square]
-int history_moves[12][64];
-
-// PV length [ply]
-int pv_length[max_ply];
-
-// PV table [ply][ply]
-int pv_table[max_ply][max_ply];
-
-// follow PV & score PV move
-int follow_pv, score_pv;
-
-// number hash table entries
-int hash_entries = 0;
-
-// define TT instance
-tt *hash_table = NULL;
-
 // a bridge function to interact between search and GUI input
 void communicate(engine_t *engine) {
   // if time is up break here
@@ -61,13 +40,10 @@ void communicate(engine_t *engine) {
  ==================================
 \**********************************/
 
-// pseudo random number state
-uint32_t random_state = 1804289383;
-
 // generate 32-bit pseudo legal numbers
-uint32_t get_random_U32_number() {
+uint32_t get_random_U32_number(engine_t *engine) {
   // get current state
-  uint32_t number = random_state;
+  uint32_t number = engine->random_state;
 
   // XOR shift algorithm
   number ^= number << 13;
@@ -75,31 +51,31 @@ uint32_t get_random_U32_number() {
   number ^= number << 5;
 
   // update random number state
-  random_state = number;
+  engine->random_state = number;
 
   // return random number
   return number;
 }
 
 // generate 64-bit pseudo legal numbers
-uint64_t get_random_uint64_number() {
+uint64_t get_random_uint64_number(engine_t *engine) {
   // define 4 random numbers
   uint64_t n1, n2, n3, n4;
 
   // init random numbers slicing 16 bits from MS1B side
-  n1 = (uint64_t)(get_random_U32_number()) & 0xFFFF;
-  n2 = (uint64_t)(get_random_U32_number()) & 0xFFFF;
-  n3 = (uint64_t)(get_random_U32_number()) & 0xFFFF;
-  n4 = (uint64_t)(get_random_U32_number()) & 0xFFFF;
+  n1 = (uint64_t)(get_random_U32_number(engine)) & 0xFFFF;
+  n2 = (uint64_t)(get_random_U32_number(engine)) & 0xFFFF;
+  n3 = (uint64_t)(get_random_U32_number(engine)) & 0xFFFF;
+  n4 = (uint64_t)(get_random_U32_number(engine)) & 0xFFFF;
 
   // return random number
   return n1 | (n2 << 16) | (n3 << 32) | (n4 << 48);
 }
 
 // generate magic number candidate
-uint64_t generate_magic_number() {
-  return get_random_uint64_number() & get_random_uint64_number() &
-         get_random_uint64_number();
+uint64_t generate_magic_number(engine_t *engine) {
+  return get_random_uint64_number(engine) & get_random_uint64_number(engine) &
+         get_random_uint64_number(engine);
 }
 
 /**********************************\
@@ -153,28 +129,28 @@ static inline uint8_t get_ls1b_index(uint64_t bitboard) {
 // init random hash keys
 void init_random_keys(engine_t *engine) {
   // update pseudo random number state
-  random_state = 1804289383;
+  engine->random_state = 1804289383;
 
   // loop over piece codes
   for (int piece = P; piece <= k; piece++) {
     // loop over board squares
     for (int square = 0; square < 64; square++)
       // init random piece keys
-      engine->keys.piece_keys[piece][square] = get_random_uint64_number();
+      engine->keys.piece_keys[piece][square] = get_random_uint64_number(engine);
   }
 
   // loop over board squares
   for (int square = 0; square < 64; square++)
     // init random enpassant keys
-    engine->keys.enpassant_keys[square] = get_random_uint64_number();
+    engine->keys.enpassant_keys[square] = get_random_uint64_number(engine);
 
   // loop over castling keys
   for (int index = 0; index < 16; index++)
     // init castling keys
-    engine->keys.castle_keys[index] = get_random_uint64_number();
+    engine->keys.castle_keys[index] = get_random_uint64_number(engine);
 
   // init random side key
-  engine->keys.side_key = get_random_uint64_number();
+  engine->keys.side_key = get_random_uint64_number(engine);
 }
 
 // generate "almost" unique position ID aka hash key from scratch
@@ -388,7 +364,7 @@ void parse_fen(engine_t *engine, char *fen) {
 
  ==================================
 \**********************************/
-
+// TODO Move the global variables to struct
 // rook magic numbers
 uint64_t rook_magic_numbers[64] = {
     0x8a80104000800020ULL, 0x140002000100040ULL,  0x2801880a0017001ULL,
@@ -709,98 +685,6 @@ uint64_t set_occupancy(int index, int bits_in_mask, uint64_t attack_mask) {
 
   // return occupancy map
   return occupancy;
-}
-
-/**********************************\
- ==================================
-
-               Magics
-
- ==================================
-\**********************************/
-
-// find appropriate magic number
-uint64_t find_magic_number(int square, int relevant_bits, int bishop) {
-  // init occupancies
-  uint64_t occupancies[4096];
-
-  // init attack tables
-  uint64_t attacks[4096];
-
-  // init used attacks
-  uint64_t used_attacks[4096];
-
-  // init attack mask for a current piece
-  uint64_t attack_mask =
-      bishop ? mask_bishop_attacks(square) : mask_rook_attacks(square);
-
-  // init occupancy indicies
-  int occupancy_indicies = 1 << relevant_bits;
-
-  // loop over occupancy indicies
-  for (int index = 0; index < occupancy_indicies; index++) {
-    // init occupancies
-    occupancies[index] = set_occupancy(index, relevant_bits, attack_mask);
-
-    // init attacks
-    attacks[index] = bishop
-                         ? bishop_attacks_on_the_fly(square, occupancies[index])
-                         : rook_attacks_on_the_fly(square, occupancies[index]);
-  }
-
-  // test magic numbers loop
-  for (int random_count = 0; random_count < 100000000; random_count++) {
-    // generate magic number candidate
-    uint64_t magic_number = generate_magic_number();
-
-    // skip inappropriate magic numbers
-    if (count_bits((attack_mask * magic_number) & 0xFF00000000000000) < 6)
-      continue;
-
-    // init used attacks
-    memset(used_attacks, 0ULL, sizeof(used_attacks));
-
-    // init index & fail flag
-    int index, fail;
-
-    // test magic index loop
-    for (index = 0, fail = 0; !fail && index < occupancy_indicies; index++) {
-      // init magic index
-      int magic_index =
-          (int)((occupancies[index] * magic_number) >> (64 - relevant_bits));
-
-      // if magic index works
-      if (used_attacks[magic_index] == 0ULL)
-        // init used attacks
-        used_attacks[magic_index] = attacks[index];
-
-      // otherwise
-      else if (used_attacks[magic_index] != attacks[index])
-        // magic index doesn't work
-        fail = 1;
-    }
-
-    // if magic number works
-    if (!fail)
-      // return it
-      return magic_number;
-  }
-
-  // if magic number doesn't work
-  printf("  Magic number fails!\n");
-  return 0ULL;
-}
-
-// init magic numbers
-void init_magic_numbers() {
-  // loop over 64 board squares
-  for (int square = 0; square < 64; square++) {
-    // init rook and bishop magic numbers
-    rook_magic_numbers[square] =
-        find_magic_number(square, rook_relevant_bits[square], rook);
-    bishop_magic_numbers[square] =
-        find_magic_number(square, bishop_relevant_bits[square], bishop);
-  }
 }
 
 // init slider piece's attack tables
@@ -2449,53 +2333,42 @@ int evaluate(engine_t *engine) {
 \**********************************/
 
 // clear TT (hash table)
-void clear_hash_table() {
-  // init hash table entry pointer
-  tt *hash_entry;
-
-  // loop over TT elements
-  for (hash_entry = hash_table; hash_entry < hash_table + hash_entries;
-       hash_entry++) {
-    // reset TT inner fields
-    hash_entry->hash_key = 0;
-    hash_entry->depth = 0;
-    hash_entry->flag = 0;
-    hash_entry->score = 0;
-  }
+void clear_hash_table(engine_t *engine) {
+  memset(engine->hash_table, 0, sizeof(tt) * engine->hash_entries);
 }
 
 // dynamically allocate memory for hash table
-void init_hash_table(int mb) {
+void init_hash_table(engine_t *engine, int mb) {
   // init hash size
   int hash_size = 0x100000 * mb;
 
   // init number of hash entries
-  hash_entries = hash_size / sizeof(tt);
+  engine->hash_entries = hash_size / sizeof(tt);
 
   // free hash table if not empty
-  if (hash_table != NULL) {
+  if (engine->hash_table != NULL) {
     printf("    Clearing hash memory...\n");
 
     // free hash table dynamic memory
-    free(hash_table);
+    free(engine->hash_table);
   }
 
   // allocate memory
-  hash_table = (tt *)malloc(hash_entries * sizeof(tt));
+  engine->hash_table = (tt *)malloc(engine->hash_entries * sizeof(tt));
 
   // if allocation has failed
-  if (hash_table == NULL) {
+  if (engine->hash_table == NULL) {
     printf("    Couldn't allocate memory for hash table, trying %dMB...",
            mb / 2);
 
     // try to allocate with half size
-    init_hash_table(mb / 2);
+    init_hash_table(engine, mb / 2);
   }
 
   // if allocation succeeded
   else {
     // clear hash table
-    clear_hash_table();
+    clear_hash_table(engine);
   }
 }
 
@@ -2504,7 +2377,7 @@ static inline int read_hash_entry(engine_t *engine, int alpha, int *move,
                                   int beta, int depth) {
   // create a TT instance pointer to particular hash entry storing
   // the scoring data for the current board position if available
-  tt *hash_entry = &hash_table[engine->board.hash_key % hash_entries];
+  tt *hash_entry = &engine->hash_table[engine->board.hash_key % engine->hash_entries];
 
   // make sure we're dealing with the exact position we need
   if (hash_entry->hash_key == engine->board.hash_key) {
@@ -2547,7 +2420,7 @@ static inline void write_hash_entry(engine_t *engine, int score, int depth,
                                     int move, int hash_flag) {
   // create a TT instance pointer to particular hash entry storing
   // the scoring data for the current board position if available
-  tt *hash_entry = &hash_table[engine->board.hash_key % hash_entries];
+  tt *hash_entry = &engine->hash_table[engine->board.hash_key % engine->hash_entries];
 
   // store score independent from the actual path
   // from root node (position) to current node (position)
@@ -2567,17 +2440,17 @@ static inline void write_hash_entry(engine_t *engine, int score, int depth,
 // enable PV move scoring
 static inline void enable_pv_scoring(engine_t *engine, moves *move_list) {
   // disable following PV
-  follow_pv = 0;
+  engine->follow_pv = 0;
 
   // loop over the moves within a move list
   for (uint32_t count = 0; count < move_list->count; count++) {
     // make sure we hit PV move
-    if (pv_table[0][engine->ply] == move_list->moves[count]) {
+    if (engine->pv_table[0][engine->ply] == move_list->moves[count]) {
       // enable move scoring
-      score_pv = 1;
+      engine->score_pv = 1;
 
       // enable following PV
-      follow_pv = 1;
+      engine->follow_pv = 1;
     }
   }
 }
@@ -2597,11 +2470,11 @@ static inline void enable_pv_scoring(engine_t *engine, moves *move_list) {
 // score moves
 static inline int score_move(engine_t *engine, int move) {
   // if PV move scoring is allowed
-  if (score_pv) {
+  if (engine->score_pv) {
     // make sure we are dealing with PV move
-    if (pv_table[0][engine->ply] == move) {
+    if (engine->pv_table[0][engine->ply] == move) {
       // disable score PV flag
-      score_pv = 0;
+      engine->score_pv = 0;
 
       // give PV move the highest score to search it first
       return 20000;
@@ -2642,16 +2515,16 @@ static inline int score_move(engine_t *engine, int move) {
   // score quiet move
   else {
     // score 1st killer move
-    if (killer_moves[0][engine->ply] == move)
+    if (engine->killer_moves[0][engine->ply] == move)
       return 9000;
 
     // score 2nd killer move
-    else if (killer_moves[1][engine->ply] == move)
+    else if (engine->killer_moves[1][engine->ply] == move)
       return 8000;
 
     // score history move
     else
-      return history_moves[get_move_piece(move)][get_move_target(move)];
+      return engine->history_moves[get_move_piece(move)][get_move_target(move)];
   }
 
   return 0;
@@ -2823,7 +2696,7 @@ static inline int quiescence(engine_t *engine, int alpha, int beta) {
 // negamax alpha beta search
 int negamax(engine_t *engine, int alpha, int beta, int depth) {
   // init PV length
-  pv_length[engine->ply] = engine->ply;
+  engine->pv_length[engine->ply] = engine->ply;
 
   // variable to store current move's score (from the static evaluation
   // perspective)
@@ -2999,7 +2872,7 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
   generate_moves(engine, move_list);
 
   // if we are now following PV line
-  if (follow_pv)
+  if (engine->follow_pv)
     // enable PV move scoring
     enable_pv_scoring(engine, move_list);
 
@@ -3113,23 +2986,23 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
       // on quiet moves
       if (get_move_capture(move_list->moves[count]) == 0)
         // store history moves
-        history_moves[get_move_piece(move_list->moves[count])]
+        engine->history_moves[get_move_piece(move_list->moves[count])]
                      [get_move_target(move_list->moves[count])] += depth;
 
       // PV node (position)
       alpha = score;
 
       // write PV move
-      pv_table[engine->ply][engine->ply] = move_list->moves[count];
+      engine->pv_table[engine->ply][engine->ply] = move_list->moves[count];
 
       // loop over the next ply
       for (int next_ply = engine->ply + 1;
-           next_ply < pv_length[engine->ply + 1]; next_ply++)
+           next_ply < engine->pv_length[engine->ply + 1]; next_ply++)
         // copy move from deeper ply into a current ply's line
-        pv_table[engine->ply][next_ply] = pv_table[engine->ply + 1][next_ply];
+        engine->pv_table[engine->ply][next_ply] = engine->pv_table[engine->ply + 1][next_ply];
 
       // adjust PV length
-      pv_length[engine->ply] = pv_length[engine->ply + 1];
+      engine->pv_length[engine->ply] = engine->pv_length[engine->ply + 1];
 
       // fail-hard beta cutoff
       if (score >= beta) {
@@ -3139,8 +3012,8 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
         // on quiet moves
         if (get_move_capture(move_list->moves[count]) == 0) {
           // store killer moves
-          killer_moves[1][engine->ply] = killer_moves[0][engine->ply];
-          killer_moves[0][engine->ply] = move_list->moves[count];
+          engine->killer_moves[1][engine->ply] = engine->killer_moves[0][engine->ply];
+          engine->killer_moves[0][engine->ply] = move_list->moves[count];
         }
 
         // node (position) fails high
@@ -3190,14 +3063,14 @@ void search_position(engine_t *engine, int depth) {
   engine->stopped = 0;
 
   // reset follow PV flags
-  follow_pv = 0;
-  score_pv = 0;
+  engine->follow_pv = 0;
+  engine->score_pv = 0;
 
   // clear helper data structures for search
-  memset(killer_moves, 0, sizeof(killer_moves));
-  memset(history_moves, 0, sizeof(history_moves));
-  memset(pv_table, 0, sizeof(pv_table));
-  memset(pv_length, 0, sizeof(pv_length));
+  memset(engine->killer_moves, 0, sizeof(engine->killer_moves));
+  memset(engine->history_moves, 0, sizeof(engine->history_moves));
+  memset(engine->pv_table, 0, sizeof(engine->pv_table));
+  memset(engine->pv_length, 0, sizeof(engine->pv_length));
 
   // define initial alpha beta bounds
   int alpha = -infinity;
@@ -3212,7 +3085,7 @@ void search_position(engine_t *engine, int depth) {
     }
 
     // enable follow PV flag
-    follow_pv = 1;
+    engine->follow_pv = 1;
 
     // We should not save PV move from unfinished depth for example if depth 12
     // finishes and goes to search depth 13 now but this triggers window cutoff
@@ -3220,8 +3093,8 @@ void search_position(engine_t *engine, int depth) {
     // 14 search doesnt finish in time we will at least have an full PV line
     // from depth 12
     if (window_ok) {
-      memcpy(pv_table_copy, pv_table, sizeof(pv_table));
-      memcpy(pv_length_copy, pv_length, sizeof(pv_length));
+      memcpy(pv_table_copy, engine->pv_table, sizeof(engine->pv_table));
+      memcpy(pv_length_copy, engine->pv_length, sizeof(engine->pv_length));
     }
 
     // find best move within a given position
@@ -3234,8 +3107,8 @@ void search_position(engine_t *engine, int depth) {
     // another depth with wider search which we didnt finish
     if (score == infinity) {
       // Restore the saved best line
-      memcpy(pv_table, pv_table_copy, sizeof(pv_table_copy));
-      memcpy(pv_length, pv_length_copy, sizeof(pv_length_copy));
+      memcpy(engine->pv_table, pv_table_copy, sizeof(pv_table_copy));
+      memcpy(engine->pv_length, pv_length_copy, sizeof(pv_length_copy));
       // Break out of the loop without printing info about the unfinished depth
       break;
     }
@@ -3269,7 +3142,7 @@ void search_position(engine_t *engine, int depth) {
     beta = score + 50;
 
     // if PV is available
-    if (pv_length[0]) {
+    if (engine->pv_length[0]) {
       // print search info
       uint64_t time = get_time_ms() - start;
       uint64_t nps = (engine->nodes / fmax(time, 1)) * 100;
@@ -3304,9 +3177,9 @@ void search_position(engine_t *engine, int depth) {
       }
 
       // loop over the moves within a PV line
-      for (int count = 0; count < pv_length[0]; count++) {
+      for (int count = 0; count < engine->pv_length[0]; count++) {
         // print PV move
-        print_move(pv_table[0][count]);
+        print_move(engine->pv_table[0][count]);
         printf(" ");
       }
 
@@ -3317,8 +3190,8 @@ void search_position(engine_t *engine, int depth) {
 
   // print best move
   printf("bestmove ");
-  if (pv_table[0][0]) {
-    print_move(pv_table[0][0]);
+  if (engine->pv_table[0][0]) {
+    print_move(engine->pv_table[0][0]);
   } else {
     printf("(none)");
   }
@@ -3352,8 +3225,8 @@ void init_all(engine_t *engine) {
   init_leapers_attacks(engine);
 
   // init slider pieces attacks
-  init_sliders_attacks(engine, bishop);
-  init_sliders_attacks(engine, rook);
+  init_sliders_attacks(engine, 1);
+  init_sliders_attacks(engine, 0);
 
   // init random keys for hashing purposes
   init_random_keys(engine);
@@ -3362,7 +3235,7 @@ void init_all(engine_t *engine) {
   init_evaluation_masks(engine);
 
   // init hash table with default 64 MB
-  init_hash_table(128);
+  init_hash_table(engine, 128);
 
   if (engine->nnue) {
     nnue_init("nn-eba324f53044.nnue");
@@ -3384,6 +3257,8 @@ int main(void) {
   engine.movestogo = 30;
   engine.time = -1;
   engine.nnue = 1;
+  engine.random_state = 1804289383;
+  engine.hash_table = NULL;
   // init all
   init_all(&engine);
 
@@ -3391,7 +3266,7 @@ int main(void) {
   uci_loop(&engine);
 
   // free hash table memory on exit
-  free(hash_table);
+  free(engine.hash_table);
 
   return 0;
 }
