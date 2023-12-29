@@ -20,22 +20,6 @@
 #include "uci.h"
 #include "utils.h"
 
-// random piece keys [piece][square]
-uint64_t piece_keys[12][64];
-
-// random enpassant keys [square]
-uint64_t enpassant_keys[64];
-
-// random castling keys
-uint64_t castle_keys[16];
-
-// random side key
-uint64_t side_key;
-
-// leaf nodes (number of positions reached during the test of the move generator
-// at a given depth)
-uint64_t nodes;
-
 // killer moves [id][ply]
 int killer_moves[2][max_ply];
 
@@ -167,7 +151,7 @@ static inline uint8_t get_ls1b_index(uint64_t bitboard) {
 \**********************************/
 
 // init random hash keys
-void init_random_keys() {
+void init_random_keys(engine_t *engine) {
   // update pseudo random number state
   random_state = 1804289383;
 
@@ -176,21 +160,21 @@ void init_random_keys() {
     // loop over board squares
     for (int square = 0; square < 64; square++)
       // init random piece keys
-      piece_keys[piece][square] = get_random_uint64_number();
+      engine->keys.piece_keys[piece][square] = get_random_uint64_number();
   }
 
   // loop over board squares
   for (int square = 0; square < 64; square++)
     // init random enpassant keys
-    enpassant_keys[square] = get_random_uint64_number();
+    engine->keys.enpassant_keys[square] = get_random_uint64_number();
 
   // loop over castling keys
   for (int index = 0; index < 16; index++)
     // init castling keys
-    castle_keys[index] = get_random_uint64_number();
+    engine->keys.castle_keys[index] = get_random_uint64_number();
 
   // init random side key
-  side_key = get_random_uint64_number();
+  engine->keys.side_key = get_random_uint64_number();
 }
 
 // generate "almost" unique position ID aka hash key from scratch
@@ -212,7 +196,7 @@ uint64_t generate_hash_key(engine_t *engine) {
       int square = get_ls1b_index(bitboard);
 
       // hash piece
-      final_key ^= piece_keys[piece][square];
+      final_key ^= engine->keys.piece_keys[piece][square];
 
       // pop LS1B
       pop_bit(bitboard, square);
@@ -222,14 +206,14 @@ uint64_t generate_hash_key(engine_t *engine) {
   // if enpassant square is on board
   if (engine->board.enpassant != no_sq)
     // hash enpassant
-    final_key ^= enpassant_keys[engine->board.enpassant];
+    final_key ^= engine->keys.enpassant_keys[engine->board.enpassant];
 
   // hash castling rights
-  final_key ^= castle_keys[engine->board.castle];
+  final_key ^= engine->keys.castle_keys[engine->board.castle];
 
   // hash the side only if black is to move
   if (engine->board.side == black)
-    final_key ^= side_key;
+    final_key ^= engine->keys.side_key;
 
   // return generated hash key
   return final_key;
@@ -1080,10 +1064,10 @@ int make_move(engine_t *engine, int move, int move_flag) {
 
     // hash piece
     engine->board.hash_key ^=
-        piece_keys[piece][source_square]; // remove piece from source
+        engine->keys.piece_keys[piece][source_square]; // remove piece from source
                                           // square in hash key
     engine->board.hash_key ^=
-        piece_keys[piece]
+        engine->keys.piece_keys[piece]
                   [target_square]; // set piece to the target square in hash key
 
     // increment fifty move rule counter
@@ -1122,7 +1106,7 @@ int make_move(engine_t *engine, int move, int move_flag) {
           pop_bit(engine->board.bitboards[bb_piece], target_square);
 
           // remove the piece from hash key
-          engine->board.hash_key ^= piece_keys[bb_piece][target_square];
+          engine->board.hash_key ^= engine->keys.piece_keys[bb_piece][target_square];
           break;
         }
       }
@@ -1136,7 +1120,7 @@ int make_move(engine_t *engine, int move, int move_flag) {
         pop_bit(engine->board.bitboards[P], target_square);
 
         // remove pawn from hash key
-        engine->board.hash_key ^= piece_keys[P][target_square];
+        engine->board.hash_key ^= engine->keys.piece_keys[P][target_square];
       }
 
       // black to move
@@ -1145,14 +1129,14 @@ int make_move(engine_t *engine, int move, int move_flag) {
         pop_bit(engine->board.bitboards[p], target_square);
 
         // remove pawn from hash key
-        engine->board.hash_key ^= piece_keys[p][target_square];
+        engine->board.hash_key ^= engine->keys.piece_keys[p][target_square];
       }
 
       // set up promoted piece on chess board
       set_bit(engine->board.bitboards[promoted_piece], target_square);
 
       // add promoted piece into the hash key
-      engine->board.hash_key ^= piece_keys[promoted_piece][target_square];
+      engine->board.hash_key ^= engine->keys.piece_keys[promoted_piece][target_square];
     }
 
     // handle enpassant captures
@@ -1168,7 +1152,7 @@ int make_move(engine_t *engine, int move, int move_flag) {
         pop_bit(engine->board.bitboards[p], target_square + 8);
 
         // remove pawn from hash key
-        engine->board.hash_key ^= piece_keys[p][target_square + 8];
+        engine->board.hash_key ^= engine->keys.piece_keys[p][target_square + 8];
       }
 
       // black to move
@@ -1177,13 +1161,13 @@ int make_move(engine_t *engine, int move, int move_flag) {
         pop_bit(engine->board.bitboards[P], target_square - 8);
 
         // remove pawn from hash key
-        engine->board.hash_key ^= piece_keys[P][target_square - 8];
+        engine->board.hash_key ^= engine->keys.piece_keys[P][target_square - 8];
       }
     }
 
     // hash enpassant if available (remove enpassant square from hash key )
     if (engine->board.enpassant != no_sq)
-      engine->board.hash_key ^= enpassant_keys[engine->board.enpassant];
+      engine->board.hash_key ^= engine->keys.enpassant_keys[engine->board.enpassant];
 
     // reset enpassant square
     engine->board.enpassant = no_sq;
@@ -1196,7 +1180,7 @@ int make_move(engine_t *engine, int move, int move_flag) {
         engine->board.enpassant = target_square + 8;
 
         // hash enpassant
-        engine->board.hash_key ^= enpassant_keys[target_square + 8];
+        engine->board.hash_key ^= engine->keys.enpassant_keys[target_square + 8];
       }
 
       // black to move
@@ -1205,7 +1189,7 @@ int make_move(engine_t *engine, int move, int move_flag) {
         engine->board.enpassant = target_square - 8;
 
         // hash enpassant
-        engine->board.hash_key ^= enpassant_keys[target_square - 8];
+        engine->board.hash_key ^= engine->keys.enpassant_keys[target_square - 8];
       }
     }
 
@@ -1221,9 +1205,9 @@ int make_move(engine_t *engine, int move, int move_flag) {
 
         // hash rook
         engine->board.hash_key ^=
-            piece_keys[R][h1]; // remove rook from h1 from hash key
+            engine->keys.piece_keys[R][h1]; // remove rook from h1 from hash key
         engine->board.hash_key ^=
-            piece_keys[R][f1]; // put rook on f1 into a hash key
+            engine->keys.piece_keys[R][f1]; // put rook on f1 into a hash key
         break;
 
       // white castles queen side
@@ -1234,9 +1218,9 @@ int make_move(engine_t *engine, int move, int move_flag) {
 
         // hash rook
         engine->board.hash_key ^=
-            piece_keys[R][a1]; // remove rook from a1 from hash key
+            engine->keys.piece_keys[R][a1]; // remove rook from a1 from hash key
         engine->board.hash_key ^=
-            piece_keys[R][d1]; // put rook on d1 into a hash key
+            engine->keys.piece_keys[R][d1]; // put rook on d1 into a hash key
         break;
 
       // black castles king side
@@ -1247,9 +1231,9 @@ int make_move(engine_t *engine, int move, int move_flag) {
 
         // hash rook
         engine->board.hash_key ^=
-            piece_keys[r][h8]; // remove rook from h8 from hash key
+            engine->keys.piece_keys[r][h8]; // remove rook from h8 from hash key
         engine->board.hash_key ^=
-            piece_keys[r][f8]; // put rook on f8 into a hash key
+            engine->keys.piece_keys[r][f8]; // put rook on f8 into a hash key
         break;
 
       // black castles queen side
@@ -1260,22 +1244,22 @@ int make_move(engine_t *engine, int move, int move_flag) {
 
         // hash rook
         engine->board.hash_key ^=
-            piece_keys[r][a8]; // remove rook from a8 from hash key
+            engine->keys.piece_keys[r][a8]; // remove rook from a8 from hash key
         engine->board.hash_key ^=
-            piece_keys[r][d8]; // put rook on d8 into a hash key
+            engine->keys.piece_keys[r][d8]; // put rook on d8 into a hash key
         break;
       }
     }
 
     // hash castling
-    engine->board.hash_key ^= castle_keys[engine->board.castle];
+    engine->board.hash_key ^= engine->keys.castle_keys[engine->board.castle];
 
     // update castling rights
     engine->board.castle &= castling_rights[source_square];
     engine->board.castle &= castling_rights[target_square];
 
     // hash castling
-    engine->board.hash_key ^= castle_keys[engine->board.castle];
+    engine->board.hash_key ^= engine->keys.castle_keys[engine->board.castle];
 
     // reset occupancies
     memset(engine->board.occupancies, 0ULL, 24);
@@ -1298,7 +1282,7 @@ int make_move(engine_t *engine, int move, int move_flag) {
     engine->board.side ^= 1;
 
     // hash side
-    engine->board.hash_key ^= side_key;
+    engine->board.hash_key ^= engine->keys.side_key;
 
     // make sure that king has not been exposed into a check
     if (is_square_attacked(engine,
@@ -1812,7 +1796,7 @@ static inline void perft_driver(engine_t *engine, int depth) {
   // reccursion escape condition
   if (depth == 0) {
     // increment nodes count (count reached positions)
-    nodes++;
+    engine->nodes++;
     return;
   }
 
@@ -1870,13 +1854,13 @@ void perft_test(engine_t *engine, int depth) {
       continue;
 
     // cummulative nodes
-    long cummulative_nodes = nodes;
+    long cummulative_nodes = engine->nodes;
 
     // call perft driver recursively
     perft_driver(engine, depth - 1);
 
     // old nodes
-    long old_nodes = nodes - cummulative_nodes;
+    long old_nodes = engine->nodes - cummulative_nodes;
 
     // take back
     restore_board(engine->board.bitboards, engine->board.occupancies,
@@ -1897,10 +1881,10 @@ void perft_test(engine_t *engine, int depth) {
   // print results
   printf("\n    Depth: %d\n", depth);
 #ifdef WIN64
-  printf("    Nodes: %llu\n", nodes);
+  printf("    Nodes: %llu\n", engine->nodes);
   printf("     Time: %llu\n\n", get_time_ms() - start);
 #else
-  printf("    Nodes: %lu\n", nodes);
+  printf("    Nodes: %lu\n", engine->nodes);
   printf("     Time: %lu\n\n", get_time_ms() - start);
 #endif
 }
@@ -2740,7 +2724,7 @@ static inline int is_repetition(engine_t *engine) {
 // quiescence search
 static inline int quiescence(engine_t *engine, int alpha, int beta) {
   // every 2047 nodes
-  if ((nodes & 2047) == 0)
+  if ((engine->nodes & 2047) == 0)
     // "listen" to the GUI/user input
     communicate(engine);
 
@@ -2870,7 +2854,7 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
     return score;
 
   // every 2047 nodes
-  if ((nodes & 2047) == 0)
+  if ((engine->nodes & 2047) == 0)
     // "listen" to the GUI/user input
     communicate(engine);
 
@@ -2887,7 +2871,7 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
     return evaluate(engine);
 
   // increment nodes count
-  nodes++;
+  engine->nodes++;
 
   // is king in check
   int in_check =
@@ -2935,7 +2919,7 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
 
     // hash enpassant if available
     if (engine->board.enpassant != no_sq)
-      engine->board.hash_key ^= enpassant_keys[engine->board.enpassant];
+      engine->board.hash_key ^= engine->keys.enpassant_keys[engine->board.enpassant];
 
     // reset enpassant capture square
     engine->board.enpassant = no_sq;
@@ -2944,7 +2928,7 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
     engine->board.side ^= 1;
 
     // hash the side
-    engine->board.hash_key ^= side_key;
+    engine->board.hash_key ^= engine->keys.side_key;
 
     /* search moves with reduced depth to find beta cutoffs
        depth - 1 - R where R is a reduction limit */
@@ -3081,7 +3065,7 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
            the rest of the moves are searched with the goal of proving that they
            are all bad. It's possible to do this a bit faster than a search that
            worries that one of the remaining moves might be good. */
-        nodes++;
+        engine->nodes++;
         score = -negamax(engine, -alpha - 1, -alpha, depth - 1);
 
         /* If the algorithm finds out that it was wrong, and that one of the
@@ -3200,7 +3184,7 @@ void search_position(engine_t *engine, int depth) {
   uint8_t double_fail = 0;
 
   // reset nodes counter
-  nodes = 0;
+  engine->nodes = 0;
 
   // reset "time is up" flag
   engine->stopped = 0;
@@ -3288,34 +3272,34 @@ void search_position(engine_t *engine, int depth) {
     if (pv_length[0]) {
       // print search info
       uint64_t time = get_time_ms() - start;
-      uint64_t nps = (nodes / fmax(time, 1)) * 100;
+      uint64_t nps = (engine->nodes / fmax(time, 1)) * 100;
       if (score > -mate_value && score < -mate_score) {
 #ifdef WIN64
         printf("info depth %d score mate %d nodes %llu nps %llu time %llu pv ",
-               current_depth, -(score + mate_value) / 2 - 1, nodes, nps, time);
+               current_depth, -(score + mate_value) / 2 - 1, engine->nodes, nps, time);
 #else
         printf("info depth %d score mate %d nodes %lu nps %ld time %lu pv ",
-               current_depth, -(score + mate_value) / 2 - 1, nodes, nps, time);
+               current_depth, -(score + mate_value) / 2 - 1, engine->nodes, nps, time);
 #endif
       }
 
       else if (score > mate_score && score < mate_value) {
 #ifdef WIN64
         printf("info depth %d score mate %d nodes %llu nps %llu time %llu pv ",
-               current_depth, (mate_value - score) / 2 + 1, nodes, nps, time);
+               current_depth, (mate_value - score) / 2 + 1, engine->nodes, nps, time);
 #else
         printf("info depth %d score mate %d nodes %lu nps %ld time %lu pv ",
-               current_depth, (mate_value - score) / 2 + 1, nodes, nps, time);
+               current_depth, (mate_value - score) / 2 + 1, engine->nodes, nps, time);
 #endif
       }
 
       else {
 #ifdef WIN64
         printf("info depth %d score cp %d nodes %llu nps %llu time %llu pv ",
-               current_depth, score, nodes, nps, time);
+               current_depth, score, engine->nodes, nps, time);
 #else
         printf("info depth %d score cp %d nodes %lu nps %ld time %lu pv ",
-               current_depth, score, nodes, nps, time);
+               current_depth, score, engine->nodes, nps, time);
 #endif
       }
 
@@ -3372,7 +3356,7 @@ void init_all(engine_t *engine) {
   init_sliders_attacks(engine, rook);
 
   // init random keys for hashing purposes
-  init_random_keys();
+  init_random_keys(engine);
 
   // init evaluation masks
   init_evaluation_masks(engine);

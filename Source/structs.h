@@ -17,6 +17,13 @@ typedef struct moves {
   uint32_t count;
 } moves;
 
+typedef struct keys {
+  uint64_t piece_keys[12][64];
+  uint64_t enpassant_keys[64];
+  uint64_t castle_keys[16];
+  uint64_t side_key;
+} keys_t;
+
 typedef struct attacks {
   uint64_t pawn_attacks[2][64];
   uint64_t knight_attacks[64];
@@ -48,6 +55,7 @@ typedef struct engine {
   board_t board;
   masks_t masks;
   attacks_t attacks;
+  keys_t keys;
   uint64_t repetition_table[1000];
   uint32_t repetition_index;
   uint32_t ply;
@@ -61,6 +69,7 @@ typedef struct engine {
   uint8_t stopped;
   uint8_t nnue;
   uint32_t fifty;
+  uint64_t nodes;
 } engine_t;
 
 #endif
