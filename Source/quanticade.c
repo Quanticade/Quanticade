@@ -20,6 +20,8 @@
 #include "uci.h"
 #include "utils.h"
 
+engine_t engine;
+
 // a bridge function to interact between search and GUI input
 void communicate(engine_t *engine) {
   // if time is up break here
@@ -3251,7 +3253,6 @@ void init_all(engine_t *engine) {
 \**********************************/
 
 int main(void) {
-  engine_t engine;
   memset(&engine, 0, sizeof(engine));
   engine.board.enpassant = no_sq;
   engine.movestogo = 30;
