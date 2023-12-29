@@ -41,12 +41,6 @@ uint64_t knight_attacks[64];
 // king attacks table [square]
 uint64_t king_attacks[64];
 
-// bishop attack masks
-uint64_t bishop_masks[64];
-
-// rook attack masks
-uint64_t rook_masks[64];
-
 // bishop attacks table [square][occupancies]
 uint64_t bishop_attacks[64][512];
 
@@ -56,21 +50,6 @@ uint64_t rook_attacks[64][4096];
 // leaf nodes (number of positions reached during the test of the move generator
 // at a given depth)
 uint64_t nodes;
-
-// file masks [square]
-uint64_t file_masks[64];
-
-// rank masks [square]
-uint64_t rank_masks[64];
-
-// isolated pawn masks [square]
-uint64_t isolated_masks[64];
-
-// white passed pawn masks [square]
-uint64_t white_passed_masks[64];
-
-// black passed pawn masks [square]
-uint64_t black_passed_masks[64];
 
 // killer moves [id][ply]
 int killer_moves[2][max_ply];
@@ -856,15 +835,16 @@ void init_magic_numbers() {
 }
 
 // init slider piece's attack tables
-void init_sliders_attacks(int bishop) {
+void init_sliders_attacks(engine_t *engine, int bishop) {
   // loop over 64 board squares
   for (int square = 0; square < 64; square++) {
     // init bishop & rook masks
-    bishop_masks[square] = mask_bishop_attacks(square);
-    rook_masks[square] = mask_rook_attacks(square);
+    engine->masks.bishop_masks[square] = mask_bishop_attacks(square);
+    engine->masks.rook_masks[square] = mask_rook_attacks(square);
 
     // init current mask
-    uint64_t attack_mask = bishop ? bishop_masks[square] : rook_masks[square];
+    uint64_t attack_mask = bishop ? engine->masks.bishop_masks[square]
+                                  : engine->masks.rook_masks[square];
 
     // init relevant occupancy bit count
     int relevant_bits_count = count_bits(attack_mask);
@@ -908,9 +888,10 @@ void init_sliders_attacks(int bishop) {
 }
 
 // get bishop attacks
-static inline uint64_t get_bishop_attacks(int square, uint64_t occupancy) {
+static inline uint64_t get_bishop_attacks(engine_t *engine, int square,
+                                          uint64_t occupancy) {
   // get bishop attacks assuming current board occupancy
-  occupancy &= bishop_masks[square];
+  occupancy &= engine->masks.bishop_masks[square];
   occupancy *= bishop_magic_numbers[square];
   occupancy >>= 64 - bishop_relevant_bits[square];
 
@@ -919,9 +900,10 @@ static inline uint64_t get_bishop_attacks(int square, uint64_t occupancy) {
 }
 
 // get rook attacks
-static inline uint64_t get_rook_attacks(int square, uint64_t occupancy) {
+static inline uint64_t get_rook_attacks(engine_t *engine, int square,
+                                        uint64_t occupancy) {
   // get rook attacks assuming current board occupancy
-  occupancy &= rook_masks[square];
+  occupancy &= engine->masks.rook_masks[square];
   occupancy *= rook_magic_numbers[square];
   occupancy >>= 64 - rook_relevant_bits[square];
 
@@ -930,7 +912,8 @@ static inline uint64_t get_rook_attacks(int square, uint64_t occupancy) {
 }
 
 // get queen attacks
-static inline uint64_t get_queen_attacks(int square, uint64_t occupancy) {
+static inline uint64_t get_queen_attacks(engine_t *engine, int square,
+                                         uint64_t occupancy) {
   // init result attacks bitboard
   uint64_t queen_attacks = 0ULL;
 
@@ -941,7 +924,7 @@ static inline uint64_t get_queen_attacks(int square, uint64_t occupancy) {
   uint64_t rook_occupancy = occupancy;
 
   // get bishop attacks assuming current board occupancy
-  bishop_occupancy &= bishop_masks[square];
+  bishop_occupancy &= engine->masks.bishop_masks[square];
   bishop_occupancy *= bishop_magic_numbers[square];
   bishop_occupancy >>= 64 - bishop_relevant_bits[square];
 
@@ -949,7 +932,7 @@ static inline uint64_t get_queen_attacks(int square, uint64_t occupancy) {
   queen_attacks = bishop_attacks[square][bishop_occupancy];
 
   // get rook attacks assuming current board occupancy
-  rook_occupancy &= rook_masks[square];
+  rook_occupancy &= engine->masks.rook_masks[square];
   rook_occupancy *= rook_magic_numbers[square];
   rook_occupancy >>= 64 - rook_relevant_bits[square];
 
@@ -986,19 +969,19 @@ static inline int is_square_attacked(engine_t *engine, int square, int side) {
     return 1;
 
   // attacked by bishops
-  if (get_bishop_attacks(square, engine->board.occupancies[both]) &
+  if (get_bishop_attacks(engine, square, engine->board.occupancies[both]) &
       ((side == white) ? engine->board.bitboards[B]
                        : engine->board.bitboards[b]))
     return 1;
 
   // attacked by rooks
-  if (get_rook_attacks(square, engine->board.occupancies[both]) &
+  if (get_rook_attacks(engine, square, engine->board.occupancies[both]) &
       ((side == white) ? engine->board.bitboards[R]
                        : engine->board.bitboards[r]))
     return 1;
 
   // attacked by bishops
-  if (get_queen_attacks(square, engine->board.occupancies[both]) &
+  if (get_queen_attacks(engine, square, engine->board.occupancies[both]) &
       ((side == white) ? engine->board.bitboards[Q]
                        : engine->board.bitboards[q]))
     return 1;
@@ -1675,7 +1658,8 @@ void generate_moves(engine_t *engine, moves *move_list) {
 
         // init piece attacks in order to get set of target squares
         attacks =
-            get_bishop_attacks(source_square, engine->board.occupancies[both]) &
+            get_bishop_attacks(engine, source_square,
+                               engine->board.occupancies[both]) &
             ((engine->board.side == white) ? ~engine->board.occupancies[white]
                                            : ~engine->board.occupancies[black]);
 
@@ -1715,7 +1699,8 @@ void generate_moves(engine_t *engine, moves *move_list) {
 
         // init piece attacks in order to get set of target squares
         attacks =
-            get_rook_attacks(source_square, engine->board.occupancies[both]) &
+            get_rook_attacks(engine, source_square,
+                             engine->board.occupancies[both]) &
             ((engine->board.side == white) ? ~engine->board.occupancies[white]
                                            : ~engine->board.occupancies[black]);
 
@@ -1755,7 +1740,8 @@ void generate_moves(engine_t *engine, moves *move_list) {
 
         // init piece attacks in order to get set of target squares
         attacks =
-            get_queen_attacks(source_square, engine->board.occupancies[both]) &
+            get_queen_attacks(engine, source_square,
+                              engine->board.occupancies[both]) &
             ((engine->board.side == white) ? ~engine->board.occupancies[white]
                                            : ~engine->board.occupancies[black]);
 
@@ -1979,7 +1965,7 @@ uint64_t set_file_rank_mask(int file_number, int rank_number) {
 }
 
 // init evaluation masks
-void init_evaluation_masks() {
+void init_evaluation_masks(engine_t *engine) {
   /******** Init file masks ********/
 
   // loop over ranks
@@ -1990,35 +1976,41 @@ void init_evaluation_masks() {
       int square = rank * 8 + file;
 
       // init file mask for a current square
-      file_masks[square] |= set_file_rank_mask(file, -1);
+      engine->masks.file_masks[square] |= set_file_rank_mask(file, -1);
 
       // init rank mask for a current square
-      rank_masks[square] |= set_file_rank_mask(-1, rank);
+      engine->masks.rank_masks[square] |= set_file_rank_mask(-1, rank);
 
       // init isolated pawns masks for a current square
-      isolated_masks[square] |= set_file_rank_mask(file - 1, -1);
-      isolated_masks[square] |= set_file_rank_mask(file + 1, -1);
+      engine->masks.isolated_masks[square] |= set_file_rank_mask(file - 1, -1);
+      engine->masks.isolated_masks[square] |= set_file_rank_mask(file + 1, -1);
 
       // init white passed pawns mask for a current square
-      white_passed_masks[square] |= set_file_rank_mask(file - 1, -1);
-      white_passed_masks[square] |= set_file_rank_mask(file, -1);
-      white_passed_masks[square] |= set_file_rank_mask(file + 1, -1);
+      engine->masks.white_passed_masks[square] |=
+          set_file_rank_mask(file - 1, -1);
+      engine->masks.white_passed_masks[square] |= set_file_rank_mask(file, -1);
+      engine->masks.white_passed_masks[square] |=
+          set_file_rank_mask(file + 1, -1);
 
       // init black passed pawns mask for a current square
-      black_passed_masks[square] |= set_file_rank_mask(file - 1, -1);
-      black_passed_masks[square] |= set_file_rank_mask(file, -1);
-      black_passed_masks[square] |= set_file_rank_mask(file + 1, -1);
+      engine->masks.black_passed_masks[square] |=
+          set_file_rank_mask(file - 1, -1);
+      engine->masks.black_passed_masks[square] |= set_file_rank_mask(file, -1);
+      engine->masks.black_passed_masks[square] |=
+          set_file_rank_mask(file + 1, -1);
 
       // loop over redudant ranks
       for (int i = 0; i < (8 - rank); i++) {
         // reset redudant bits
-        white_passed_masks[square] &= ~rank_masks[(7 - i) * 8 + file];
+        engine->masks.white_passed_masks[square] &=
+            ~engine->masks.rank_masks[(7 - i) * 8 + file];
       }
 
       // loop over redudant ranks
       for (int i = 0; i < rank + 1; i++) {
         // reset redudant bits
-        black_passed_masks[square] &= ~rank_masks[i * 8 + file];
+        engine->masks.black_passed_masks[square] &=
+            ~engine->masks.rank_masks[i * 8 + file];
       }
     }
   }
@@ -2159,8 +2151,8 @@ int evaluate(engine_t *engine) {
           score_endgame += positional_score[endgame][PAWN][square];
 
           // double pawn penalty
-          double_pawns =
-              count_bits(engine->board.bitboards[P] & file_masks[square]);
+          double_pawns = count_bits(engine->board.bitboards[P] &
+                                    engine->masks.file_masks[square]);
 
           // on double pawns (tripple, etc)
           if (double_pawns > 1) {
@@ -2169,13 +2161,15 @@ int evaluate(engine_t *engine) {
           }
 
           // on isolated pawn
-          if ((engine->board.bitboards[P] & isolated_masks[square]) == 0) {
+          if ((engine->board.bitboards[P] &
+               engine->masks.isolated_masks[square]) == 0) {
             // give an isolated pawn penalty
             score_opening += isolated_pawn_penalty_opening;
             score_endgame += isolated_pawn_penalty_endgame;
           }
           // on passed pawn
-          if ((white_passed_masks[square] & engine->board.bitboards[p]) == 0) {
+          if ((engine->masks.white_passed_masks[square] &
+               engine->board.bitboards[p]) == 0) {
             // give passed pawn bonus
             score_opening += passed_pawn_bonus[get_rank[square]];
             score_endgame += passed_pawn_bonus[get_rank[square]];
@@ -2198,14 +2192,16 @@ int evaluate(engine_t *engine) {
           score_endgame += positional_score[endgame][BISHOP][square];
 
           // mobility
-          score_opening += (count_bits(get_bishop_attacks(
-                                square, engine->board.occupancies[both])) -
-                            bishop_unit) *
-                           bishop_mobility_opening;
-          score_endgame += (count_bits(get_bishop_attacks(
-                                square, engine->board.occupancies[both])) -
-                            bishop_unit) *
-                           bishop_mobility_endgame;
+          score_opening +=
+              (count_bits(get_bishop_attacks(engine, square,
+                                             engine->board.occupancies[both])) -
+               bishop_unit) *
+              bishop_mobility_opening;
+          score_endgame +=
+              (count_bits(get_bishop_attacks(engine, square,
+                                             engine->board.occupancies[both])) -
+               bishop_unit) *
+              bishop_mobility_endgame;
           break;
 
         // evaluate white rooks
@@ -2215,7 +2211,8 @@ int evaluate(engine_t *engine) {
           score_endgame += positional_score[endgame][ROOK][square];
 
           // semi open file
-          if ((engine->board.bitboards[P] & file_masks[square]) == 0) {
+          if ((engine->board.bitboards[P] & engine->masks.file_masks[square]) ==
+              0) {
             // add semi open file bonus
             score_opening += semi_open_file_score;
             score_endgame += semi_open_file_score;
@@ -2223,7 +2220,7 @@ int evaluate(engine_t *engine) {
 
           // semi open file
           if (((engine->board.bitboards[P] | engine->board.bitboards[p]) &
-               file_masks[square]) == 0) {
+               engine->masks.file_masks[square]) == 0) {
             // add semi open file bonus
             score_opening += open_file_score;
             score_endgame += open_file_score;
@@ -2238,14 +2235,16 @@ int evaluate(engine_t *engine) {
           score_endgame += positional_score[endgame][QUEEN][square];
 
           // mobility
-          score_opening += (count_bits(get_queen_attacks(
-                                square, engine->board.occupancies[both])) -
-                            queen_unit) *
-                           queen_mobility_opening;
-          score_endgame += (count_bits(get_queen_attacks(
-                                square, engine->board.occupancies[both])) -
-                            queen_unit) *
-                           queen_mobility_endgame;
+          score_opening +=
+              (count_bits(get_queen_attacks(engine, square,
+                                            engine->board.occupancies[both])) -
+               queen_unit) *
+              queen_mobility_opening;
+          score_endgame +=
+              (count_bits(get_queen_attacks(engine, square,
+                                            engine->board.occupancies[both])) -
+               queen_unit) *
+              queen_mobility_endgame;
           break;
 
         // evaluate white king
@@ -2255,7 +2254,8 @@ int evaluate(engine_t *engine) {
           score_endgame += positional_score[endgame][KING][square];
 
           // semi open file
-          if ((engine->board.bitboards[P] & file_masks[square]) == 0) {
+          if ((engine->board.bitboards[P] & engine->masks.file_masks[square]) ==
+              0) {
             // add semi open file penalty
             score_opening -= semi_open_file_score;
             score_endgame -= semi_open_file_score;
@@ -2263,7 +2263,7 @@ int evaluate(engine_t *engine) {
 
           // semi open file
           if (((engine->board.bitboards[P] | engine->board.bitboards[p]) &
-               file_masks[square]) == 0) {
+               engine->masks.file_masks[square]) == 0) {
             // add semi open file penalty
             score_opening -= open_file_score;
             score_endgame -= open_file_score;
@@ -2288,8 +2288,8 @@ int evaluate(engine_t *engine) {
               positional_score[endgame][PAWN][mirror_score[square]];
 
           // double pawn penalty
-          double_pawns =
-              count_bits(engine->board.bitboards[p] & file_masks[square]);
+          double_pawns = count_bits(engine->board.bitboards[p] &
+                                    engine->masks.file_masks[square]);
 
           // on double pawns (tripple, etc)
           if (double_pawns > 1) {
@@ -2298,13 +2298,15 @@ int evaluate(engine_t *engine) {
           }
 
           // on isolated pawn
-          if ((engine->board.bitboards[p] & isolated_masks[square]) == 0) {
+          if ((engine->board.bitboards[p] &
+               engine->masks.isolated_masks[square]) == 0) {
             // give an isolated pawn penalty
             score_opening -= isolated_pawn_penalty_opening;
             score_endgame -= isolated_pawn_penalty_endgame;
           }
           // on passed pawn
-          if ((black_passed_masks[square] & engine->board.bitboards[P]) == 0) {
+          if ((engine->masks.black_passed_masks[square] &
+               engine->board.bitboards[P]) == 0) {
             // give passed pawn bonus
             score_opening -= passed_pawn_bonus[get_rank[square]];
             score_endgame -= passed_pawn_bonus[get_rank[square]];
@@ -2331,14 +2333,16 @@ int evaluate(engine_t *engine) {
               positional_score[endgame][BISHOP][mirror_score[square]];
 
           // mobility
-          score_opening -= (count_bits(get_bishop_attacks(
-                                square, engine->board.occupancies[both])) -
-                            bishop_unit) *
-                           bishop_mobility_opening;
-          score_endgame -= (count_bits(get_bishop_attacks(
-                                square, engine->board.occupancies[both])) -
-                            bishop_unit) *
-                           bishop_mobility_endgame;
+          score_opening -=
+              (count_bits(get_bishop_attacks(engine, square,
+                                             engine->board.occupancies[both])) -
+               bishop_unit) *
+              bishop_mobility_opening;
+          score_endgame -=
+              (count_bits(get_bishop_attacks(engine, square,
+                                             engine->board.occupancies[both])) -
+               bishop_unit) *
+              bishop_mobility_endgame;
           break;
 
         // evaluate black rooks
@@ -2350,7 +2354,8 @@ int evaluate(engine_t *engine) {
               positional_score[endgame][ROOK][mirror_score[square]];
 
           // semi open file
-          if ((engine->board.bitboards[p] & file_masks[square]) == 0) {
+          if ((engine->board.bitboards[p] & engine->masks.file_masks[square]) ==
+              0) {
             // add semi open file bonus
             score_opening -= semi_open_file_score;
             score_endgame -= semi_open_file_score;
@@ -2358,7 +2363,7 @@ int evaluate(engine_t *engine) {
 
           // semi open file
           if (((engine->board.bitboards[P] | engine->board.bitboards[p]) &
-               file_masks[square]) == 0) {
+               engine->masks.file_masks[square]) == 0) {
             // add semi open file bonus
             score_opening -= open_file_score;
             score_endgame -= open_file_score;
@@ -2375,14 +2380,16 @@ int evaluate(engine_t *engine) {
               positional_score[endgame][QUEEN][mirror_score[square]];
 
           // mobility
-          score_opening -= (count_bits(get_queen_attacks(
-                                square, engine->board.occupancies[both])) -
-                            queen_unit) *
-                           queen_mobility_opening;
-          score_endgame -= (count_bits(get_queen_attacks(
-                                square, engine->board.occupancies[both])) -
-                            queen_unit) *
-                           queen_mobility_endgame;
+          score_opening -=
+              (count_bits(get_queen_attacks(engine, square,
+                                            engine->board.occupancies[both])) -
+               queen_unit) *
+              queen_mobility_opening;
+          score_endgame -=
+              (count_bits(get_queen_attacks(engine, square,
+                                            engine->board.occupancies[both])) -
+               queen_unit) *
+              queen_mobility_endgame;
           break;
 
         // evaluate black king
@@ -2394,7 +2401,8 @@ int evaluate(engine_t *engine) {
               positional_score[endgame][KING][mirror_score[square]];
 
           // semi open file
-          if ((engine->board.bitboards[p] & file_masks[square]) == 0) {
+          if ((engine->board.bitboards[p] & engine->masks.file_masks[square]) ==
+              0) {
             // add semi open file penalty
             score_opening += semi_open_file_score;
             score_endgame += semi_open_file_score;
@@ -2402,7 +2410,7 @@ int evaluate(engine_t *engine) {
 
           // semi open file
           if (((engine->board.bitboards[P] | engine->board.bitboards[p]) &
-               file_masks[square]) == 0) {
+               engine->masks.file_masks[square]) == 0) {
             // add semi open file penalty
             score_opening += open_file_score;
             score_endgame += open_file_score;
@@ -3298,7 +3306,7 @@ void search_position(engine_t *engine, int depth) {
       uint64_t nps = (nodes / fmax(time, 1)) * 100;
       if (score > -mate_value && score < -mate_score) {
 #ifdef WIN64
-        printf("info depth %d score mate %d nodes %llu nps %ld time %llu pv ",
+        printf("info depth %d score mate %d nodes %llu nps %llu time %llu pv ",
                current_depth, -(score + mate_value) / 2 - 1, nodes, nps, time);
 #else
         printf("info depth %d score mate %d nodes %lu nps %ld time %lu pv ",
@@ -3308,7 +3316,7 @@ void search_position(engine_t *engine, int depth) {
 
       else if (score > mate_score && score < mate_value) {
 #ifdef WIN64
-        printf("info depth %d score mate %d nodes %llu nps %ld time %llu pv ",
+        printf("info depth %d score mate %d nodes %llu nps %llu time %llu pv ",
                current_depth, (mate_value - score) / 2 + 1, nodes, nps, time);
 #else
         printf("info depth %d score mate %d nodes %lu nps %ld time %lu pv ",
@@ -3318,7 +3326,7 @@ void search_position(engine_t *engine, int depth) {
 
       else {
 #ifdef WIN64
-        printf("info depth %d score cp %d nodes %llu nps %ld time %llu pv ",
+        printf("info depth %d score cp %d nodes %llu nps %llu time %llu pv ",
                current_depth, score, nodes, nps, time);
 #else
         printf("info depth %d score cp %d nodes %lu nps %ld time %lu pv ",
@@ -3375,14 +3383,14 @@ void init_all(engine_t *engine) {
   init_leapers_attacks();
 
   // init slider pieces attacks
-  init_sliders_attacks(bishop);
-  init_sliders_attacks(rook);
+  init_sliders_attacks(engine, bishop);
+  init_sliders_attacks(engine, rook);
 
   // init random keys for hashing purposes
   init_random_keys();
 
   // init evaluation masks
-  init_evaluation_masks();
+  init_evaluation_masks(engine);
 
   // init hash table with default 64 MB
   init_hash_table(128);

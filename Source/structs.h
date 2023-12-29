@@ -9,7 +9,7 @@ typedef struct tt {
   int flag;          // flag the type of node (fail-low/fail-high/PV)
   int score;         // score (alpha/beta/PV)
   int move;
-} tt;  
+} tt;
 
 // move list structure
 typedef struct moves {
@@ -19,6 +19,16 @@ typedef struct moves {
   // move count
   uint32_t count;
 } moves;
+
+typedef struct masks {
+  uint64_t bishop_masks[64];
+  uint64_t rook_masks[64];
+  uint64_t file_masks[64];
+  uint64_t rank_masks[64];
+  uint64_t isolated_masks[64];
+  uint64_t white_passed_masks[64];
+  uint64_t black_passed_masks[64];
+} masks_t;
 
 typedef struct board {
   uint64_t bitboards[12];
@@ -31,6 +41,7 @@ typedef struct board {
 
 typedef struct engine {
   board_t board;
+  masks_t masks;
   uint64_t repetition_table[1000];
   uint32_t repetition_index;
   uint32_t ply;
