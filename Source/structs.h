@@ -13,12 +13,17 @@ typedef struct tt {
 
 // move list structure
 typedef struct moves {
-  // moves
   int moves[256];
-
-  // move count
   uint32_t count;
 } moves;
+
+typedef struct attacks {
+  uint64_t pawn_attacks[2][64];
+  uint64_t knight_attacks[64];
+  uint64_t king_attacks[64];
+  uint64_t bishop_attacks[64][512];
+  uint64_t rook_attacks[64][4096];
+} attacks_t;
 
 typedef struct masks {
   uint64_t bishop_masks[64];
@@ -42,6 +47,7 @@ typedef struct board {
 typedef struct engine {
   board_t board;
   masks_t masks;
+  attacks_t attacks;
   uint64_t repetition_table[1000];
   uint32_t repetition_index;
   uint32_t ply;

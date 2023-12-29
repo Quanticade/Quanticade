@@ -32,21 +32,6 @@ uint64_t castle_keys[16];
 // random side key
 uint64_t side_key;
 
-// pawn attacks table [side][square]
-uint64_t pawn_attacks[2][64];
-
-// knight attacks table [square]
-uint64_t knight_attacks[64];
-
-// king attacks table [square]
-uint64_t king_attacks[64];
-
-// bishop attacks table [square][occupancies]
-uint64_t bishop_attacks[64][512];
-
-// rook attacks rable [square][occupancies]
-uint64_t rook_attacks[64][4096];
-
 // leaf nodes (number of positions reached during the test of the move generator
 // at a given depth)
 uint64_t nodes;
@@ -704,18 +689,18 @@ uint64_t rook_attacks_on_the_fly(int square, uint64_t block) {
 }
 
 // init leaper pieces attacks
-void init_leapers_attacks() {
+void init_leapers_attacks(engine_t *engine) {
   // loop over 64 board squares
   for (int square = 0; square < 64; square++) {
     // init pawn attacks
-    pawn_attacks[white][square] = mask_pawn_attacks(white, square);
-    pawn_attacks[black][square] = mask_pawn_attacks(black, square);
+    engine->attacks.pawn_attacks[white][square] = mask_pawn_attacks(white, square);
+    engine->attacks.pawn_attacks[black][square] = mask_pawn_attacks(black, square);
 
     // init knight attacks
-    knight_attacks[square] = mask_knight_attacks(square);
+    engine->attacks.knight_attacks[square] = mask_knight_attacks(square);
 
     // init king attacks
-    king_attacks[square] = mask_king_attacks(square);
+    engine->attacks.king_attacks[square] = mask_king_attacks(square);
   }
 }
 
@@ -865,7 +850,7 @@ void init_sliders_attacks(engine_t *engine, int bishop) {
                           (64 - bishop_relevant_bits[square]);
 
         // init bishop attacks
-        bishop_attacks[square][magic_index] =
+        engine->attacks.bishop_attacks[square][magic_index] =
             bishop_attacks_on_the_fly(square, occupancy);
       }
 
@@ -880,7 +865,7 @@ void init_sliders_attacks(engine_t *engine, int bishop) {
                           (64 - rook_relevant_bits[square]);
 
         // init rook attacks
-        rook_attacks[square][magic_index] =
+        engine->attacks.rook_attacks[square][magic_index] =
             rook_attacks_on_the_fly(square, occupancy);
       }
     }
@@ -896,7 +881,7 @@ static inline uint64_t get_bishop_attacks(engine_t *engine, int square,
   occupancy >>= 64 - bishop_relevant_bits[square];
 
   // return bishop attacks
-  return bishop_attacks[square][occupancy];
+  return engine->attacks.bishop_attacks[square][occupancy];
 }
 
 // get rook attacks
@@ -908,7 +893,7 @@ static inline uint64_t get_rook_attacks(engine_t *engine, int square,
   occupancy >>= 64 - rook_relevant_bits[square];
 
   // return rook attacks
-  return rook_attacks[square][occupancy];
+  return engine->attacks.rook_attacks[square][occupancy];
 }
 
 // get queen attacks
@@ -929,7 +914,7 @@ static inline uint64_t get_queen_attacks(engine_t *engine, int square,
   bishop_occupancy >>= 64 - bishop_relevant_bits[square];
 
   // get bishop attacks
-  queen_attacks = bishop_attacks[square][bishop_occupancy];
+  queen_attacks = engine->attacks.bishop_attacks[square][bishop_occupancy];
 
   // get rook attacks assuming current board occupancy
   rook_occupancy &= engine->masks.rook_masks[square];
@@ -937,7 +922,7 @@ static inline uint64_t get_queen_attacks(engine_t *engine, int square,
   rook_occupancy >>= 64 - rook_relevant_bits[square];
 
   // get rook attacks
-  queen_attacks |= rook_attacks[square][rook_occupancy];
+  queen_attacks |= engine->attacks.rook_attacks[square][rook_occupancy];
 
   // return queen attacks
   return queen_attacks;
@@ -955,16 +940,16 @@ static inline uint64_t get_queen_attacks(engine_t *engine, int square,
 static inline int is_square_attacked(engine_t *engine, int square, int side) {
   // attacked by white pawns
   if ((side == white) &&
-      (pawn_attacks[black][square] & engine->board.bitboards[P]))
+      (engine->attacks.pawn_attacks[black][square] & engine->board.bitboards[P]))
     return 1;
 
   // attacked by black pawns
   if ((side == black) &&
-      (pawn_attacks[white][square] & engine->board.bitboards[p]))
+      (engine->attacks.pawn_attacks[white][square] & engine->board.bitboards[p]))
     return 1;
 
   // attacked by knights
-  if (knight_attacks[square] & ((side == white) ? engine->board.bitboards[N]
+  if (engine->attacks.knight_attacks[square] & ((side == white) ? engine->board.bitboards[N]
                                                 : engine->board.bitboards[n]))
     return 1;
 
@@ -987,7 +972,7 @@ static inline int is_square_attacked(engine_t *engine, int square, int side) {
     return 1;
 
   // attacked by kings
-  if (king_attacks[square] & ((side == white) ? engine->board.bitboards[K]
+  if (engine->attacks.king_attacks[square] & ((side == white) ? engine->board.bitboards[K]
                                               : engine->board.bitboards[k]))
     return 1;
 
@@ -1409,7 +1394,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
           }
 
           // init pawn attacks bitboard
-          attacks = pawn_attacks[engine->board.side][source_square] &
+          attacks = engine->attacks.pawn_attacks[engine->board.side][source_square] &
                     engine->board.occupancies[black];
 
           // generate pawn captures
@@ -1442,7 +1427,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
           if (engine->board.enpassant != no_sq) {
             // lookup pawn attacks and bitwise AND with enpassant square (bit)
             uint64_t enpassant_attacks =
-                pawn_attacks[engine->board.side][source_square] &
+                engine->attacks.pawn_attacks[engine->board.side][source_square] &
                 (1ULL << engine->board.enpassant);
 
             // make sure enpassant capture available
@@ -1530,7 +1515,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
           }
 
           // init pawn attacks bitboard
-          attacks = pawn_attacks[engine->board.side][source_square] &
+          attacks = engine->attacks.pawn_attacks[engine->board.side][source_square] &
                     engine->board.occupancies[white];
 
           // generate pawn captures
@@ -1563,7 +1548,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
           if (engine->board.enpassant != no_sq) {
             // lookup pawn attacks and bitwise AND with enpassant square (bit)
             uint64_t enpassant_attacks =
-                pawn_attacks[engine->board.side][source_square] &
+                engine->attacks.pawn_attacks[engine->board.side][source_square] &
                 (1ULL << engine->board.enpassant);
 
             // make sure enpassant capture available
@@ -1618,7 +1603,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
 
         // init piece attacks in order to get set of target squares
         attacks =
-            knight_attacks[source_square] &
+            engine->attacks.knight_attacks[source_square] &
             ((engine->board.side == white) ? ~engine->board.occupancies[white]
                                            : ~engine->board.occupancies[black]);
 
@@ -1781,7 +1766,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
 
         // init piece attacks in order to get set of target squares
         attacks =
-            king_attacks[source_square] &
+            engine->attacks.king_attacks[source_square] &
             ((engine->board.side == white) ? ~engine->board.occupancies[white]
                                            : ~engine->board.occupancies[black]);
 
@@ -2270,10 +2255,10 @@ int evaluate(engine_t *engine) {
           }
 
           // king safety bonus
-          score_opening += count_bits(king_attacks[square] &
+          score_opening += count_bits(engine->attacks.king_attacks[square] &
                                       engine->board.occupancies[white]) *
                            king_shield_bonus;
-          score_endgame += count_bits(king_attacks[square] &
+          score_endgame += count_bits(engine->attacks.king_attacks[square] &
                                       engine->board.occupancies[white]) *
                            king_shield_bonus;
 
@@ -2417,10 +2402,10 @@ int evaluate(engine_t *engine) {
           }
 
           // king safety bonus
-          score_opening -= count_bits(king_attacks[square] &
+          score_opening -= count_bits(engine->attacks.king_attacks[square] &
                                       engine->board.occupancies[black]) *
                            king_shield_bonus;
-          score_endgame -= count_bits(king_attacks[square] &
+          score_endgame -= count_bits(engine->attacks.king_attacks[square] &
                                       engine->board.occupancies[black]) *
                            king_shield_bonus;
           break;
@@ -3380,7 +3365,7 @@ void reset_time_control(engine_t *engine) {
 // init all variables
 void init_all(engine_t *engine) {
   // init leaper pieces attacks
-  init_leapers_attacks();
+  init_leapers_attacks(engine);
 
   // init slider pieces attacks
   init_sliders_attacks(engine, bishop);
