@@ -2,49 +2,49 @@
 #define MISC_H
 
 #ifdef _MSC_VER
-#  define _CRT_SECURE_NO_WARNINGS
-#  pragma warning (disable: 4996)
+#define _CRT_SECURE_NO_WARNINGS
+#pragma warning(disable : 4996)
 #endif
 
 #include <inttypes.h>
 
 #ifdef _WIN32
-#  include <windows.h>
+#include <windows.h>
 #else
-#  include <unistd.h>
-#  include <sys/mman.h>
+#include <sys/mman.h>
+#include <unistd.h>
 #endif
 
 /*
 Force inline
 */
-#if defined (__GNUC__)
-#   define INLINE  __inline __attribute__((always_inline))
-#elif defined (_WIN32)
-#   define INLINE  __forceinline
+#if defined(__GNUC__)
+#define INLINE __inline __attribute__((always_inline))
+#elif defined(_WIN32)
+#define INLINE __forceinline
 #else
-#   define INLINE  __inline
+#define INLINE __inline
 #endif
 
 /*
 Intrinsic bsf
 */
-#   if defined(__GNUC__)
-#       define bsf(b) __builtin_ctzll(b)
-#       define bsr(b) (63 - __builtin_clzll(b))
-#   elif defined(_WIN32)
-#       include <intrin.h>
-        INLINE int bsf(uint64_t b) {
-            unsigned long x;
-            _BitScanForward64(&x, b);
-            return (int) x;
-        }
-        INLINE int bsr(uint64_t b) {
-            unsigned long x;
-            _BitScanReverse64(&x, b);
-            return (int) x;
-        }
-#   endif
+#if defined(__GNUC__)
+#define bsf(b) __builtin_ctzll(b)
+#define bsr(b) (63 - __builtin_clzll(b))
+#elif defined(_WIN32)
+#include <intrin.h>
+INLINE int bsf(uint64_t b) {
+  unsigned long x;
+  _BitScanForward64(&x, b);
+  return (int)x;
+}
+INLINE int bsr(uint64_t b) {
+  unsigned long x;
+  _BitScanReverse64(&x, b);
+  return (int)x;
+}
+#endif
 
 #ifdef _WIN32
 
@@ -66,20 +66,18 @@ size_t file_size(FD fd);
 const void *map_file(FD fd, map_t *map);
 void unmap_file(const void *data, map_t map);
 
-INLINE uint32_t readu_le_u32(const void *p)
-{
-  const uint8_t *q = (const uint8_t*) p;
+INLINE uint32_t readu_le_u32(const void *p) {
+  const uint8_t *q = (const uint8_t *)p;
   return q[0] | (q[1] << 8) | (q[2] << 16) | (q[3] << 24);
 }
 
-INLINE uint16_t readu_le_u16(const void *p)
-{
-  const uint8_t *q = (const uint8_t*) p;
+INLINE uint16_t readu_le_u16(const void *p) {
+  const uint8_t *q = (const uint8_t *)p;
   return q[0] | (q[1] << 8);
 }
 
-void decode_fen(const char* fen_str, int* player, int* castle,
-       int* fifty, int* move_number, int* piece, int* square);
+void decode_fen(const char *fen_str, int *player, int *castle, int *fifty,
+                int *move_number, int *piece, int *square);
 
 #define clamp(a, b, c) ((a) < (b) ? (b) : (a) > (c) ? (c) : (a))
 

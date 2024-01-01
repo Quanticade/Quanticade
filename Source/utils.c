@@ -1,7 +1,7 @@
-#include "structs.h"
 #include "utils.h"
-#include <stdio.h>
+#include "structs.h"
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -11,7 +11,7 @@
 #include <sys/time.h>
 #endif
 
-//Misc functions. Some of them from VICE by Richard Allbert
+// Misc functions. Some of them from VICE by Richard Allbert
 
 uint64_t get_time_ms() {
 #ifdef WIN64
@@ -64,7 +64,7 @@ int input_waiting() {
 }
 
 // read GUI/user input
-void read_input(engine_t* engine) {
+void read_input(engine_t *engine) {
   // bytes to read holder
   int bytes;
 
