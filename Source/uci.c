@@ -318,7 +318,7 @@ void uci_loop(engine_t *engine) {
       // print engine info
       printf("id name Quanticade %s\n", version);
       printf("id author DarkNeutrino\n\n");
-      printf("option name Hash type spin default 64 min 4 max %d\n", max_hash);
+      printf("option name Hash type spin default 128 min 4 max %d\n", max_hash);
       printf("uciok\n");
     }
 
