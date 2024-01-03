@@ -294,9 +294,6 @@ void uci_loop(engine_t *engine) {
     else if (strncmp(input, "position", 8) == 0) {
       // call parse position function
       parse_position(engine, input);
-
-      // clear hash table
-      clear_hash_table(engine);
     }
     // parse UCI "ucinewgame" command
     else if (strncmp(input, "ucinewgame", 10) == 0) {
