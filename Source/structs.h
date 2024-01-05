@@ -9,11 +9,13 @@ typedef struct tt_entry {
   int flag;          // flag the type of node (fail-low/fail-high/PV)
   int score;         // score (alpha/beta/PV)
   int move;
+  uint16_t age;
 } tt_entry_t;
 
 typedef struct tt {
   tt_entry_t* hash_entry;
   uint32_t num_of_entries;
+  uint16_t current_age;
 } tt_t;
 
 // move list structure
