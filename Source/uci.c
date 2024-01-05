@@ -155,7 +155,7 @@ static void parse_position(engine_t *engine, char *command) {
   }
 }
 
-static void parse_go(engine_t *engine, char *command) {
+static void parse_go(engine_t *engine, tt_t* hash_table, char *command) {
   // reset time control
   reset_time_control(engine);
 
@@ -243,11 +243,11 @@ static void parse_go(engine_t *engine, char *command) {
     depth = 64;
 
   // search position
-  search_position(engine, depth);
+  search_position(engine, hash_table, depth);
 }
 
 // main UCI loop
-void uci_loop(engine_t *engine) {
+void uci_loop(engine_t *engine, tt_t* hash_table) {
   // max hash MB
   int max_hash = 1024;
 
@@ -301,12 +301,12 @@ void uci_loop(engine_t *engine) {
       parse_position(engine, "position startpos");
 
       // clear hash table
-      clear_hash_table(engine);
+      clear_hash_table(hash_table);
     }
     // parse UCI "go" command
     else if (strncmp(input, "go", 2) == 0)
       // call parse go function
-      parse_go(engine, input);
+      parse_go(engine, hash_table, input);
 
     // parse UCI "quit" command
     else if (strncmp(input, "quit", 4) == 0)
@@ -334,7 +334,7 @@ void uci_loop(engine_t *engine) {
 
       // set hash table size in MB
       printf("    Set hash table size to %dMB\n", mb);
-      init_hash_table(engine, mb);
+      init_hash_table(engine, hash_table, mb);
     }
   }
 }

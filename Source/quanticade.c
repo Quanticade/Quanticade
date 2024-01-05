@@ -2350,52 +2350,52 @@ int evaluate(engine_t *engine) {
 \**********************************/
 
 // clear TT (hash table)
-void clear_hash_table(engine_t *engine) {
-  memset(engine->hash_table, 0, sizeof(tt) * engine->hash_entries);
+void clear_hash_table(tt_t* hash_table) {
+  memset(hash_table->hash_entry, 0, sizeof(tt_entry_t) * hash_table->num_of_entries);
 }
 
 // dynamically allocate memory for hash table
-void init_hash_table(engine_t *engine, int mb) {
+void init_hash_table(engine_t *engine, tt_t* hash_table, int mb) {
   // init hash size
   int hash_size = 0x100000 * mb;
 
   // init number of hash entries
-  engine->hash_entries = hash_size / sizeof(tt);
+  hash_table->num_of_entries = hash_size / sizeof(tt_entry_t);
 
   // free hash table if not empty
-  if (engine->hash_table != NULL) {
+  if (hash_table->hash_entry != NULL) {
     printf("    Clearing hash memory...\n");
 
     // free hash table dynamic memory
-    free(engine->hash_table);
+    free(hash_table->hash_entry);
   }
 
   // allocate memory
-  engine->hash_table = (tt *)malloc(engine->hash_entries * sizeof(tt));
+  hash_table->hash_entry = (tt_entry_t *)malloc(hash_table->num_of_entries * sizeof(tt_entry_t));
 
   // if allocation has failed
-  if (engine->hash_table == NULL) {
+  if (hash_table->hash_entry == NULL) {
     printf("    Couldn't allocate memory for hash table, trying %dMB...",
            mb / 2);
 
     // try to allocate with half size
-    init_hash_table(engine, mb / 2);
+    init_hash_table(engine, hash_table, mb / 2);
   }
 
   // if allocation succeeded
   else {
     // clear hash table
-    clear_hash_table(engine);
+    clear_hash_table(hash_table);
   }
 }
 
 // read hash entry data
-static inline int read_hash_entry(engine_t *engine, int alpha, int *move,
+static inline int read_hash_entry(engine_t *engine, tt_t* hash_table, int alpha, int *move,
                                   int beta, int depth) {
   // create a TT instance pointer to particular hash entry storing
   // the scoring data for the current board position if available
-  tt *hash_entry =
-      &engine->hash_table[engine->board.hash_key % engine->hash_entries];
+  tt_entry_t *hash_entry =
+      &hash_table->hash_entry[engine->board.hash_key % hash_table->num_of_entries];
 
   // make sure we're dealing with the exact position we need
   if (hash_entry->hash_key == engine->board.hash_key) {
@@ -2434,12 +2434,12 @@ static inline int read_hash_entry(engine_t *engine, int alpha, int *move,
 }
 
 // write hash entry data
-static inline void write_hash_entry(engine_t *engine, int score, int depth,
+static inline void write_hash_entry(engine_t *engine, tt_t* hash_table, int score, int depth,
                                     int move, int hash_flag) {
   // create a TT instance pointer to particular hash entry storing
   // the scoring data for the current board position if available
-  tt *hash_entry =
-      &engine->hash_table[engine->board.hash_key % engine->hash_entries];
+  tt_entry_t *hash_entry =
+      &hash_table->hash_entry[engine->board.hash_key % hash_table->num_of_entries];
 
   // store score independent from the actual path
   // from root node (position) to current node (position)
@@ -2713,7 +2713,7 @@ static inline int quiescence(engine_t *engine, int alpha, int beta) {
 }
 
 // negamax alpha beta search
-int negamax(engine_t *engine, int alpha, int beta, int depth) {
+int negamax(engine_t *engine, tt_t* hash_table, int alpha, int beta, int depth) {
   // init PV length
   engine->pv_length[engine->ply] = engine->ply;
 
@@ -2738,7 +2738,7 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
   // read hash entry if we're not in a root ply and hash entry is available
   // and current node is not a PV node
   if (engine->ply &&
-      (score = read_hash_entry(engine, alpha, &move, beta, depth)) !=
+      (score = read_hash_entry(engine, hash_table, alpha, &move, beta, depth)) !=
           no_hash_entry &&
       pv_node == 0)
     // if the move has already been searched (hence has a value)
@@ -2825,7 +2825,7 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
 
     /* search moves with reduced depth to find beta cutoffs
        depth - 1 - R where R is a reduction limit */
-    score = -negamax(engine, -beta, -beta + 1, depth - 1 - 2);
+    score = -negamax(engine, hash_table, -beta, -beta + 1, depth - 1 - 2);
 
     // decrement ply
     engine->ply--;
@@ -2934,7 +2934,7 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
     // full depth search
     if (moves_searched == 0) {
       // do normal alpha beta search
-      score = -negamax(engine, -beta, -alpha, depth - 1);
+      score = -negamax(engine, hash_table,  -beta, -alpha, depth - 1);
     }
 
     // late move reduction (LMR)
@@ -2944,7 +2944,7 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
           in_check == 0 && get_move_capture(move_list->moves[count]) == 0 &&
           get_move_promoted(move_list->moves[count]) == 0) {
         // search current move with reduced depth:
-        score = -negamax(engine, -alpha - 1, -alpha, depth - 2);
+        score = -negamax(engine, hash_table, -alpha - 1, -alpha, depth - 2);
       }
 
       // hack to ensure that full-depth search is done
@@ -2959,7 +2959,7 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
            are all bad. It's possible to do this a bit faster than a search that
            worries that one of the remaining moves might be good. */
         engine->nodes++;
-        score = -negamax(engine, -alpha - 1, -alpha, depth - 1);
+        score = -negamax(engine, hash_table, -alpha - 1, -alpha, depth - 1);
 
         /* If the algorithm finds out that it was wrong, and that one of the
            subsequent moves was better than the first PV move, it has to search
@@ -2970,7 +2970,7 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
         if ((score > alpha) && (score < beta)) {
           /* re-search the move that has failed to be proved to be bad
              with normal alpha beta score bounds*/
-          score = -negamax(engine, -beta, -alpha, depth - 1);
+          score = -negamax(engine, hash_table, -beta, -alpha, depth - 1);
         }
       }
     }
@@ -3029,7 +3029,7 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
       // fail-hard beta cutoff
       if (score >= beta) {
         // store hash entry with the score equal to beta
-        write_hash_entry(engine, beta, depth, move, hash_flag_beta);
+        write_hash_entry(engine, hash_table, beta, depth, move, hash_flag_beta);
 
         // on quiet moves
         if (get_move_capture(move_list->moves[count]) == 0) {
@@ -3059,14 +3059,14 @@ int negamax(engine_t *engine, int alpha, int beta, int depth) {
   }
 
   // store hash entry with the score equal to alpha
-  write_hash_entry(engine, alpha, depth, move, hash_flag);
+  write_hash_entry(engine, hash_table, alpha, depth, move, hash_flag);
 
   // node (position) fails low
   return alpha;
 }
 
 // search position for the best move
-void search_position(engine_t *engine, int depth) {
+void search_position(engine_t *engine, tt_t* hash_table, int depth) {
   // search start time
   uint64_t start = get_time_ms();
 
@@ -3120,7 +3120,7 @@ void search_position(engine_t *engine, int depth) {
     }
 
     // find best move within a given position
-    score = negamax(engine, alpha, beta, current_depth);
+    score = negamax(engine, hash_table, alpha, beta, current_depth);
 
     // Reset aspiration window OK flag back to 1
     window_ok = 1;
@@ -3233,7 +3233,7 @@ void reset_time_control(engine_t *engine) {
 \**********************************/
 
 // init all variables
-void init_all(engine_t *engine) {
+void init_all(engine_t *engine, tt_t* hash_table) {
   // init leaper pieces attacks
   init_leapers_attacks(engine);
 
@@ -3248,7 +3248,7 @@ void init_all(engine_t *engine) {
   init_evaluation_masks(engine);
 
   // init hash table with default 64 MB
-  init_hash_table(engine, 128);
+  init_hash_table(engine, hash_table, 128);
 
   if (engine->nnue) {
     nnue_init("nn-eba324f53044.nnue");
@@ -3270,15 +3270,16 @@ int main(void) {
   engine.time = -1;
   engine.nnue = 1;
   engine.random_state = 1804289383;
-  engine.hash_table = NULL;
+  tt_t hash_table;
+  hash_table.hash_entry = NULL;
   // init all
-  init_all(&engine);
+  init_all(&engine, &hash_table);
 
   // connect to GUI
-  uci_loop(&engine);
+  uci_loop(&engine, &hash_table);
 
   // free hash table memory on exit
-  free(engine.hash_table);
+  free(hash_table.hash_entry);
 
   return 0;
 }

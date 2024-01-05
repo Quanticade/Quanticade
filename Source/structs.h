@@ -3,13 +3,18 @@
 
 #include <stdint.h>
 
-typedef struct tt {
+typedef struct tt_entry {
   uint64_t hash_key; // "almost" unique chess position identifier
   int depth;         // current search depth
   int flag;          // flag the type of node (fail-low/fail-high/PV)
   int score;         // score (alpha/beta/PV)
   int move;
-} tt;
+} tt_entry_t;
+
+typedef struct tt {
+  tt_entry_t* hash_entry;
+  uint32_t num_of_entries;
+} tt_t;
 
 // move list structure
 typedef struct moves {
@@ -54,7 +59,6 @@ typedef struct board {
 typedef struct engine {
   attacks_t attacks;
   board_t board;
-  tt *hash_table;
   keys_t keys;
   masks_t masks;
   uint64_t repetition_table[1000];
@@ -78,7 +82,6 @@ typedef struct engine {
   int pv_table[64][64];
   int follow_pv;
   int score_pv;
-  int hash_entries;
 } engine_t;
 
 #endif
