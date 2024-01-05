@@ -3077,7 +3077,6 @@ void search_position(engine_t *engine, int depth) {
   int pv_length_copy[max_ply];
 
   uint8_t window_ok = 1;
-  uint8_t double_fail = 0;
 
   // reset nodes counter
   engine->nodes = 0;
@@ -3139,26 +3138,13 @@ void search_position(engine_t *engine, int depth) {
     // we fell outside the window, so try again with a full-width window (and
     // the same depth)
     if ((score <= alpha) || (score >= beta)) {
-      if (current_depth <= 4) {
-        alpha = score - 1100;
-        beta = score + 1100;
-      } else if (double_fail) {
-        // Do a full window re-search
-        alpha = -infinity;
-        beta = infinity;
-      } else {
-        double_fail = 1;
-        alpha = score - 500;
-        beta = score + 500;
-      }
-
+      // Do a full window re-search
+      alpha = -infinity;
+      beta = infinity;
       window_ok = 0;
       current_depth--;
       continue;
     }
-
-    // Reset the double_fail flag
-    double_fail = 0;
 
     // set up the window for the next iteration
     alpha = score - 50;
