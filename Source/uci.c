@@ -139,14 +139,14 @@ static void parse_position(engine_t *engine, char *command) {
       // increment repetition index
       engine->repetition_index++;
 
-      // wtire hash key into a repetition table
+      // write hash key into a repetition table
       engine->repetition_table[engine->repetition_index] =
           engine->board.hash_key;
 
       // make move on the chess board
       make_move(engine, move, all_moves);
 
-      // move current character mointer to the end of current move
+      // move current character pointer to the end of current move
       while (*current_char && *current_char != ' ')
         current_char++;
 
@@ -330,7 +330,7 @@ void uci_loop(engine_t *engine, tt_t *hash_table) {
       // init MB
       sscanf(input, "%*s %*s %*s %*s %d", &mb);
 
-      // adjust MB if going beyond the aloowed bounds
+      // adjust MB if going beyond the allowed bounds
       if (mb < 4)
         mb = 4;
       if (mb > max_hash)

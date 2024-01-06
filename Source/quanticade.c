@@ -869,7 +869,7 @@ static inline int is_square_attacked(engine_t *engine, int square, int side) {
 
 // add move to the move list
 static inline void add_move(moves *move_list, int move) {
-  // strore move
+  // store move
   move_list->moves[move_list->count] = move;
 
   // increment move count
@@ -1059,7 +1059,7 @@ int make_move(engine_t *engine, int move, int move_flag) {
       }
     }
 
-    // hash enpassant if available (remove enpassant square from hash key )
+    // hash enpassant if available (remove enpassant square from hash key)
     if (engine->board.enpassant != no_sq)
       engine->board.hash_key ^=
           engine->keys.enpassant_keys[engine->board.enpassant];
@@ -1225,7 +1225,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
   // define source & target squares
   int source_square, target_square;
 
-  // define current piece's bitboard copy & it's attacks
+  // define current piece's bitboard copy & its attacks
   uint64_t bitboard, attacks;
 
   // loop over all the bitboards
@@ -1694,7 +1694,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
 
 // perft driver
 static inline void perft_driver(engine_t *engine, int depth) {
-  // reccursion escape condition
+  // recursion escape condition
   if (depth == 0) {
     // increment nodes count (count reached positions)
     engine->nodes++;
@@ -1869,16 +1869,16 @@ void init_evaluation_masks(engine_t *engine) {
       engine->masks.black_passed_masks[square] |=
           set_file_rank_mask(file + 1, -1);
 
-      // loop over redudant ranks
+      // loop over redundant ranks
       for (int i = 0; i < (8 - rank); i++) {
-        // reset redudant bits
+        // reset redundant bits
         engine->masks.white_passed_masks[square] &=
             ~engine->masks.rank_masks[(7 - i) * 8 + file];
       }
 
-      // loop over redudant ranks
+      // loop over redundant ranks
       for (int i = 0; i < rank + 1; i++) {
-        // reset redudant bits
+        // reset redundant bits
         engine->masks.black_passed_masks[square] &=
             ~engine->masks.rank_masks[i * 8 + file];
       }
@@ -2615,7 +2615,7 @@ void print_move_scores(engine_t *engine, moves *move_list) {
 
 // position repetition detection
 static inline int is_repetition(engine_t *engine) {
-  // loop over repetition indicies range
+  // loop over repetition indices range
   for (uint32_t index = 0; index < engine->repetition_index; index++)
     // if we found the hash key same with a current
     if (engine->repetition_table[index] == engine->board.hash_key)
@@ -2875,7 +2875,7 @@ int negamax(engine_t *engine, tt_t *hash_table, int alpha, int beta,
     if (score < beta) {
       // on depth 1
       if (depth == 1) {
-        // get quiscence score
+        // get quiescence score
         new_score = quiescence(engine, alpha, beta);
 
         // return quiescence score if it's greater then static evaluation score
@@ -2887,7 +2887,7 @@ int negamax(engine_t *engine, tt_t *hash_table, int alpha, int beta,
 
       // static evaluation indicates a fail-low node
       if (score < beta && depth <= 2) {
-        // get quiscence score
+        // get quiescence score
         new_score = quiescence(engine, alpha, beta);
 
         // quiescence score indicates fail-low node
