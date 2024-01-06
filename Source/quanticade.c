@@ -1,5 +1,6 @@
 // system headers
 #include <math.h>
+#include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,15 +24,12 @@
 engine_t engine;
 
 // a bridge function to interact between search and GUI input
-void communicate(engine_t *engine) {
+void communicate(search_info_t *search_info) {
   // if time is up break here
-  if (engine->timeset == 1 && get_time_ms() > engine->stoptime) {
+  if (search_info->timeset == 1 && get_time_ms() > search_info->stoptime) {
     // tell engine to stop calculating
-    engine->stopped = 1;
+    search_info->stopped = 1;
   }
-
-  // read GUI input
-  read_input(engine);
 }
 
 /**********************************\
@@ -1697,7 +1695,7 @@ static inline void perft_driver(engine_t *engine, int depth) {
   // recursion escape condition
   if (depth == 0) {
     // increment nodes count (count reached positions)
-    engine->nodes++;
+    engine->search_info.nodes++;
     return;
   }
 
@@ -1755,13 +1753,13 @@ void perft_test(engine_t *engine, int depth) {
       continue;
 
     // cummulative nodes
-    long cummulative_nodes = engine->nodes;
+    long cummulative_nodes = engine->search_info.nodes;
 
     // call perft driver recursively
     perft_driver(engine, depth - 1);
 
     // old nodes
-    long old_nodes = engine->nodes - cummulative_nodes;
+    long old_nodes = engine->search_info.nodes - cummulative_nodes;
 
     // take back
     restore_board(engine->board.bitboards, engine->board.occupancies,
@@ -1785,7 +1783,7 @@ void perft_test(engine_t *engine, int depth) {
   printf("    Nodes: %llu\n", engine->nodes);
   printf("     Time: %llu\n\n", get_time_ms() - start);
 #else
-  printf("    Nodes: %lu\n", engine->nodes);
+  printf("    Nodes: %lu\n", engine->search_info.nodes);
   printf("     Time: %lu\n\n", get_time_ms() - start);
 #endif
 }
@@ -2627,11 +2625,12 @@ static inline int is_repetition(engine_t *engine) {
 }
 
 // quiescence search
-static inline int quiescence(engine_t *engine, int alpha, int beta) {
+static inline int quiescence(engine_t *engine, search_info_t *search_info,
+                             int alpha, int beta) {
   // every 2047 nodes
-  if ((engine->nodes & 2047) == 0)
+  if ((search_info->nodes & 2047) == 0)
     // "listen" to the GUI/user input
-    communicate(engine);
+    communicate(search_info);
 
   // we are too deep, hence there's an overflow of arrays relying on max ply
   // constant
@@ -2690,7 +2689,7 @@ static inline int quiescence(engine_t *engine, int alpha, int beta) {
     }
 
     // score current move
-    int score = -quiescence(engine, -beta, -alpha);
+    int score = -quiescence(engine, search_info, -beta, -alpha);
 
     // decrement ply
     engine->ply--;
@@ -2703,8 +2702,8 @@ static inline int quiescence(engine_t *engine, int alpha, int beta) {
                   engine->board.side, engine->board.enpassant,
                   engine->board.castle, engine->fifty, engine->board.hash_key);
 
-    // reutrn 0 if time is up
-    if (engine->stopped == 1) {
+    // return 0 if time is up
+    if (search_info->stopped == 1) {
       return 0;
     }
 
@@ -2726,8 +2725,8 @@ static inline int quiescence(engine_t *engine, int alpha, int beta) {
 }
 
 // negamax alpha beta search
-int negamax(engine_t *engine, tt_t *hash_table, int alpha, int beta,
-            int depth) {
+int negamax(engine_t *engine, search_info_t *search_info, tt_t *hash_table,
+            int alpha, int beta, int depth) {
   // init PV length
   engine->pv_length[engine->ply] = engine->ply;
 
@@ -2760,14 +2759,14 @@ int negamax(engine_t *engine, tt_t *hash_table, int alpha, int beta,
     return score;
 
   // every 2047 nodes
-  if ((engine->nodes & 2047) == 0)
+  if ((search_info->nodes & 2047) == 0)
     // "listen" to the GUI/user input
-    communicate(engine);
+    communicate(search_info);
 
   // recursion escapre condition
   if (depth == 0) {
     // run quiescence search
-    return quiescence(engine, alpha, beta);
+    return quiescence(engine, search_info, alpha, beta);
   }
 
   // we are too deep, hence there's an overflow of arrays relying on max ply
@@ -2777,7 +2776,7 @@ int negamax(engine_t *engine, tt_t *hash_table, int alpha, int beta,
     return evaluate(engine);
 
   // increment nodes count
-  engine->nodes++;
+  search_info->nodes++;
 
   // is king in check
   int in_check =
@@ -2839,7 +2838,8 @@ int negamax(engine_t *engine, tt_t *hash_table, int alpha, int beta,
 
     /* search moves with reduced depth to find beta cutoffs
        depth - 1 - R where R is a reduction limit */
-    score = -negamax(engine, hash_table, -beta, -beta + 1, depth - 1 - 2);
+    score = -negamax(engine, search_info, hash_table, -beta, -beta + 1,
+                     depth - 1 - 2);
 
     // decrement ply
     engine->ply--;
@@ -2852,8 +2852,8 @@ int negamax(engine_t *engine, tt_t *hash_table, int alpha, int beta,
                   engine->board.side, engine->board.enpassant,
                   engine->board.castle, engine->fifty, engine->board.hash_key);
 
-    // reutrn 0 if time is up
-    if (engine->stopped == 1) {
+    // return 0 if time is up
+    if (search_info->stopped == 1) {
       return 0;
     }
 
@@ -2876,7 +2876,7 @@ int negamax(engine_t *engine, tt_t *hash_table, int alpha, int beta,
       // on depth 1
       if (depth == 1) {
         // get quiescence score
-        new_score = quiescence(engine, alpha, beta);
+        new_score = quiescence(engine, search_info, alpha, beta);
 
         // return quiescence score if it's greater then static evaluation score
         return (new_score > score) ? new_score : score;
@@ -2888,7 +2888,7 @@ int negamax(engine_t *engine, tt_t *hash_table, int alpha, int beta,
       // static evaluation indicates a fail-low node
       if (score < beta && depth <= 2) {
         // get quiescence score
-        new_score = quiescence(engine, alpha, beta);
+        new_score = quiescence(engine, search_info, alpha, beta);
 
         // quiescence score indicates fail-low node
         if (new_score < beta)
@@ -2948,7 +2948,8 @@ int negamax(engine_t *engine, tt_t *hash_table, int alpha, int beta,
     // full depth search
     if (moves_searched == 0) {
       // do normal alpha beta search
-      score = -negamax(engine, hash_table, -beta, -alpha, depth - 1);
+      score =
+          -negamax(engine, search_info, hash_table, -beta, -alpha, depth - 1);
     }
 
     // late move reduction (LMR)
@@ -2958,7 +2959,8 @@ int negamax(engine_t *engine, tt_t *hash_table, int alpha, int beta,
           in_check == 0 && get_move_capture(move_list->moves[count]) == 0 &&
           get_move_promoted(move_list->moves[count]) == 0) {
         // search current move with reduced depth:
-        score = -negamax(engine, hash_table, -alpha - 1, -alpha, depth - 2);
+        score = -negamax(engine, search_info, hash_table, -alpha - 1, -alpha,
+                         depth - 2);
       }
 
       // hack to ensure that full-depth search is done
@@ -2972,8 +2974,9 @@ int negamax(engine_t *engine, tt_t *hash_table, int alpha, int beta,
            the rest of the moves are searched with the goal of proving that they
            are all bad. It's possible to do this a bit faster than a search that
            worries that one of the remaining moves might be good. */
-        engine->nodes++;
-        score = -negamax(engine, hash_table, -alpha - 1, -alpha, depth - 1);
+        search_info->nodes++;
+        score = -negamax(engine, search_info, hash_table, -alpha - 1, -alpha,
+                         depth - 1);
 
         /* If the algorithm finds out that it was wrong, and that one of the
            subsequent moves was better than the first PV move, it has to search
@@ -2984,7 +2987,8 @@ int negamax(engine_t *engine, tt_t *hash_table, int alpha, int beta,
         if ((score > alpha) && (score < beta)) {
           /* re-search the move that has failed to be proved to be bad
              with normal alpha beta score bounds*/
-          score = -negamax(engine, hash_table, -beta, -alpha, depth - 1);
+          score = -negamax(engine, search_info, hash_table, -beta, -alpha,
+                           depth - 1);
         }
       }
     }
@@ -3002,7 +3006,7 @@ int negamax(engine_t *engine, tt_t *hash_table, int alpha, int beta,
 
     // return infinity so we can deal with timeout in case we are doing
     // re-search
-    if (engine->stopped == 1) {
+    if (search_info->stopped == 1) {
       return infinity;
     }
 
@@ -3080,7 +3084,8 @@ int negamax(engine_t *engine, tt_t *hash_table, int alpha, int beta,
 }
 
 // search position for the best move
-void search_position(engine_t *engine, tt_t *hash_table, int depth) {
+void search_position(engine_t *engine, search_info_t *search_info,
+                     tt_t *hash_table, int depth) {
   // search start time
   uint64_t start = get_time_ms();
 
@@ -3093,10 +3098,10 @@ void search_position(engine_t *engine, tt_t *hash_table, int depth) {
   uint8_t window_ok = 1;
 
   // reset nodes counter
-  engine->nodes = 0;
+  search_info->nodes = 0;
 
   // reset "time is up" flag
-  engine->stopped = 0;
+  search_info->stopped = 0;
 
   // reset follow PV flags
   engine->follow_pv = 0;
@@ -3117,7 +3122,7 @@ void search_position(engine_t *engine, tt_t *hash_table, int depth) {
   // iterative deepening
   for (int current_depth = 1; current_depth <= depth; current_depth++) {
     // if time is up
-    if (engine->stopped == 1) {
+    if (search_info->stopped == 1) {
       // stop calculating and return best move so far
       break;
     }
@@ -3136,7 +3141,8 @@ void search_position(engine_t *engine, tt_t *hash_table, int depth) {
     }
 
     // find best move within a given position
-    score = negamax(engine, hash_table, alpha, beta, current_depth);
+    score =
+        negamax(engine, search_info, hash_table, alpha, beta, current_depth);
 
     // Reset aspiration window OK flag back to 1
     window_ok = 1;
@@ -3170,38 +3176,38 @@ void search_position(engine_t *engine, tt_t *hash_table, int depth) {
     if (engine->pv_length[0]) {
       // print search info
       uint64_t time = get_time_ms() - start;
-      uint64_t nps = (engine->nodes / fmax(time, 1)) * 100;
+      uint64_t nps = (search_info->nodes / fmax(time, 1)) * 100;
       if (score > -mate_value && score < -mate_score) {
 #ifdef WIN64
         printf("info depth %d score mate %d nodes %llu nps %llu time %llu pv ",
-               current_depth, -(score + mate_value) / 2 - 1, engine->nodes, nps,
-               time);
+               current_depth, -(score + mate_value) / 2 - 1, search_info->nodes,
+               nps, time);
 #else
         printf("info depth %d score mate %d nodes %lu nps %ld time %lu pv ",
-               current_depth, -(score + mate_value) / 2 - 1, engine->nodes, nps,
-               time);
+               current_depth, -(score + mate_value) / 2 - 1, search_info->nodes,
+               nps, time);
 #endif
       }
 
       else if (score > mate_score && score < mate_value) {
 #ifdef WIN64
         printf("info depth %d score mate %d nodes %llu nps %llu time %llu pv ",
-               current_depth, (mate_value - score) / 2 + 1, engine->nodes, nps,
-               time);
+               current_depth, (mate_value - score) / 2 + 1, search_info->nodes,
+               nps, time);
 #else
         printf("info depth %d score mate %d nodes %lu nps %ld time %lu pv ",
-               current_depth, (mate_value - score) / 2 + 1, engine->nodes, nps,
-               time);
+               current_depth, (mate_value - score) / 2 + 1, search_info->nodes,
+               nps, time);
 #endif
       }
 
       else {
 #ifdef WIN64
         printf("info depth %d score cp %d nodes %llu nps %llu time %llu pv ",
-               current_depth, score, engine->nodes, nps, time);
+               current_depth, score, search_info->nodes, nps, time);
 #else
         printf("info depth %d score cp %d nodes %lu nps %ld time %lu pv ",
-               current_depth, score, engine->nodes, nps, time);
+               current_depth, score, search_info->nodes, nps, time);
 #endif
       }
 
@@ -3228,16 +3234,16 @@ void search_position(engine_t *engine, tt_t *hash_table, int depth) {
 }
 
 // reset time control variables
-void reset_time_control(engine_t *engine) {
+void reset_time_control(search_info_t *search_info) {
   // reset timing
-  engine->quit = 0;
-  engine->movestogo = 30;
-  engine->time = -1;
-  engine->inc = 0;
-  engine->starttime = 0;
-  engine->stoptime = 0;
-  engine->timeset = 0;
-  engine->stopped = 0;
+  search_info->quit = 0;
+  search_info->movestogo = 30;
+  search_info->time = -1;
+  search_info->inc = 0;
+  search_info->starttime = 0;
+  search_info->stoptime = 0;
+  search_info->timeset = 0;
+  search_info->stopped = 0;
 }
 
 /**********************************\
@@ -3250,6 +3256,10 @@ void reset_time_control(engine_t *engine) {
 
 // init all variables
 void init_all(engine_t *engine, tt_t *hash_table) {
+
+  engine->nnue_file = calloc(21, 1);
+  strlcpy(engine->nnue_file, "nn-eba324f53044.nnue", 21);
+
   // init leaper pieces attacks
   init_leapers_attacks(engine);
 
@@ -3282,18 +3292,20 @@ void init_all(engine_t *engine, tt_t *hash_table) {
 int main(void) {
   memset(&engine, 0, sizeof(engine));
   engine.board.enpassant = no_sq;
-  engine.movestogo = 30;
-  engine.time = -1;
   engine.nnue = 1;
   engine.random_state = 1804289383;
+
+  search_info_t search_info = {0};
+  search_info.movestogo = 30;
+  search_info.time = -1;
+
   tt_t hash_table = {NULL, 0, 0};
-  engine.nnue_file = calloc(21, 1);
-  strlcpy(engine.nnue_file, "nn-eba324f53044.nnue", 21);
+
   // init all
   init_all(&engine, &hash_table);
 
   // connect to GUI
-  uci_loop(&engine, &hash_table);
+  uci_loop(&engine, &search_info, &hash_table);
 
   // free hash table memory on exit
   free(hash_table.hash_entry);
