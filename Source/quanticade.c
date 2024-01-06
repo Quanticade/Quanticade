@@ -2725,7 +2725,7 @@ static inline int quiescence(engine_t *engine, search_info_t *search_info,
 }
 
 // negamax alpha beta search
-int negamax(engine_t *engine, search_info_t *search_info, tt_t *hash_table,
+static inline int negamax(engine_t *engine, search_info_t *search_info, tt_t *hash_table,
             int alpha, int beta, int depth) {
   // init PV length
   engine->pv_length[engine->ply] = engine->ply;
