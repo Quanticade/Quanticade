@@ -155,7 +155,7 @@ static void parse_position(engine_t *engine, char *command) {
   }
 }
 
-static void parse_go(engine_t *engine, tt_t* hash_table, char *command) {
+static void parse_go(engine_t *engine, tt_t *hash_table, char *command) {
   // reset time control
   reset_time_control(engine);
 
@@ -247,7 +247,7 @@ static void parse_go(engine_t *engine, tt_t* hash_table, char *command) {
 }
 
 // main UCI loop
-void uci_loop(engine_t *engine, tt_t* hash_table) {
+void uci_loop(engine_t *engine, tt_t *hash_table) {
   // max hash MB
   int max_hash = 1024;
 

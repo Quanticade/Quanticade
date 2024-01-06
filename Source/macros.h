@@ -1,7 +1,7 @@
 #ifndef MACROS_H
 #define MACROS_H
 
-#define version "0.4"
+#define version "0.5 Dev"
 
 #define max_ply 64
 
