@@ -65,7 +65,7 @@ int input_waiting() {
 
 // read GUI/user input
 void read_input(engine_t *engine) {
-  // bytes to read holder
+  // bytes-to-read holder
   int bytes;
 
   // GUI/user input
@@ -88,7 +88,7 @@ void read_input(engine_t *engine) {
     // searches for the first occurrence of '\n'
     endc = strchr(input, '\n');
 
-    // if found new line set value at pointer to 0
+    // if found new-line set value at pointer to 0
     if (endc)
       *endc = 0;
 
@@ -96,12 +96,12 @@ void read_input(engine_t *engine) {
     if (strlen(input) > 0) {
       // match UCI "quit" command
       if (!strncmp(input, "quit", 4))
-        // tell engine to terminate exacution
+        // tell engine to terminate execution
         engine->quit = 1;
 
       // // match UCI "stop" command
       else if (!strncmp(input, "stop", 4))
-        // tell engine to terminate exacution
+        // tell engine to terminate execution
         engine->quit = 1;
     }
   }

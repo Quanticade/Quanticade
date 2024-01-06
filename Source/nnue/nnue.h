@@ -35,7 +35,7 @@
  *     wking=1, wqueen=2, wrook=3, wbishop= 4, wknight= 5, wpawn= 6,
  *     bking=7, bqueen=8, brook=9, bbishop=10, bknight=11, bpawn=12
  *
- * Make sure the piecesyou pass to the library from your engine
+ * Make sure the pieces you pass to the library from your engine
  * use this format.
  */
 enum pieces {
