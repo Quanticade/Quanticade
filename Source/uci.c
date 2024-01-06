@@ -265,7 +265,7 @@ void uci_loop(engine_t *engine, tt_t *hash_table) {
   char input[10000];
 
   // print engine info
-  printf("Quanticade %s\n", version);
+  printf("Quanticade %s by DarkNeutrino\n", version);
 
   // main loop
   while (1) {
