@@ -257,8 +257,8 @@ void uci_loop(engine_t *engine, tt_t* hash_table) {
 // reset STDIN & STDOUT buffers
 #ifndef WIN64
   setbuf(stdin, NULL);
-  setbuf(stdout, NULL);
 #endif
+  setbuf(stdout, NULL);
 
   // define user / GUI input buffer
   char input[10000];

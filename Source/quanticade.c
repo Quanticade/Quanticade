@@ -3263,7 +3263,7 @@ void init_all(engine_t *engine, tt_t *hash_table) {
   // init evaluation masks
   init_evaluation_masks(engine);
 
-  // init hash table with default 64 MB
+  // init hash table with default 128 MB
   init_hash_table(engine, hash_table, 128);
 
   if (engine->nnue) {
@@ -3286,10 +3286,7 @@ int main(void) {
   engine.time = -1;
   engine.nnue = 1;
   engine.random_state = 1804289383;
-  tt_t hash_table;
-  hash_table.hash_entry = NULL;
-  hash_table.current_age = 0;
-  hash_table.num_of_entries = 0;
+  tt_t hash_table = {NULL, 0, 0};
   // init all
   init_all(&engine, &hash_table);
 
