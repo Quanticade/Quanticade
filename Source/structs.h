@@ -84,6 +84,7 @@ typedef struct engine {
   int pv_table[64][64];
   int follow_pv;
   int score_pv;
+  char* nnue_file;
 } engine_t;
 
 #endif

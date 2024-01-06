@@ -1,5 +1,6 @@
 #include "enums.h"
 #include "macros.h"
+#include "nnue/nnue.h"
 #include "quanticade.h"
 #include "structs.h"
 #include "utils.h"
@@ -264,7 +265,7 @@ void uci_loop(engine_t *engine, tt_t *hash_table) {
   char input[10000];
 
   // print engine info
-  printf("Quanticade %s by DarkNeutrino\n", version);
+  printf("Quanticade %s\n", version);
 
   // main loop
   while (1) {
@@ -319,6 +320,9 @@ void uci_loop(engine_t *engine, tt_t *hash_table) {
       printf("id name Quanticade %s\n", version);
       printf("id author DarkNeutrino\n\n");
       printf("option name Hash type spin default 128 min 4 max %d\n", max_hash);
+      printf("option name Use NNUE type check default true\n");
+      printf("option name EvalFile type string default %s\n", engine->nnue_file);
+      printf("option name Clear Hash type button\n");
       printf("uciok\n");
     }
 
@@ -335,6 +339,32 @@ void uci_loop(engine_t *engine, tt_t *hash_table) {
       // set hash table size in MB
       printf("    Set hash table size to %dMB\n", mb);
       init_hash_table(engine, hash_table, mb);
+    }
+
+    else if (!strncmp(input, "setoption name Use NNUE value ", 30)) {
+      char* use_nnue;
+      uint16_t length = strlen(input);
+      use_nnue = calloc(length - 30, 1);
+      sscanf(input, "%*s %*s %*s %*s %s", use_nnue);
+
+      if (strncmp(use_nnue, "true", 4) == 0) {
+        engine->nnue = 1;
+      }
+      else {
+        engine->nnue = 0;
+      }
+    }
+
+    else if (!strncmp(input, "setoption name EvalFile value ", 30)) {
+      free(engine->nnue_file);
+      uint16_t length = strlen(input);
+      engine->nnue_file = calloc(length - 30, 1);
+      sscanf(input, "%*s %*s %*s %*s %s", engine->nnue_file);
+      nnue_init(engine->nnue_file);
+    }
+
+    else if (!strncmp(input, "setoption name Clear Hash", 25)) {
+      clear_hash_table(hash_table);
     }
   }
 }

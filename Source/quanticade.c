@@ -3287,6 +3287,8 @@ int main(void) {
   engine.nnue = 1;
   engine.random_state = 1804289383;
   tt_t hash_table = {NULL, 0, 0};
+  engine.nnue_file = calloc(21, 1);
+  strcpy(engine.nnue_file, "nn-eba324f53044.nnue");
   // init all
   init_all(&engine, &hash_table);
 
