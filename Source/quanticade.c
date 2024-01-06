@@ -3288,6 +3288,8 @@ int main(void) {
   engine.random_state = 1804289383;
   tt_t hash_table;
   hash_table.hash_entry = NULL;
+  hash_table.current_age = 0;
+  hash_table.num_of_entries = 0;
   // init all
   init_all(&engine, &hash_table);
 
