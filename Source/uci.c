@@ -4,12 +4,9 @@
 #include "quanticade.h"
 #include "structs.h"
 #include "utils.h"
-#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-pthread_t main_search_thread;
 
 #define start_position                                                         \
   "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 "
@@ -159,31 +156,7 @@ static void parse_position(engine_t *engine, char *command) {
   }
 }
 
-void *search_position_thread(void *data) {
-  search_data_t *search_data = (search_data_t *)data;
-  engine_t *engine = malloc(sizeof(engine_t));
-  memcpy(engine, search_data->engine, sizeof(engine_t));
-  search_position(engine, search_data->search_info, search_data->hash_table,
-                  search_data->depth);
-  free(engine);
-  return 0;
-}
-
-pthread_t launch_search_thread(engine_t *engine, search_info_t *search_info,
-                               tt_t *hash_table, int depth) {
-  search_data_t search_data = {engine, search_info, hash_table, depth};
-  search_data.engine = engine;
-  search_data.search_info = search_info;
-  search_data.hash_table = hash_table;
-  search_data.depth = depth;
-  pthread_t search_thread;
-  pthread_create(&search_thread, NULL, search_position_thread,
-                 (void *)&search_data);
-  return search_thread;
-}
-
-static void parse_go(engine_t *engine, search_info_t *search_info,
-                     tt_t *hash_table, char *command) {
+static void parse_go(engine_t *engine, tt_t *hash_table, char *command) {
   // reset time control
   reset_time_control(engine);
 
@@ -200,33 +173,33 @@ static void parse_go(engine_t *engine, search_info_t *search_info,
   // match UCI "binc" command
   if ((argument = strstr(command, "binc")) && engine->board.side == black)
     // parse black time increment
-    search_info->inc = atoi(argument + 5);
+    engine->inc = atoi(argument + 5);
 
   // match UCI "winc" command
   if ((argument = strstr(command, "winc")) && engine->board.side == white)
     // parse white time increment
-    search_info->inc = atoi(argument + 5);
+    engine->inc = atoi(argument + 5);
 
   // match UCI "wtime" command
   if ((argument = strstr(command, "wtime")) && engine->board.side == white)
     // parse white time limit
-    search_info->time = atoi(argument + 6);
+    engine->time = atoi(argument + 6);
 
   // match UCI "btime" command
   if ((argument = strstr(command, "btime")) && engine->board.side == black)
     // parse black time limit
-    search_info->time = atoi(argument + 6);
+    engine->time = atoi(argument + 6);
 
   // match UCI "movestogo" command
   if ((argument = strstr(command, "movestogo")))
     // parse number of moves to go
-    search_info->movestogo = atoi(argument + 10);
+    engine->movestogo = atoi(argument + 10);
 
   // match UCI "movetime" command
   if ((argument = strstr(command, "movetime"))) {
     // parse amount of time allowed to spend to make a move
-    search_info->time = atoi(argument + 9);
-    search_info->movestogo = 1;
+    engine->time = atoi(argument + 9);
+    engine->movestogo = 1;
   }
 
   // match UCI "depth" command
@@ -235,35 +208,34 @@ static void parse_go(engine_t *engine, search_info_t *search_info,
     depth = atoi(argument + 6);
 
   // init start time
-  search_info->starttime = get_time_ms();
+  engine->starttime = get_time_ms();
 
   // if time control is available
-  if (search_info->time != -1) {
+  if (engine->time != -1) {
     // flag we're playing with time control
-    search_info->timeset = 1;
+    engine->timeset = 1;
 
     // set up timing
-    search_info->time /= search_info->movestogo;
+    engine->time /= engine->movestogo;
 
     // lag compensation
-    search_info->time -= 50;
+    engine->time -= 50;
 
     // if time is up
-    if (search_info->time < 0) {
+    if (engine->time < 0) {
       // restore negative time to 0
-      search_info->time = 0;
+      engine->time = 0;
 
       // inc lag compensation on 0+inc time controls
-      search_info->inc -= 50;
+      engine->inc -= 50;
 
       // timing for 0 seconds left and no inc
-      if (search_info->inc < 0)
-        search_info->inc = 1;
+      if (engine->inc < 0)
+        engine->inc = 1;
     }
 
     // init stoptime
-    search_info->stoptime =
-        search_info->starttime + search_info->time + search_info->inc;
+    engine->stoptime = engine->starttime + engine->time + engine->inc;
   }
 
   // if depth is not available
@@ -272,13 +244,11 @@ static void parse_go(engine_t *engine, search_info_t *search_info,
     depth = 64;
 
   // search position
-  main_search_thread =
-      launch_search_thread(engine, search_info, hash_table, depth);
-  // search_position(engine, search_info, hash_table, depth);
+  search_position(engine, hash_table, depth);
 }
 
 // main UCI loop
-void uci_loop(engine_t *engine, search_info_t *search_info, tt_t *hash_table) {
+void uci_loop(engine_t *engine, tt_t *hash_table) {
   // max hash MB
   int max_hash = 1024;
 
@@ -337,22 +307,12 @@ void uci_loop(engine_t *engine, search_info_t *search_info, tt_t *hash_table) {
     // parse UCI "go" command
     else if (strncmp(input, "go", 2) == 0)
       // call parse go function
-      parse_go(engine, search_info, hash_table, input);
+      parse_go(engine, hash_table, input);
 
     // parse UCI "quit" command
-    else if (strncmp(input, "quit", 4) == 0) {
+    else if (strncmp(input, "quit", 4) == 0)
       // quit from the UCI loop (terminate program)
-      search_info->stopped = 1;
-      pthread_join(main_search_thread, NULL);
       break;
-    }
-
-    // parse UCI "stop" command
-    else if (strncmp(input, "stop", 4) == 0) {
-      // quit from the UCI loop (terminate program)
-      search_info->stopped = 1;
-      pthread_join(main_search_thread, NULL);
-    }
 
     // parse UCI "uci" command
     else if (strncmp(input, "uci", 3) == 0) {
@@ -361,8 +321,7 @@ void uci_loop(engine_t *engine, search_info_t *search_info, tt_t *hash_table) {
       printf("id author DarkNeutrino\n\n");
       printf("option name Hash type spin default 128 min 4 max %d\n", max_hash);
       printf("option name Use NNUE type check default true\n");
-      printf("option name EvalFile type string default %s\n",
-             engine->nnue_file);
+      printf("option name EvalFile type string default %s\n", engine->nnue_file);
       printf("option name Clear Hash type button\n");
       printf("uciok\n");
     }
@@ -383,14 +342,15 @@ void uci_loop(engine_t *engine, search_info_t *search_info, tt_t *hash_table) {
     }
 
     else if (!strncmp(input, "setoption name Use NNUE value ", 30)) {
-      char *use_nnue;
+      char* use_nnue;
       uint16_t length = strlen(input);
       use_nnue = calloc(length - 30, 1);
       sscanf(input, "%*s %*s %*s %*s %s", use_nnue);
 
       if (strncmp(use_nnue, "true", 4) == 0) {
         engine->nnue = 1;
-      } else {
+      }
+      else {
         engine->nnue = 0;
       }
     }
