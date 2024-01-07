@@ -20,7 +20,7 @@ typedef struct tt {
 
 // move list structure
 typedef struct moves {
-  int moves[256];
+  int moves[280];
   uint32_t count;
 } moves;
 
