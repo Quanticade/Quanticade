@@ -38,7 +38,7 @@ static int parse_move(engine_t *engine, char *move_string) {
   // loop over the moves within a move list
   for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
     // init move
-    int move = move_list->moves[move_count];
+    int move = move_list->entry[move_count].move;
 
     // make sure source & target squares are available within the generated move
     if (source_square == get_move_source(move) &&

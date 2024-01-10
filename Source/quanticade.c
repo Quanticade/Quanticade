@@ -870,7 +870,7 @@ static inline int is_square_attacked(engine_t *engine, int square, int side) {
 // add move to the move list
 static inline void add_move(moves *move_list, int move) {
   // store move
-  move_list->moves[move_list->count] = move;
+  move_list->entry[move_list->count].move = move;
 
   // increment move count
   move_list->count++;
@@ -900,7 +900,7 @@ void print_move_list(moves *move_list) {
   // loop over moves within a move list
   for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
     // init move
-    int move = move_list->moves[move_count];
+    int move = move_list->entry[move_count].move;
 
 #ifdef WIN64
     // print move
@@ -1715,7 +1715,7 @@ static inline void perft_driver(engine_t *engine, int depth) {
                engine->board.castle, engine->fifty, engine->board.hash_key);
 
     // make move
-    if (!make_move(engine, move_list->moves[move_count], all_moves))
+    if (!make_move(engine, move_list->entry[move_count].move, all_moves))
       // skip to the next move
       continue;
 
@@ -1750,7 +1750,7 @@ void perft_test(engine_t *engine, int depth) {
                engine->board.castle, engine->fifty, engine->board.hash_key);
 
     // make move
-    if (!make_move(engine, move_list->moves[move_count], all_moves))
+    if (!make_move(engine, move_list->entry[move_count].move, all_moves))
       // skip to the next move
       continue;
 
@@ -1769,14 +1769,16 @@ void perft_test(engine_t *engine, int depth) {
                   engine->board.castle, engine->fifty, engine->board.hash_key);
 
     // print move
-    printf(
-        "     move: %s%s%c  nodes: %ld\n",
-        square_to_coordinates[get_move_source(move_list->moves[move_count])],
-        square_to_coordinates[get_move_target(move_list->moves[move_count])],
-        get_move_promoted(move_list->moves[move_count])
-            ? promoted_pieces[get_move_promoted(move_list->moves[move_count])]
-            : ' ',
-        old_nodes);
+    printf("     move: %s%s%c  nodes: %ld\n",
+           square_to_coordinates[get_move_source(
+               move_list->entry[move_count].move)],
+           square_to_coordinates[get_move_target(
+               move_list->entry[move_count].move)],
+           get_move_promoted(move_list->entry[move_count].move)
+               ? promoted_pieces[get_move_promoted(
+                     move_list->entry[move_count].move)]
+               : ' ',
+           old_nodes);
   }
 
   // print results
@@ -2477,7 +2479,7 @@ static inline void enable_pv_scoring(engine_t *engine, moves *move_list) {
   // loop over the moves within a move list
   for (uint32_t count = 0; count < move_list->count; count++) {
     // make sure we hit PV move
-    if (engine->pv_table[0][engine->ply] == move_list->moves[count]) {
+    if (engine->pv_table[0][engine->ply] == move_list->entry[count].move) {
       // enable move scoring
       engine->score_pv = 1;
 
@@ -2500,7 +2502,14 @@ static inline void enable_pv_scoring(engine_t *engine, moves *move_list) {
 */
 
 // score moves
-static inline int score_move(engine_t *engine, int move) {
+static inline void score_move(engine_t *engine, move_t *move_entry,
+                              int hash_move) {
+  int move = move_entry->move;
+  if (move == hash_move) {
+    move_entry->score = 30000;
+    return;
+  }
+
   // if PV move scoring is allowed
   if (engine->score_pv) {
     // make sure we are dealing with PV move
@@ -2509,7 +2518,8 @@ static inline int score_move(engine_t *engine, int move) {
       engine->score_pv = 0;
 
       // give PV move the highest score to search it first
-      return 20000;
+      move_entry->score = 20000;
+      return;
     }
   }
 
@@ -2541,42 +2551,40 @@ static inline int score_move(engine_t *engine, int move) {
     }
 
     // score move by MVV LVA lookup [source piece][target piece]
-    return mvv_lva[get_move_piece(move)][target_piece] + 10000;
+    move_entry->score = mvv_lva[get_move_piece(move)][target_piece] + 10000;
+    return;
   }
 
   // score quiet move
   else {
     // score 1st killer move
-    if (engine->killer_moves[0][engine->ply] == move)
-      return 9000;
+    if (engine->killer_moves[0][engine->ply] == move) {
+      move_entry->score = 9000;
+    }
 
     // score 2nd killer move
-    else if (engine->killer_moves[1][engine->ply] == move)
-      return 8000;
+    else if (engine->killer_moves[1][engine->ply] == move) {
+      move_entry->score = 8000;
+    }
 
     // score history move
-    else
-      return engine->history_moves[get_move_piece(move)][get_move_target(move)];
+    else {
+      move_entry->score =
+          engine->history_moves[get_move_piece(move)][get_move_target(move)];
+    }
+
+    return;
   }
 
-  return 0;
+  move_entry->score = 0;
+  return;
 }
 
 // sort moves in descending order
 static inline void sort_moves(engine_t *engine, moves *move_list, int move) {
-  // move scores
-  int move_scores[move_list->count];
-
   // score all the moves within a move list
   for (uint32_t count = 0; count < move_list->count; count++) {
-    // if hash move available
-    if (move == move_list->moves[count])
-      // score move
-      move_scores[count] = 30000;
-
-    else
-      // score move
-      move_scores[count] = score_move(engine, move_list->moves[count]);
+    score_move(engine, &move_list->entry[count], move);
   }
 
   // loop over current move within a move list
@@ -2586,16 +2594,18 @@ static inline void sort_moves(engine_t *engine, moves *move_list, int move) {
     for (uint32_t next_move = current_move + 1; next_move < move_list->count;
          next_move++) {
       // compare current and next move scores
-      if (move_scores[current_move] < move_scores[next_move]) {
+      if (move_list->entry[current_move].score <
+          move_list->entry[next_move].score) {
         // swap scores
-        int temp_score = move_scores[current_move];
-        move_scores[current_move] = move_scores[next_move];
-        move_scores[next_move] = temp_score;
+        int temp_score = move_list->entry[current_move].score;
+        move_list->entry[current_move].score =
+            move_list->entry[next_move].score;
+        move_list->entry[next_move].score = temp_score;
 
         // swap moves
-        int temp_move = move_list->moves[current_move];
-        move_list->moves[current_move] = move_list->moves[next_move];
-        move_list->moves[next_move] = temp_move;
+        int temp_move = move_list->entry[current_move].move;
+        move_list->entry[current_move].move = move_list->entry[next_move].move;
+        move_list->entry[next_move].move = temp_move;
       }
     }
   }
@@ -2603,13 +2613,14 @@ static inline void sort_moves(engine_t *engine, moves *move_list, int move) {
 
 // print move scores
 void print_move_scores(engine_t *engine, moves *move_list) {
+  (void)engine;
   printf("     Move scores:\n\n");
 
   // loop over moves within a move list
   for (uint32_t count = 0; count < move_list->count; count++) {
     printf("     move: ");
-    print_move(move_list->moves[count]);
-    printf(" score: %d\n", score_move(engine, move_list->moves[count]));
+    print_move(move_list->entry[count].move);
+    printf(" score: %d\n", move_list->entry[count].score);
   }
 }
 
@@ -2678,7 +2689,7 @@ static inline int quiescence(engine_t *engine, int alpha, int beta) {
     engine->repetition_table[engine->repetition_index] = engine->board.hash_key;
 
     // make sure to make only legal moves
-    if (make_move(engine, move_list->moves[count], only_captures) == 0) {
+    if (make_move(engine, move_list->entry[count].move, only_captures) == 0) {
       // decrement ply
       engine->ply--;
 
@@ -2726,8 +2737,8 @@ static inline int quiescence(engine_t *engine, int alpha, int beta) {
 }
 
 // negamax alpha beta search
-static inline int negamax(engine_t *engine, tt_t *hash_table,
-            int alpha, int beta, int depth) {
+static inline int negamax(engine_t *engine, tt_t *hash_table, int alpha,
+                          int beta, int depth) {
   // init PV length
   engine->pv_length[engine->ply] = engine->ply;
 
@@ -2931,7 +2942,7 @@ static inline int negamax(engine_t *engine, tt_t *hash_table,
     engine->repetition_table[engine->repetition_index] = engine->board.hash_key;
 
     // make sure to make only legal moves
-    if (make_move(engine, move_list->moves[count], all_moves) == 0) {
+    if (make_move(engine, move_list->entry[count].move, all_moves) == 0) {
       // decrement ply
       engine->ply--;
 
@@ -2955,8 +2966,9 @@ static inline int negamax(engine_t *engine, tt_t *hash_table,
     else {
       // condition to consider LMR
       if (moves_searched >= full_depth_moves && depth >= reduction_limit &&
-          in_check == 0 && get_move_capture(move_list->moves[count]) == 0 &&
-          get_move_promoted(move_list->moves[count]) == 0) {
+          in_check == 0 &&
+          get_move_capture(move_list->entry[count].move) == 0 &&
+          get_move_promoted(move_list->entry[count].move) == 0) {
         // search current move with reduced depth:
         score = -negamax(engine, hash_table, -alpha - 1, -alpha, depth - 2);
       }
@@ -3015,20 +3027,20 @@ static inline int negamax(engine_t *engine, tt_t *hash_table,
       // to the one storing score for PV node
       hash_flag = hash_flag_exact;
 
-      move = move_list->moves[count];
+      move = move_list->entry[count].move;
 
       // on quiet moves
-      if (get_move_capture(move_list->moves[count]) == 0)
+      if (get_move_capture(move_list->entry[count].move) == 0)
         // store history moves
-        engine->history_moves[get_move_piece(move_list->moves[count])]
-                             [get_move_target(move_list->moves[count])] +=
+        engine->history_moves[get_move_piece(move_list->entry[count].move)]
+                             [get_move_target(move_list->entry[count].move)] +=
             depth;
 
       // PV node (position)
       alpha = score;
 
       // write PV move
-      engine->pv_table[engine->ply][engine->ply] = move_list->moves[count];
+      engine->pv_table[engine->ply][engine->ply] = move_list->entry[count].move;
 
       // loop over the next ply
       for (int next_ply = engine->ply + 1;
@@ -3046,11 +3058,11 @@ static inline int negamax(engine_t *engine, tt_t *hash_table,
         write_hash_entry(engine, hash_table, beta, depth, move, hash_flag_beta);
 
         // on quiet moves
-        if (get_move_capture(move_list->moves[count]) == 0) {
+        if (get_move_capture(move_list->entry[count].move) == 0) {
           // store killer moves
           engine->killer_moves[1][engine->ply] =
               engine->killer_moves[0][engine->ply];
-          engine->killer_moves[0][engine->ply] = move_list->moves[count];
+          engine->killer_moves[0][engine->ply] = move_list->entry[count].move;
         }
 
         // node (position) fails high

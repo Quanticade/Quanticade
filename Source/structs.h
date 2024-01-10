@@ -18,9 +18,14 @@ typedef struct tt {
   uint16_t current_age;
 } tt_t;
 
+typedef struct move {
+  int move;
+  int score;
+} move_t;
+
 // move list structure
 typedef struct moves {
-  int moves[280];
+  move_t entry[280];
   uint32_t count;
 } moves;
 
