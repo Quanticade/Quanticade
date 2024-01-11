@@ -2581,12 +2581,7 @@ static inline void score_move(engine_t *engine, move_t *move_entry,
 }
 
 // sort moves in descending order
-static inline void sort_moves(engine_t *engine, moves *move_list, int move) {
-  // score all the moves within a move list
-  for (uint32_t count = 0; count < move_list->count; count++) {
-    score_move(engine, &move_list->entry[count], move);
-  }
-
+static inline void sort_moves(moves *move_list) {
   // loop over current move within a move list
   for (uint32_t current_move = 0; current_move < move_list->count;
        current_move++) {
@@ -2671,8 +2666,11 @@ static inline int quiescence(engine_t *engine, int alpha, int beta) {
   // generate moves
   generate_moves(engine, move_list);
 
-  // sort moves
-  sort_moves(engine, move_list, 0);
+  for (uint32_t count = 0; count < move_list->count; count++) {
+    score_move(engine, &move_list->entry[count], 0);
+  }
+
+  sort_moves(move_list);
 
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
@@ -2921,14 +2919,18 @@ static inline int negamax(engine_t *engine, tt_t *hash_table, int alpha,
     // enable PV move scoring
     enable_pv_scoring(engine, move_list);
 
-  // sort moves
-  sort_moves(engine, move_list, move);
+  for (uint32_t count = 0; count < move_list->count; count++) {
+    score_move(engine, &move_list->entry[count], move);
+  }
+
+  sort_moves(move_list);
 
   // number of moves searched in a move list
   int moves_searched = 0;
 
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
+
     // preserve board state
     copy_board(engine->board.bitboards, engine->board.occupancies,
                engine->board.side, engine->board.enpassant,
@@ -2968,8 +2970,7 @@ static inline int negamax(engine_t *engine, tt_t *hash_table, int alpha,
     else {
       // condition to consider LMR
       if (moves_searched >= full_depth_moves && depth >= reduction_limit &&
-          in_check == 0 &&
-          get_move_capture(list_move) == 0 &&
+          in_check == 0 && get_move_capture(list_move) == 0 &&
           get_move_promoted(list_move) == 0) {
         // search current move with reduced depth:
         score = -negamax(engine, hash_table, -alpha - 1, -alpha, depth - 2);
@@ -3035,8 +3036,7 @@ static inline int negamax(engine_t *engine, tt_t *hash_table, int alpha,
       if (get_move_capture(list_move) == 0)
         // store history moves
         engine->history_moves[get_move_piece(list_move)]
-                             [get_move_target(list_move)] +=
-            depth;
+                             [get_move_target(list_move)] += depth;
 
       // PV node (position)
       alpha = score;
