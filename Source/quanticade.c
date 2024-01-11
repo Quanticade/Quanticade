@@ -2934,6 +2934,8 @@ static inline int negamax(engine_t *engine, tt_t *hash_table, int alpha,
                engine->board.side, engine->board.enpassant,
                engine->board.castle, engine->fifty, engine->board.hash_key);
 
+    int list_move = move_list->entry[count].move;
+
     // increment ply
     engine->ply++;
 
@@ -2942,7 +2944,7 @@ static inline int negamax(engine_t *engine, tt_t *hash_table, int alpha,
     engine->repetition_table[engine->repetition_index] = engine->board.hash_key;
 
     // make sure to make only legal moves
-    if (make_move(engine, move_list->entry[count].move, all_moves) == 0) {
+    if (make_move(engine, list_move, all_moves) == 0) {
       // decrement ply
       engine->ply--;
 
@@ -2967,8 +2969,8 @@ static inline int negamax(engine_t *engine, tt_t *hash_table, int alpha,
       // condition to consider LMR
       if (moves_searched >= full_depth_moves && depth >= reduction_limit &&
           in_check == 0 &&
-          get_move_capture(move_list->entry[count].move) == 0 &&
-          get_move_promoted(move_list->entry[count].move) == 0) {
+          get_move_capture(list_move) == 0 &&
+          get_move_promoted(list_move) == 0) {
         // search current move with reduced depth:
         score = -negamax(engine, hash_table, -alpha - 1, -alpha, depth - 2);
       }
@@ -3027,20 +3029,20 @@ static inline int negamax(engine_t *engine, tt_t *hash_table, int alpha,
       // to the one storing score for PV node
       hash_flag = hash_flag_exact;
 
-      move = move_list->entry[count].move;
+      move = list_move;
 
       // on quiet moves
-      if (get_move_capture(move_list->entry[count].move) == 0)
+      if (get_move_capture(list_move) == 0)
         // store history moves
-        engine->history_moves[get_move_piece(move_list->entry[count].move)]
-                             [get_move_target(move_list->entry[count].move)] +=
+        engine->history_moves[get_move_piece(list_move)]
+                             [get_move_target(list_move)] +=
             depth;
 
       // PV node (position)
       alpha = score;
 
       // write PV move
-      engine->pv_table[engine->ply][engine->ply] = move_list->entry[count].move;
+      engine->pv_table[engine->ply][engine->ply] = list_move;
 
       // loop over the next ply
       for (int next_ply = engine->ply + 1;
@@ -3058,11 +3060,11 @@ static inline int negamax(engine_t *engine, tt_t *hash_table, int alpha,
         write_hash_entry(engine, hash_table, beta, depth, move, hash_flag_beta);
 
         // on quiet moves
-        if (get_move_capture(move_list->entry[count].move) == 0) {
+        if (get_move_capture(list_move) == 0) {
           // store killer moves
           engine->killer_moves[1][engine->ply] =
               engine->killer_moves[0][engine->ply];
-          engine->killer_moves[0][engine->ply] = move_list->entry[count].move;
+          engine->killer_moves[0][engine->ply] = list_move;
         }
 
         // node (position) fails high
