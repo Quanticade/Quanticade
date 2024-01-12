@@ -43,3 +43,5 @@ target_sources(Quanticade
     PUBLIC
         ${QUANTICADE_HEADERS}
 )
+
+configure_file(${PROJECT_SOURCE_DIR}/nnue_binary/nn-eba324f53044.nnue ${CMAKE_BINARY_DIR}/nn-eba324f53044.nnue COPYONLY)
