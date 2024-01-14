@@ -1217,6 +1217,333 @@ int make_move(engine_t *engine, int move, int move_flag) {
   }
 }
 
+void generate_captures(engine_t *engine, moves *move_list) {
+  // init move count
+  move_list->count = 0;
+
+  // define source & target squares
+  int source_square, target_square;
+
+  // define current piece's bitboard copy & its attacks
+  uint64_t bitboard, attacks;
+
+  // loop over all the bitboards
+  for (int piece = P; piece <= k; piece++) {
+    // init piece bitboard copy
+    bitboard = engine->board.bitboards[piece];
+
+    // generate white pawns & white king castling moves
+    if (engine->board.side == white) {
+      // pick up white pawn bitboards index
+      if (piece == P) {
+        // loop over white pawns within white pawn bitboard
+        while (bitboard) {
+          // init source square
+          source_square = get_ls1b_index(bitboard);
+
+          // init target square
+          target_square = source_square - 8;
+
+          // init pawn attacks bitboard
+          attacks =
+              engine->attacks.pawn_attacks[engine->board.side][source_square] &
+              engine->board.occupancies[black];
+
+          // generate pawn captures
+          while (attacks) {
+            // init target square
+            target_square = get_ls1b_index(attacks);
+
+            // pawn promotion
+            if (source_square >= a7 && source_square <= h7) {
+              add_move(move_list, encode_move(source_square, target_square,
+                                              piece, Q, 1, 0, 0, 0));
+              add_move(move_list, encode_move(source_square, target_square,
+                                              piece, R, 1, 0, 0, 0));
+              add_move(move_list, encode_move(source_square, target_square,
+                                              piece, B, 1, 0, 0, 0));
+              add_move(move_list, encode_move(source_square, target_square,
+                                              piece, N, 1, 0, 0, 0));
+            }
+
+            else
+              // one square ahead pawn move
+              add_move(move_list, encode_move(source_square, target_square,
+                                              piece, 0, 1, 0, 0, 0));
+
+            // pop ls1b of the pawn attacks
+            pop_bit(attacks, target_square);
+          }
+
+          // generate enpassant captures
+          if (engine->board.enpassant != no_sq) {
+            // lookup pawn attacks and bitwise AND with enpassant square (bit)
+            uint64_t enpassant_attacks =
+                engine->attacks
+                    .pawn_attacks[engine->board.side][source_square] &
+                (1ULL << engine->board.enpassant);
+
+            // make sure enpassant capture available
+            if (enpassant_attacks) {
+              // init enpassant capture target square
+              int target_enpassant = get_ls1b_index(enpassant_attacks);
+              add_move(move_list, encode_move(source_square, target_enpassant,
+                                              piece, 0, 1, 0, 1, 0));
+            }
+          }
+
+          // pop ls1b from piece bitboard copy
+          pop_bit(bitboard, source_square);
+        }
+      }
+    }
+
+    // generate black pawns & black king castling moves
+    else {
+      // pick up black pawn bitboards index
+      if (piece == p) {
+        // loop over white pawns within white pawn bitboard
+        while (bitboard) {
+          // init source square
+          source_square = get_ls1b_index(bitboard);
+
+          // init target square
+          target_square = source_square + 8;
+
+          // init pawn attacks bitboard
+          attacks =
+              engine->attacks.pawn_attacks[engine->board.side][source_square] &
+              engine->board.occupancies[white];
+
+          // generate pawn captures
+          while (attacks) {
+            // init target square
+            target_square = get_ls1b_index(attacks);
+
+            // pawn promotion
+            if (source_square >= a2 && source_square <= h2) {
+              add_move(move_list, encode_move(source_square, target_square,
+                                              piece, q, 1, 0, 0, 0));
+              add_move(move_list, encode_move(source_square, target_square,
+                                              piece, r, 1, 0, 0, 0));
+              add_move(move_list, encode_move(source_square, target_square,
+                                              piece, b, 1, 0, 0, 0));
+              add_move(move_list, encode_move(source_square, target_square,
+                                              piece, n, 1, 0, 0, 0));
+            }
+
+            else
+              // one square ahead pawn move
+              add_move(move_list, encode_move(source_square, target_square,
+                                              piece, 0, 1, 0, 0, 0));
+
+            // pop ls1b of the pawn attacks
+            pop_bit(attacks, target_square);
+          }
+
+          // generate enpassant captures
+          if (engine->board.enpassant != no_sq) {
+            // lookup pawn attacks and bitwise AND with enpassant square (bit)
+            uint64_t enpassant_attacks =
+                engine->attacks
+                    .pawn_attacks[engine->board.side][source_square] &
+                (1ULL << engine->board.enpassant);
+
+            // make sure enpassant capture available
+            if (enpassant_attacks) {
+              // init enpassant capture target square
+              int target_enpassant = get_ls1b_index(enpassant_attacks);
+              add_move(move_list, encode_move(source_square, target_enpassant,
+                                              piece, 0, 1, 0, 1, 0));
+            }
+          }
+
+          // pop ls1b from piece bitboard copy
+          pop_bit(bitboard, source_square);
+        }
+      }
+    }
+
+    // genarate knight moves
+    if ((engine->board.side == white) ? piece == N : piece == n) {
+      // loop over source squares of piece bitboard copy
+      while (bitboard) {
+        // init source square
+        source_square = get_ls1b_index(bitboard);
+
+        // init piece attacks in order to get set of target squares
+        attacks =
+            engine->attacks.knight_attacks[source_square] &
+            ((engine->board.side == white) ? ~engine->board.occupancies[white]
+                                           : ~engine->board.occupancies[black]);
+
+        // loop over target squares available from generated attacks
+        while (attacks) {
+          // init target square
+          target_square = get_ls1b_index(attacks);
+
+          // quiet move
+          if (get_bit(((engine->board.side == white)
+                            ? engine->board.occupancies[black]
+                            : engine->board.occupancies[white]),
+                       target_square))
+            add_move(move_list, encode_move(source_square, target_square, piece,
+                                            0, 1, 0, 0, 0));
+
+          // pop ls1b in current attacks set
+          pop_bit(attacks, target_square);
+        }
+
+        // pop ls1b of the current piece bitboard copy
+        pop_bit(bitboard, source_square);
+      }
+    }
+
+    // generate bishop moves
+    if ((engine->board.side == white) ? piece == B : piece == b) {
+      // loop over source squares of piece bitboard copy
+      while (bitboard) {
+        // init source square
+        source_square = get_ls1b_index(bitboard);
+
+        // init piece attacks in order to get set of target squares
+        attacks =
+            get_bishop_attacks(engine, source_square,
+                               engine->board.occupancies[both]) &
+            ((engine->board.side == white) ? ~engine->board.occupancies[white]
+                                           : ~engine->board.occupancies[black]);
+
+        // loop over target squares available from generated attacks
+        while (attacks) {
+          // init target square
+          target_square = get_ls1b_index(attacks);
+
+          // quiet move
+          if (get_bit(((engine->board.side == white)
+                            ? engine->board.occupancies[black]
+                            : engine->board.occupancies[white]),
+                       target_square))
+            add_move(move_list, encode_move(source_square, target_square, piece,
+                                            0, 1, 0, 0, 0));
+
+          // pop ls1b in current attacks set
+          pop_bit(attacks, target_square);
+        }
+
+        // pop ls1b of the current piece bitboard copy
+        pop_bit(bitboard, source_square);
+      }
+    }
+
+    // generate rook moves
+    if ((engine->board.side == white) ? piece == R : piece == r) {
+      // loop over source squares of piece bitboard copy
+      while (bitboard) {
+        // init source square
+        source_square = get_ls1b_index(bitboard);
+
+        // init piece attacks in order to get set of target squares
+        attacks =
+            get_rook_attacks(engine, source_square,
+                             engine->board.occupancies[both]) &
+            ((engine->board.side == white) ? ~engine->board.occupancies[white]
+                                           : ~engine->board.occupancies[black]);
+
+        // loop over target squares available from generated attacks
+        while (attacks) {
+          // init target square
+          target_square = get_ls1b_index(attacks);
+
+          // quiet move
+          if (get_bit(((engine->board.side == white)
+                            ? engine->board.occupancies[black]
+                            : engine->board.occupancies[white]),
+                       target_square))
+            add_move(move_list, encode_move(source_square, target_square, piece,
+                                            0, 1, 0, 0, 0));
+
+          // pop ls1b in current attacks set
+          pop_bit(attacks, target_square);
+        }
+
+        // pop ls1b of the current piece bitboard copy
+        pop_bit(bitboard, source_square);
+      }
+    }
+
+    // generate queen moves
+    if ((engine->board.side == white) ? piece == Q : piece == q) {
+      // loop over source squares of piece bitboard copy
+      while (bitboard) {
+        // init source square
+        source_square = get_ls1b_index(bitboard);
+
+        // init piece attacks in order to get set of target squares
+        attacks =
+            get_queen_attacks(engine, source_square,
+                              engine->board.occupancies[both]) &
+            ((engine->board.side == white) ? ~engine->board.occupancies[white]
+                                           : ~engine->board.occupancies[black]);
+
+        // loop over target squares available from generated attacks
+        while (attacks) {
+          // init target square
+          target_square = get_ls1b_index(attacks);
+
+          // quiet move
+          if (get_bit(((engine->board.side == white)
+                            ? engine->board.occupancies[black]
+                            : engine->board.occupancies[white]),
+                       target_square))
+            add_move(move_list, encode_move(source_square, target_square, piece,
+                                            0, 1, 0, 0, 0));
+
+          // pop ls1b in current attacks set
+          pop_bit(attacks, target_square);
+        }
+
+        // pop ls1b of the current piece bitboard copy
+        pop_bit(bitboard, source_square);
+      }
+    }
+
+    // generate king moves
+    if ((engine->board.side == white) ? piece == K : piece == k) {
+      // loop over source squares of piece bitboard copy
+      while (bitboard) {
+        // init source square
+        source_square = get_ls1b_index(bitboard);
+
+        // init piece attacks in order to get set of target squares
+        attacks =
+            engine->attacks.king_attacks[source_square] &
+            ((engine->board.side == white) ? ~engine->board.occupancies[white]
+                                           : ~engine->board.occupancies[black]);
+
+        // loop over target squares available from generated attacks
+        while (attacks) {
+          // init target square
+          target_square = get_ls1b_index(attacks);
+
+          // quiet move
+          if (get_bit(((engine->board.side == white)
+                            ? engine->board.occupancies[black]
+                            : engine->board.occupancies[white]),
+                       target_square))
+            add_move(move_list, encode_move(source_square, target_square, piece,
+                                            0, 1, 0, 0, 0));
+
+          // pop ls1b in current attacks set
+          pop_bit(attacks, target_square);
+        }
+
+        // pop ls1b of the current piece bitboard copy
+        pop_bit(bitboard, source_square);
+      }
+    }
+  }
+}
+
 // generate all moves
 void generate_moves(engine_t *engine, moves *move_list) {
   // init move count
@@ -2664,7 +2991,7 @@ static inline int quiescence(engine_t *engine, int alpha, int beta) {
   moves move_list[1];
 
   // generate moves
-  generate_moves(engine, move_list);
+  generate_captures(engine, move_list);
 
   for (uint32_t count = 0; count < move_list->count; count++) {
     score_move(engine, &move_list->entry[count], 0);
