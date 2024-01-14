@@ -32,6 +32,7 @@ were 2000 and 2500 respectively. 0.3 also introduced Stockfish 12 NNUE network w
 
 - Maksim Korzh for his BitBoard Chess youtube series
 - BlueFeverSoft for his VICE chess series
+- Daniel Shawul for his nnue probing library
 - Stockfish for creating a clearly and easily readable codebase with many great ideas
 
 
