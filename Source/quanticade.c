@@ -83,33 +83,6 @@ uint64_t generate_magic_number(engine_t *engine) {
 /**********************************\
  ==================================
 
-          Bit manipulations
-
- ==================================
-\**********************************/
-
-// count bits within a bitboard (Brian Kernighan's way)
-static inline uint8_t count_bits(uint64_t bitboard) {
-  return __builtin_popcountll(bitboard);
-}
-
-// get least significant 1st bit index
-static inline uint8_t get_ls1b_index(uint64_t bitboard) {
-  // make sure bitboard is not 0
-  if (bitboard) {
-    // count trailing bits before LS1B
-    return count_bits((bitboard & -bitboard) - 1);
-  }
-
-  // otherwise
-  else
-    // return illegal index
-    return -1;
-}
-
-/**********************************\
- ==================================
-
             Zobrist keys
 
  ==================================
@@ -158,7 +131,7 @@ uint64_t generate_hash_key(engine_t *engine) {
     // loop over the pieces within a bitboard
     while (bitboard) {
       // init square occupied by the piece
-      int square = get_ls1b_index(bitboard);
+      int square = __builtin_ctzll(bitboard);
 
       // hash piece
       final_key ^= engine->keys.piece_keys[piece][square];
@@ -663,7 +636,7 @@ uint64_t set_occupancy(int index, int bits_in_mask, uint64_t attack_mask) {
   // loop over the range of bits within attack mask
   for (int count = 0; count < bits_in_mask; count++) {
     // get LS1B index of attacks mask
-    int square = get_ls1b_index(attack_mask);
+    int square = __builtin_ctzll(attack_mask);
 
     // pop LS1B in attack map
     pop_bit(attack_mask, square);
@@ -691,7 +664,7 @@ void init_sliders_attacks(engine_t *engine, int bishop) {
                                   : engine->masks.rook_masks[square];
 
     // init relevant occupancy bit count
-    int relevant_bits_count = count_bits(attack_mask);
+    int relevant_bits_count = __builtin_popcountll(attack_mask);
 
     // init occupancy indicies
     int occupancy_indicies = (1 << relevant_bits_count);
@@ -1171,8 +1144,8 @@ int make_move(engine_t *engine, int move, int move_flag) {
     // make sure that king has not been exposed into a check
     if (is_square_attacked(engine,
                            (engine->board.side == white)
-                               ? get_ls1b_index(engine->board.bitboards[k])
-                               : get_ls1b_index(engine->board.bitboards[K]),
+                               ? __builtin_ctzll(engine->board.bitboards[k])
+                               : __builtin_ctzll(engine->board.bitboards[K]),
                            engine->board.side)) {
       // take move back
       restore_board(engine->board.bitboards, engine->board.occupancies,
@@ -1226,7 +1199,7 @@ void generate_captures(engine_t *engine, moves *move_list) {
         // loop over white pawns within white pawn bitboard
         while (bitboard) {
           // init source square
-          source_square = get_ls1b_index(bitboard);
+          source_square = __builtin_ctzll(bitboard);
 
           // init target square
           target_square = source_square - 8;
@@ -1239,7 +1212,7 @@ void generate_captures(engine_t *engine, moves *move_list) {
           // generate pawn captures
           while (attacks) {
             // init target square
-            target_square = get_ls1b_index(attacks);
+            target_square = __builtin_ctzll(attacks);
 
             // pawn promotion
             if (source_square >= a7 && source_square <= h7) {
@@ -1273,7 +1246,7 @@ void generate_captures(engine_t *engine, moves *move_list) {
             // make sure enpassant capture available
             if (enpassant_attacks) {
               // init enpassant capture target square
-              int target_enpassant = get_ls1b_index(enpassant_attacks);
+              int target_enpassant = __builtin_ctzll(enpassant_attacks);
               add_move(move_list, encode_move(source_square, target_enpassant,
                                               piece, 0, 1, 0, 1, 0));
             }
@@ -1292,7 +1265,7 @@ void generate_captures(engine_t *engine, moves *move_list) {
         // loop over white pawns within white pawn bitboard
         while (bitboard) {
           // init source square
-          source_square = get_ls1b_index(bitboard);
+          source_square = __builtin_ctzll(bitboard);
 
           // init target square
           target_square = source_square + 8;
@@ -1305,7 +1278,7 @@ void generate_captures(engine_t *engine, moves *move_list) {
           // generate pawn captures
           while (attacks) {
             // init target square
-            target_square = get_ls1b_index(attacks);
+            target_square = __builtin_ctzll(attacks);
 
             // pawn promotion
             if (source_square >= a2 && source_square <= h2) {
@@ -1339,7 +1312,7 @@ void generate_captures(engine_t *engine, moves *move_list) {
             // make sure enpassant capture available
             if (enpassant_attacks) {
               // init enpassant capture target square
-              int target_enpassant = get_ls1b_index(enpassant_attacks);
+              int target_enpassant = __builtin_ctzll(enpassant_attacks);
               add_move(move_list, encode_move(source_square, target_enpassant,
                                               piece, 0, 1, 0, 1, 0));
             }
@@ -1356,7 +1329,7 @@ void generate_captures(engine_t *engine, moves *move_list) {
       // loop over source squares of piece bitboard copy
       while (bitboard) {
         // init source square
-        source_square = get_ls1b_index(bitboard);
+        source_square = __builtin_ctzll(bitboard);
 
         // init piece attacks in order to get set of target squares
         attacks =
@@ -1367,7 +1340,7 @@ void generate_captures(engine_t *engine, moves *move_list) {
         // loop over target squares available from generated attacks
         while (attacks) {
           // init target square
-          target_square = get_ls1b_index(attacks);
+          target_square = __builtin_ctzll(attacks);
 
           // quiet move
           if (get_bit(((engine->board.side == white)
@@ -1391,7 +1364,7 @@ void generate_captures(engine_t *engine, moves *move_list) {
       // loop over source squares of piece bitboard copy
       while (bitboard) {
         // init source square
-        source_square = get_ls1b_index(bitboard);
+        source_square = __builtin_ctzll(bitboard);
 
         // init piece attacks in order to get set of target squares
         attacks =
@@ -1403,7 +1376,7 @@ void generate_captures(engine_t *engine, moves *move_list) {
         // loop over target squares available from generated attacks
         while (attacks) {
           // init target square
-          target_square = get_ls1b_index(attacks);
+          target_square = __builtin_ctzll(attacks);
 
           // quiet move
           if (get_bit(((engine->board.side == white)
@@ -1427,7 +1400,7 @@ void generate_captures(engine_t *engine, moves *move_list) {
       // loop over source squares of piece bitboard copy
       while (bitboard) {
         // init source square
-        source_square = get_ls1b_index(bitboard);
+        source_square = __builtin_ctzll(bitboard);
 
         // init piece attacks in order to get set of target squares
         attacks =
@@ -1439,7 +1412,7 @@ void generate_captures(engine_t *engine, moves *move_list) {
         // loop over target squares available from generated attacks
         while (attacks) {
           // init target square
-          target_square = get_ls1b_index(attacks);
+          target_square = __builtin_ctzll(attacks);
 
           // quiet move
           if (get_bit(((engine->board.side == white)
@@ -1463,7 +1436,7 @@ void generate_captures(engine_t *engine, moves *move_list) {
       // loop over source squares of piece bitboard copy
       while (bitboard) {
         // init source square
-        source_square = get_ls1b_index(bitboard);
+        source_square = __builtin_ctzll(bitboard);
 
         // init piece attacks in order to get set of target squares
         attacks =
@@ -1475,7 +1448,7 @@ void generate_captures(engine_t *engine, moves *move_list) {
         // loop over target squares available from generated attacks
         while (attacks) {
           // init target square
-          target_square = get_ls1b_index(attacks);
+          target_square = __builtin_ctzll(attacks);
 
           // quiet move
           if (get_bit(((engine->board.side == white)
@@ -1499,7 +1472,7 @@ void generate_captures(engine_t *engine, moves *move_list) {
       // loop over source squares of piece bitboard copy
       while (bitboard) {
         // init source square
-        source_square = get_ls1b_index(bitboard);
+        source_square = __builtin_ctzll(bitboard);
 
         // init piece attacks in order to get set of target squares
         attacks =
@@ -1510,7 +1483,7 @@ void generate_captures(engine_t *engine, moves *move_list) {
         // loop over target squares available from generated attacks
         while (attacks) {
           // init target square
-          target_square = get_ls1b_index(attacks);
+          target_square = __builtin_ctzll(attacks);
 
           // quiet move
           if (get_bit(((engine->board.side == white)
@@ -1554,7 +1527,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
         // loop over white pawns within white pawn bitboard
         while (bitboard) {
           // init source square
-          source_square = get_ls1b_index(bitboard);
+          source_square = __builtin_ctzll(bitboard);
 
           // init target square
           target_square = source_square - 8;
@@ -1596,7 +1569,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
           // generate pawn captures
           while (attacks) {
             // init target square
-            target_square = get_ls1b_index(attacks);
+            target_square = __builtin_ctzll(attacks);
 
             // pawn promotion
             if (source_square >= a7 && source_square <= h7) {
@@ -1630,7 +1603,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
             // make sure enpassant capture available
             if (enpassant_attacks) {
               // init enpassant capture target square
-              int target_enpassant = get_ls1b_index(enpassant_attacks);
+              int target_enpassant = __builtin_ctzll(enpassant_attacks);
               add_move(move_list, encode_move(source_square, target_enpassant,
                                               piece, 0, 1, 0, 1, 0));
             }
@@ -1677,7 +1650,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
         // loop over white pawns within white pawn bitboard
         while (bitboard) {
           // init source square
-          source_square = get_ls1b_index(bitboard);
+          source_square = __builtin_ctzll(bitboard);
 
           // init target square
           target_square = source_square + 8;
@@ -1719,7 +1692,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
           // generate pawn captures
           while (attacks) {
             // init target square
-            target_square = get_ls1b_index(attacks);
+            target_square = __builtin_ctzll(attacks);
 
             // pawn promotion
             if (source_square >= a2 && source_square <= h2) {
@@ -1753,7 +1726,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
             // make sure enpassant capture available
             if (enpassant_attacks) {
               // init enpassant capture target square
-              int target_enpassant = get_ls1b_index(enpassant_attacks);
+              int target_enpassant = __builtin_ctzll(enpassant_attacks);
               add_move(move_list, encode_move(source_square, target_enpassant,
                                               piece, 0, 1, 0, 1, 0));
             }
@@ -1798,7 +1771,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
       // loop over source squares of piece bitboard copy
       while (bitboard) {
         // init source square
-        source_square = get_ls1b_index(bitboard);
+        source_square = __builtin_ctzll(bitboard);
 
         // init piece attacks in order to get set of target squares
         attacks =
@@ -1809,7 +1782,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
         // loop over target squares available from generated attacks
         while (attacks) {
           // init target square
-          target_square = get_ls1b_index(attacks);
+          target_square = __builtin_ctzll(attacks);
 
           // quiet move
           if (!get_bit(((engine->board.side == white)
@@ -1838,7 +1811,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
       // loop over source squares of piece bitboard copy
       while (bitboard) {
         // init source square
-        source_square = get_ls1b_index(bitboard);
+        source_square = __builtin_ctzll(bitboard);
 
         // init piece attacks in order to get set of target squares
         attacks =
@@ -1850,7 +1823,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
         // loop over target squares available from generated attacks
         while (attacks) {
           // init target square
-          target_square = get_ls1b_index(attacks);
+          target_square = __builtin_ctzll(attacks);
 
           // quiet move
           if (!get_bit(((engine->board.side == white)
@@ -1879,7 +1852,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
       // loop over source squares of piece bitboard copy
       while (bitboard) {
         // init source square
-        source_square = get_ls1b_index(bitboard);
+        source_square = __builtin_ctzll(bitboard);
 
         // init piece attacks in order to get set of target squares
         attacks =
@@ -1891,7 +1864,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
         // loop over target squares available from generated attacks
         while (attacks) {
           // init target square
-          target_square = get_ls1b_index(attacks);
+          target_square = __builtin_ctzll(attacks);
 
           // quiet move
           if (!get_bit(((engine->board.side == white)
@@ -1920,7 +1893,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
       // loop over source squares of piece bitboard copy
       while (bitboard) {
         // init source square
-        source_square = get_ls1b_index(bitboard);
+        source_square = __builtin_ctzll(bitboard);
 
         // init piece attacks in order to get set of target squares
         attacks =
@@ -1932,7 +1905,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
         // loop over target squares available from generated attacks
         while (attacks) {
           // init target square
-          target_square = get_ls1b_index(attacks);
+          target_square = __builtin_ctzll(attacks);
 
           // quiet move
           if (!get_bit(((engine->board.side == white)
@@ -1961,7 +1934,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
       // loop over source squares of piece bitboard copy
       while (bitboard) {
         // init source square
-        source_square = get_ls1b_index(bitboard);
+        source_square = __builtin_ctzll(bitboard);
 
         // init piece attacks in order to get set of target squares
         attacks =
@@ -1972,7 +1945,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
         // loop over target squares available from generated attacks
         while (attacks) {
           // init target square
-          target_square = get_ls1b_index(attacks);
+          target_square = __builtin_ctzll(attacks);
 
           // quiet move
           if (!get_bit(((engine->board.side == white)
@@ -2198,12 +2171,12 @@ static inline int get_game_phase_score(engine_t *engine) {
 
   // loop over white pieces
   for (int piece = N; piece <= Q; piece++)
-    white_piece_scores += count_bits(engine->board.bitboards[piece]) *
+    white_piece_scores += __builtin_popcountll(engine->board.bitboards[piece]) *
                           material_score[opening][piece];
 
   // loop over white pieces
   for (int piece = n; piece <= q; piece++)
-    black_piece_scores += count_bits(engine->board.bitboards[piece]) *
+    black_piece_scores += __builtin_popcountll(engine->board.bitboards[piece]) *
                           -material_score[opening][piece];
 
   // return game phase score
@@ -2258,7 +2231,7 @@ int evaluate(engine_t *engine) {
       piece = bb_piece;
 
       // init square
-      square = get_ls1b_index(bitboard);
+      square = __builtin_ctzll(bitboard);
 
       if (engine->nnue) {
         /*
@@ -2315,7 +2288,7 @@ int evaluate(engine_t *engine) {
           score_endgame += positional_score[endgame][PAWN][square];
 
           // double pawn penalty
-          double_pawns = count_bits(engine->board.bitboards[P] &
+          double_pawns = __builtin_popcountll(engine->board.bitboards[P] &
                                     engine->masks.file_masks[square]);
 
           // on double pawns (tripple, etc)
@@ -2357,12 +2330,12 @@ int evaluate(engine_t *engine) {
 
           // mobility
           score_opening +=
-              (count_bits(get_bishop_attacks(engine, square,
+              (__builtin_popcountll(get_bishop_attacks(engine, square,
                                              engine->board.occupancies[both])) -
                bishop_unit) *
               bishop_mobility_opening;
           score_endgame +=
-              (count_bits(get_bishop_attacks(engine, square,
+              (__builtin_popcountll(get_bishop_attacks(engine, square,
                                              engine->board.occupancies[both])) -
                bishop_unit) *
               bishop_mobility_endgame;
@@ -2400,12 +2373,12 @@ int evaluate(engine_t *engine) {
 
           // mobility
           score_opening +=
-              (count_bits(get_queen_attacks(engine, square,
+              (__builtin_popcountll(get_queen_attacks(engine, square,
                                             engine->board.occupancies[both])) -
                queen_unit) *
               queen_mobility_opening;
           score_endgame +=
-              (count_bits(get_queen_attacks(engine, square,
+              (__builtin_popcountll(get_queen_attacks(engine, square,
                                             engine->board.occupancies[both])) -
                queen_unit) *
               queen_mobility_endgame;
@@ -2434,10 +2407,10 @@ int evaluate(engine_t *engine) {
           }
 
           // king safety bonus
-          score_opening += count_bits(engine->attacks.king_attacks[square] &
+          score_opening += __builtin_popcountll(engine->attacks.king_attacks[square] &
                                       engine->board.occupancies[white]) *
                            king_shield_bonus;
-          score_endgame += count_bits(engine->attacks.king_attacks[square] &
+          score_endgame += __builtin_popcountll(engine->attacks.king_attacks[square] &
                                       engine->board.occupancies[white]) *
                            king_shield_bonus;
 
@@ -2452,7 +2425,7 @@ int evaluate(engine_t *engine) {
               positional_score[endgame][PAWN][mirror_score[square]];
 
           // double pawn penalty
-          double_pawns = count_bits(engine->board.bitboards[p] &
+          double_pawns = __builtin_popcountll(engine->board.bitboards[p] &
                                     engine->masks.file_masks[square]);
 
           // on double pawns (tripple, etc)
@@ -2498,12 +2471,12 @@ int evaluate(engine_t *engine) {
 
           // mobility
           score_opening -=
-              (count_bits(get_bishop_attacks(engine, square,
+              (__builtin_popcountll(get_bishop_attacks(engine, square,
                                              engine->board.occupancies[both])) -
                bishop_unit) *
               bishop_mobility_opening;
           score_endgame -=
-              (count_bits(get_bishop_attacks(engine, square,
+              (__builtin_popcountll(get_bishop_attacks(engine, square,
                                              engine->board.occupancies[both])) -
                bishop_unit) *
               bishop_mobility_endgame;
@@ -2545,12 +2518,12 @@ int evaluate(engine_t *engine) {
 
           // mobility
           score_opening -=
-              (count_bits(get_queen_attacks(engine, square,
+              (__builtin_popcountll(get_queen_attacks(engine, square,
                                             engine->board.occupancies[both])) -
                queen_unit) *
               queen_mobility_opening;
           score_endgame -=
-              (count_bits(get_queen_attacks(engine, square,
+              (__builtin_popcountll(get_queen_attacks(engine, square,
                                             engine->board.occupancies[both])) -
                queen_unit) *
               queen_mobility_endgame;
@@ -2581,10 +2554,10 @@ int evaluate(engine_t *engine) {
           }
 
           // king safety bonus
-          score_opening -= count_bits(engine->attacks.king_attacks[square] &
+          score_opening -= __builtin_popcountll(engine->attacks.king_attacks[square] &
                                       engine->board.occupancies[black]) *
                            king_shield_bonus;
-          score_endgame -= count_bits(engine->attacks.king_attacks[square] &
+          score_endgame -= __builtin_popcountll(engine->attacks.king_attacks[square] &
                                       engine->board.occupancies[black]) *
                            king_shield_bonus;
           break;
@@ -3084,8 +3057,8 @@ static inline int negamax(engine_t *engine, tt_t *hash_table, int alpha,
   int in_check =
       is_square_attacked(engine,
                          (engine->board.side == white)
-                             ? get_ls1b_index(engine->board.bitboards[K])
-                             : get_ls1b_index(engine->board.bitboards[k]),
+                             ? __builtin_ctzll(engine->board.bitboards[K])
+                             : __builtin_ctzll(engine->board.bitboards[k]),
                          engine->board.side ^ 1);
 
   // increase search depth if the king has been exposed into a check
