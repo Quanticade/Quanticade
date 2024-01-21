@@ -1,5 +1,7 @@
+#include "uci.h"
 #include "enums.h"
 #include "macros.h"
+#include "movegen.h"
 #include "nnue/nnue.h"
 #include "quanticade.h"
 #include "structs.h"
@@ -324,7 +326,8 @@ void uci_loop(engine_t *engine, tt_t *hash_table) {
       printf("id author DarkNeutrino\n\n");
       printf("option name Hash type spin default 128 min 4 max %d\n", max_hash);
       printf("option name Use NNUE type check default true\n");
-      printf("option name EvalFile type string default %s\n", engine->nnue_file);
+      printf("option name EvalFile type string default %s\n",
+             engine->nnue_file);
       printf("option name Clear Hash type button\n");
       printf("uciok\n");
     }
@@ -345,15 +348,14 @@ void uci_loop(engine_t *engine, tt_t *hash_table) {
     }
 
     else if (!strncmp(input, "setoption name Use NNUE value ", 30)) {
-      char* use_nnue;
+      char *use_nnue;
       uint16_t length = strlen(input);
       use_nnue = calloc(length - 30, 1);
       sscanf(input, "%*s %*s %*s %*s %s", use_nnue);
 
       if (strncmp(use_nnue, "true", 4) == 0) {
         engine->nnue = 1;
-      }
-      else {
+      } else {
         engine->nnue = 0;
       }
     }

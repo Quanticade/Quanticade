@@ -24,10 +24,15 @@ set(QUANTICADE_SOURCES
     "Source/quanticade.c"
     "Source/utils.c"
     "Source/uci.c"
+    "Source/attacks.c"
+    "Source/evaluate.c"
+    "Source/movegen.c"
 )
 
 set(QUANTICADE_HEADERS
-    "Source/consts.h"
+    "Source/attacks.h"
+    "Source/evaluate.h"
+    "Source/movegen.h"
     "Source/structs.h"
     "Source/enums.h"
     "Source/macros.h"
