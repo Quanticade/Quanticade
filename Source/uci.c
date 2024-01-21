@@ -114,6 +114,158 @@ static inline int parse_move(engine_t *engine, char *move_string) {
   return 0;
 }
 
+static inline void reset_board(engine_t *engine) {
+  // reset board position (bitboards)
+  memset(engine->board.bitboards, 0ULL, sizeof(engine->board.bitboards));
+
+  // reset occupancies (bitboards)
+  memset(engine->board.occupancies, 0ULL, sizeof(engine->board.occupancies));
+
+  // reset game state variables
+  engine->board.side = 0;
+  engine->board.enpassant = no_sq;
+  engine->board.castle = 0;
+
+  // reset repetition index
+  engine->repetition_index = 0;
+
+  engine->fifty = 0;
+
+  // reset repetition table
+  memset(engine->repetition_table, 0ULL, sizeof(engine->repetition_table));
+}
+
+static inline void parse_fen(engine_t *engine, char *fen) {
+  // prepare for new game
+  reset_board(engine);
+
+  // loop over board ranks
+  for (int rank = 0; rank < 8; rank++) {
+    // loop over board files
+    for (int file = 0; file < 8; file++) {
+      // init current square
+      int square = rank * 8 + file;
+
+      // match ascii pieces within FEN string
+      if ((*fen >= 'a' && *fen <= 'z') || (*fen >= 'A' && *fen <= 'Z')) {
+        // init piece type
+        int piece = char_pieces[*(uint8_t *)fen];
+
+        // set piece on corresponding bitboard
+        set_bit(engine->board.bitboards[piece], square);
+
+        // increment pointer to FEN string
+        fen++;
+      }
+
+      // match empty square numbers within FEN string
+      if (*fen >= '0' && *fen <= '9') {
+        // init offset (convert char 0 to int 0)
+        int offset = *fen - '0';
+
+        // define piece variable
+        int piece = -1;
+
+        // loop over all piece bitboards
+        for (int bb_piece = P; bb_piece <= k; bb_piece++) {
+          // if there is a piece on current square
+          if (get_bit(engine->board.bitboards[bb_piece], square))
+            // get piece code
+            piece = bb_piece;
+        }
+
+        // on empty current square
+        if (piece == -1)
+          // decrement file
+          file--;
+
+        // adjust file counter
+        file += offset;
+
+        // increment pointer to FEN string
+        fen++;
+      }
+
+      // match rank separator
+      if (*fen == '/')
+        // increment pointer to FEN string
+        fen++;
+    }
+  }
+
+  // got to parsing side to move (increment pointer to FEN string)
+  fen++;
+
+  // parse side to move
+  (*fen == 'w') ? (engine->board.side = white) : (engine->board.side = black);
+
+  // go to parsing castling rights
+  fen += 2;
+
+  // parse castling rights
+  while (*fen != ' ') {
+    switch (*fen) {
+    case 'K':
+      engine->board.castle |= wk;
+      break;
+    case 'Q':
+      engine->board.castle |= wq;
+      break;
+    case 'k':
+      engine->board.castle |= bk;
+      break;
+    case 'q':
+      engine->board.castle |= bq;
+      break;
+    case '-':
+      break;
+    }
+
+    // increment pointer to FEN string
+    fen++;
+  }
+
+  // got to parsing enpassant square (increment pointer to FEN string)
+  fen++;
+
+  // parse enpassant square
+  if (*fen != '-') {
+    // parse enpassant file & rank
+    int file = fen[0] - 'a';
+    int rank = 8 - (fen[1] - '0');
+
+    // init enpassant square
+    engine->board.enpassant = rank * 8 + file;
+  }
+
+  // no enpassant square
+  else
+    engine->board.enpassant = no_sq;
+
+  // go to parsing half move counter (increment pointer to FEN string)
+  fen++;
+
+  // parse half move counter to init fifty move counter
+  engine->fifty = atoi(fen);
+
+  // loop over white pieces bitboards
+  for (int piece = P; piece <= K; piece++)
+    // populate white occupancy bitboard
+    engine->board.occupancies[white] |= engine->board.bitboards[piece];
+
+  // loop over black pieces bitboards
+  for (int piece = p; piece <= k; piece++)
+    // populate white occupancy bitboard
+    engine->board.occupancies[black] |= engine->board.bitboards[piece];
+
+  // init all occupancies
+  engine->board.occupancies[both] |= engine->board.occupancies[white];
+  engine->board.occupancies[both] |= engine->board.occupancies[black];
+
+  // init hash key
+  engine->board.hash_key = generate_hash_key(engine);
+}
+
 // parse UCI "position" command
 static inline void parse_position(engine_t *engine, char *command) {
   // shift pointer to the right where next token begins
@@ -285,158 +437,6 @@ void print_move(int move) {
   else
     printf("%s%s", square_to_coordinates[get_move_source(move)],
            square_to_coordinates[get_move_target(move)]);
-}
-
-static inline void reset_board(engine_t *engine) {
-  // reset board position (bitboards)
-  memset(engine->board.bitboards, 0ULL, sizeof(engine->board.bitboards));
-
-  // reset occupancies (bitboards)
-  memset(engine->board.occupancies, 0ULL, sizeof(engine->board.occupancies));
-
-  // reset game state variables
-  engine->board.side = 0;
-  engine->board.enpassant = no_sq;
-  engine->board.castle = 0;
-
-  // reset repetition index
-  engine->repetition_index = 0;
-
-  engine->fifty = 0;
-
-  // reset repetition table
-  memset(engine->repetition_table, 0ULL, sizeof(engine->repetition_table));
-}
-
-void parse_fen(engine_t *engine, char *fen) {
-  // prepare for new game
-  reset_board(engine);
-
-  // loop over board ranks
-  for (int rank = 0; rank < 8; rank++) {
-    // loop over board files
-    for (int file = 0; file < 8; file++) {
-      // init current square
-      int square = rank * 8 + file;
-
-      // match ascii pieces within FEN string
-      if ((*fen >= 'a' && *fen <= 'z') || (*fen >= 'A' && *fen <= 'Z')) {
-        // init piece type
-        int piece = char_pieces[*(uint8_t *)fen];
-
-        // set piece on corresponding bitboard
-        set_bit(engine->board.bitboards[piece], square);
-
-        // increment pointer to FEN string
-        fen++;
-      }
-
-      // match empty square numbers within FEN string
-      if (*fen >= '0' && *fen <= '9') {
-        // init offset (convert char 0 to int 0)
-        int offset = *fen - '0';
-
-        // define piece variable
-        int piece = -1;
-
-        // loop over all piece bitboards
-        for (int bb_piece = P; bb_piece <= k; bb_piece++) {
-          // if there is a piece on current square
-          if (get_bit(engine->board.bitboards[bb_piece], square))
-            // get piece code
-            piece = bb_piece;
-        }
-
-        // on empty current square
-        if (piece == -1)
-          // decrement file
-          file--;
-
-        // adjust file counter
-        file += offset;
-
-        // increment pointer to FEN string
-        fen++;
-      }
-
-      // match rank separator
-      if (*fen == '/')
-        // increment pointer to FEN string
-        fen++;
-    }
-  }
-
-  // got to parsing side to move (increment pointer to FEN string)
-  fen++;
-
-  // parse side to move
-  (*fen == 'w') ? (engine->board.side = white) : (engine->board.side = black);
-
-  // go to parsing castling rights
-  fen += 2;
-
-  // parse castling rights
-  while (*fen != ' ') {
-    switch (*fen) {
-    case 'K':
-      engine->board.castle |= wk;
-      break;
-    case 'Q':
-      engine->board.castle |= wq;
-      break;
-    case 'k':
-      engine->board.castle |= bk;
-      break;
-    case 'q':
-      engine->board.castle |= bq;
-      break;
-    case '-':
-      break;
-    }
-
-    // increment pointer to FEN string
-    fen++;
-  }
-
-  // got to parsing enpassant square (increment pointer to FEN string)
-  fen++;
-
-  // parse enpassant square
-  if (*fen != '-') {
-    // parse enpassant file & rank
-    int file = fen[0] - 'a';
-    int rank = 8 - (fen[1] - '0');
-
-    // init enpassant square
-    engine->board.enpassant = rank * 8 + file;
-  }
-
-  // no enpassant square
-  else
-    engine->board.enpassant = no_sq;
-
-  // go to parsing half move counter (increment pointer to FEN string)
-  fen++;
-
-  // parse half move counter to init fifty move counter
-  engine->fifty = atoi(fen);
-
-  // loop over white pieces bitboards
-  for (int piece = P; piece <= K; piece++)
-    // populate white occupancy bitboard
-    engine->board.occupancies[white] |= engine->board.bitboards[piece];
-
-  // loop over black pieces bitboards
-  for (int piece = p; piece <= k; piece++)
-    // populate white occupancy bitboard
-    engine->board.occupancies[black] |= engine->board.bitboards[piece];
-
-  // init all occupancies
-  engine->board.occupancies[both] |= engine->board.occupancies[white];
-  engine->board.occupancies[both] |= engine->board.occupancies[black];
-
-  // init hash key
-  engine->board.hash_key = generate_hash_key(engine);
 }
 
 // main UCI loop
