@@ -1,9 +1,52 @@
 // clear TT (hash table)
+#include "enums.h"
 #include "macros.h"
 #include "structs.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+uint64_t generate_hash_key(engine_t *engine) {
+  // final hash key
+  uint64_t final_key = 0ULL;
+
+  // temp piece bitboard copy
+  uint64_t bitboard;
+
+  // loop over piece bitboards
+  for (int piece = P; piece <= k; piece++) {
+    // init piece bitboard copy
+    bitboard = engine->board.bitboards[piece];
+
+    // loop over the pieces within a bitboard
+    while (bitboard) {
+      // init square occupied by the piece
+      int square = __builtin_ctzll(bitboard);
+
+      // hash piece
+      final_key ^= engine->keys.piece_keys[piece][square];
+
+      // pop LS1B
+      pop_bit(bitboard, square);
+    }
+  }
+
+  // if enpassant square is on board
+  if (engine->board.enpassant != no_sq)
+    // hash enpassant
+    final_key ^= engine->keys.enpassant_keys[engine->board.enpassant];
+
+  // hash castling rights
+  final_key ^= engine->keys.castle_keys[engine->board.castle];
+
+  // hash the side only if black is to move
+  if (engine->board.side == black)
+    final_key ^= engine->keys.side_key;
+
+  // return generated hash key
+  return final_key;
+}
+
 void clear_hash_table(tt_t *hash_table) {
   memset(hash_table->hash_entry, 0,
          sizeof(tt_entry_t) * hash_table->num_of_entries);

@@ -42,7 +42,6 @@ set(QUANTICADE_HEADERS
     "Source/uci.h"
     "Source/pvtable.h"
     "Source/search.h"
-    "Source/quanticade.h"
     "Source/nnue_consts.h"
 )
 

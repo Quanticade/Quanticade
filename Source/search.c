@@ -4,8 +4,8 @@
 #include "macros.h"
 #include "movegen.h"
 #include "pvtable.h"
-#include "quanticade.h"
 #include "structs.h"
+#include "uci.h"
 #include "utils.h"
 #include <math.h>
 #include <stdio.h>

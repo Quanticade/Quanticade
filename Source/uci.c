@@ -1,18 +1,3 @@
-#include "uci.h"
-#include "enums.h"
-#include "macros.h"
-#include "movegen.h"
-#include "nnue/nnue.h"
-#include "quanticade.h"
-#include "structs.h"
-#include "utils.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#define start_position                                                         \
-  "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 "
-
 /**********************************\
  ==================================
 
@@ -22,9 +7,51 @@
 
  ==================================
 \**********************************/
-// TODO REDO entire UCI
+
+#include "uci.h"
+#include "enums.h"
+#include "macros.h"
+#include "movegen.h"
+#include "nnue/nnue.h"
+#include "pvtable.h"
+#include "search.h"
+#include "structs.h"
+#include "utils.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define start_position                                                         \
+  "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 "
+
+const char *square_to_coordinates[] = {
+    "a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8", "a7", "b7", "c7",
+    "d7", "e7", "f7", "g7", "h7", "a6", "b6", "c6", "d6", "e6", "f6",
+    "g6", "h6", "a5", "b5", "c5", "d5", "e5", "f5", "g5", "h5", "a4",
+    "b4", "c4", "d4", "e4", "f4", "g4", "h4", "a3", "b3", "c3", "d3",
+    "e3", "f3", "g3", "h3", "a2", "b2", "c2", "d2", "e2", "f2", "g2",
+    "h2", "a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1",
+};
+int char_pieces[] = {
+    ['P'] = P, ['N'] = N, ['B'] = B, ['R'] = R, ['Q'] = Q, ['K'] = K,
+    ['p'] = p, ['n'] = n, ['b'] = b, ['r'] = r, ['q'] = q, ['k'] = k};
+char promoted_pieces[] = {[Q] = 'q', [R] = 'r', [B] = 'b', [N] = 'n',
+                          [q] = 'q', [r] = 'r', [b] = 'b', [n] = 'n'};
+
+static inline void reset_time_control(engine_t *engine) {
+  // reset timing
+  engine->quit = 0;
+  engine->movestogo = 30;
+  engine->time = -1;
+  engine->inc = 0;
+  engine->starttime = 0;
+  engine->stoptime = 0;
+  engine->timeset = 0;
+  engine->stopped = 0;
+}
+
 //  parse user/GUI move string input (e.g. "e7e8q")
-static int parse_move(engine_t *engine, char *move_string) {
+static inline int parse_move(engine_t *engine, char *move_string) {
   // create move list instance
   moves move_list[1];
 
@@ -88,7 +115,7 @@ static int parse_move(engine_t *engine, char *move_string) {
 }
 
 // parse UCI "position" command
-static void parse_position(engine_t *engine, char *command) {
+static inline void parse_position(engine_t *engine, char *command) {
   // shift pointer to the right where next token begins
   command += 9;
 
@@ -158,7 +185,7 @@ static void parse_position(engine_t *engine, char *command) {
   }
 }
 
-static void parse_go(engine_t *engine, tt_t *hash_table, char *command) {
+static inline void parse_go(engine_t *engine, tt_t *hash_table, char *command) {
   // reset time control
   reset_time_control(engine);
 
@@ -247,6 +274,169 @@ static void parse_go(engine_t *engine, tt_t *hash_table, char *command) {
 
   // search position
   search_position(engine, hash_table, depth);
+}
+
+// print move (for UCI purposes)
+void print_move(int move) {
+  if (get_move_promoted(move))
+    printf("%s%s%c", square_to_coordinates[get_move_source(move)],
+           square_to_coordinates[get_move_target(move)],
+           promoted_pieces[get_move_promoted(move)]);
+  else
+    printf("%s%s", square_to_coordinates[get_move_source(move)],
+           square_to_coordinates[get_move_target(move)]);
+}
+
+static inline void reset_board(engine_t *engine) {
+  // reset board position (bitboards)
+  memset(engine->board.bitboards, 0ULL, sizeof(engine->board.bitboards));
+
+  // reset occupancies (bitboards)
+  memset(engine->board.occupancies, 0ULL, sizeof(engine->board.occupancies));
+
+  // reset game state variables
+  engine->board.side = 0;
+  engine->board.enpassant = no_sq;
+  engine->board.castle = 0;
+
+  // reset repetition index
+  engine->repetition_index = 0;
+
+  engine->fifty = 0;
+
+  // reset repetition table
+  memset(engine->repetition_table, 0ULL, sizeof(engine->repetition_table));
+}
+
+void parse_fen(engine_t *engine, char *fen) {
+  // prepare for new game
+  reset_board(engine);
+
+  // loop over board ranks
+  for (int rank = 0; rank < 8; rank++) {
+    // loop over board files
+    for (int file = 0; file < 8; file++) {
+      // init current square
+      int square = rank * 8 + file;
+
+      // match ascii pieces within FEN string
+      if ((*fen >= 'a' && *fen <= 'z') || (*fen >= 'A' && *fen <= 'Z')) {
+        // init piece type
+        int piece = char_pieces[*(uint8_t *)fen];
+
+        // set piece on corresponding bitboard
+        set_bit(engine->board.bitboards[piece], square);
+
+        // increment pointer to FEN string
+        fen++;
+      }
+
+      // match empty square numbers within FEN string
+      if (*fen >= '0' && *fen <= '9') {
+        // init offset (convert char 0 to int 0)
+        int offset = *fen - '0';
+
+        // define piece variable
+        int piece = -1;
+
+        // loop over all piece bitboards
+        for (int bb_piece = P; bb_piece <= k; bb_piece++) {
+          // if there is a piece on current square
+          if (get_bit(engine->board.bitboards[bb_piece], square))
+            // get piece code
+            piece = bb_piece;
+        }
+
+        // on empty current square
+        if (piece == -1)
+          // decrement file
+          file--;
+
+        // adjust file counter
+        file += offset;
+
+        // increment pointer to FEN string
+        fen++;
+      }
+
+      // match rank separator
+      if (*fen == '/')
+        // increment pointer to FEN string
+        fen++;
+    }
+  }
+
+  // got to parsing side to move (increment pointer to FEN string)
+  fen++;
+
+  // parse side to move
+  (*fen == 'w') ? (engine->board.side = white) : (engine->board.side = black);
+
+  // go to parsing castling rights
+  fen += 2;
+
+  // parse castling rights
+  while (*fen != ' ') {
+    switch (*fen) {
+    case 'K':
+      engine->board.castle |= wk;
+      break;
+    case 'Q':
+      engine->board.castle |= wq;
+      break;
+    case 'k':
+      engine->board.castle |= bk;
+      break;
+    case 'q':
+      engine->board.castle |= bq;
+      break;
+    case '-':
+      break;
+    }
+
+    // increment pointer to FEN string
+    fen++;
+  }
+
+  // got to parsing enpassant square (increment pointer to FEN string)
+  fen++;
+
+  // parse enpassant square
+  if (*fen != '-') {
+    // parse enpassant file & rank
+    int file = fen[0] - 'a';
+    int rank = 8 - (fen[1] - '0');
+
+    // init enpassant square
+    engine->board.enpassant = rank * 8 + file;
+  }
+
+  // no enpassant square
+  else
+    engine->board.enpassant = no_sq;
+
+  // go to parsing half move counter (increment pointer to FEN string)
+  fen++;
+
+  // parse half move counter to init fifty move counter
+  engine->fifty = atoi(fen);
+
+  // loop over white pieces bitboards
+  for (int piece = P; piece <= K; piece++)
+    // populate white occupancy bitboard
+    engine->board.occupancies[white] |= engine->board.bitboards[piece];
+
+  // loop over black pieces bitboards
+  for (int piece = p; piece <= k; piece++)
+    // populate white occupancy bitboard
+    engine->board.occupancies[black] |= engine->board.bitboards[piece];
+
+  // init all occupancies
+  engine->board.occupancies[both] |= engine->board.occupancies[white];
+  engine->board.occupancies[both] |= engine->board.occupancies[black];
+
+  // init hash key
+  engine->board.hash_key = generate_hash_key(engine);
 }
 
 // main UCI loop

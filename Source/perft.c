@@ -1,6 +1,7 @@
 #include "enums.h"
 #include "macros.h"
 #include "movegen.h"
+#include "uci.h"
 #include "utils.h"
 #include <stdio.h>
 #include <string.h>
@@ -74,7 +75,7 @@ void perft_test(engine_t *engine, int depth) {
 
     // old nodes
     long old_nodes = engine->nodes - cummulative_nodes;
-	(void)old_nodes;
+    (void)old_nodes;
 
     // take back
     restore_board(engine->board.bitboards, engine->board.occupancies,
@@ -82,8 +83,7 @@ void perft_test(engine_t *engine, int depth) {
                   engine->board.castle, engine->fifty, engine->board.hash_key);
 
     // print move
-	// Rewrite once we get printing functions organized
-    /*printf("     move: %s%s%c  nodes: %ld\n",
+    printf("     move: %s%s%c  nodes: %ld\n",
            square_to_coordinates[get_move_source(
                move_list->entry[move_count].move)],
            square_to_coordinates[get_move_target(
@@ -92,7 +92,7 @@ void perft_test(engine_t *engine, int depth) {
                ? promoted_pieces[get_move_promoted(
                      move_list->entry[move_count].move)]
                : ' ',
-           old_nodes);*/
+           old_nodes);
   }
 
   // print results
