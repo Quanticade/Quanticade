@@ -90,20 +90,7 @@ uint64_t generate_magic_number(engine_t *engine) {
 
 // count bits within a bitboard (Brian Kernighan's way)
 static inline uint8_t count_bits(uint64_t bitboard) {
-  // bit counter
-  uint8_t count = 0;
-
-  // consecutively reset least significant 1st bit
-  while (bitboard) {
-    // increment count
-    count++;
-
-    // reset least significant 1st bit
-    bitboard &= bitboard - 1;
-  }
-
-  // return bit count
-  return count;
+  return __builtin_popcountll(bitboard);
 }
 
 // get least significant 1st bit index
@@ -3629,7 +3616,7 @@ int main(void) {
   engine.random_state = 1804289383;
   tt_t hash_table = {NULL, 0, 0};
   engine.nnue_file = calloc(21, 1);
-  strlcpy(engine.nnue_file, "nn-eba324f53044.nnue", 21);
+  strcpy(engine.nnue_file, "nn-eba324f53044.nnue");
   // init all
   init_all(&engine, &hash_table);
 
