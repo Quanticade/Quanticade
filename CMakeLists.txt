@@ -27,6 +27,8 @@ set(QUANTICADE_SOURCES
     "Source/attacks.c"
     "Source/evaluate.c"
     "Source/movegen.c"
+    "Source/pvtable.c"
+    "Source/search.c"
 )
 
 set(QUANTICADE_HEADERS
@@ -38,6 +40,8 @@ set(QUANTICADE_HEADERS
     "Source/macros.h"
     "Source/utils.h"
     "Source/uci.h"
+    "Source/pvtable.h"
+    "Source/search.h"
     "Source/quanticade.h"
     "Source/nnue_consts.h"
 )

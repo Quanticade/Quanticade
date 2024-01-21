@@ -134,6 +134,72 @@ const int queen_mobility_endgame = 2;
 const int king_shield_bonus = 5;
 
 
+// set file or rank mask
+static inline uint64_t set_file_rank_mask(int file_number, int rank_number) {
+  if (file_number >= 0) {
+    // File mask
+    return 0x0101010101010101ULL << file_number;
+  } else if (rank_number >= 0) {
+    // Rank mask
+    return 0xFFULL << (8 * rank_number);
+  } else {
+    // Invalid input
+    return 0ULL;
+  }
+}
+
+// init evaluation masks
+void init_evaluation_masks(engine_t *engine) {
+  /******** Init file masks ********/
+
+  // loop over ranks
+  for (int rank = 0; rank < 8; rank++) {
+    // loop over files
+    for (int file = 0; file < 8; file++) {
+      // init square
+      int square = rank * 8 + file;
+
+      // init file mask for a current square
+      engine->masks.file_masks[square] |= set_file_rank_mask(file, -1);
+
+      // init rank mask for a current square
+      engine->masks.rank_masks[square] |= set_file_rank_mask(-1, rank);
+
+      // init isolated pawns masks for a current square
+      engine->masks.isolated_masks[square] |= set_file_rank_mask(file - 1, -1);
+      engine->masks.isolated_masks[square] |= set_file_rank_mask(file + 1, -1);
+
+      // init white passed pawns mask for a current square
+      engine->masks.white_passed_masks[square] |=
+          set_file_rank_mask(file - 1, -1);
+      engine->masks.white_passed_masks[square] |= set_file_rank_mask(file, -1);
+      engine->masks.white_passed_masks[square] |=
+          set_file_rank_mask(file + 1, -1);
+
+      // init black passed pawns mask for a current square
+      engine->masks.black_passed_masks[square] |=
+          set_file_rank_mask(file - 1, -1);
+      engine->masks.black_passed_masks[square] |= set_file_rank_mask(file, -1);
+      engine->masks.black_passed_masks[square] |=
+          set_file_rank_mask(file + 1, -1);
+
+      // loop over redundant ranks
+      for (int i = 0; i < (8 - rank); i++) {
+        // reset redundant bits
+        engine->masks.white_passed_masks[square] &=
+            ~engine->masks.rank_masks[(7 - i) * 8 + file];
+      }
+
+      // loop over redundant ranks
+      for (int i = 0; i < rank + 1; i++) {
+        // reset redundant bits
+        engine->masks.black_passed_masks[square] &=
+            ~engine->masks.rank_masks[i * 8 + file];
+      }
+    }
+  }
+}
+
 // get game phase score
 static inline int get_game_phase_score(engine_t *engine) {
   /*
