@@ -2116,38 +2116,16 @@ void perft_test(engine_t *engine, int depth) {
 
 // set file or rank mask
 uint64_t set_file_rank_mask(int file_number, int rank_number) {
-  // file or rank mask
-  uint64_t mask = 0ULL;
-
-  // loop over ranks
-  for (int rank = 0; rank < 8; rank++) {
-    // loop over files
-    for (int file = 0; file < 8; file++) {
-      // init square
-      int square = rank * 8 + file;
-
-      if (file_number != -1) {
-        // on file match
-        if (file == file_number) {
-          // set bit on mask
-          uint64_t temp = set_bit(mask, square);
-          mask |= temp;
-        }
-      }
-
-      else if (rank_number != -1) {
-        // on rank match
-        if (rank == rank_number) {
-          // set bit on mask
-          uint64_t temp = set_bit(mask, square);
-          mask |= temp;
-        }
-      }
+    if (file_number >= 0) {
+        // File mask
+        return 0x0101010101010101ULL << file_number;
+    } else if (rank_number >= 0) {
+        // Rank mask
+        return 0xFFULL << (8 * rank_number);
+    } else {
+        // Invalid input
+        return 0ULL;
     }
-  }
-
-  // return mask
-  return mask;
 }
 
 // init evaluation masks
