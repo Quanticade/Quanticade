@@ -267,6 +267,9 @@ void uci_loop(engine_t *engine, tt_t *hash_table) {
   // print engine info
   printf("Quanticade %s by DarkNeutrino\n", version);
 
+  // Setup engine with start position as default
+  parse_position(engine, start_position);
+
   // main loop
   while (1) {
     // reset user /GUI input
