@@ -42,11 +42,11 @@ set(QUANTICADE_SOURCES
 
 set(QUANTICADE_HEADERS
     "Source/attacks.h"
+    "Source/bitboards.h"
     "Source/evaluate.h"
     "Source/movegen.h"
     "Source/structs.h"
     "Source/enums.h"
-    "Source/macros.h"
     "Source/utils.h"
     "Source/uci.h"
     "Source/pvtable.h"

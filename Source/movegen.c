@@ -1,7 +1,7 @@
 #include "movegen.h"
 #include "attacks.h"
 #include "enums.h"
-#include "macros.h"
+#include "bitboards.h"
 #include "structs.h"
 #include <string.h>
 

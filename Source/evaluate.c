@@ -1,7 +1,7 @@
 #include "evaluate.h"
 #include "attacks.h"
 #include "enums.h"
-#include "macros.h"
+#include "bitboards.h"
 #include "nnue/nnue.h"
 #include "nnue_consts.h"
 #include "structs.h"

@@ -9,8 +9,8 @@
 \**********************************/
 
 #include "uci.h"
+#include "bitboards.h"
 #include "enums.h"
-#include "macros.h"
 #include "movegen.h"
 #include "nnue/nnue.h"
 #include "pvtable.h"

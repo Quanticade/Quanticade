@@ -1,7 +1,7 @@
 #include "attacks.h"
+#include "bitboards.h"
 #include "enums.h"
 #include "evaluate.h"
-#include "macros.h"
 #include "movegen.h"
 #include "pvtable.h"
 #include "structs.h"

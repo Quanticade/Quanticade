@@ -3,6 +3,8 @@
 
 #include "structs.h"
 
+#define version "0.5 Dev"
+
 extern const char *square_to_coordinates[];
 extern char promoted_pieces[];
 

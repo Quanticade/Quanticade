@@ -1,6 +1,6 @@
-// clear TT (hash table)
+#include "pvtable.h"
+#include "bitboards.h"
 #include "enums.h"
-#include "macros.h"
 #include "structs.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -90,8 +90,8 @@ void init_hash_table(engine_t *engine, tt_t *hash_table, int mb) {
 }
 
 // read hash entry data
-int read_hash_entry(engine_t *engine, tt_t *hash_table, int alpha,
-                                  int *move, int beta, int depth) {
+int read_hash_entry(engine_t *engine, tt_t *hash_table, int alpha, int *move,
+                    int beta, int depth) {
   // create a TT instance pointer to particular hash entry storing
   // the scoring data for the current board position if available
   tt_entry_t *hash_entry =
@@ -135,9 +135,8 @@ int read_hash_entry(engine_t *engine, tt_t *hash_table, int alpha,
 }
 
 // write hash entry data
-void write_hash_entry(engine_t *engine, tt_t *hash_table,
-                                    int score, int depth, int move,
-                                    int hash_flag) {
+void write_hash_entry(engine_t *engine, tt_t *hash_table, int score, int depth,
+                      int move, int hash_flag) {
   // create a TT instance pointer to particular hash entry storing
   // the scoring data for the current board position if available
   tt_entry_t *hash_entry =

@@ -1,20 +1,11 @@
-#ifndef MACROS_H
-#define MACROS_H
-
-#define version "0.5 Dev"
+#ifndef BITBOARDS_H
+#define BITBOARDS_H
 
 #define max_ply 64
 
 #define infinity 50000
 #define mate_value 49000
 #define mate_score 48000
-
-#define no_hash_entry 100000
-
-// transposition table hash flags
-#define hash_flag_exact 0
-#define hash_flag_alpha 1
-#define hash_flag_beta 2
 
 // preserve board state
 #define copy_board(bitboards, occupancies, side, enpassant, castle, fifty,     \
