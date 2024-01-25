@@ -1,7 +1,7 @@
 #include "movegen.h"
 #include "attacks.h"
-#include "enums.h"
 #include "bitboards.h"
+#include "enums.h"
 #include "structs.h"
 #include <string.h>
 
@@ -335,7 +335,7 @@ void generate_captures(engine_t *engine, moves *move_list) {
           target_square = source_square - 8;
 
           // init pawn attacks bitboard
-          attacks = engine->attacks.pawn_attacks[side][source_square] &
+          attacks = pawn_attacks[side][source_square] &
                     engine->board.occupancies[black];
 
           // generate pawn captures
@@ -367,9 +367,8 @@ void generate_captures(engine_t *engine, moves *move_list) {
           // generate enpassant captures
           if (engine->board.enpassant != no_sq) {
             // lookup pawn attacks and bitwise AND with enpassant square (bit)
-            uint64_t enpassant_attacks =
-                engine->attacks.pawn_attacks[side][source_square] &
-                (1ULL << engine->board.enpassant);
+            uint64_t enpassant_attacks = pawn_attacks[side][source_square] &
+                                         (1ULL << engine->board.enpassant);
 
             // make sure enpassant capture available
             if (enpassant_attacks) {
@@ -399,7 +398,7 @@ void generate_captures(engine_t *engine, moves *move_list) {
           target_square = source_square + 8;
 
           // init pawn attacks bitboard
-          attacks = engine->attacks.pawn_attacks[side][source_square] &
+          attacks = pawn_attacks[side][source_square] &
                     engine->board.occupancies[white];
 
           // generate pawn captures
@@ -431,9 +430,8 @@ void generate_captures(engine_t *engine, moves *move_list) {
           // generate enpassant captures
           if (engine->board.enpassant != no_sq) {
             // lookup pawn attacks and bitwise AND with enpassant square (bit)
-            uint64_t enpassant_attacks =
-                engine->attacks.pawn_attacks[side][source_square] &
-                (1ULL << engine->board.enpassant);
+            uint64_t enpassant_attacks = pawn_attacks[side][source_square] &
+                                         (1ULL << engine->board.enpassant);
 
             // make sure enpassant capture available
             if (enpassant_attacks) {
@@ -458,7 +456,7 @@ void generate_captures(engine_t *engine, moves *move_list) {
         source_square = __builtin_ctzll(bitboard);
 
         // init piece attacks in order to get set of target squares
-        attacks = engine->attacks.knight_attacks[source_square] &
+        attacks = knight_attacks[source_square] &
                   ((side == white) ? ~engine->board.occupancies[white]
                                    : ~engine->board.occupancies[black]);
 
@@ -491,7 +489,7 @@ void generate_captures(engine_t *engine, moves *move_list) {
         source_square = __builtin_ctzll(bitboard);
 
         // init piece attacks in order to get set of target squares
-        attacks = get_bishop_attacks(engine, source_square,
+        attacks = get_bishop_attacks(source_square,
                                      engine->board.occupancies[both]) &
                   ((side == white) ? ~engine->board.occupancies[white]
                                    : ~engine->board.occupancies[black]);
@@ -525,7 +523,7 @@ void generate_captures(engine_t *engine, moves *move_list) {
         source_square = __builtin_ctzll(bitboard);
 
         // init piece attacks in order to get set of target squares
-        attacks = get_rook_attacks(engine, source_square,
+        attacks = get_rook_attacks(source_square,
                                    engine->board.occupancies[both]) &
                   ((side == white) ? ~engine->board.occupancies[white]
                                    : ~engine->board.occupancies[black]);
@@ -559,7 +557,7 @@ void generate_captures(engine_t *engine, moves *move_list) {
         source_square = __builtin_ctzll(bitboard);
 
         // init piece attacks in order to get set of target squares
-        attacks = get_queen_attacks(engine, source_square,
+        attacks = get_queen_attacks(source_square,
                                     engine->board.occupancies[both]) &
                   ((side == white) ? ~engine->board.occupancies[white]
                                    : ~engine->board.occupancies[black]);
@@ -593,7 +591,7 @@ void generate_captures(engine_t *engine, moves *move_list) {
         source_square = __builtin_ctzll(bitboard);
 
         // init piece attacks in order to get set of target squares
-        attacks = engine->attacks.king_attacks[source_square] &
+        attacks = king_attacks[source_square] &
                   ((side == white) ? ~engine->board.occupancies[white]
                                    : ~engine->board.occupancies[black]);
 
@@ -678,9 +676,8 @@ void generate_moves(engine_t *engine, moves *move_list) {
           }
 
           // init pawn attacks bitboard
-          attacks =
-              engine->attacks.pawn_attacks[engine->board.side][source_square] &
-              engine->board.occupancies[black];
+          attacks = pawn_attacks[engine->board.side][source_square] &
+                    engine->board.occupancies[black];
 
           // generate pawn captures
           while (attacks) {
@@ -712,8 +709,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
           if (engine->board.enpassant != no_sq) {
             // lookup pawn attacks and bitwise AND with enpassant square (bit)
             uint64_t enpassant_attacks =
-                engine->attacks
-                    .pawn_attacks[engine->board.side][source_square] &
+                pawn_attacks[engine->board.side][source_square] &
                 (1ULL << engine->board.enpassant);
 
             // make sure enpassant capture available
@@ -801,9 +797,8 @@ void generate_moves(engine_t *engine, moves *move_list) {
           }
 
           // init pawn attacks bitboard
-          attacks =
-              engine->attacks.pawn_attacks[engine->board.side][source_square] &
-              engine->board.occupancies[white];
+          attacks = pawn_attacks[engine->board.side][source_square] &
+                    engine->board.occupancies[white];
 
           // generate pawn captures
           while (attacks) {
@@ -835,8 +830,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
           if (engine->board.enpassant != no_sq) {
             // lookup pawn attacks and bitwise AND with enpassant square (bit)
             uint64_t enpassant_attacks =
-                engine->attacks
-                    .pawn_attacks[engine->board.side][source_square] &
+                pawn_attacks[engine->board.side][source_square] &
                 (1ULL << engine->board.enpassant);
 
             // make sure enpassant capture available
@@ -891,7 +885,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
 
         // init piece attacks in order to get set of target squares
         attacks =
-            engine->attacks.knight_attacks[source_square] &
+            knight_attacks[source_square] &
             ((engine->board.side == white) ? ~engine->board.occupancies[white]
                                            : ~engine->board.occupancies[black]);
 
@@ -931,7 +925,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
 
         // init piece attacks in order to get set of target squares
         attacks =
-            get_bishop_attacks(engine, source_square,
+            get_bishop_attacks(source_square,
                                engine->board.occupancies[both]) &
             ((engine->board.side == white) ? ~engine->board.occupancies[white]
                                            : ~engine->board.occupancies[black]);
@@ -972,7 +966,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
 
         // init piece attacks in order to get set of target squares
         attacks =
-            get_rook_attacks(engine, source_square,
+            get_rook_attacks(source_square,
                              engine->board.occupancies[both]) &
             ((engine->board.side == white) ? ~engine->board.occupancies[white]
                                            : ~engine->board.occupancies[black]);
@@ -1013,7 +1007,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
 
         // init piece attacks in order to get set of target squares
         attacks =
-            get_queen_attacks(engine, source_square,
+            get_queen_attacks(source_square,
                               engine->board.occupancies[both]) &
             ((engine->board.side == white) ? ~engine->board.occupancies[white]
                                            : ~engine->board.occupancies[black]);
@@ -1054,7 +1048,7 @@ void generate_moves(engine_t *engine, moves *move_list) {
 
         // init piece attacks in order to get set of target squares
         attacks =
-            engine->attacks.king_attacks[source_square] &
+            king_attacks[source_square] &
             ((engine->board.side == white) ? ~engine->board.occupancies[white]
                                            : ~engine->board.occupancies[black]);
 

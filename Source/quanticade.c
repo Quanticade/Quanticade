@@ -88,17 +88,16 @@ static inline void init_random_keys(engine_t *engine) {
 // init all variables
 void init_all(engine_t *engine, tt_t *hash_table) {
   // init leaper pieces attacks
-  init_leapers_attacks(engine);
+  init_leapers_attacks();
 
   // init slider pieces attacks
-  init_sliders_attacks(engine, 1);
-  init_sliders_attacks(engine, 0);
+  init_sliders_attacks();
 
   // init random keys for hashing purposes
   init_random_keys(engine);
 
   // init evaluation masks
-  init_evaluation_masks(engine);
+  init_evaluation_masks();
 
   // init hash table with default 128 MB
   init_hash_table(engine, hash_table, 128);

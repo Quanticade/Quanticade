@@ -149,7 +149,7 @@ static inline uint64_t set_file_rank_mask(int file_number, int rank_number) {
 }
 
 // init evaluation masks
-void init_evaluation_masks(engine_t *engine) {
+void init_evaluation_masks() {
   /******** Init file masks ********/
 
   // loop over ranks
@@ -160,41 +160,41 @@ void init_evaluation_masks(engine_t *engine) {
       int square = rank * 8 + file;
 
       // init file mask for a current square
-      engine->masks.file_masks[square] |= set_file_rank_mask(file, -1);
+      file_masks[square] |= set_file_rank_mask(file, -1);
 
       // init rank mask for a current square
-      engine->masks.rank_masks[square] |= set_file_rank_mask(-1, rank);
+      rank_masks[square] |= set_file_rank_mask(-1, rank);
 
       // init isolated pawns masks for a current square
-      engine->masks.isolated_masks[square] |= set_file_rank_mask(file - 1, -1);
-      engine->masks.isolated_masks[square] |= set_file_rank_mask(file + 1, -1);
+      isolated_masks[square] |= set_file_rank_mask(file - 1, -1);
+      isolated_masks[square] |= set_file_rank_mask(file + 1, -1);
 
       // init white passed pawns mask for a current square
-      engine->masks.white_passed_masks[square] |=
+      white_passed_masks[square] |=
           set_file_rank_mask(file - 1, -1);
-      engine->masks.white_passed_masks[square] |= set_file_rank_mask(file, -1);
-      engine->masks.white_passed_masks[square] |=
+      white_passed_masks[square] |= set_file_rank_mask(file, -1);
+      white_passed_masks[square] |=
           set_file_rank_mask(file + 1, -1);
 
       // init black passed pawns mask for a current square
-      engine->masks.black_passed_masks[square] |=
+      black_passed_masks[square] |=
           set_file_rank_mask(file - 1, -1);
-      engine->masks.black_passed_masks[square] |= set_file_rank_mask(file, -1);
-      engine->masks.black_passed_masks[square] |=
+      black_passed_masks[square] |= set_file_rank_mask(file, -1);
+      black_passed_masks[square] |=
           set_file_rank_mask(file + 1, -1);
 
       // loop over redundant ranks
       for (int i = 0; i < (8 - rank); i++) {
         // reset redundant bits
-        engine->masks.white_passed_masks[square] &=
-            ~engine->masks.rank_masks[(7 - i) * 8 + file];
+        white_passed_masks[square] &=
+            ~rank_masks[(7 - i) * 8 + file];
       }
 
       // loop over redundant ranks
       for (int i = 0; i < rank + 1; i++) {
         // reset redundant bits
-        engine->masks.black_passed_masks[square] &=
-            ~engine->masks.rank_masks[i * 8 + file];
+        black_passed_masks[square] &=
+            ~rank_masks[i * 8 + file];
       }
     }
   }
@@ -335,7 +335,7 @@ int evaluate(engine_t *engine) {
 
           // double pawn penalty
           double_pawns = __builtin_popcountll(engine->board.bitboards[P] &
-                                              engine->masks.file_masks[square]);
+                                              file_masks[square]);
 
           // on double pawns (tripple, etc)
           if (double_pawns > 1) {
@@ -345,13 +345,13 @@ int evaluate(engine_t *engine) {
 
           // on isolated pawn
           if ((engine->board.bitboards[P] &
-               engine->masks.isolated_masks[square]) == 0) {
+               isolated_masks[square]) == 0) {
             // give an isolated pawn penalty
             score_opening += isolated_pawn_penalty_opening;
             score_endgame += isolated_pawn_penalty_endgame;
           }
           // on passed pawn
-          if ((engine->masks.white_passed_masks[square] &
+          if ((white_passed_masks[square] &
                engine->board.bitboards[p]) == 0) {
             // give passed pawn bonus
             score_opening += passed_pawn_bonus[get_rank[square]];
@@ -377,12 +377,12 @@ int evaluate(engine_t *engine) {
           // mobility
           score_opening +=
               (__builtin_popcountll(get_bishop_attacks(
-                   engine, square, engine->board.occupancies[both])) -
+                   square, engine->board.occupancies[both])) -
                bishop_unit) *
               bishop_mobility_opening;
           score_endgame +=
               (__builtin_popcountll(get_bishop_attacks(
-                   engine, square, engine->board.occupancies[both])) -
+                   square, engine->board.occupancies[both])) -
                bishop_unit) *
               bishop_mobility_endgame;
           break;
@@ -394,7 +394,7 @@ int evaluate(engine_t *engine) {
           score_endgame += positional_score[endgame][ROOK][square];
 
           // semi open file
-          if ((engine->board.bitboards[P] & engine->masks.file_masks[square]) ==
+          if ((engine->board.bitboards[P] & file_masks[square]) ==
               0) {
             // add semi open file bonus
             score_opening += semi_open_file_score;
@@ -403,7 +403,7 @@ int evaluate(engine_t *engine) {
 
           // semi open file
           if (((engine->board.bitboards[P] | engine->board.bitboards[p]) &
-               engine->masks.file_masks[square]) == 0) {
+               file_masks[square]) == 0) {
             // add semi open file bonus
             score_opening += open_file_score;
             score_endgame += open_file_score;
@@ -420,12 +420,12 @@ int evaluate(engine_t *engine) {
           // mobility
           score_opening +=
               (__builtin_popcountll(get_queen_attacks(
-                   engine, square, engine->board.occupancies[both])) -
+                   square, engine->board.occupancies[both])) -
                queen_unit) *
               queen_mobility_opening;
           score_endgame +=
               (__builtin_popcountll(get_queen_attacks(
-                   engine, square, engine->board.occupancies[both])) -
+                   square, engine->board.occupancies[both])) -
                queen_unit) *
               queen_mobility_endgame;
           break;
@@ -437,7 +437,7 @@ int evaluate(engine_t *engine) {
           score_endgame += positional_score[endgame][KING][square];
 
           // semi open file
-          if ((engine->board.bitboards[P] & engine->masks.file_masks[square]) ==
+          if ((engine->board.bitboards[P] & file_masks[square]) ==
               0) {
             // add semi open file penalty
             score_opening -= semi_open_file_score;
@@ -446,7 +446,7 @@ int evaluate(engine_t *engine) {
 
           // semi open file
           if (((engine->board.bitboards[P] | engine->board.bitboards[p]) &
-               engine->masks.file_masks[square]) == 0) {
+               file_masks[square]) == 0) {
             // add semi open file penalty
             score_opening -= open_file_score;
             score_endgame -= open_file_score;
@@ -454,11 +454,11 @@ int evaluate(engine_t *engine) {
 
           // king safety bonus
           score_opening +=
-              __builtin_popcountll(engine->attacks.king_attacks[square] &
+              __builtin_popcountll(king_attacks[square] &
                                    engine->board.occupancies[white]) *
               king_shield_bonus;
           score_endgame +=
-              __builtin_popcountll(engine->attacks.king_attacks[square] &
+              __builtin_popcountll(king_attacks[square] &
                                    engine->board.occupancies[white]) *
               king_shield_bonus;
 
@@ -474,7 +474,7 @@ int evaluate(engine_t *engine) {
 
           // double pawn penalty
           double_pawns = __builtin_popcountll(engine->board.bitboards[p] &
-                                              engine->masks.file_masks[square]);
+                                              file_masks[square]);
 
           // on double pawns (tripple, etc)
           if (double_pawns > 1) {
@@ -484,13 +484,13 @@ int evaluate(engine_t *engine) {
 
           // on isolated pawn
           if ((engine->board.bitboards[p] &
-               engine->masks.isolated_masks[square]) == 0) {
+               isolated_masks[square]) == 0) {
             // give an isolated pawn penalty
             score_opening -= isolated_pawn_penalty_opening;
             score_endgame -= isolated_pawn_penalty_endgame;
           }
           // on passed pawn
-          if ((engine->masks.black_passed_masks[square] &
+          if ((black_passed_masks[square] &
                engine->board.bitboards[P]) == 0) {
             // give passed pawn bonus
             score_opening -= passed_pawn_bonus[get_rank[square]];
@@ -520,12 +520,12 @@ int evaluate(engine_t *engine) {
           // mobility
           score_opening -=
               (__builtin_popcountll(get_bishop_attacks(
-                   engine, square, engine->board.occupancies[both])) -
+                   square, engine->board.occupancies[both])) -
                bishop_unit) *
               bishop_mobility_opening;
           score_endgame -=
               (__builtin_popcountll(get_bishop_attacks(
-                   engine, square, engine->board.occupancies[both])) -
+                   square, engine->board.occupancies[both])) -
                bishop_unit) *
               bishop_mobility_endgame;
           break;
@@ -539,7 +539,7 @@ int evaluate(engine_t *engine) {
               positional_score[endgame][ROOK][mirror_score[square]];
 
           // semi open file
-          if ((engine->board.bitboards[p] & engine->masks.file_masks[square]) ==
+          if ((engine->board.bitboards[p] & file_masks[square]) ==
               0) {
             // add semi open file bonus
             score_opening -= semi_open_file_score;
@@ -548,7 +548,7 @@ int evaluate(engine_t *engine) {
 
           // semi open file
           if (((engine->board.bitboards[P] | engine->board.bitboards[p]) &
-               engine->masks.file_masks[square]) == 0) {
+               file_masks[square]) == 0) {
             // add semi open file bonus
             score_opening -= open_file_score;
             score_endgame -= open_file_score;
@@ -567,12 +567,12 @@ int evaluate(engine_t *engine) {
           // mobility
           score_opening -=
               (__builtin_popcountll(get_queen_attacks(
-                   engine, square, engine->board.occupancies[both])) -
+                   square, engine->board.occupancies[both])) -
                queen_unit) *
               queen_mobility_opening;
           score_endgame -=
               (__builtin_popcountll(get_queen_attacks(
-                   engine, square, engine->board.occupancies[both])) -
+                   square, engine->board.occupancies[both])) -
                queen_unit) *
               queen_mobility_endgame;
           break;
@@ -586,7 +586,7 @@ int evaluate(engine_t *engine) {
               positional_score[endgame][KING][mirror_score[square]];
 
           // semi open file
-          if ((engine->board.bitboards[p] & engine->masks.file_masks[square]) ==
+          if ((engine->board.bitboards[p] & file_masks[square]) ==
               0) {
             // add semi open file penalty
             score_opening += semi_open_file_score;
@@ -595,7 +595,7 @@ int evaluate(engine_t *engine) {
 
           // semi open file
           if (((engine->board.bitboards[P] | engine->board.bitboards[p]) &
-               engine->masks.file_masks[square]) == 0) {
+               file_masks[square]) == 0) {
             // add semi open file penalty
             score_opening += open_file_score;
             score_endgame += open_file_score;
@@ -603,11 +603,11 @@ int evaluate(engine_t *engine) {
 
           // king safety bonus
           score_opening -=
-              __builtin_popcountll(engine->attacks.king_attacks[square] &
+              __builtin_popcountll(king_attacks[square] &
                                    engine->board.occupancies[black]) *
               king_shield_bonus;
           score_endgame -=
-              __builtin_popcountll(engine->attacks.king_attacks[square] &
+              __builtin_popcountll(king_attacks[square] &
                                    engine->board.occupancies[black]) *
               king_shield_bonus;
           break;

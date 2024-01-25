@@ -20,6 +20,7 @@ add_compile_options(-march=native -Ofast -funroll-loops -fomit-frame-pointer -DU
 #add_compile_options(-DUSE_AVX512 -mavx512f)
 
 add_subdirectory(Source/nnue)
+add_subdirectory(Source/pyrrhic)
 
 add_executable(Quanticade "")
 

@@ -1,8 +1,21 @@
 #include "attacks.h"
-#include "enums.h"
 #include "bitboards.h"
+#include "enums.h"
 #include "structs.h"
 #include <stdint.h>
+
+uint64_t pawn_attacks[2][64];
+uint64_t knight_attacks[64];
+uint64_t king_attacks[64];
+uint64_t bishop_attacks[64][512];
+uint64_t rook_attacks[64][4096];
+uint64_t bishop_masks[64];
+uint64_t rook_masks[64];
+uint64_t file_masks[64];
+uint64_t rank_masks[64];
+uint64_t isolated_masks[64];
+uint64_t white_passed_masks[64];
+uint64_t black_passed_masks[64];
 
 const uint64_t not_a_file = 18374403900871474942ULL;
 const uint64_t not_h_file = 9187201950435737471ULL;
@@ -303,20 +316,18 @@ uint64_t rook_attacks_on_the_fly(int square, uint64_t block) {
 }
 
 // init leaper pieces attacks
-void init_leapers_attacks(engine_t *engine) {
+void init_leapers_attacks() {
   // loop over 64 board squares
   for (int square = 0; square < 64; square++) {
     // init pawn attacks
-    engine->attacks.pawn_attacks[white][square] =
-        mask_pawn_attacks(white, square);
-    engine->attacks.pawn_attacks[black][square] =
-        mask_pawn_attacks(black, square);
+    pawn_attacks[white][square] = mask_pawn_attacks(white, square);
+    pawn_attacks[black][square] = mask_pawn_attacks(black, square);
 
     // init knight attacks
-    engine->attacks.knight_attacks[square] = mask_knight_attacks(square);
+    knight_attacks[square] = mask_knight_attacks(square);
 
     // init king attacks
-    engine->attacks.king_attacks[square] = mask_king_attacks(square);
+    king_attacks[square] = mask_king_attacks(square);
   }
 }
 
@@ -344,155 +355,93 @@ uint64_t set_occupancy(int index, int bits_in_mask, uint64_t attack_mask) {
 }
 
 // init slider piece's attack tables
-void init_sliders_attacks(engine_t *engine, int bishop) {
+void init_sliders_attacks() {
   // loop over 64 board squares
   for (int square = 0; square < 64; square++) {
     // init bishop & rook masks
-    engine->masks.bishop_masks[square] = mask_bishop_attacks(square);
-    engine->masks.rook_masks[square] = mask_rook_attacks(square);
-
-    // init current mask
-    uint64_t attack_mask = bishop ? engine->masks.bishop_masks[square]
-                                  : engine->masks.rook_masks[square];
+    bishop_masks[square] = mask_bishop_attacks(square);
+    rook_masks[square] = mask_rook_attacks(square);
 
     // init relevant occupancy bit count
-    int relevant_bits_count = __builtin_popcountll(attack_mask);
+    int bishop_relevant_bits_count = __builtin_popcountll(bishop_masks[square]);
+    int rook_relevant_bits_count = __builtin_popcountll(rook_masks[square]);
 
     // init occupancy indicies
-    int occupancy_indicies = (1 << relevant_bits_count);
+    int bishop_occupancy_indicies = (1 << bishop_relevant_bits_count);
+    int rook_occupancy_indicies = (1 << rook_relevant_bits_count);
 
     // loop over occupancy indicies
-    for (int index = 0; index < occupancy_indicies; index++) {
+    for (int index = 0; index < bishop_occupancy_indicies; index++) {
       // bishop
-      if (bishop) {
-        // init current occupancy variation
-        uint64_t occupancy =
-            set_occupancy(index, relevant_bits_count, attack_mask);
+      // init current occupancy variation
+      uint64_t occupancy =
+          set_occupancy(index, bishop_relevant_bits_count, bishop_masks[square]);
 
-        // init magic index
-        int magic_index = (occupancy * bishop_magic_numbers[square]) >>
-                          (64 - bishop_relevant_bits[square]);
+      // init magic index
+      int magic_index = (occupancy * bishop_magic_numbers[square]) >>
+                        (64 - bishop_relevant_bits[square]);
 
-        // init bishop attacks
-        engine->attacks.bishop_attacks[square][magic_index] =
-            bishop_attacks_on_the_fly(square, occupancy);
-      }
+      // init bishop attacks
+      bishop_attacks[square][magic_index] =
+          bishop_attacks_on_the_fly(square, occupancy);
+    }
 
+    // loop over occupancy indicies
+    for (int index = 0; index < rook_occupancy_indicies; index++) {
       // rook
-      else {
-        // init current occupancy variation
-        uint64_t occupancy =
-            set_occupancy(index, relevant_bits_count, attack_mask);
+      // init current occupancy variation
+      uint64_t occupancy =
+          set_occupancy(index, rook_relevant_bits_count, rook_masks[square]);
 
-        // init magic index
-        int magic_index = (occupancy * rook_magic_numbers[square]) >>
-                          (64 - rook_relevant_bits[square]);
+      // init magic index
+      int magic_index = (occupancy * rook_magic_numbers[square]) >>
+                        (64 - rook_relevant_bits[square]);
 
-        // init rook attacks
-        engine->attacks.rook_attacks[square][magic_index] =
-            rook_attacks_on_the_fly(square, occupancy);
-      }
+      // init rook attacks
+      rook_attacks[square][magic_index] =
+          rook_attacks_on_the_fly(square, occupancy);
     }
   }
-}
-
-
-// get bishop attacks
-uint64_t get_bishop_attacks(engine_t *engine, int square,
-                                          uint64_t occupancy) {
-  // get bishop attacks assuming current board occupancy
-  occupancy &= engine->masks.bishop_masks[square];
-  occupancy *= bishop_magic_numbers[square];
-  occupancy >>= 64 - bishop_relevant_bits[square];
-
-  // return bishop attacks
-  return engine->attacks.bishop_attacks[square][occupancy];
-}
-
-// get rook attacks
-uint64_t get_rook_attacks(engine_t *engine, int square,
-                                        uint64_t occupancy) {
-  // get rook attacks assuming current board occupancy
-  occupancy &= engine->masks.rook_masks[square];
-  occupancy *= rook_magic_numbers[square];
-  occupancy >>= 64 - rook_relevant_bits[square];
-
-  // return rook attacks
-  return engine->attacks.rook_attacks[square][occupancy];
-}
-
-// get queen attacks
-uint64_t get_queen_attacks(engine_t *engine, int square,
-                                         uint64_t occupancy) {
-  // init result attacks bitboard
-  uint64_t queen_attacks = 0ULL;
-
-  // init bishop occupancies
-  uint64_t bishop_occupancy = occupancy;
-
-  // init rook occupancies
-  uint64_t rook_occupancy = occupancy;
-
-  // get bishop attacks assuming current board occupancy
-  bishop_occupancy &= engine->masks.bishop_masks[square];
-  bishop_occupancy *= bishop_magic_numbers[square];
-  bishop_occupancy >>= 64 - bishop_relevant_bits[square];
-
-  // get bishop attacks
-  queen_attacks = engine->attacks.bishop_attacks[square][bishop_occupancy];
-
-  // get rook attacks assuming current board occupancy
-  rook_occupancy &= engine->masks.rook_masks[square];
-  rook_occupancy *= rook_magic_numbers[square];
-  rook_occupancy >>= 64 - rook_relevant_bits[square];
-
-  // get rook attacks
-  queen_attacks |= engine->attacks.rook_attacks[square][rook_occupancy];
-
-  // return queen attacks
-  return queen_attacks;
 }
 
 // is square current given attacked by the current given side
 int is_square_attacked(engine_t *engine, int square, int side) {
   // attacked by white pawns
-  if ((side == white) && (engine->attacks.pawn_attacks[black][square] &
-                          engine->board.bitboards[P]))
+  if ((side == white) &&
+      (pawn_attacks[black][square] & engine->board.bitboards[P]))
     return 1;
 
   // attacked by black pawns
-  if ((side == black) && (engine->attacks.pawn_attacks[white][square] &
-                          engine->board.bitboards[p]))
+  if ((side == black) &&
+      (pawn_attacks[white][square] & engine->board.bitboards[p]))
     return 1;
 
   // attacked by knights
-  if (engine->attacks.knight_attacks[square] &
-      ((side == white) ? engine->board.bitboards[N]
-                       : engine->board.bitboards[n]))
+  if (knight_attacks[square] & ((side == white) ? engine->board.bitboards[N]
+                                                : engine->board.bitboards[n]))
     return 1;
 
   // attacked by bishops
-  if (get_bishop_attacks(engine, square, engine->board.occupancies[both]) &
+  if (get_bishop_attacks(square, engine->board.occupancies[both]) &
       ((side == white) ? engine->board.bitboards[B]
                        : engine->board.bitboards[b]))
     return 1;
 
   // attacked by rooks
-  if (get_rook_attacks(engine, square, engine->board.occupancies[both]) &
+  if (get_rook_attacks(square, engine->board.occupancies[both]) &
       ((side == white) ? engine->board.bitboards[R]
                        : engine->board.bitboards[r]))
     return 1;
 
   // attacked by bishops
-  if (get_queen_attacks(engine, square, engine->board.occupancies[both]) &
+  if (get_queen_attacks(square, engine->board.occupancies[both]) &
       ((side == white) ? engine->board.bitboards[Q]
                        : engine->board.bitboards[q]))
     return 1;
 
   // attacked by kings
-  if (engine->attacks.king_attacks[square] &
-      ((side == white) ? engine->board.bitboards[K]
-                       : engine->board.bitboards[k]))
+  if (king_attacks[square] & ((side == white) ? engine->board.bitboards[K]
+                                              : engine->board.bitboards[k]))
     return 1;
 
   // by default return false

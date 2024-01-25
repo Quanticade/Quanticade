@@ -326,7 +326,7 @@ static inline int negamax(engine_t *engine, tt_t *hash_table, int alpha,
     return score;
 
   // every 2047 nodes
-  if ((engine->nodes & 2047) == 0)
+  if ((engine->nodes & 4095) == 0)
     // "listen" to the GUI/user input
     communicate(engine);
 

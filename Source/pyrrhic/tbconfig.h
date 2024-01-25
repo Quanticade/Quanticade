@@ -42,15 +42,15 @@
 #include "../bitboards.h"
 
 #define PYRRHIC_POPCOUNT(x)              (popcount(x))
-#define PYRRHIC_LSB(x)                   (getlsb(x))
+#define PYRRHIC_LSB(x)                   (get_lsb(x))
 #define PYRRHIC_POPLSB(x)                (poplsb(x))
 
-#define PYRRHIC_PAWN_ATTACKS(sq, c)      (pawnAttacks(!c, sq))
-#define PYRRHIC_KNIGHT_ATTACKS(sq)       (knightAttacks(sq))
-#define PYRRHIC_BISHOP_ATTACKS(sq, occ)  (bishopAttacks(sq, occ))
-#define PYRRHIC_ROOK_ATTACKS(sq, occ)    (rookAttacks(sq, occ))
-#define PYRRHIC_QUEEN_ATTACKS(sq, occ)   (queenAttacks(sq, occ))
-#define PYRRHIC_KING_ATTACKS(sq)         (kingAttacks(sq))
+#define PYRRHIC_PAWN_ATTACKS(sq, c)      (get_pawn_attacks(!c, sq))
+#define PYRRHIC_KNIGHT_ATTACKS(sq)       (get_knight_attacks(sq))
+#define PYRRHIC_BISHOP_ATTACKS(sq, occ)  (get_bishop_attacks(sq, occ))
+#define PYRRHIC_ROOK_ATTACKS(sq, occ)    (get_rook_attacks(sq, occ))
+#define PYRRHIC_QUEEN_ATTACKS(sq, occ)   (get_queen_attacks(sq, occ))
+#define PYRRHIC_KING_ATTACKS(sq)         (get_king_attacks(sq))
 
 /*
  * Pyrrhic can produce scores for tablebase moves. These depend on the value
@@ -61,6 +61,6 @@
  * Draw, and Lose. PYRRHIC_MAX_MATE_PLY should be your max search height.
  */
 #define PYRRHIC_VALUE_PAWN     (  100)
-#define PYRRHIC_VALUE_MATE     (32000)
+#define PYRRHIC_VALUE_MATE     (48000)
 #define PYRRHIC_VALUE_DRAW     (    0)
-#define PYRRHIC_MAX_MATE_PLY   (  255)
+#define PYRRHIC_MAX_MATE_PLY   (  64)

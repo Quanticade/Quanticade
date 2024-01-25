@@ -36,24 +36,6 @@ typedef struct keys {
   uint64_t side_key;
 } keys_t;
 
-typedef struct attacks {
-  uint64_t pawn_attacks[2][64];
-  uint64_t knight_attacks[64];
-  uint64_t king_attacks[64];
-  uint64_t bishop_attacks[64][512];
-  uint64_t rook_attacks[64][4096];
-} attacks_t;
-
-typedef struct masks {
-  uint64_t bishop_masks[64];
-  uint64_t rook_masks[64];
-  uint64_t file_masks[64];
-  uint64_t rank_masks[64];
-  uint64_t isolated_masks[64];
-  uint64_t white_passed_masks[64];
-  uint64_t black_passed_masks[64];
-} masks_t;
-
 typedef struct board {
   uint64_t bitboards[12];
   uint64_t occupancies[3];
@@ -64,10 +46,8 @@ typedef struct board {
 } board_t;
 
 typedef struct engine {
-  attacks_t attacks;
   board_t board;
   keys_t keys;
-  masks_t masks;
   uint64_t repetition_table[1000];
   uint32_t repetition_index;
   uint32_t random_state;
