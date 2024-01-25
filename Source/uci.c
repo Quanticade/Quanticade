@@ -38,25 +38,25 @@ int char_pieces[] = {
 char promoted_pieces[] = {[Q] = 'q', [R] = 'r', [B] = 'b', [N] = 'n',
                           [q] = 'q', [r] = 'r', [b] = 'b', [n] = 'n'};
 
-static inline void reset_time_control(engine_t *engine) {
+static inline void reset_time_control(searchinfo_t *searchinfo) {
   // reset timing
-  engine->quit = 0;
-  engine->movestogo = 30;
-  engine->time = -1;
-  engine->inc = 0;
-  engine->starttime = 0;
-  engine->stoptime = 0;
-  engine->timeset = 0;
-  engine->stopped = 0;
+  searchinfo->quit = 0;
+  searchinfo->movestogo = 30;
+  searchinfo->time = -1;
+  searchinfo->inc = 0;
+  searchinfo->starttime = 0;
+  searchinfo->stoptime = 0;
+  searchinfo->timeset = 0;
+  searchinfo->stopped = 0;
 }
 
 //  parse user/GUI move string input (e.g. "e7e8q")
-static inline int parse_move(engine_t *engine, char *move_string) {
+static inline int parse_move(board_t *board, char *move_string) {
   // create move list instance
   moves move_list[1];
 
   // generate moves
-  generate_moves(engine, move_list);
+  generate_moves(board, move_list);
 
   // parse source square
   int source_square = (move_string[0] - 'a') + (8 - (move_string[1] - '0')) * 8;
@@ -114,30 +114,30 @@ static inline int parse_move(engine_t *engine, char *move_string) {
   return 0;
 }
 
-static inline void reset_board(engine_t *engine) {
+static inline void reset_board(board_t *board) {
   // reset board position (bitboards)
-  memset(engine->board.bitboards, 0ULL, sizeof(engine->board.bitboards));
+  memset(board->bitboards, 0ULL, sizeof(board->bitboards));
 
   // reset occupancies (bitboards)
-  memset(engine->board.occupancies, 0ULL, sizeof(engine->board.occupancies));
+  memset(board->occupancies, 0ULL, sizeof(board->occupancies));
 
   // reset game state variables
-  engine->board.side = 0;
-  engine->board.enpassant = no_sq;
-  engine->board.castle = 0;
+  board->side = 0;
+  board->enpassant = no_sq;
+  board->castle = 0;
 
   // reset repetition index
-  engine->repetition_index = 0;
+  board->repetition_index = 0;
 
-  engine->fifty = 0;
+  board->fifty = 0;
 
   // reset repetition table
-  memset(engine->repetition_table, 0ULL, sizeof(engine->repetition_table));
+  memset(board->repetition_table, 0ULL, sizeof(board->repetition_table));
 }
 
-static inline void parse_fen(engine_t *engine, char *fen) {
+static inline void parse_fen(engine_t *engine, board_t *board, char *fen) {
   // prepare for new game
-  reset_board(engine);
+  reset_board(board);
 
   // loop over board ranks
   for (int rank = 0; rank < 8; rank++) {
@@ -152,7 +152,7 @@ static inline void parse_fen(engine_t *engine, char *fen) {
         int piece = char_pieces[*(uint8_t *)fen];
 
         // set piece on corresponding bitboard
-        set_bit(engine->board.bitboards[piece], square);
+        set_bit(board->bitboards[piece], square);
 
         // increment pointer to FEN string
         fen++;
@@ -169,7 +169,7 @@ static inline void parse_fen(engine_t *engine, char *fen) {
         // loop over all piece bitboards
         for (int bb_piece = P; bb_piece <= k; bb_piece++) {
           // if there is a piece on current square
-          if (get_bit(engine->board.bitboards[bb_piece], square))
+          if (get_bit(board->bitboards[bb_piece], square))
             // get piece code
             piece = bb_piece;
         }
@@ -197,7 +197,7 @@ static inline void parse_fen(engine_t *engine, char *fen) {
   fen++;
 
   // parse side to move
-  (*fen == 'w') ? (engine->board.side = white) : (engine->board.side = black);
+  (*fen == 'w') ? (board->side = white) : (board->side = black);
 
   // go to parsing castling rights
   fen += 2;
@@ -206,16 +206,16 @@ static inline void parse_fen(engine_t *engine, char *fen) {
   while (*fen != ' ') {
     switch (*fen) {
     case 'K':
-      engine->board.castle |= wk;
+      board->castle |= wk;
       break;
     case 'Q':
-      engine->board.castle |= wq;
+      board->castle |= wq;
       break;
     case 'k':
-      engine->board.castle |= bk;
+      board->castle |= bk;
       break;
     case 'q':
-      engine->board.castle |= bq;
+      board->castle |= bq;
       break;
     case '-':
       break;
@@ -235,39 +235,39 @@ static inline void parse_fen(engine_t *engine, char *fen) {
     int rank = 8 - (fen[1] - '0');
 
     // init enpassant square
-    engine->board.enpassant = rank * 8 + file;
+    board->enpassant = rank * 8 + file;
   }
 
   // no enpassant square
   else
-    engine->board.enpassant = no_sq;
+    board->enpassant = no_sq;
 
   // go to parsing half move counter (increment pointer to FEN string)
   fen++;
 
   // parse half move counter to init fifty move counter
-  engine->fifty = atoi(fen);
+  board->fifty = atoi(fen);
 
   // loop over white pieces bitboards
   for (int piece = P; piece <= K; piece++)
     // populate white occupancy bitboard
-    engine->board.occupancies[white] |= engine->board.bitboards[piece];
+    board->occupancies[white] |= board->bitboards[piece];
 
   // loop over black pieces bitboards
   for (int piece = p; piece <= k; piece++)
     // populate white occupancy bitboard
-    engine->board.occupancies[black] |= engine->board.bitboards[piece];
+    board->occupancies[black] |= board->bitboards[piece];
 
   // init all occupancies
-  engine->board.occupancies[both] |= engine->board.occupancies[white];
-  engine->board.occupancies[both] |= engine->board.occupancies[black];
+  board->occupancies[both] |= board->occupancies[white];
+  board->occupancies[both] |= board->occupancies[black];
 
   // init hash key
-  engine->board.hash_key = generate_hash_key(engine);
+  board->hash_key = generate_hash_key(engine, board);
 }
 
 // parse UCI "position" command
-static inline void parse_position(engine_t *engine, char *command) {
+static inline void parse_position(engine_t *engine, board_t *board, char *command) {
   // shift pointer to the right where next token begins
   command += 9;
 
@@ -277,7 +277,7 @@ static inline void parse_position(engine_t *engine, char *command) {
   // parse UCI "startpos" command
   if (strncmp(command, "startpos", 8) == 0)
     // init chess board with start position
-    parse_fen(engine, start_position);
+    parse_fen(engine, board, start_position);
 
   // parse UCI "fen" command
   else {
@@ -287,7 +287,7 @@ static inline void parse_position(engine_t *engine, char *command) {
     // if no "fen" command is available within command string
     if (current_char == NULL)
       // init chess board with start position
-      parse_fen(engine, start_position);
+      parse_fen(engine, board, start_position);
 
     // found "fen" substring
     else {
@@ -295,7 +295,7 @@ static inline void parse_position(engine_t *engine, char *command) {
       current_char += 4;
 
       // init chess board with position from FEN string
-      parse_fen(engine, current_char);
+      parse_fen(engine, board, current_char);
     }
   }
 
@@ -310,7 +310,7 @@ static inline void parse_position(engine_t *engine, char *command) {
     // loop over moves within a move string
     while (*current_char) {
       // parse next move
-      int move = parse_move(engine, current_char);
+      int move = parse_move(board, current_char);
 
       // if no more moves
       if (move == 0)
@@ -318,14 +318,14 @@ static inline void parse_position(engine_t *engine, char *command) {
         break;
 
       // increment repetition index
-      engine->repetition_index++;
+      board->repetition_index++;
 
       // write hash key into a repetition table
-      engine->repetition_table[engine->repetition_index] =
-          engine->board.hash_key;
+      board->repetition_table[board->repetition_index] =
+          board->hash_key;
 
       // make move on the chess board
-      make_move(engine, move, all_moves);
+      make_move(engine, board, move, all_moves);
 
       // move current character pointer to the end of current move
       while (*current_char && *current_char != ' ')
@@ -337,9 +337,9 @@ static inline void parse_position(engine_t *engine, char *command) {
   }
 }
 
-static inline void parse_go(engine_t *engine, tt_t *hash_table, char *command) {
+static inline void parse_go(engine_t *engine, board_t *board, searchinfo_t* searchinfo, tt_t *hash_table, char *command) {
   // reset time control
-  reset_time_control(engine);
+  reset_time_control(searchinfo);
 
   // init parameters
   int depth = -1;
@@ -352,35 +352,35 @@ static inline void parse_go(engine_t *engine, tt_t *hash_table, char *command) {
   }
 
   // match UCI "binc" command
-  if ((argument = strstr(command, "binc")) && engine->board.side == black)
+  if ((argument = strstr(command, "binc")) && board->side == black)
     // parse black time increment
-    engine->inc = atoi(argument + 5);
+    searchinfo->inc = atoi(argument + 5);
 
   // match UCI "winc" command
-  if ((argument = strstr(command, "winc")) && engine->board.side == white)
+  if ((argument = strstr(command, "winc")) && board->side == white)
     // parse white time increment
-    engine->inc = atoi(argument + 5);
+    searchinfo->inc = atoi(argument + 5);
 
   // match UCI "wtime" command
-  if ((argument = strstr(command, "wtime")) && engine->board.side == white)
+  if ((argument = strstr(command, "wtime")) && board->side == white)
     // parse white time limit
-    engine->time = atoi(argument + 6);
+    searchinfo->time = atoi(argument + 6);
 
   // match UCI "btime" command
-  if ((argument = strstr(command, "btime")) && engine->board.side == black)
+  if ((argument = strstr(command, "btime")) && board->side == black)
     // parse black time limit
-    engine->time = atoi(argument + 6);
+    searchinfo->time = atoi(argument + 6);
 
   // match UCI "movestogo" command
   if ((argument = strstr(command, "movestogo")))
     // parse number of moves to go
-    engine->movestogo = atoi(argument + 10);
+    searchinfo->movestogo = atoi(argument + 10);
 
   // match UCI "movetime" command
   if ((argument = strstr(command, "movetime"))) {
     // parse amount of time allowed to spend to make a move
-    engine->time = atoi(argument + 9);
-    engine->movestogo = 1;
+    searchinfo->time = atoi(argument + 9);
+    searchinfo->movestogo = 1;
   }
 
   // match UCI "depth" command
@@ -389,34 +389,34 @@ static inline void parse_go(engine_t *engine, tt_t *hash_table, char *command) {
     depth = atoi(argument + 6);
 
   // init start time
-  engine->starttime = get_time_ms();
+  searchinfo->starttime = get_time_ms();
 
   // if time control is available
-  if (engine->time != -1) {
+  if (searchinfo->time != -1) {
     // flag we're playing with time control
-    engine->timeset = 1;
+    searchinfo->timeset = 1;
 
     // set up timing
-    engine->time /= engine->movestogo;
+    searchinfo->time /= searchinfo->movestogo;
 
     // lag compensation
-    engine->time -= 50;
+    searchinfo->time -= 50;
 
     // if time is up
-    if (engine->time < 0) {
+    if (searchinfo->time < 0) {
       // restore negative time to 0
-      engine->time = 0;
+      searchinfo->time = 0;
 
       // inc lag compensation on 0+inc time controls
-      engine->inc -= 50;
+      searchinfo->inc -= 50;
 
       // timing for 0 seconds left and no inc
-      if (engine->inc < 0)
-        engine->inc = 1;
+      if (searchinfo->inc < 0)
+        searchinfo->inc = 1;
     }
 
     // init stoptime
-    engine->stoptime = engine->starttime + engine->time + engine->inc;
+    searchinfo->stoptime = searchinfo->starttime + searchinfo->time + searchinfo->inc;
   }
 
   // if depth is not available
@@ -425,7 +425,7 @@ static inline void parse_go(engine_t *engine, tt_t *hash_table, char *command) {
     depth = 64;
 
   // search position
-  search_position(engine, hash_table, depth);
+  search_position(engine, board, searchinfo, hash_table, depth);
 }
 
 // print move (for UCI purposes)
@@ -440,7 +440,7 @@ void print_move(int move) {
 }
 
 // main UCI loop
-void uci_loop(engine_t *engine, tt_t *hash_table) {
+void uci_loop(engine_t *engine, board_t *board, searchinfo_t *searchinfo, tt_t *hash_table) {
   // max hash MB
   int max_hash = 1024;
 
@@ -460,7 +460,7 @@ void uci_loop(engine_t *engine, tt_t *hash_table) {
   printf("Quanticade %s by DarkNeutrino\n", version);
 
   // Setup engine with start position as default
-  parse_position(engine, start_position);
+  parse_position(engine, board, start_position);
 
   // main loop
   while (1) {
@@ -489,12 +489,12 @@ void uci_loop(engine_t *engine, tt_t *hash_table) {
     // parse UCI "position" command
     else if (strncmp(input, "position", 8) == 0) {
       // call parse position function
-      parse_position(engine, input);
+      parse_position(engine, board, input);
     }
     // parse UCI "ucinewgame" command
     else if (strncmp(input, "ucinewgame", 10) == 0) {
       // call parse position function
-      parse_position(engine, "position startpos");
+      parse_position(engine, board, "position startpos");
 
       // clear hash table
       clear_hash_table(hash_table);
@@ -502,7 +502,7 @@ void uci_loop(engine_t *engine, tt_t *hash_table) {
     // parse UCI "go" command
     else if (strncmp(input, "go", 2) == 0)
       // call parse go function
-      parse_go(engine, hash_table, input);
+      parse_go(engine, board, searchinfo, hash_table, input);
 
     // parse UCI "quit" command
     else if (strncmp(input, "quit", 4) == 0)

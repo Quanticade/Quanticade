@@ -22,7 +22,7 @@ extern uint64_t isolated_masks[64];
 extern uint64_t white_passed_masks[64];
 extern uint64_t black_passed_masks[64];
 
-int is_square_attacked(engine_t *engine, int square, int side);
+int is_square_attacked(board_t *board, int square, int side);
 void init_sliders_attacks();
 void init_leapers_attacks();
 

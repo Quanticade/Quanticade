@@ -405,43 +405,43 @@ void init_sliders_attacks() {
 }
 
 // is square current given attacked by the current given side
-int is_square_attacked(engine_t *engine, int square, int side) {
+int is_square_attacked(board_t *board, int square, int side) {
   // attacked by white pawns
   if ((side == white) &&
-      (pawn_attacks[black][square] & engine->board.bitboards[P]))
+      (pawn_attacks[black][square] & board->bitboards[P]))
     return 1;
 
   // attacked by black pawns
   if ((side == black) &&
-      (pawn_attacks[white][square] & engine->board.bitboards[p]))
+      (pawn_attacks[white][square] & board->bitboards[p]))
     return 1;
 
   // attacked by knights
-  if (knight_attacks[square] & ((side == white) ? engine->board.bitboards[N]
-                                                : engine->board.bitboards[n]))
+  if (knight_attacks[square] & ((side == white) ? board->bitboards[N]
+                                                : board->bitboards[n]))
     return 1;
 
   // attacked by bishops
-  if (get_bishop_attacks(square, engine->board.occupancies[both]) &
-      ((side == white) ? engine->board.bitboards[B]
-                       : engine->board.bitboards[b]))
+  if (get_bishop_attacks(square, board->occupancies[both]) &
+      ((side == white) ? board->bitboards[B]
+                       : board->bitboards[b]))
     return 1;
 
   // attacked by rooks
-  if (get_rook_attacks(square, engine->board.occupancies[both]) &
-      ((side == white) ? engine->board.bitboards[R]
-                       : engine->board.bitboards[r]))
+  if (get_rook_attacks(square, board->occupancies[both]) &
+      ((side == white) ? board->bitboards[R]
+                       : board->bitboards[r]))
     return 1;
 
   // attacked by bishops
-  if (get_queen_attacks(square, engine->board.occupancies[both]) &
-      ((side == white) ? engine->board.bitboards[Q]
-                       : engine->board.bitboards[q]))
+  if (get_queen_attacks(square, board->occupancies[both]) &
+      ((side == white) ? board->bitboards[Q]
+                       : board->bitboards[q]))
     return 1;
 
   // attacked by kings
-  if (king_attacks[square] & ((side == white) ? engine->board.bitboards[K]
-                                              : engine->board.bitboards[k]))
+  if (king_attacks[square] & ((side == white) ? board->bitboards[K]
+                                              : board->bitboards[k]))
     return 1;
 
   // by default return false

@@ -64,7 +64,7 @@ int input_waiting() {
 }
 
 // read GUI/user input
-void read_input(engine_t *engine) {
+void read_input(searchinfo_t *searchinfo) {
   // bytes-to-read holder
   int bytes;
 
@@ -74,7 +74,7 @@ void read_input(engine_t *engine) {
   // "listen" to STDIN
   if (input_waiting()) {
     // tell engine to stop calculating
-    engine->stopped = 1;
+    searchinfo->stopped = 1;
 
     // loop to read bytes from STDIN
     do {
@@ -97,12 +97,12 @@ void read_input(engine_t *engine) {
       // match UCI "quit" command
       if (!strncmp(input, "quit", 4))
         // tell engine to terminate execution
-        engine->quit = 1;
+        searchinfo->quit = 1;
 
       // // match UCI "stop" command
       else if (!strncmp(input, "stop", 4))
         // tell engine to terminate execution
-        engine->quit = 1;
+        searchinfo->quit = 1;
     }
   }
 }

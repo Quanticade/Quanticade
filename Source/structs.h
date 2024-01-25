@@ -13,7 +13,7 @@ typedef struct tt_entry {
 } tt_entry_t;
 
 typedef struct tt {
-  tt_entry_t* hash_entry;
+  tt_entry_t *hash_entry;
   uint32_t num_of_entries;
   uint16_t current_age;
 } tt_t;
@@ -43,15 +43,19 @@ typedef struct board {
   uint8_t enpassant;
   uint8_t castle;
   uint64_t hash_key;
-} board_t;
-
-typedef struct engine {
-  board_t board;
-  keys_t keys;
   uint64_t repetition_table[1000];
   uint32_t repetition_index;
-  uint32_t random_state;
   uint32_t ply;
+  uint32_t fifty;
+  int killer_moves[2][64];
+  int history_moves[12][64];
+  int pv_length[64];
+  int pv_table[64][64];
+  int follow_pv;
+  int score_pv;
+} board_t;
+
+typedef struct searchinfo {
   uint8_t quit;
   uint16_t movestogo;
   int64_t time;
@@ -60,16 +64,14 @@ typedef struct engine {
   uint64_t stoptime;
   uint8_t timeset;
   uint8_t stopped;
-  uint8_t nnue;
-  uint32_t fifty;
   uint64_t nodes;
-  int killer_moves[2][64];
-  int history_moves[12][64];
-  int pv_length[64];
-  int pv_table[64][64];
-  int follow_pv;
-  int score_pv;
-  char* nnue_file;
+} searchinfo_t;
+
+typedef struct engine {
+  keys_t keys;
+  uint32_t random_state;
+  uint8_t nnue;
+  char *nnue_file;
 } engine_t;
 
 #endif

@@ -11,10 +11,10 @@
 #define hash_flag_beta 2
 
 void clear_hash_table(tt_t *hash_table);
-int read_hash_entry(engine_t *engine, tt_t *hash_table, int alpha, int *move,
+int read_hash_entry(board_t *board, tt_t *hash_table, int alpha, int *move,
                     int beta, int depth);
-void write_hash_entry(engine_t *engine, tt_t *hash_table, int score, int depth,
+void write_hash_entry(board_t *board, tt_t *hash_table, int score, int depth,
                       int move, int hash_flag);
 void init_hash_table(engine_t *engine, tt_t *hash_table, int mb);
-uint64_t generate_hash_key(engine_t *engine);
+uint64_t generate_hash_key(engine_t *engine, board_t *board);
 #endif

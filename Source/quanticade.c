@@ -19,6 +19,8 @@
 #include "uci.h"
 
 engine_t engine;
+board_t board;
+searchinfo_t searchinfo;
 
 // generate 32-bit pseudo legal numbers
 uint32_t get_random_U32_number(engine_t *engine) {
@@ -117,9 +119,9 @@ void init_all(engine_t *engine, tt_t *hash_table) {
 
 int main(void) {
   memset(&engine, 0, sizeof(engine));
-  engine.board.enpassant = no_sq;
-  engine.movestogo = 30;
-  engine.time = -1;
+  board.enpassant = no_sq;
+  searchinfo.movestogo = 30;
+  searchinfo.time = -1;
   engine.nnue = 1;
   engine.random_state = 1804289383;
   tt_t hash_table = {NULL, 0, 0};
@@ -129,7 +131,7 @@ int main(void) {
   init_all(&engine, &hash_table);
 
   // connect to GUI
-  uci_loop(&engine, &hash_table);
+  uci_loop(&engine, &board, &searchinfo, &hash_table);
 
   // free hash table memory on exit
   free(hash_table.hash_entry);
