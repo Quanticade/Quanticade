@@ -1,6 +1,7 @@
 #ifndef STRUCTS_H
 #define STRUCTS_H
 
+#include "bitboards.h"
 #include <stdint.h>
 
 typedef struct tt_entry {
@@ -47,10 +48,10 @@ typedef struct board {
   uint32_t repetition_index;
   uint32_t ply;
   uint32_t fifty;
-  int killer_moves[2][64];
+  int killer_moves[2][max_ply];
   int history_moves[12][64];
-  int pv_length[64];
-  int pv_table[64][64];
+  int pv_length[max_ply];
+  int pv_table[max_ply][max_ply];
   int follow_pv;
   int score_pv;
 } board_t;
