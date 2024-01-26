@@ -193,8 +193,8 @@ static inline int is_repetition(board_t *board) {
 // quiescence search
 static inline int quiescence(engine_t *engine, board_t *board,
                              searchinfo_t *searchinfo, int alpha, int beta) {
-  // every 2047 nodes
-  if ((searchinfo->nodes & 2047) == 0)
+  // every 4095 nodes
+  if ((searchinfo->nodes & 4095) == 0)
     // "listen" to the GUI/user input
     communicate(searchinfo);
 
@@ -310,9 +310,17 @@ static inline int negamax(engine_t *engine, board_t *board,
   int hash_flag = hash_flag_alpha;
 
   // if position repetition occurs
-  if ((is_repetition(board) || board->fifty >= 100) && board->ply)
+  if ((is_repetition(board) || board->fifty >= 100) && board->ply) {
     // return draw score
     return 0;
+  }
+
+  // we are too deep, hence there's an overflow of arrays relying on max ply
+  // constant
+  if (board->ply > max_ply - 1) {
+    // evaluate position
+    return evaluate(engine, board);
+  }
 
   // a hack by Pedro Castro to figure out whether the current node is PV node or
   // not
@@ -328,7 +336,7 @@ static inline int negamax(engine_t *engine, board_t *board,
     // we just return the score for this move without searching it
     return score;
 
-  // every 2047 nodes
+  // every 4095 nodes
   if ((searchinfo->nodes & 4095) == 0)
     // "listen" to the GUI/user input
     communicate(searchinfo);
@@ -338,12 +346,6 @@ static inline int negamax(engine_t *engine, board_t *board,
     // run quiescence search
     return quiescence(engine, board, searchinfo, alpha, beta);
   }
-
-  // we are too deep, hence there's an overflow of arrays relying on max ply
-  // constant
-  if (board->ply > max_ply - 1)
-    // evaluate position
-    return evaluate(engine, board);
 
   // increment nodes count
   searchinfo->nodes++;
