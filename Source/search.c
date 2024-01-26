@@ -309,17 +309,19 @@ static inline int negamax(engine_t *engine, board_t *board,
   // define hash flag
   int hash_flag = hash_flag_alpha;
 
-  // if position repetition occurs
-  if ((is_repetition(board) || board->fifty >= 100) && board->ply) {
-    // return draw score
-    return 0;
-  }
+  if (board->ply) {
+    // if position repetition occurs
+    if (is_repetition(board) || board->fifty >= 100) {
+      // return draw score
+      return 0;
+    }
 
-  // we are too deep, hence there's an overflow of arrays relying on max ply
-  // constant
-  if (board->ply > max_ply - 1) {
-    // evaluate position
-    return evaluate(engine, board);
+    // we are too deep, hence there's an overflow of arrays relying on max ply
+    // constant
+    if (board->ply > max_ply - 1) {
+      // evaluate position
+      return evaluate(engine, board);
+    }
   }
 
   // a hack by Pedro Castro to figure out whether the current node is PV node or
