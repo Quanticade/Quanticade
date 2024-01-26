@@ -442,7 +442,7 @@ void print_move(int move) {
 // main UCI loop
 void uci_loop(engine_t *engine, board_t *board, searchinfo_t *searchinfo, tt_t *hash_table) {
   // max hash MB
-  int max_hash = 1024;
+  int max_hash = 65536;
 
   // default MB value
   int mb = 128;

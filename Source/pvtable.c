@@ -54,9 +54,9 @@ void clear_hash_table(tt_t *hash_table) {
 }
 
 // dynamically allocate memory for hash table
-void init_hash_table(engine_t *engine, tt_t *hash_table, int mb) {
+void init_hash_table(engine_t *engine, tt_t *hash_table, uint64_t mb) {
   // init hash size
-  int hash_size = 0x100000 * mb;
+  uint64_t hash_size = 0x100000LL * mb;
 
   // init number of hash entries
   hash_table->num_of_entries = hash_size / sizeof(tt_entry_t);
@@ -75,8 +75,7 @@ void init_hash_table(engine_t *engine, tt_t *hash_table, int mb) {
 
   // if allocation has failed
   if (hash_table->hash_entry == NULL) {
-    printf("    Couldn't allocate memory for hash table, trying %dMB...",
-           mb / 2);
+    printf("    Couldn't allocate memory for hash table, trying with half\n");
 
     // try to allocate with half size
     init_hash_table(engine, hash_table, mb / 2);
@@ -95,8 +94,7 @@ int read_hash_entry(board_t *board, tt_t *hash_table, int alpha, int *move,
   // create a TT instance pointer to particular hash entry storing
   // the scoring data for the current board position if available
   tt_entry_t *hash_entry =
-      &hash_table
-           ->hash_entry[board->hash_key % hash_table->num_of_entries];
+      &hash_table->hash_entry[board->hash_key % hash_table->num_of_entries];
 
   // make sure we're dealing with the exact position we need
   if (hash_entry->hash_key == board->hash_key) {
@@ -140,8 +138,7 @@ void write_hash_entry(board_t *board, tt_t *hash_table, int score, int depth,
   // create a TT instance pointer to particular hash entry storing
   // the scoring data for the current board position if available
   tt_entry_t *hash_entry =
-      &hash_table
-           ->hash_entry[board->hash_key % hash_table->num_of_entries];
+      &hash_table->hash_entry[board->hash_key % hash_table->num_of_entries];
 
   if (!(hash_entry->hash_key == 0 ||
         (hash_entry->age < hash_table->current_age ||
