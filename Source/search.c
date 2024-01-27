@@ -361,15 +361,6 @@ static inline int negamax(engine_t *engine, board_t *board,
 
   int r;
 
-  // recursion escapre condition
-  if (depth == 0) {
-    // run quiescence search
-    return quiescence(engine, board, searchinfo, alpha, beta);
-  }
-
-  // increment nodes count
-  searchinfo->nodes++;
-
   // is king in check
   int in_check = is_square_attacked(board,
                                     (board->side == white)
@@ -378,8 +369,18 @@ static inline int negamax(engine_t *engine, board_t *board,
                                     board->side ^ 1);
 
   // increase search depth if the king has been exposed into a check
-  if (in_check)
+  if (in_check) {
     depth++;
+  }
+
+  // recursion escape condition
+  if (depth == 0) {
+    // run quiescence search
+    return quiescence(engine, board, searchinfo, alpha, beta);
+  }
+
+  // increment nodes count
+  searchinfo->nodes++;
 
   // legal moves counter
   int legal_moves = 0;
