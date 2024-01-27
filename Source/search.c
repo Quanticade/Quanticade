@@ -43,6 +43,22 @@ const int mvv_lva[12][12] = {
     6. Unsorted moves
 */
 
+#define MIN(A, B) ((A) < (B) ? (A) : (B))
+#define MAX(A, B) ((A) > (B) ? (A) : (B))
+
+int reductions[32][32];
+
+// Initializes the late move reduction array
+static void init_reductions() __attribute__((constructor));
+static void init_reductions() {
+
+  for (int depth = 0; depth < 32; ++depth) {
+    for (int moves = 0; moves < 32; ++moves) {
+      reductions[depth][moves] = 0.75 + log(depth) * log(moves) / 2.25;
+    }
+  }
+}
+
 void communicate(searchinfo_t *searchinfo) {
   // if time is up break here
   if (searchinfo->timeset == 1 && get_time_ms() > searchinfo->stoptime) {
@@ -343,6 +359,8 @@ static inline int negamax(engine_t *engine, board_t *board,
     // "listen" to the GUI/user input
     communicate(searchinfo);
 
+  int r;
+
   // recursion escapre condition
   if (depth == 0) {
     // run quiescence search
@@ -534,9 +552,14 @@ static inline int negamax(engine_t *engine, board_t *board,
       if (moves_searched >= full_depth_moves && depth >= reduction_limit &&
           in_check == 0 && get_move_capture(list_move) == 0 &&
           get_move_promoted(list_move) == 0) {
+
+        r = reductions[MIN(31, depth)][MIN(31, moves_searched)];
+        r += !pv_node;
+
+        int reddepth = MAX(1, depth - 1 - MAX(r, 1));
         // search current move with reduced depth:
         score = -negamax(engine, board, searchinfo, hash_table, -alpha - 1,
-                         -alpha, depth - 2);
+                         -alpha, reddepth);
       }
 
       // hack to ensure that full-depth search is done
