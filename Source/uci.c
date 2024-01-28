@@ -13,6 +13,7 @@
 #include "enums.h"
 #include "movegen.h"
 #include "nnue/nnue.h"
+#include "perft.h"
 #include "pvtable.h"
 #include "search.h"
 #include "structs.h"
@@ -267,7 +268,8 @@ static inline void parse_fen(engine_t *engine, position_t *pos, char *fen) {
 }
 
 // parse UCI "position" command
-static inline void parse_position(engine_t *engine, position_t *pos, char *command) {
+static inline void parse_position(engine_t *engine, position_t *pos,
+                                  char *command) {
   // shift pointer to the right where next token begins
   command += 9;
 
@@ -321,8 +323,7 @@ static inline void parse_position(engine_t *engine, position_t *pos, char *comma
       pos->repetition_index++;
 
       // write hash key into a repetition table
-      pos->repetition_table[pos->repetition_index] =
-          pos->hash_key;
+      pos->repetition_table[pos->repetition_index] = pos->hash_key;
 
       // make move on the chess board
       make_move(engine, pos, move, all_moves);
@@ -337,7 +338,9 @@ static inline void parse_position(engine_t *engine, position_t *pos, char *comma
   }
 }
 
-static inline void parse_go(engine_t *engine, position_t *pos, searchinfo_t* searchinfo, tt_t *hash_table, char *command) {
+static inline void parse_go(engine_t *engine, position_t *pos,
+                            searchinfo_t *searchinfo, tt_t *hash_table,
+                            char *command) {
   // reset time control
   reset_time_control(searchinfo);
 
@@ -384,48 +387,56 @@ static inline void parse_go(engine_t *engine, position_t *pos, searchinfo_t* sea
   }
 
   // match UCI "depth" command
-  if ((argument = strstr(command, "depth")))
+  if ((argument = strstr(command, "depth"))) {
     // parse search depth
     depth = atoi(argument + 6);
-
-  // init start time
-  searchinfo->starttime = get_time_ms();
-
-  // if time control is available
-  if (searchinfo->time != -1) {
-    // flag we're playing with time control
-    searchinfo->timeset = 1;
-
-    // set up timing
-    searchinfo->time /= searchinfo->movestogo;
-
-    // lag compensation
-    searchinfo->time -= 50;
-
-    // if time is up
-    if (searchinfo->time < 0) {
-      // restore negative time to 0
-      searchinfo->time = 0;
-
-      // inc lag compensation on 0+inc time controls
-      searchinfo->inc -= 50;
-
-      // timing for 0 seconds left and no inc
-      if (searchinfo->inc < 0)
-        searchinfo->inc = 1;
-    }
-
-    // init stoptime
-    searchinfo->stoptime = searchinfo->starttime + searchinfo->time + searchinfo->inc;
   }
 
-  // if depth is not available
-  if (depth == -1)
-    // set depth to 64 plies (takes ages to complete...)
-    depth = 64;
+  if ((argument = strstr(command, "perft"))) {
+    depth = atoi(argument + 6);
+    perft_test(engine, pos, searchinfo, depth);
+  } else {
 
-  // search position
-  search_position(engine, pos, searchinfo, hash_table, depth);
+    // init start time
+    searchinfo->starttime = get_time_ms();
+
+    // if time control is available
+    if (searchinfo->time != -1) {
+      // flag we're playing with time control
+      searchinfo->timeset = 1;
+
+      // set up timing
+      searchinfo->time /= searchinfo->movestogo;
+
+      // lag compensation
+      searchinfo->time -= 50;
+
+      // if time is up
+      if (searchinfo->time < 0) {
+        // restore negative time to 0
+        searchinfo->time = 0;
+
+        // inc lag compensation on 0+inc time controls
+        searchinfo->inc -= 50;
+
+        // timing for 0 seconds left and no inc
+        if (searchinfo->inc < 0)
+          searchinfo->inc = 1;
+      }
+
+      // init stoptime
+      searchinfo->stoptime =
+          searchinfo->starttime + searchinfo->time + searchinfo->inc;
+    }
+
+    // if depth is not available
+    if (depth == -1)
+      // set depth to 64 plies (takes ages to complete...)
+      depth = 64;
+
+    // search position
+    search_position(engine, pos, searchinfo, hash_table, depth);
+  }
 }
 
 // print move (for UCI purposes)
@@ -440,7 +451,8 @@ void print_move(int move) {
 }
 
 // main UCI loop
-void uci_loop(engine_t *engine, position_t *pos, searchinfo_t *searchinfo, tt_t *hash_table) {
+void uci_loop(engine_t *engine, position_t *pos, searchinfo_t *searchinfo,
+              tt_t *hash_table) {
   // max hash MB
   int max_hash = 65536;
 

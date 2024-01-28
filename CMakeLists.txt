@@ -37,6 +37,7 @@ set(QUANTICADE_SOURCES
     "Source/attacks.c"
     "Source/evaluate.c"
     "Source/movegen.c"
+    "Source/perft.c"
     "Source/pvtable.c"
     "Source/search.c"
 )
@@ -50,6 +51,7 @@ set(QUANTICADE_HEADERS
     "Source/enums.h"
     "Source/utils.h"
     "Source/uci.h"
+    "Source/perft.h"
     "Source/pvtable.h"
     "Source/search.h"
     "Source/nnue_consts.h"
