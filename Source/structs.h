@@ -37,7 +37,7 @@ typedef struct keys {
   uint64_t side_key;
 } keys_t;
 
-typedef struct board {
+typedef struct position {
   uint64_t bitboards[12];
   uint64_t occupancies[3];
   uint8_t side;
@@ -54,7 +54,7 @@ typedef struct board {
   int pv_table[max_ply][max_ply];
   int follow_pv;
   int score_pv;
-} board_t;
+} position_t;
 
 typedef struct searchinfo {
   uint8_t quit;

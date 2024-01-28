@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-uint64_t generate_hash_key(engine_t *engine, board_t *board) {
+uint64_t generate_hash_key(engine_t *engine, position_t *pos) {
   // final hash key
   uint64_t final_key = 0ULL;
 
@@ -16,7 +16,7 @@ uint64_t generate_hash_key(engine_t *engine, board_t *board) {
   // loop over piece bitboards
   for (int piece = P; piece <= k; piece++) {
     // init piece bitboard copy
-    bitboard = board->bitboards[piece];
+    bitboard = pos->bitboards[piece];
 
     // loop over the pieces within a bitboard
     while (bitboard) {
@@ -32,15 +32,15 @@ uint64_t generate_hash_key(engine_t *engine, board_t *board) {
   }
 
   // if enpassant square is on board
-  if (board->enpassant != no_sq)
+  if (pos->enpassant != no_sq)
     // hash enpassant
-    final_key ^= engine->keys.enpassant_keys[board->enpassant];
+    final_key ^= engine->keys.enpassant_keys[pos->enpassant];
 
   // hash castling rights
-  final_key ^= engine->keys.castle_keys[board->castle];
+  final_key ^= engine->keys.castle_keys[pos->castle];
 
   // hash the side only if black is to move
-  if (board->side == black)
+  if (pos->side == black)
     final_key ^= engine->keys.side_key;
 
   // return generated hash key
@@ -89,15 +89,15 @@ void init_hash_table(engine_t *engine, tt_t *hash_table, uint64_t mb) {
 }
 
 // read hash entry data
-int read_hash_entry(board_t *board, tt_t *hash_table, int alpha, int *move,
+int read_hash_entry(position_t *pos, tt_t *hash_table, int alpha, int *move,
                     int beta, int depth) {
   // create a TT instance pointer to particular hash entry storing
   // the scoring data for the current board position if available
   tt_entry_t *hash_entry =
-      &hash_table->hash_entry[board->hash_key % hash_table->num_of_entries];
+      &hash_table->hash_entry[pos->hash_key % hash_table->num_of_entries];
 
   // make sure we're dealing with the exact position we need
-  if (hash_entry->hash_key == board->hash_key) {
+  if (hash_entry->hash_key == pos->hash_key) {
     // make sure that we match the exact depth our search is now at
     if (hash_entry->depth >= depth) {
       // extract stored score from TT entry
@@ -106,9 +106,9 @@ int read_hash_entry(board_t *board, tt_t *hash_table, int alpha, int *move,
       // retrieve score independent from the actual path
       // from root node (position) to current node (position)
       if (score < -mate_score)
-        score += board->ply;
+        score += pos->ply;
       if (score > mate_score)
-        score -= board->ply;
+        score -= pos->ply;
 
       // match the exact (PV node) score
       if (hash_entry->flag == hash_flag_exact)
@@ -133,12 +133,12 @@ int read_hash_entry(board_t *board, tt_t *hash_table, int alpha, int *move,
 }
 
 // write hash entry data
-void write_hash_entry(board_t *board, tt_t *hash_table, int score, int depth,
+void write_hash_entry(position_t *pos, tt_t *hash_table, int score, int depth,
                       int move, int hash_flag) {
   // create a TT instance pointer to particular hash entry storing
   // the scoring data for the current board position if available
   tt_entry_t *hash_entry =
-      &hash_table->hash_entry[board->hash_key % hash_table->num_of_entries];
+      &hash_table->hash_entry[pos->hash_key % hash_table->num_of_entries];
 
   if (!(hash_entry->hash_key == 0 ||
         (hash_entry->age < hash_table->current_age ||
@@ -149,12 +149,12 @@ void write_hash_entry(board_t *board, tt_t *hash_table, int score, int depth,
   // store score independent from the actual path
   // from root node (position) to current node (position)
   if (score < -mate_score)
-    score -= board->ply;
+    score -= pos->ply;
   if (score > mate_score)
-    score += board->ply;
+    score += pos->ply;
 
   // write hash entry data
-  hash_entry->hash_key = board->hash_key;
+  hash_entry->hash_key = pos->hash_key;
   hash_entry->score = score;
   hash_entry->flag = hash_flag;
   hash_entry->depth = depth;

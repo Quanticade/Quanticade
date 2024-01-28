@@ -3,7 +3,7 @@
 
 #include "structs.h"
 
-int evaluate(engine_t *engine, board_t *board);
+int evaluate(engine_t *engine, position_t *pos);
 void init_evaluation_masks();
 
 #endif

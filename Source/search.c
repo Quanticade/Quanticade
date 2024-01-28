@@ -71,25 +71,25 @@ void communicate(searchinfo_t *searchinfo) {
 }
 
 // enable PV move scoring
-static inline void enable_pv_scoring(board_t *board, moves *move_list) {
+static inline void enable_pv_scoring(position_t *pos, moves *move_list) {
   // disable following PV
-  board->follow_pv = 0;
+  pos->follow_pv = 0;
 
   // loop over the moves within a move list
   for (uint32_t count = 0; count < move_list->count; count++) {
     // make sure we hit PV move
-    if (board->pv_table[0][board->ply] == move_list->entry[count].move) {
+    if (pos->pv_table[0][pos->ply] == move_list->entry[count].move) {
       // enable move scoring
-      board->score_pv = 1;
+      pos->score_pv = 1;
 
       // enable following PV
-      board->follow_pv = 1;
+      pos->follow_pv = 1;
     }
   }
 }
 
 // score moves
-static inline void score_move(board_t *board, move_t *move_entry,
+static inline void score_move(position_t *pos, move_t *move_entry,
                               int hash_move) {
   int move = move_entry->move;
   if (move == hash_move) {
@@ -98,11 +98,11 @@ static inline void score_move(board_t *board, move_t *move_entry,
   }
 
   // if PV move scoring is allowed
-  if (board->score_pv) {
+  if (pos->score_pv) {
     // make sure we are dealing with PV move
-    if (board->pv_table[0][board->ply] == move) {
+    if (pos->pv_table[0][pos->ply] == move) {
       // disable score PV flag
-      board->score_pv = 0;
+      pos->score_pv = 0;
 
       // give PV move the highest score to search it first
       move_entry->score = 20000;
@@ -119,7 +119,7 @@ static inline void score_move(board_t *board, move_t *move_entry,
     int start_piece, end_piece;
 
     // pick up side to move
-    if (board->side == white) {
+    if (pos->side == white) {
       start_piece = p;
       end_piece = k;
     } else {
@@ -130,7 +130,7 @@ static inline void score_move(board_t *board, move_t *move_entry,
     // loop over bitboards opposite to the current side to move
     for (int bb_piece = start_piece; bb_piece <= end_piece; bb_piece++) {
       // if there's a piece on the target square
-      if (get_bit(board->bitboards[bb_piece], get_move_target(move))) {
+      if (get_bit(pos->bitboards[bb_piece], get_move_target(move))) {
         // remove it from corresponding bitboard
         target_piece = bb_piece;
         break;
@@ -145,19 +145,19 @@ static inline void score_move(board_t *board, move_t *move_entry,
   // score quiet move
   else {
     // score 1st killer move
-    if (board->killer_moves[0][board->ply] == move) {
+    if (pos->killer_moves[0][pos->ply] == move) {
       move_entry->score = 9000;
     }
 
     // score 2nd killer move
-    else if (board->killer_moves[1][board->ply] == move) {
+    else if (pos->killer_moves[1][pos->ply] == move) {
       move_entry->score = 8000;
     }
 
     // score history move
     else {
       move_entry->score =
-          board->history_moves[get_move_piece(move)][get_move_target(move)];
+          pos->history_moves[get_move_piece(move)][get_move_target(move)];
     }
 
     return;
@@ -194,11 +194,11 @@ static inline void sort_moves(moves *move_list) {
 }
 
 // position repetition detection
-static inline int is_repetition(board_t *board) {
+static inline int is_repetition(position_t *pos) {
   // loop over repetition indices range
-  for (uint32_t index = 0; index < board->repetition_index; index++)
+  for (uint32_t index = 0; index < pos->repetition_index; index++)
     // if we found the hash key same with a current
-    if (board->repetition_table[index] == board->hash_key)
+    if (pos->repetition_table[index] == pos->hash_key)
       // we found a repetition
       return 1;
 
@@ -207,7 +207,7 @@ static inline int is_repetition(board_t *board) {
 }
 
 // quiescence search
-static inline int quiescence(engine_t *engine, board_t *board,
+static inline int quiescence(engine_t *engine, position_t *pos,
                              searchinfo_t *searchinfo, int alpha, int beta) {
   // every 4095 nodes
   if ((searchinfo->nodes & 4095) == 0)
@@ -216,12 +216,12 @@ static inline int quiescence(engine_t *engine, board_t *board,
 
   // we are too deep, hence there's an overflow of arrays relying on max ply
   // constant
-  if (board->ply > max_ply - 1)
+  if (pos->ply > max_ply - 1)
     // evaluate position
-    return evaluate(engine, board);
+    return evaluate(engine, pos);
 
   // evaluate position
-  int evaluation = evaluate(engine, board);
+  int evaluation = evaluate(engine, pos);
 
   // fail-hard beta cutoff
   if (evaluation >= beta) {
@@ -239,10 +239,10 @@ static inline int quiescence(engine_t *engine, board_t *board,
   moves move_list[1];
 
   // generate moves
-  generate_captures(board, move_list);
+  generate_captures(pos, move_list);
 
   for (uint32_t count = 0; count < move_list->count; count++) {
-    score_move(board, &move_list->entry[count], 0);
+    score_move(pos, &move_list->entry[count], 0);
   }
 
   sort_moves(move_list);
@@ -250,42 +250,42 @@ static inline int quiescence(engine_t *engine, board_t *board,
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
     // preserve board state
-    copy_board(board->bitboards, board->occupancies, board->side,
-               board->enpassant, board->castle, board->fifty, board->hash_key);
+    copy_board(pos->bitboards, pos->occupancies, pos->side,
+               pos->enpassant, pos->castle, pos->fifty, pos->hash_key);
 
     // increment ply
-    board->ply++;
+    pos->ply++;
 
     // increment repetition index & store hash key
-    board->repetition_index++;
-    board->repetition_table[board->repetition_index] = board->hash_key;
+    pos->repetition_index++;
+    pos->repetition_table[pos->repetition_index] = pos->hash_key;
 
     // make sure to make only legal moves
-    if (make_move(engine, board, move_list->entry[count].move, only_captures) ==
+    if (make_move(engine, pos, move_list->entry[count].move, only_captures) ==
         0) {
       // decrement ply
-      board->ply--;
+      pos->ply--;
 
       // decrement repetition index
-      board->repetition_index--;
+      pos->repetition_index--;
 
       // skip to next move
       continue;
     }
 
     // score current move
-    int score = -quiescence(engine, board, searchinfo, -beta, -alpha);
+    int score = -quiescence(engine, pos, searchinfo, -beta, -alpha);
 
     // decrement ply
-    board->ply--;
+    pos->ply--;
 
     // decrement repetition index
-    board->repetition_index--;
+    pos->repetition_index--;
 
     // take move back
-    restore_board(board->bitboards, board->occupancies, board->side,
-                  board->enpassant, board->castle, board->fifty,
-                  board->hash_key);
+    restore_board(pos->bitboards, pos->occupancies, pos->side,
+                  pos->enpassant, pos->castle, pos->fifty,
+                  pos->hash_key);
 
     // reutrn 0 if time is up
     if (searchinfo->stopped == 1) {
@@ -310,11 +310,11 @@ static inline int quiescence(engine_t *engine, board_t *board,
 }
 
 // negamax alpha beta search
-static inline int negamax(engine_t *engine, board_t *board,
+static inline int negamax(engine_t *engine, position_t *pos,
                           searchinfo_t *searchinfo, tt_t *hash_table, int alpha,
                           int beta, int depth) {
   // init PV length
-  board->pv_length[board->ply] = board->ply;
+  pos->pv_length[pos->ply] = pos->ply;
 
   // variable to store current move's score (from the static evaluation
   // perspective)
@@ -325,18 +325,18 @@ static inline int negamax(engine_t *engine, board_t *board,
   // define hash flag
   int hash_flag = hash_flag_alpha;
 
-  if (board->ply) {
+  if (pos->ply) {
     // if position repetition occurs
-    if (is_repetition(board) || board->fifty >= 100) {
+    if (is_repetition(pos) || pos->fifty >= 100) {
       // return draw score
       return 0;
     }
 
     // we are too deep, hence there's an overflow of arrays relying on max ply
     // constant
-    if (board->ply > max_ply - 1) {
+    if (pos->ply > max_ply - 1) {
       // evaluate position
-      return evaluate(engine, board);
+      return evaluate(engine, pos);
     }
   }
 
@@ -346,8 +346,8 @@ static inline int negamax(engine_t *engine, board_t *board,
 
   // read hash entry if we're not in a root ply and hash entry is available
   // and current node is not a PV node
-  if (board->ply &&
-      (score = read_hash_entry(board, hash_table, alpha, &move, beta, depth)) !=
+  if (pos->ply &&
+      (score = read_hash_entry(pos, hash_table, alpha, &move, beta, depth)) !=
           no_hash_entry &&
       pv_node == 0)
     // if the move has already been searched (hence has a value)
@@ -362,11 +362,11 @@ static inline int negamax(engine_t *engine, board_t *board,
   int r;
 
   // is king in check
-  int in_check = is_square_attacked(board,
-                                    (board->side == white)
-                                        ? __builtin_ctzll(board->bitboards[K])
-                                        : __builtin_ctzll(board->bitboards[k]),
-                                    board->side ^ 1);
+  int in_check = is_square_attacked(pos,
+                                    (pos->side == white)
+                                        ? __builtin_ctzll(pos->bitboards[K])
+                                        : __builtin_ctzll(pos->bitboards[k]),
+                                    pos->side ^ 1);
 
   // increase search depth if the king has been exposed into a check
   if (in_check) {
@@ -376,7 +376,7 @@ static inline int negamax(engine_t *engine, board_t *board,
   // recursion escape condition
   if (depth == 0) {
     // run quiescence search
-    return quiescence(engine, board, searchinfo, alpha, beta);
+    return quiescence(engine, pos, searchinfo, alpha, beta);
   }
 
   // increment nodes count
@@ -385,7 +385,7 @@ static inline int negamax(engine_t *engine, board_t *board,
   // legal moves counter
   int legal_moves = 0;
 
-  int static_eval = evaluate(engine, board);
+  int static_eval = evaluate(engine, pos);
 
   // evaluation pruning / static null move pruning
   if (depth < 3 && !pv_node && !in_check && abs(beta - 1) > -infinity + 100) {
@@ -401,46 +401,46 @@ static inline int negamax(engine_t *engine, board_t *board,
   }
 
   // null move pruning
-  if (depth >= 3 && in_check == 0 && board->ply) {
+  if (depth >= 3 && in_check == 0 && pos->ply) {
     // preserve board state
-    copy_board(board->bitboards, board->occupancies, board->side,
-               board->enpassant, board->castle, board->fifty, board->hash_key);
+    copy_board(pos->bitboards, pos->occupancies, pos->side,
+               pos->enpassant, pos->castle, pos->fifty, pos->hash_key);
 
     // increment ply
-    board->ply++;
+    pos->ply++;
 
     // increment repetition index & store hash key
-    board->repetition_index++;
-    board->repetition_table[board->repetition_index] = board->hash_key;
+    pos->repetition_index++;
+    pos->repetition_table[pos->repetition_index] = pos->hash_key;
 
     // hash enpassant if available
-    if (board->enpassant != no_sq)
-      board->hash_key ^= engine->keys.enpassant_keys[board->enpassant];
+    if (pos->enpassant != no_sq)
+      pos->hash_key ^= engine->keys.enpassant_keys[pos->enpassant];
 
     // reset enpassant capture square
-    board->enpassant = no_sq;
+    pos->enpassant = no_sq;
 
     // switch the side, literally giving opponent an extra move to make
-    board->side ^= 1;
+    pos->side ^= 1;
 
     // hash the side
-    board->hash_key ^= engine->keys.side_key;
+    pos->hash_key ^= engine->keys.side_key;
 
     /* search moves with reduced depth to find beta cutoffs
        depth - 1 - R where R is a reduction limit */
-    score = -negamax(engine, board, searchinfo, hash_table, -beta, -beta + 1,
+    score = -negamax(engine, pos, searchinfo, hash_table, -beta, -beta + 1,
                      depth - 1 - 2);
 
     // decrement ply
-    board->ply--;
+    pos->ply--;
 
     // decrement repetition index
-    board->repetition_index--;
+    pos->repetition_index--;
 
     // restore board state
-    restore_board(board->bitboards, board->occupancies, board->side,
-                  board->enpassant, board->castle, board->fifty,
-                  board->hash_key);
+    restore_board(pos->bitboards, pos->occupancies, pos->side,
+                  pos->enpassant, pos->castle, pos->fifty,
+                  pos->hash_key);
 
     // reutrn 0 if time is up
     if (searchinfo->stopped == 1) {
@@ -466,7 +466,7 @@ static inline int negamax(engine_t *engine, board_t *board,
       // on depth 1
       if (depth == 1) {
         // get quiescence score
-        new_score = quiescence(engine, board, searchinfo, alpha, beta);
+        new_score = quiescence(engine, pos, searchinfo, alpha, beta);
 
         // return quiescence score if it's greater then static evaluation score
         return (new_score > score) ? new_score : score;
@@ -478,7 +478,7 @@ static inline int negamax(engine_t *engine, board_t *board,
       // static evaluation indicates a fail-low node
       if (score < beta && depth <= 2) {
         // get quiescence score
-        new_score = quiescence(engine, board, searchinfo, alpha, beta);
+        new_score = quiescence(engine, pos, searchinfo, alpha, beta);
 
         // quiescence score indicates fail-low node
         if (new_score < beta)
@@ -493,15 +493,15 @@ static inline int negamax(engine_t *engine, board_t *board,
   moves move_list[1];
 
   // generate moves
-  generate_moves(board, move_list);
+  generate_moves(pos, move_list);
 
   // if we are now following PV line
-  if (board->follow_pv)
+  if (pos->follow_pv)
     // enable PV move scoring
-    enable_pv_scoring(board, move_list);
+    enable_pv_scoring(pos, move_list);
 
   for (uint32_t count = 0; count < move_list->count; count++) {
-    score_move(board, &move_list->entry[count], move);
+    score_move(pos, &move_list->entry[count], move);
   }
 
   sort_moves(move_list);
@@ -513,25 +513,25 @@ static inline int negamax(engine_t *engine, board_t *board,
   for (uint32_t count = 0; count < move_list->count; count++) {
 
     // preserve board state
-    copy_board(board->bitboards, board->occupancies, board->side,
-               board->enpassant, board->castle, board->fifty, board->hash_key);
+    copy_board(pos->bitboards, pos->occupancies, pos->side,
+               pos->enpassant, pos->castle, pos->fifty, pos->hash_key);
 
     int list_move = move_list->entry[count].move;
 
     // increment ply
-    board->ply++;
+    pos->ply++;
 
     // increment repetition index & store hash key
-    board->repetition_index++;
-    board->repetition_table[board->repetition_index] = board->hash_key;
+    pos->repetition_index++;
+    pos->repetition_table[pos->repetition_index] = pos->hash_key;
 
     // make sure to make only legal moves
-    if (make_move(engine, board, list_move, all_moves) == 0) {
+    if (make_move(engine, pos, list_move, all_moves) == 0) {
       // decrement ply
-      board->ply--;
+      pos->ply--;
 
       // decrement repetition index
-      board->repetition_index--;
+      pos->repetition_index--;
 
       // skip to next move
       continue;
@@ -543,7 +543,7 @@ static inline int negamax(engine_t *engine, board_t *board,
     // full depth search
     if (moves_searched == 0) {
       // do normal alpha beta search
-      score = -negamax(engine, board, searchinfo, hash_table, -beta, -alpha,
+      score = -negamax(engine, pos, searchinfo, hash_table, -beta, -alpha,
                        depth - 1);
     }
 
@@ -559,7 +559,7 @@ static inline int negamax(engine_t *engine, board_t *board,
 
         int reddepth = MAX(1, depth - 1 - MAX(r, 1));
         // search current move with reduced depth:
-        score = -negamax(engine, board, searchinfo, hash_table, -alpha - 1,
+        score = -negamax(engine, pos, searchinfo, hash_table, -alpha - 1,
                          -alpha, reddepth);
       }
 
@@ -575,7 +575,7 @@ static inline int negamax(engine_t *engine, board_t *board,
            are all bad. It's possible to do this a bit faster than a search that
            worries that one of the remaining moves might be good. */
         searchinfo->nodes++;
-        score = -negamax(engine, board, searchinfo, hash_table, -alpha - 1,
+        score = -negamax(engine, pos, searchinfo, hash_table, -alpha - 1,
                          -alpha, depth - 1);
 
         /* If the algorithm finds out that it was wrong, and that one of the
@@ -587,22 +587,22 @@ static inline int negamax(engine_t *engine, board_t *board,
         if ((score > alpha) && (score < beta)) {
           /* re-search the move that has failed to be proved to be bad
              with normal alpha beta score bounds*/
-          score = -negamax(engine, board, searchinfo, hash_table, -beta, -alpha,
+          score = -negamax(engine, pos, searchinfo, hash_table, -beta, -alpha,
                            depth - 1);
         }
       }
     }
 
     // decrement ply
-    board->ply--;
+    pos->ply--;
 
     // decrement repetition index
-    board->repetition_index--;
+    pos->repetition_index--;
 
     // take move back
-    restore_board(board->bitboards, board->occupancies, board->side,
-                  board->enpassant, board->castle, board->fifty,
-                  board->hash_key);
+    restore_board(pos->bitboards, pos->occupancies, pos->side,
+                  pos->enpassant, pos->castle, pos->fifty,
+                  pos->hash_key);
 
     // return infinity so we can deal with timeout in case we are doing
     // re-search
@@ -624,36 +624,36 @@ static inline int negamax(engine_t *engine, board_t *board,
       // on quiet moves
       if (get_move_capture(list_move) == 0)
         // store history moves
-        board->history_moves[get_move_piece(list_move)]
+        pos->history_moves[get_move_piece(list_move)]
                             [get_move_target(list_move)] += depth;
 
       // PV node (position)
       alpha = score;
 
       // write PV move
-      board->pv_table[board->ply][board->ply] = list_move;
+      pos->pv_table[pos->ply][pos->ply] = list_move;
 
       // loop over the next ply
-      for (int next_ply = board->ply + 1;
-           next_ply < board->pv_length[board->ply + 1]; next_ply++)
+      for (int next_ply = pos->ply + 1;
+           next_ply < pos->pv_length[pos->ply + 1]; next_ply++)
         // copy move from deeper ply into a current ply's line
-        board->pv_table[board->ply][next_ply] =
-            board->pv_table[board->ply + 1][next_ply];
+        pos->pv_table[pos->ply][next_ply] =
+            pos->pv_table[pos->ply + 1][next_ply];
 
       // adjust PV length
-      board->pv_length[board->ply] = board->pv_length[board->ply + 1];
+      pos->pv_length[pos->ply] = pos->pv_length[pos->ply + 1];
 
       // fail-hard beta cutoff
       if (score >= beta) {
         // store hash entry with the score equal to beta
-        write_hash_entry(board, hash_table, beta, depth, move, hash_flag_beta);
+        write_hash_entry(pos, hash_table, beta, depth, move, hash_flag_beta);
 
         // on quiet moves
         if (get_move_capture(list_move) == 0) {
           // store killer moves
-          board->killer_moves[1][board->ply] =
-              board->killer_moves[0][board->ply];
-          board->killer_moves[0][board->ply] = list_move;
+          pos->killer_moves[1][pos->ply] =
+              pos->killer_moves[0][pos->ply];
+          pos->killer_moves[0][pos->ply] = list_move;
         }
 
         // node (position) fails high
@@ -667,7 +667,7 @@ static inline int negamax(engine_t *engine, board_t *board,
     // king is in check
     if (in_check)
       // return mating score (assuming closest distance to mating position)
-      return -mate_value + board->ply;
+      return -mate_value + pos->ply;
 
     // king is not in check
     else
@@ -676,14 +676,14 @@ static inline int negamax(engine_t *engine, board_t *board,
   }
 
   // store hash entry with the score equal to alpha
-  write_hash_entry(board, hash_table, alpha, depth, move, hash_flag);
+  write_hash_entry(pos, hash_table, alpha, depth, move, hash_flag);
 
   // node (position) fails low
   return alpha;
 }
 
 // search position for the best move
-void search_position(engine_t *engine, board_t *board, searchinfo_t *searchinfo,
+void search_position(engine_t *engine, position_t *pos, searchinfo_t *searchinfo,
                      tt_t *hash_table, int depth) {
   // search start time
   uint64_t start = get_time_ms();
@@ -703,16 +703,16 @@ void search_position(engine_t *engine, board_t *board, searchinfo_t *searchinfo,
   searchinfo->stopped = 0;
 
   // reset follow PV flags
-  board->follow_pv = 0;
-  board->score_pv = 0;
+  pos->follow_pv = 0;
+  pos->score_pv = 0;
 
   hash_table->current_age++;
 
   // clear helper data structures for search
-  memset(board->killer_moves, 0, sizeof(board->killer_moves));
-  memset(board->history_moves, 0, sizeof(board->history_moves));
-  memset(board->pv_table, 0, sizeof(board->pv_table));
-  memset(board->pv_length, 0, sizeof(board->pv_length));
+  memset(pos->killer_moves, 0, sizeof(pos->killer_moves));
+  memset(pos->history_moves, 0, sizeof(pos->history_moves));
+  memset(pos->pv_table, 0, sizeof(pos->pv_table));
+  memset(pos->pv_length, 0, sizeof(pos->pv_length));
 
   // define initial alpha beta bounds
   int alpha = -infinity;
@@ -727,7 +727,7 @@ void search_position(engine_t *engine, board_t *board, searchinfo_t *searchinfo,
     }
 
     // enable follow PV flag
-    board->follow_pv = 1;
+    pos->follow_pv = 1;
 
     // We should not save PV move from unfinished depth for example if depth 12
     // finishes and goes to search depth 13 now but this triggers window cutoff
@@ -735,12 +735,12 @@ void search_position(engine_t *engine, board_t *board, searchinfo_t *searchinfo,
     // 14 search doesnt finish in time we will at least have an full PV line
     // from depth 12
     if (window_ok) {
-      memcpy(pv_table_copy, board->pv_table, sizeof(board->pv_table));
-      memcpy(pv_length_copy, board->pv_length, sizeof(board->pv_length));
+      memcpy(pv_table_copy, pos->pv_table, sizeof(pos->pv_table));
+      memcpy(pv_length_copy, pos->pv_length, sizeof(pos->pv_length));
     }
 
     // find best move within a given position
-    score = negamax(engine, board, searchinfo, hash_table, alpha, beta,
+    score = negamax(engine, pos, searchinfo, hash_table, alpha, beta,
                     current_depth);
 
     // Reset aspiration window OK flag back to 1
@@ -750,8 +750,8 @@ void search_position(engine_t *engine, board_t *board, searchinfo_t *searchinfo,
     // another depth with wider search which we didnt finish
     if (score == infinity) {
       // Restore the saved best line
-      memcpy(board->pv_table, pv_table_copy, sizeof(pv_table_copy));
-      memcpy(board->pv_length, pv_length_copy, sizeof(pv_length_copy));
+      memcpy(pos->pv_table, pv_table_copy, sizeof(pv_table_copy));
+      memcpy(pos->pv_length, pv_length_copy, sizeof(pv_length_copy));
       // Break out of the loop without printing info about the unfinished depth
       break;
     }
@@ -772,7 +772,7 @@ void search_position(engine_t *engine, board_t *board, searchinfo_t *searchinfo,
     beta = score + 50;
 
     // if PV is available
-    if (board->pv_length[0]) {
+    if (pos->pv_length[0]) {
       // print search info
       uint64_t time = get_time_ms() - start;
       uint64_t nps = (searchinfo->nodes / fmax(time, 1)) * 100;
@@ -811,9 +811,9 @@ void search_position(engine_t *engine, board_t *board, searchinfo_t *searchinfo,
       }
 
       // loop over the moves within a PV line
-      for (int count = 0; count < board->pv_length[0]; count++) {
+      for (int count = 0; count < pos->pv_length[0]; count++) {
         // print PV move
-        print_move(board->pv_table[0][count]);
+        print_move(pos->pv_table[0][count]);
         printf(" ");
       }
 
@@ -824,8 +824,8 @@ void search_position(engine_t *engine, board_t *board, searchinfo_t *searchinfo,
 
   // print best move
   printf("bestmove ");
-  if (board->pv_table[0][0]) {
-    print_move(board->pv_table[0][0]);
+  if (pos->pv_table[0][0]) {
+    print_move(pos->pv_table[0][0]);
   } else {
     printf("(none)");
   }

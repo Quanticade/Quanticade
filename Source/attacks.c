@@ -405,43 +405,43 @@ void init_sliders_attacks() {
 }
 
 // is square current given attacked by the current given side
-int is_square_attacked(board_t *board, int square, int side) {
+int is_square_attacked(position_t *pos, int square, int side) {
   // attacked by white pawns
   if ((side == white) &&
-      (pawn_attacks[black][square] & board->bitboards[P]))
+      (pawn_attacks[black][square] & pos->bitboards[P]))
     return 1;
 
   // attacked by black pawns
   if ((side == black) &&
-      (pawn_attacks[white][square] & board->bitboards[p]))
+      (pawn_attacks[white][square] & pos->bitboards[p]))
     return 1;
 
   // attacked by knights
-  if (knight_attacks[square] & ((side == white) ? board->bitboards[N]
-                                                : board->bitboards[n]))
+  if (knight_attacks[square] & ((side == white) ? pos->bitboards[N]
+                                                : pos->bitboards[n]))
     return 1;
 
   // attacked by bishops
-  if (get_bishop_attacks(square, board->occupancies[both]) &
-      ((side == white) ? board->bitboards[B]
-                       : board->bitboards[b]))
+  if (get_bishop_attacks(square, pos->occupancies[both]) &
+      ((side == white) ? pos->bitboards[B]
+                       : pos->bitboards[b]))
     return 1;
 
   // attacked by rooks
-  if (get_rook_attacks(square, board->occupancies[both]) &
-      ((side == white) ? board->bitboards[R]
-                       : board->bitboards[r]))
+  if (get_rook_attacks(square, pos->occupancies[both]) &
+      ((side == white) ? pos->bitboards[R]
+                       : pos->bitboards[r]))
     return 1;
 
   // attacked by bishops
-  if (get_queen_attacks(square, board->occupancies[both]) &
-      ((side == white) ? board->bitboards[Q]
-                       : board->bitboards[q]))
+  if (get_queen_attacks(square, pos->occupancies[both]) &
+      ((side == white) ? pos->bitboards[Q]
+                       : pos->bitboards[q]))
     return 1;
 
   // attacked by kings
-  if (king_attacks[square] & ((side == white) ? board->bitboards[K]
-                                              : board->bitboards[k]))
+  if (king_attacks[square] & ((side == white) ? pos->bitboards[K]
+                                              : pos->bitboards[k]))
     return 1;
 
   // by default return false

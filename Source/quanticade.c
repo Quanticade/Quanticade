@@ -19,7 +19,7 @@
 #include "uci.h"
 
 engine_t engine;
-board_t board;
+position_t pos;
 searchinfo_t searchinfo;
 
 // generate 32-bit pseudo legal numbers
@@ -119,7 +119,7 @@ void init_all(engine_t *engine, tt_t *hash_table) {
 
 int main(void) {
   memset(&engine, 0, sizeof(engine));
-  board.enpassant = no_sq;
+  pos.enpassant = no_sq;
   searchinfo.movestogo = 30;
   searchinfo.time = -1;
   engine.nnue = 1;
@@ -131,7 +131,7 @@ int main(void) {
   init_all(&engine, &hash_table);
 
   // connect to GUI
-  uci_loop(&engine, &board, &searchinfo, &hash_table);
+  uci_loop(&engine, &pos, &searchinfo, &hash_table);
 
   // free hash table memory on exit
   free(hash_table.hash_entry);

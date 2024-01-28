@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 
-static inline void perft_driver(engine_t *engine, board_t *board, searchinfo_t *searchinfo, int depth) {
+static inline void perft_driver(engine_t *engine, position_t *pos, searchinfo_t *searchinfo, int depth) {
   // recursion escape condition
   if (depth == 0) {
     // increment nodes count (count reached positions)
@@ -19,39 +19,39 @@ static inline void perft_driver(engine_t *engine, board_t *board, searchinfo_t *
   moves move_list[1];
 
   // generate moves
-  generate_moves(board, move_list);
+  generate_moves(pos, move_list);
 
   // loop over generated moves
   for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
     // preserve board state
-    copy_board(board->bitboards, board->occupancies,
-               board->side, board->enpassant,
-               board->castle, board->fifty, board->hash_key);
+    copy_board(pos->bitboards, pos->occupancies,
+               pos->side, pos->enpassant,
+               pos->castle, pos->fifty, pos->hash_key);
 
     // make move
-    if (!make_move(engine, board, move_list->entry[move_count].move, all_moves))
+    if (!make_move(engine, pos, move_list->entry[move_count].move, all_moves))
       // skip to the next move
       continue;
 
     // call perft driver recursively
-    perft_driver(engine, board, searchinfo, depth - 1);
+    perft_driver(engine, pos, searchinfo, depth - 1);
 
     // take back
-    restore_board(board->bitboards, board->occupancies,
-                  board->side, board->enpassant,
-                  board->castle, board->fifty, board->hash_key);
+    restore_board(pos->bitboards, pos->occupancies,
+                  pos->side, pos->enpassant,
+                  pos->castle, pos->fifty, pos->hash_key);
   }
 }
 
 // perft test
-void perft_test(engine_t *engine, board_t* board, searchinfo_t *searchinfo, int depth) {
+void perft_test(engine_t *engine, position_t* pos, searchinfo_t *searchinfo, int depth) {
   printf("\n     Performance test\n\n");
 
   // create move list instance
   moves move_list[1];
 
   // generate moves
-  generate_moves(board, move_list);
+  generate_moves(pos, move_list);
 
   // init start time
   long start = get_time_ms();
@@ -59,12 +59,12 @@ void perft_test(engine_t *engine, board_t* board, searchinfo_t *searchinfo, int 
   // loop over generated moves
   for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
     // preserve board state
-    copy_board(board->bitboards, board->occupancies,
-               board->side, board->enpassant,
-               board->castle, board->fifty, board->hash_key);
+    copy_board(pos->bitboards, pos->occupancies,
+               pos->side, pos->enpassant,
+               pos->castle, pos->fifty, pos->hash_key);
 
     // make move
-    if (!make_move(engine, board, move_list->entry[move_count].move, all_moves))
+    if (!make_move(engine, pos, move_list->entry[move_count].move, all_moves))
       // skip to the next move
       continue;
 
@@ -72,16 +72,16 @@ void perft_test(engine_t *engine, board_t* board, searchinfo_t *searchinfo, int 
     long cummulative_nodes = searchinfo->nodes;
 
     // call perft driver recursively
-    perft_driver(engine, board, searchinfo, depth - 1);
+    perft_driver(engine, pos, searchinfo, depth - 1);
 
     // old nodes
     long old_nodes = searchinfo->nodes - cummulative_nodes;
     (void)old_nodes;
 
     // take back
-    restore_board(board->bitboards, board->occupancies,
-                  board->side, board->enpassant,
-                  board->castle, board->fifty, board->hash_key);
+    restore_board(pos->bitboards, pos->occupancies,
+                  pos->side, pos->enpassant,
+                  pos->castle, pos->fifty, pos->hash_key);
 
     // print move
     printf("     move: %s%s%c  nodes: %ld\n",
