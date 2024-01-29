@@ -40,9 +40,6 @@ typedef struct keys {
 typedef struct position {
   uint64_t bitboards[12];
   uint64_t occupancies[3];
-  uint8_t side;
-  uint8_t enpassant;
-  uint8_t castle;
   uint64_t hash_key;
   uint64_t repetition_table[1000];
   uint32_t repetition_index;
@@ -52,27 +49,30 @@ typedef struct position {
   int history_moves[12][64];
   int pv_length[max_ply];
   int pv_table[max_ply][max_ply];
-  int follow_pv;
-  int score_pv;
+  uint8_t follow_pv;
+  uint8_t score_pv;
+  uint8_t side;
+  uint8_t enpassant;
+  uint8_t castle;
 } position_t;
 
 typedef struct searchinfo {
-  uint8_t quit;
-  uint16_t movestogo;
-  int64_t time;
-  int32_t inc;
   uint64_t starttime;
   uint64_t stoptime;
+  uint64_t nodes;
+  int64_t time;
+  int32_t inc;
+  uint16_t movestogo;
   uint8_t timeset;
   uint8_t stopped;
-  uint64_t nodes;
+  uint8_t quit;
 } searchinfo_t;
 
 typedef struct engine {
   keys_t keys;
+  char *nnue_file;
   uint32_t random_state;
   uint8_t nnue;
-  char *nnue_file;
 } engine_t;
 
 #endif
