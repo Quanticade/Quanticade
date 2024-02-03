@@ -280,45 +280,27 @@ int evaluate(engine_t *engine, position_t *pos) {
       square = __builtin_ctzll(bitboard);
 
       if (engine->nnue) {
-        /*
-                    Code to initialize pieces and squares arrays
-                    to serve the purpose of direct probing of NNUE
-                */
-
-        // case white king
-        if (piece == K) {
-          /* convert white king piece code to stockfish piece code and
-             store it at the first index of pieces array
-          */
-          pieces[0] = nnue_pieces[piece];
-
-          /* convert white king square index to stockfish square index and
-             store it at the first index of pieces array
-          */
-          squares[0] = nnue_squares[square];
-        }
-
-        // case black king
-        else if (piece == k) {
-          /* convert black king piece code to stockfish piece code and
-             store it at the second index of pieces array
-          */
-          pieces[1] = nnue_pieces[piece];
-
-          /* convert black king square index to stockfish square index and
-             store it at the second index of pieces array
-          */
-          squares[1] = nnue_squares[square];
-        }
-
-        // all the rest pieces
-        else {
-          /*  convert all the rest of piece code with corresponding square codes
-              to stockfish piece codes and square indices respectively
-          */
-          pieces[index] = nnue_pieces[piece];
-          squares[index] = nnue_squares[square];
-          index++;
+        // Convert our pieces to stockfish pieces for NNUE
+        switch (piece) {
+          case K:
+          {
+            pieces[0] = nnue_pieces[piece];
+            squares[0] = nnue_squares[square];
+            break;
+          }
+          case k:
+          {
+            pieces[1] = nnue_pieces[piece];
+            squares[1] = nnue_squares[square];
+            break;
+          }
+          default:
+          {
+            pieces[index] = nnue_pieces[piece];
+            squares[index] = nnue_squares[square];
+            index++;
+            break;
+          }
         }
       } else {
         // get opening/endgame material score
