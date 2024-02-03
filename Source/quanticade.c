@@ -18,6 +18,8 @@
 #include "structs.h"
 #include "uci.h"
 
+#define DEFAULT_NNUE "nn-eba324f53044.nnue"
+
 engine_t engine;
 position_t pos;
 searchinfo_t searchinfo;
@@ -126,7 +128,7 @@ int main(void) {
   engine.random_state = 1804289383;
   tt_t hash_table = {NULL, 0, 0};
   engine.nnue_file = calloc(21, 1);
-  strcpy(engine.nnue_file, "nn-eba324f53044.nnue");
+  strcpy(engine.nnue_file, DEFAULT_NNUE);
   // init all
   init_all(&engine, &hash_table);
 
