@@ -354,25 +354,22 @@ static inline void parse_go(engine_t *engine, position_t *pos,
   if ((argument = strstr(command, "infinite"))) {
   }
 
-  // match UCI "binc" command
-  if ((argument = strstr(command, "binc")) && pos->side == black)
-    // parse black time increment
-    searchinfo->inc = atoi(argument + 5);
-
-  // match UCI "winc" command
-  if ((argument = strstr(command, "winc")) && pos->side == white)
-    // parse white time increment
-    searchinfo->inc = atoi(argument + 5);
-
-  // match UCI "wtime" command
-  if ((argument = strstr(command, "wtime")) && pos->side == white)
-    // parse white time limit
-    searchinfo->time = atoi(argument + 6);
-
-  // match UCI "btime" command
-  if ((argument = strstr(command, "btime")) && pos->side == black)
-    // parse black time limit
-    searchinfo->time = atoi(argument + 6);
+  if (pos->side == white) {
+    if ((argument = strstr(command, "winc"))) {
+      searchinfo->inc = atoi(argument + 5);
+    }
+    if ((argument = strstr(command, "wtime"))) {
+      searchinfo->time = atoi(argument + 6);
+    }
+  }
+  else {
+    if ((argument = strstr(command, "binc"))) {
+      searchinfo->inc = atoi(argument + 5);
+    }
+    if ((argument = strstr(command, "btime"))) {
+      searchinfo->time = atoi(argument + 6);
+    }
+  }
 
   // match UCI "movestogo" command
   if ((argument = strstr(command, "movestogo")))
