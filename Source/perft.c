@@ -101,8 +101,10 @@ void perft_test(engine_t *engine, position_t* pos, searchinfo_t *searchinfo, int
 #ifdef WIN64
   printf("    Nodes: %llu\n", engine->nodes);
   printf("     Time: %llu\n\n", get_time_ms() - start);
+  printf("      NPS: %llu\n\n", searchinfo->nodes / ((get_time_ms() - start) / 100));
 #else
   printf("    Nodes: %lu\n", searchinfo->nodes);
   printf("     Time: %lu\n\n", get_time_ms() - start);
+  printf("      NPS: %lu\n\n", searchinfo->nodes / ((get_time_ms() - start) / 100));
 #endif
 }
