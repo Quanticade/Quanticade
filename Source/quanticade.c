@@ -1,5 +1,6 @@
 // system headers
 #include "evaluate.h"
+#include "pyrrhic/tbprobe.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>

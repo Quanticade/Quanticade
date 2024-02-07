@@ -32,6 +32,7 @@ add_executable(Quanticade "")
 target_link_libraries(Quanticade
     PRIVATE
         nnue
+        pyrrhic
         m
 )
 
@@ -45,6 +46,7 @@ set(QUANTICADE_SOURCES
     "Source/perft.c"
     "Source/pvtable.c"
     "Source/search.c"
+    "Source/syzygy.c"
 )
 
 set(QUANTICADE_HEADERS
@@ -60,6 +62,7 @@ set(QUANTICADE_HEADERS
     "Source/pvtable.h"
     "Source/search.h"
     "Source/nnue_consts.h"
+    "Source/syzygy.h"
 )
 
 target_sources(Quanticade

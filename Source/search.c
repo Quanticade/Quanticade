@@ -5,7 +5,9 @@
 #include "evaluate.h"
 #include "movegen.h"
 #include "pvtable.h"
+#include "pyrrhic/tbprobe.h"
 #include "structs.h"
+#include "syzygy.h"
 #include "uci.h"
 #include "utils.h"
 #include <math.h>
@@ -250,8 +252,8 @@ static inline int quiescence(engine_t *engine, position_t *pos,
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
     // preserve board state
-    copy_board(pos->bitboards, pos->occupancies, pos->side,
-               pos->enpassant, pos->castle, pos->fifty, pos->hash_key);
+    copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
+               pos->castle, pos->fifty, pos->hash_key);
 
     // increment ply
     pos->ply++;
@@ -283,9 +285,8 @@ static inline int quiescence(engine_t *engine, position_t *pos,
     pos->repetition_index--;
 
     // take move back
-    restore_board(pos->bitboards, pos->occupancies, pos->side,
-                  pos->enpassant, pos->castle, pos->fifty,
-                  pos->hash_key);
+    restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
+                  pos->castle, pos->fifty, pos->hash_key);
 
     // reutrn 0 if time is up
     if (searchinfo->stopped == 1) {
@@ -331,7 +332,14 @@ static inline int negamax(engine_t *engine, position_t *pos,
       // return draw score
       return 0;
     }
-
+#if 0
+    if ((tbresult = quant_probe_wdl(pos)) != TB_RESULT_FAILED) {
+      val = tbresult == TB_LOSS  ? -infinity + max_ply + pos->ply + 1
+            : tbresult == TB_WIN ? infinity - max_ply - pos->ply - 1
+                                 : 0;
+      return val;
+    }
+#endif
     // we are too deep, hence there's an overflow of arrays relying on max ply
     // constant
     if (pos->ply > max_ply - 1) {
@@ -340,8 +348,8 @@ static inline int negamax(engine_t *engine, position_t *pos,
     }
   }
 
-  // a hack by Pedro Castro to figure out whether the current node is PV node or
-  // not
+  // a hack by Pedro Castro to figure out whether the current node is PV node
+  // or not
   int pv_node = beta - alpha > 1;
 
   // read hash entry if we're not in a root ply and hash entry is available
@@ -403,8 +411,8 @@ static inline int negamax(engine_t *engine, position_t *pos,
   // null move pruning
   if (depth >= 3 && in_check == 0 && pos->ply) {
     // preserve board state
-    copy_board(pos->bitboards, pos->occupancies, pos->side,
-               pos->enpassant, pos->castle, pos->fifty, pos->hash_key);
+    copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
+               pos->castle, pos->fifty, pos->hash_key);
 
     // increment ply
     pos->ply++;
@@ -438,9 +446,8 @@ static inline int negamax(engine_t *engine, position_t *pos,
     pos->repetition_index--;
 
     // restore board state
-    restore_board(pos->bitboards, pos->occupancies, pos->side,
-                  pos->enpassant, pos->castle, pos->fifty,
-                  pos->hash_key);
+    restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
+                  pos->castle, pos->fifty, pos->hash_key);
 
     // reutrn 0 if time is up
     if (searchinfo->stopped == 1) {
@@ -468,7 +475,8 @@ static inline int negamax(engine_t *engine, position_t *pos,
         // get quiescence score
         new_score = quiescence(engine, pos, searchinfo, alpha, beta);
 
-        // return quiescence score if it's greater then static evaluation score
+        // return quiescence score if it's greater then static evaluation
+        // score
         return (new_score > score) ? new_score : score;
       }
 
@@ -513,8 +521,8 @@ static inline int negamax(engine_t *engine, position_t *pos,
   for (uint32_t count = 0; count < move_list->count; count++) {
 
     // preserve board state
-    copy_board(pos->bitboards, pos->occupancies, pos->side,
-               pos->enpassant, pos->castle, pos->fifty, pos->hash_key);
+    copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
+               pos->castle, pos->fifty, pos->hash_key);
 
     int list_move = move_list->entry[count].move;
 
@@ -570,20 +578,21 @@ static inline int negamax(engine_t *engine, position_t *pos,
 
       // principle variation search PVS
       if (score > alpha) {
-        /* Once you've found a move with a score that is between alpha and beta,
-           the rest of the moves are searched with the goal of proving that they
-           are all bad. It's possible to do this a bit faster than a search that
-           worries that one of the remaining moves might be good. */
+        /* Once you've found a move with a score that is between alpha and
+           beta, the rest of the moves are searched with the goal of proving
+           that they are all bad. It's possible to do this a bit faster than a
+           search that worries that one of the remaining moves might be good.
+         */
         searchinfo->nodes++;
         score = -negamax(engine, pos, searchinfo, hash_table, -alpha - 1,
                          -alpha, depth - 1);
 
         /* If the algorithm finds out that it was wrong, and that one of the
-           subsequent moves was better than the first PV move, it has to search
-           again, in the normal alpha-beta manner.  This happens sometimes, and
-           it's a waste of time, but generally not often enough to counteract
-           the savings gained from doing the "bad move proof" search referred to
-           earlier. */
+           subsequent moves was better than the first PV move, it has to
+           search again, in the normal alpha-beta manner.  This happens
+           sometimes, and it's a waste of time, but generally not often enough
+           to counteract the savings gained from doing the "bad move proof"
+           search referred to earlier. */
         if ((score > alpha) && (score < beta)) {
           /* re-search the move that has failed to be proved to be bad
              with normal alpha beta score bounds*/
@@ -600,9 +609,8 @@ static inline int negamax(engine_t *engine, position_t *pos,
     pos->repetition_index--;
 
     // take move back
-    restore_board(pos->bitboards, pos->occupancies, pos->side,
-                  pos->enpassant, pos->castle, pos->fifty,
-                  pos->hash_key);
+    restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
+                  pos->castle, pos->fifty, pos->hash_key);
 
     // return infinity so we can deal with timeout in case we are doing
     // re-search
@@ -625,7 +633,7 @@ static inline int negamax(engine_t *engine, position_t *pos,
       if (get_move_capture(list_move) == 0)
         // store history moves
         pos->history_moves[get_move_piece(list_move)]
-                            [get_move_target(list_move)] += depth;
+                          [get_move_target(list_move)] += depth;
 
       // PV node (position)
       alpha = score;
@@ -634,8 +642,8 @@ static inline int negamax(engine_t *engine, position_t *pos,
       pos->pv_table[pos->ply][pos->ply] = list_move;
 
       // loop over the next ply
-      for (int next_ply = pos->ply + 1;
-           next_ply < pos->pv_length[pos->ply + 1]; next_ply++)
+      for (int next_ply = pos->ply + 1; next_ply < pos->pv_length[pos->ply + 1];
+           next_ply++)
         // copy move from deeper ply into a current ply's line
         pos->pv_table[pos->ply][next_ply] =
             pos->pv_table[pos->ply + 1][next_ply];
@@ -651,8 +659,7 @@ static inline int negamax(engine_t *engine, position_t *pos,
         // on quiet moves
         if (get_move_capture(list_move) == 0) {
           // store killer moves
-          pos->killer_moves[1][pos->ply] =
-              pos->killer_moves[0][pos->ply];
+          pos->killer_moves[1][pos->ply] = pos->killer_moves[0][pos->ply];
           pos->killer_moves[0][pos->ply] = list_move;
         }
 
@@ -683,8 +690,8 @@ static inline int negamax(engine_t *engine, position_t *pos,
 }
 
 // search position for the best move
-void search_position(engine_t *engine, position_t *pos, searchinfo_t *searchinfo,
-                     tt_t *hash_table, int depth) {
+void search_position(engine_t *engine, position_t *pos,
+                     searchinfo_t *searchinfo, tt_t *hash_table, int depth) {
   // search start time
   uint64_t start = get_time_ms();
 
@@ -729,11 +736,11 @@ void search_position(engine_t *engine, position_t *pos, searchinfo_t *searchinfo
     // enable follow PV flag
     pos->follow_pv = 1;
 
-    // We should not save PV move from unfinished depth for example if depth 12
-    // finishes and goes to search depth 13 now but this triggers window cutoff
-    // we dont want the info from depth 13 as its incomplete and in case depth
-    // 14 search doesnt finish in time we will at least have an full PV line
-    // from depth 12
+    // We should not save PV move from unfinished depth for example if depth
+    // 12 finishes and goes to search depth 13 now but this triggers window
+    // cutoff we dont want the info from depth 13 as its incomplete and in
+    // case depth 14 search doesnt finish in time we will at least have an
+    // full PV line from depth 12
     if (window_ok) {
       memcpy(pv_table_copy, pos->pv_table, sizeof(pos->pv_table));
       memcpy(pv_length_copy, pos->pv_length, sizeof(pos->pv_length));
@@ -746,13 +753,14 @@ void search_position(engine_t *engine, position_t *pos, searchinfo_t *searchinfo
     // Reset aspiration window OK flag back to 1
     window_ok = 1;
 
-    // We hit an apspiration window cut-off before time ran out and we jumped to
-    // another depth with wider search which we didnt finish
+    // We hit an apspiration window cut-off before time ran out and we jumped
+    // to another depth with wider search which we didnt finish
     if (score == infinity) {
       // Restore the saved best line
       memcpy(pos->pv_table, pv_table_copy, sizeof(pv_table_copy));
       memcpy(pos->pv_length, pv_length_copy, sizeof(pv_length_copy));
-      // Break out of the loop without printing info about the unfinished depth
+      // Break out of the loop without printing info about the unfinished
+      // depth
       break;
     }
 

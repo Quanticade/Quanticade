@@ -16,7 +16,6 @@ inline int popcount(const uint64_t bb) {
 
 // Returns the index of the least significant bit
 inline int get_lsb(const uint64_t bb) {
-    assert(bb);
     return __builtin_ctzll(bb);
 }
 

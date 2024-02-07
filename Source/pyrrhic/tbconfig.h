@@ -61,6 +61,6 @@
  * Draw, and Lose. PYRRHIC_MAX_MATE_PLY should be your max search height.
  */
 #define PYRRHIC_VALUE_PAWN     (  100)
-#define PYRRHIC_VALUE_MATE     (48000)
+#define PYRRHIC_VALUE_MATE     (49000)
 #define PYRRHIC_VALUE_DRAW     (    0)
 #define PYRRHIC_MAX_MATE_PLY   (  64)

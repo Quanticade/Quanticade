@@ -15,6 +15,7 @@
 #include "nnue/nnue.h"
 #include "perft.h"
 #include "pvtable.h"
+#include "pyrrhic/tbprobe.h"
 #include "search.h"
 #include "structs.h"
 #include "utils.h"
@@ -528,6 +529,7 @@ void uci_loop(engine_t *engine, position_t *pos, searchinfo_t *searchinfo,
       printf("option name EvalFile type string default %s\n",
              engine->nnue_file);
       printf("option name Clear Hash type button\n");
+      printf("option name SyzygyPath type string default <empty>\n");
       printf("uciok\n");
     }
 
@@ -569,6 +571,11 @@ void uci_loop(engine_t *engine, position_t *pos, searchinfo_t *searchinfo,
 
     else if (!strncmp(input, "setoption name Clear Hash", 25)) {
       clear_hash_table(hash_table);
+    }
+    else if (!strncmp(input, "setoption name SyzygyPath value ", 32)) {
+      char *ptr = input + 32;
+      tb_init(ptr);
+      printf("info string set SyzygyPath to %s\n", ptr);
     }
   }
 }
