@@ -16,7 +16,7 @@ endif()
 add_compile_options(-Wall -Werror -Wextra -Wpedantic -Wno-error=vla)
 # Optimizations
 add_compile_options(-march=native -Ofast -funroll-loops -fomit-frame-pointer)
-if ( CMAKE_SYSTEM_PROCESSOR STREQUAL "x86-64" ) 
+if ( CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64" ) 
     add_compile_options(-DUSE_SSE41 -msse4.1 -msse4.2 -DUSE_SSSE3 -mssse3 -DUSE_SSE2 -msse2 -DUSE_SSE -msse -DUSE_AVX2 -mavx2)
 elseif ( CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64" ) 
     add_compile_options(-flax-vector-conversions -DUSE_NEON -DIS_64BIT)
