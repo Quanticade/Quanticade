@@ -19,7 +19,7 @@
 #include "structs.h"
 #include "uci.h"
 
-#define DEFAULT_NNUE "nn-eba324f53044.nnue"
+#define DEFAULT_NNUE "nn-62ef826d1a6d.nnue"
 
 engine_t engine;
 position_t pos;
@@ -108,7 +108,7 @@ void init_all(engine_t *engine, tt_t *hash_table) {
   init_hash_table(engine, hash_table, 128);
 
   if (engine->nnue) {
-    nnue_init("nn-eba324f53044.nnue");
+    nnue_init(DEFAULT_NNUE);
   }
 }
 
