@@ -1,7 +1,6 @@
 #include "enums.h"
 #include "structs.h"
 #include "pyrrhic/tbprobe.h"
-#include <stdio.h>
 
 unsigned quant_probe_wdl(position_t *pos) {
   unsigned res = tb_probe_wdl(pos->occupancies[0], pos->occupancies[1],
