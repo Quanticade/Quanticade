@@ -312,7 +312,7 @@ static inline int quiescence(engine_t *engine, position_t *pos,
 
 // negamax alpha beta search
 static inline int negamax(engine_t *engine, position_t *pos,
-                          searchinfo_t *searchinfo, tt_t *hash_table, int alpha,
+                          searchinfo_t *searchinfo, int alpha,
                           int beta, int depth) {
   // init PV length
   pos->pv_length[pos->ply] = pos->ply;
@@ -355,7 +355,7 @@ static inline int negamax(engine_t *engine, position_t *pos,
   // read hash entry if we're not in a root ply and hash entry is available
   // and current node is not a PV node
   if (pos->ply &&
-      (score = read_hash_entry(pos, hash_table, alpha, &move, beta, depth)) !=
+      (score = read_hash_entry(pos, alpha, &move, beta, depth)) !=
           no_hash_entry &&
       pv_node == 0)
     // if the move has already been searched (hence has a value)
@@ -436,7 +436,7 @@ static inline int negamax(engine_t *engine, position_t *pos,
 
     /* search moves with reduced depth to find beta cutoffs
        depth - 1 - R where R is a reduction limit */
-    score = -negamax(engine, pos, searchinfo, hash_table, -beta, -beta + 1,
+    score = -negamax(engine, pos, searchinfo, -beta, -beta + 1,
                      depth - 1 - 2);
 
     // decrement ply
@@ -551,7 +551,7 @@ static inline int negamax(engine_t *engine, position_t *pos,
     // full depth search
     if (moves_searched == 0) {
       // do normal alpha beta search
-      score = -negamax(engine, pos, searchinfo, hash_table, -beta, -alpha,
+      score = -negamax(engine, pos, searchinfo, -beta, -alpha,
                        depth - 1);
     }
 
@@ -567,7 +567,7 @@ static inline int negamax(engine_t *engine, position_t *pos,
 
         int reddepth = MAX(1, depth - 1 - MAX(r, 1));
         // search current move with reduced depth:
-        score = -negamax(engine, pos, searchinfo, hash_table, -alpha - 1,
+        score = -negamax(engine, pos, searchinfo, -alpha - 1,
                          -alpha, reddepth);
       }
 
@@ -584,7 +584,7 @@ static inline int negamax(engine_t *engine, position_t *pos,
            search that worries that one of the remaining moves might be good.
          */
         searchinfo->nodes++;
-        score = -negamax(engine, pos, searchinfo, hash_table, -alpha - 1,
+        score = -negamax(engine, pos, searchinfo, -alpha - 1,
                          -alpha, depth - 1);
 
         /* If the algorithm finds out that it was wrong, and that one of the
@@ -596,7 +596,7 @@ static inline int negamax(engine_t *engine, position_t *pos,
         if ((score > alpha) && (score < beta)) {
           /* re-search the move that has failed to be proved to be bad
              with normal alpha beta score bounds*/
-          score = -negamax(engine, pos, searchinfo, hash_table, -beta, -alpha,
+          score = -negamax(engine, pos, searchinfo, -beta, -alpha,
                            depth - 1);
         }
       }
@@ -654,7 +654,7 @@ static inline int negamax(engine_t *engine, position_t *pos,
       // fail-hard beta cutoff
       if (score >= beta) {
         // store hash entry with the score equal to beta
-        write_hash_entry(pos, hash_table, beta, depth, move, hash_flag_beta);
+        write_hash_entry(pos, beta, depth, move, hash_flag_beta);
 
         // on quiet moves
         if (get_move_capture(list_move) == 0) {
@@ -683,7 +683,7 @@ static inline int negamax(engine_t *engine, position_t *pos,
   }
 
   // store hash entry with the score equal to alpha
-  write_hash_entry(pos, hash_table, alpha, depth, move, hash_flag);
+  write_hash_entry(pos, alpha, depth, move, hash_flag);
 
   // node (position) fails low
   return alpha;
@@ -691,7 +691,7 @@ static inline int negamax(engine_t *engine, position_t *pos,
 
 // search position for the best move
 void search_position(engine_t *engine, position_t *pos,
-                     searchinfo_t *searchinfo, tt_t *hash_table, int depth) {
+                     searchinfo_t *searchinfo, int depth) {
   // search start time
   uint64_t start = get_time_ms();
 
@@ -713,7 +713,7 @@ void search_position(engine_t *engine, position_t *pos,
   pos->follow_pv = 0;
   pos->score_pv = 0;
 
-  hash_table->current_age++;
+  tt.current_age++;
 
   // clear helper data structures for search
   memset(pos->killer_moves, 0, sizeof(pos->killer_moves));
@@ -747,7 +747,7 @@ void search_position(engine_t *engine, position_t *pos,
     }
 
     // find best move within a given position
-    score = negamax(engine, pos, searchinfo, hash_table, alpha, beta,
+    score = negamax(engine, pos, searchinfo, alpha, beta,
                     current_depth);
 
     // Reset aspiration window OK flag back to 1

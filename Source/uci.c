@@ -340,7 +340,7 @@ static inline void parse_position(engine_t *engine, position_t *pos,
 }
 
 static inline void parse_go(engine_t *engine, position_t *pos,
-                            searchinfo_t *searchinfo, tt_t *hash_table,
+                            searchinfo_t *searchinfo,
                             char *command) {
   // reset time control
   reset_time_control(searchinfo);
@@ -433,7 +433,7 @@ static inline void parse_go(engine_t *engine, position_t *pos,
       depth = 64;
 
     // search position
-    search_position(engine, pos, searchinfo, hash_table, depth);
+    search_position(engine, pos, searchinfo, depth);
   }
 }
 
@@ -449,8 +449,7 @@ void print_move(int move) {
 }
 
 // main UCI loop
-void uci_loop(engine_t *engine, position_t *pos, searchinfo_t *searchinfo,
-              tt_t *hash_table) {
+void uci_loop(engine_t *engine, position_t *pos, searchinfo_t *searchinfo) {
   // max hash MB
   int max_hash = 65536;
 
@@ -507,12 +506,12 @@ void uci_loop(engine_t *engine, position_t *pos, searchinfo_t *searchinfo,
       parse_position(engine, pos, "position startpos");
 
       // clear hash table
-      clear_hash_table(hash_table);
+      clear_hash_table();
     }
     // parse UCI "go" command
     else if (strncmp(input, "go", 2) == 0)
       // call parse go function
-      parse_go(engine, pos, searchinfo, hash_table, input);
+      parse_go(engine, pos, searchinfo, input);
 
     // parse UCI "quit" command
     else if (strncmp(input, "quit", 4) == 0)
@@ -545,7 +544,7 @@ void uci_loop(engine_t *engine, position_t *pos, searchinfo_t *searchinfo,
 
       // set hash table size in MB
       printf("    Set hash table size to %dMB\n", mb);
-      init_hash_table(engine, hash_table, mb);
+      init_hash_table(engine, mb);
     }
 
     else if (!strncmp(input, "setoption name Use NNUE value ", 30)) {
@@ -570,7 +569,7 @@ void uci_loop(engine_t *engine, position_t *pos, searchinfo_t *searchinfo,
     }
 
     else if (!strncmp(input, "setoption name Clear Hash", 25)) {
-      clear_hash_table(hash_table);
+      clear_hash_table();
     }
     else if (!strncmp(input, "setoption name SyzygyPath value ", 32)) {
       char *ptr = input + 32;

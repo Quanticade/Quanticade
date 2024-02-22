@@ -13,12 +13,6 @@ typedef struct tt_entry {
   uint16_t age;
 } tt_entry_t;
 
-typedef struct tt {
-  tt_entry_t *hash_entry;
-  uint32_t num_of_entries;
-  uint16_t current_age;
-} tt_t;
-
 typedef struct move {
   int move;
   int score;

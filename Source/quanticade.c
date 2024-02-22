@@ -91,7 +91,7 @@ static inline void init_random_keys(engine_t *engine) {
 }
 
 // init all variables
-void init_all(engine_t *engine, tt_t *hash_table) {
+void init_all(engine_t *engine) {
   // init leaper pieces attacks
   init_leapers_attacks();
 
@@ -105,7 +105,7 @@ void init_all(engine_t *engine, tt_t *hash_table) {
   init_evaluation_masks();
 
   // init hash table with default 128 MB
-  init_hash_table(engine, hash_table, 128);
+  init_hash_table(engine, 128);
 
   if (engine->nnue) {
     nnue_init(DEFAULT_NNUE);
@@ -127,17 +127,19 @@ int main(void) {
   searchinfo.time = -1;
   engine.nnue = 1;
   engine.random_state = 1804289383;
-  tt_t hash_table = {NULL, 0, 0};
+  tt.hash_entry = NULL;
+  tt.current_age = 0;
+  tt.num_of_entries = 0;
   engine.nnue_file = calloc(21, 1);
   strcpy(engine.nnue_file, DEFAULT_NNUE);
   // init all
-  init_all(&engine, &hash_table);
+  init_all(&engine);
 
   // connect to GUI
-  uci_loop(&engine, &pos, &searchinfo, &hash_table);
+  uci_loop(&engine, &pos, &searchinfo);
 
   // free hash table memory on exit
-  free(hash_table.hash_entry);
+  free(tt.hash_entry);
 
   return 0;
 }
