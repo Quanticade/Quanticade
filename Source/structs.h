@@ -68,6 +68,12 @@ typedef struct searchinfo {
   uint8_t quit;
 } searchinfo_t;
 
+typedef struct searchthread {
+  position_t* pos;
+  searchinfo_t* searchinfo;
+  char line[10000];
+} searchthread_t;
+
 typedef struct engine {
   keys_t keys;
   char *nnue_file;
