@@ -31,6 +31,7 @@ add_executable(Quanticade "")
 
 target_link_libraries(Quanticade
     PRIVATE
+        pthread
         nnue
         pyrrhic
         m

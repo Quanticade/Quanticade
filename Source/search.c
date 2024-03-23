@@ -67,9 +67,6 @@ void communicate(searchinfo_t *searchinfo) {
     // tell engine to stop calculating
     searchinfo->stopped = 1;
   }
-
-  // read GUI input
-  read_input(searchinfo);
 }
 
 // enable PV move scoring
@@ -211,9 +208,7 @@ static inline int is_repetition(position_t *pos) {
 // quiescence search
 static inline int quiescence(position_t *pos,
                              searchinfo_t *searchinfo, int alpha, int beta) {
-  // every 4095 nodes
-  if ((searchinfo->nodes & 4095) == 0)
-    // "listen" to the GUI/user input
+    // Check on time
     communicate(searchinfo);
 
   // we are too deep, hence there's an overflow of arrays relying on max ply
@@ -362,10 +357,8 @@ static inline int negamax(position_t *pos,
     // we just return the score for this move without searching it
     return score;
 
-  // every 4095 nodes
-  if ((searchinfo->nodes & 4095) == 0)
-    // "listen" to the GUI/user input
-    communicate(searchinfo);
+  // Check on time
+  communicate(searchinfo);
 
   int r;
 

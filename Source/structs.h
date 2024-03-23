@@ -74,11 +74,4 @@ typedef struct nnue {
   char *nnue_file;
 } nnue_t;
 
-/*typedef struct engine {
-  keys_t keys;
-  char *nnue_file;
-  uint32_t random_state;
-  uint8_t nnue;
-} engine_t;*/
-
 #endif

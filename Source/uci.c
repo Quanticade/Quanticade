@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 
 extern nnue_t nnue;
 
@@ -342,9 +343,11 @@ static inline void parse_position(position_t *pos,
   }
 }
 
-static inline void parse_go(position_t *pos,
-                            searchinfo_t *searchinfo,
-                            char *command) {
+static inline void *parse_go(void *searchthread_info) {
+  searchthread_t *sti = (searchthread_t*)searchthread_info;
+  position_t *pos = sti->pos;
+  searchinfo_t *searchinfo = sti->searchinfo;
+  char *line = sti->line;
   // reset time control
   reset_time_control(searchinfo);
 
@@ -355,45 +358,45 @@ static inline void parse_go(position_t *pos,
   char *argument = NULL;
 
   // infinite search
-  if ((argument = strstr(command, "infinite"))) {
+  if ((argument = strstr(line, "infinite"))) {
   }
 
   if (pos->side == white) {
-    if ((argument = strstr(command, "winc"))) {
+    if ((argument = strstr(line, "winc"))) {
       searchinfo->inc = atoi(argument + 5);
     }
-    if ((argument = strstr(command, "wtime"))) {
+    if ((argument = strstr(line, "wtime"))) {
       searchinfo->time = atoi(argument + 6);
     }
   }
   else {
-    if ((argument = strstr(command, "binc"))) {
+    if ((argument = strstr(line, "binc"))) {
       searchinfo->inc = atoi(argument + 5);
     }
-    if ((argument = strstr(command, "btime"))) {
+    if ((argument = strstr(line, "btime"))) {
       searchinfo->time = atoi(argument + 6);
     }
   }
 
   // match UCI "movestogo" command
-  if ((argument = strstr(command, "movestogo")))
+  if ((argument = strstr(line, "movestogo")))
     // parse number of moves to go
     searchinfo->movestogo = atoi(argument + 10);
 
   // match UCI "movetime" command
-  if ((argument = strstr(command, "movetime"))) {
+  if ((argument = strstr(line, "movetime"))) {
     // parse amount of time allowed to spend to make a move
     searchinfo->time = atoi(argument + 9);
     searchinfo->movestogo = 1;
   }
 
   // match UCI "depth" command
-  if ((argument = strstr(command, "depth"))) {
+  if ((argument = strstr(line, "depth"))) {
     // parse search depth
     depth = atoi(argument + 6);
   }
 
-  if ((argument = strstr(command, "perft"))) {
+  if ((argument = strstr(line, "perft"))) {
     depth = atoi(argument + 6);
     perft_test(pos, searchinfo, depth);
   } else {
@@ -438,6 +441,7 @@ static inline void parse_go(position_t *pos,
     // search position
     search_position(pos, searchinfo, depth);
   }
+  return NULL;
 }
 
 // print move (for UCI purposes)
@@ -458,6 +462,11 @@ void uci_loop(position_t *pos, searchinfo_t *searchinfo) {
 
   // default MB value
   int mb = 128;
+
+  pthread_t search_thread;
+	searchthread_t sti;
+	sti.searchinfo = searchinfo;
+	sti.pos  = pos;
 
 // reset STDIN & STDOUT buffers
 #ifndef WIN64
@@ -505,17 +514,21 @@ void uci_loop(position_t *pos, searchinfo_t *searchinfo) {
     }
     // parse UCI "ucinewgame" command
     else if (strncmp(input, "ucinewgame", 10) == 0) {
-      // call parse position function
-      parse_position(pos, "position startpos");
-
       // clear hash table
       clear_hash_table();
     }
     // parse UCI "go" command
-    else if (strncmp(input, "go", 2) == 0)
+    else if (strncmp(input, "go", 2) == 0) {
       // call parse go function
-      parse_go(pos, searchinfo, input);
+      strncpy(sti.line, input, 10000);
+      pthread_create(&search_thread, NULL, &parse_go, &sti);
+    }
 
+    else if (strncmp(input, "stop", 4) == 0) {
+      searchinfo->stopped = 1;
+      pthread_join(search_thread, NULL);
+      break;
+    }
     // parse UCI "quit" command
     else if (strncmp(input, "quit", 4) == 0)
       // quit from the UCI loop (terminate program)
