@@ -53,6 +53,7 @@ set(QUANTICADE_HEADERS
     "Source/attacks.h"
     "Source/bitboards.h"
     "Source/evaluate.h"
+    "Source/engine.h"
     "Source/movegen.h"
     "Source/structs.h"
     "Source/enums.h"
