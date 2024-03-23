@@ -209,7 +209,7 @@ static inline int is_repetition(position_t *pos) {
 }
 
 // quiescence search
-static inline int quiescence(engine_t *engine, position_t *pos,
+static inline int quiescence(position_t *pos,
                              searchinfo_t *searchinfo, int alpha, int beta) {
   // every 4095 nodes
   if ((searchinfo->nodes & 4095) == 0)
@@ -220,10 +220,10 @@ static inline int quiescence(engine_t *engine, position_t *pos,
   // constant
   if (pos->ply > max_ply - 1)
     // evaluate position
-    return evaluate(engine, pos);
+    return evaluate(pos);
 
   // evaluate position
-  int evaluation = evaluate(engine, pos);
+  int evaluation = evaluate(pos);
 
   // fail-hard beta cutoff
   if (evaluation >= beta) {
@@ -263,7 +263,7 @@ static inline int quiescence(engine_t *engine, position_t *pos,
     pos->repetition_table[pos->repetition_index] = pos->hash_key;
 
     // make sure to make only legal moves
-    if (make_move(engine, pos, move_list->entry[count].move, only_captures) ==
+    if (make_move(pos, move_list->entry[count].move, only_captures) ==
         0) {
       // decrement ply
       pos->ply--;
@@ -276,7 +276,7 @@ static inline int quiescence(engine_t *engine, position_t *pos,
     }
 
     // score current move
-    int score = -quiescence(engine, pos, searchinfo, -beta, -alpha);
+    int score = -quiescence(pos, searchinfo, -beta, -alpha);
 
     // decrement ply
     pos->ply--;
@@ -311,7 +311,7 @@ static inline int quiescence(engine_t *engine, position_t *pos,
 }
 
 // negamax alpha beta search
-static inline int negamax(engine_t *engine, position_t *pos,
+static inline int negamax(position_t *pos,
                           searchinfo_t *searchinfo, int alpha,
                           int beta, int depth) {
   // init PV length
@@ -344,7 +344,7 @@ static inline int negamax(engine_t *engine, position_t *pos,
     // constant
     if (pos->ply > max_ply - 1) {
       // evaluate position
-      return evaluate(engine, pos);
+      return evaluate(pos);
     }
   }
 
@@ -384,7 +384,7 @@ static inline int negamax(engine_t *engine, position_t *pos,
   // recursion escape condition
   if (depth == 0) {
     // run quiescence search
-    return quiescence(engine, pos, searchinfo, alpha, beta);
+    return quiescence(pos, searchinfo, alpha, beta);
   }
 
   // increment nodes count
@@ -393,7 +393,7 @@ static inline int negamax(engine_t *engine, position_t *pos,
   // legal moves counter
   int legal_moves = 0;
 
-  int static_eval = evaluate(engine, pos);
+  int static_eval = evaluate(pos);
 
   // evaluation pruning / static null move pruning
   if (depth < 3 && !pv_node && !in_check && abs(beta - 1) > -infinity + 100) {
@@ -423,7 +423,7 @@ static inline int negamax(engine_t *engine, position_t *pos,
 
     // hash enpassant if available
     if (pos->enpassant != no_sq)
-      pos->hash_key ^= engine->keys.enpassant_keys[pos->enpassant];
+      pos->hash_key ^= pos->keys.enpassant_keys[pos->enpassant];
 
     // reset enpassant capture square
     pos->enpassant = no_sq;
@@ -432,11 +432,11 @@ static inline int negamax(engine_t *engine, position_t *pos,
     pos->side ^= 1;
 
     // hash the side
-    pos->hash_key ^= engine->keys.side_key;
+    pos->hash_key ^= pos->keys.side_key;
 
     /* search moves with reduced depth to find beta cutoffs
        depth - 1 - R where R is a reduction limit */
-    score = -negamax(engine, pos, searchinfo, -beta, -beta + 1,
+    score = -negamax(pos, searchinfo, -beta, -beta + 1,
                      depth - 1 - 2);
 
     // decrement ply
@@ -473,7 +473,7 @@ static inline int negamax(engine_t *engine, position_t *pos,
       // on depth 1
       if (depth == 1) {
         // get quiescence score
-        new_score = quiescence(engine, pos, searchinfo, alpha, beta);
+        new_score = quiescence(pos, searchinfo, alpha, beta);
 
         // return quiescence score if it's greater then static evaluation
         // score
@@ -486,7 +486,7 @@ static inline int negamax(engine_t *engine, position_t *pos,
       // static evaluation indicates a fail-low node
       if (score < beta && depth <= 2) {
         // get quiescence score
-        new_score = quiescence(engine, pos, searchinfo, alpha, beta);
+        new_score = quiescence(pos, searchinfo, alpha, beta);
 
         // quiescence score indicates fail-low node
         if (new_score < beta)
@@ -534,7 +534,7 @@ static inline int negamax(engine_t *engine, position_t *pos,
     pos->repetition_table[pos->repetition_index] = pos->hash_key;
 
     // make sure to make only legal moves
-    if (make_move(engine, pos, list_move, all_moves) == 0) {
+    if (make_move(pos, list_move, all_moves) == 0) {
       // decrement ply
       pos->ply--;
 
@@ -551,7 +551,7 @@ static inline int negamax(engine_t *engine, position_t *pos,
     // full depth search
     if (moves_searched == 0) {
       // do normal alpha beta search
-      score = -negamax(engine, pos, searchinfo, -beta, -alpha,
+      score = -negamax(pos, searchinfo, -beta, -alpha,
                        depth - 1);
     }
 
@@ -567,7 +567,7 @@ static inline int negamax(engine_t *engine, position_t *pos,
 
         int reddepth = MAX(1, depth - 1 - MAX(r, 1));
         // search current move with reduced depth:
-        score = -negamax(engine, pos, searchinfo, -alpha - 1,
+        score = -negamax(pos, searchinfo, -alpha - 1,
                          -alpha, reddepth);
       }
 
@@ -584,7 +584,7 @@ static inline int negamax(engine_t *engine, position_t *pos,
            search that worries that one of the remaining moves might be good.
          */
         searchinfo->nodes++;
-        score = -negamax(engine, pos, searchinfo, -alpha - 1,
+        score = -negamax(pos, searchinfo, -alpha - 1,
                          -alpha, depth - 1);
 
         /* If the algorithm finds out that it was wrong, and that one of the
@@ -596,7 +596,7 @@ static inline int negamax(engine_t *engine, position_t *pos,
         if ((score > alpha) && (score < beta)) {
           /* re-search the move that has failed to be proved to be bad
              with normal alpha beta score bounds*/
-          score = -negamax(engine, pos, searchinfo, -beta, -alpha,
+          score = -negamax(pos, searchinfo, -beta, -alpha,
                            depth - 1);
         }
       }
@@ -690,7 +690,7 @@ static inline int negamax(engine_t *engine, position_t *pos,
 }
 
 // search position for the best move
-void search_position(engine_t *engine, position_t *pos,
+void search_position(position_t *pos,
                      searchinfo_t *searchinfo, int depth) {
   // search start time
   uint64_t start = get_time_ms();
@@ -747,7 +747,7 @@ void search_position(engine_t *engine, position_t *pos,
     }
 
     // find best move within a given position
-    score = negamax(engine, pos, searchinfo, alpha, beta,
+    score = negamax(pos, searchinfo, alpha, beta,
                     current_depth);
 
     // Reset aspiration window OK flag back to 1

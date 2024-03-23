@@ -3,8 +3,11 @@
 #include "enums.h"
 #include "bitboards.h"
 #include "nnue/nnue.h"
+#include "nnue.h"
 #include "nnue_consts.h"
 #include "structs.h"
+
+extern nnue_t nnue;
 
 const int material_score[2][12] = {
     // opening material score
@@ -230,7 +233,7 @@ static inline int get_game_phase_score(position_t *pos) {
   return white_piece_scores + black_piece_scores;
 }
 
-int evaluate(engine_t *engine, position_t *pos) {
+int evaluate(position_t *pos) {
   // get game phase score
   int game_phase_score = get_game_phase_score(pos);
 
@@ -279,7 +282,7 @@ int evaluate(engine_t *engine, position_t *pos) {
       // init square
       square = __builtin_ctzll(bitboard);
 
-      if (engine->nnue) {
+      if (nnue.use_nnue) {
         // Convert our pieces to stockfish pieces for NNUE
         switch (piece) {
           case K:
@@ -600,7 +603,7 @@ int evaluate(engine_t *engine, position_t *pos) {
     }
   }
 
-  if (engine->nnue) {
+  if (nnue.use_nnue) {
     pieces[index] = 0;
     squares[index] = 0;
     return (int)(nnue_evaluate(pos->side, pieces, squares) *

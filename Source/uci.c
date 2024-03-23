@@ -13,6 +13,7 @@
 #include "enums.h"
 #include "movegen.h"
 #include "nnue/nnue.h"
+#include "nnue.h"
 #include "perft.h"
 #include "pvtable.h"
 #include "pyrrhic/tbprobe.h"
@@ -22,6 +23,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+extern nnue_t nnue;
 
 #define start_position                                                         \
   "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 "
@@ -137,7 +140,7 @@ static inline void reset_board(position_t *pos) {
   memset(pos->repetition_table, 0ULL, sizeof(pos->repetition_table));
 }
 
-static inline void parse_fen(engine_t *engine, position_t *pos, char *fen) {
+static inline void parse_fen(position_t *pos, char *fen) {
   // prepare for new game
   reset_board(pos);
 
@@ -265,11 +268,11 @@ static inline void parse_fen(engine_t *engine, position_t *pos, char *fen) {
   pos->occupancies[both] |= pos->occupancies[black];
 
   // init hash key
-  pos->hash_key = generate_hash_key(engine, pos);
+  pos->hash_key = generate_hash_key(pos);
 }
 
 // parse UCI "position" command
-static inline void parse_position(engine_t *engine, position_t *pos,
+static inline void parse_position(position_t *pos,
                                   char *command) {
   // shift pointer to the right where next token begins
   command += 9;
@@ -280,7 +283,7 @@ static inline void parse_position(engine_t *engine, position_t *pos,
   // parse UCI "startpos" command
   if (strncmp(command, "startpos", 8) == 0)
     // init chess board with start position
-    parse_fen(engine, pos, start_position);
+    parse_fen(pos, start_position);
 
   // parse UCI "fen" command
   else {
@@ -290,7 +293,7 @@ static inline void parse_position(engine_t *engine, position_t *pos,
     // if no "fen" command is available within command string
     if (current_char == NULL)
       // init chess board with start position
-      parse_fen(engine, pos, start_position);
+      parse_fen(pos, start_position);
 
     // found "fen" substring
     else {
@@ -298,7 +301,7 @@ static inline void parse_position(engine_t *engine, position_t *pos,
       current_char += 4;
 
       // init chess board with position from FEN string
-      parse_fen(engine, pos, current_char);
+      parse_fen(pos, current_char);
     }
   }
 
@@ -327,7 +330,7 @@ static inline void parse_position(engine_t *engine, position_t *pos,
       pos->repetition_table[pos->repetition_index] = pos->hash_key;
 
       // make move on the chess board
-      make_move(engine, pos, move, all_moves);
+      make_move(pos, move, all_moves);
 
       // move current character pointer to the end of current move
       while (*current_char && *current_char != ' ')
@@ -339,7 +342,7 @@ static inline void parse_position(engine_t *engine, position_t *pos,
   }
 }
 
-static inline void parse_go(engine_t *engine, position_t *pos,
+static inline void parse_go(position_t *pos,
                             searchinfo_t *searchinfo,
                             char *command) {
   // reset time control
@@ -392,7 +395,7 @@ static inline void parse_go(engine_t *engine, position_t *pos,
 
   if ((argument = strstr(command, "perft"))) {
     depth = atoi(argument + 6);
-    perft_test(engine, pos, searchinfo, depth);
+    perft_test(pos, searchinfo, depth);
   } else {
 
     // init start time
@@ -433,7 +436,7 @@ static inline void parse_go(engine_t *engine, position_t *pos,
       depth = 64;
 
     // search position
-    search_position(engine, pos, searchinfo, depth);
+    search_position(pos, searchinfo, depth);
   }
 }
 
@@ -449,7 +452,7 @@ void print_move(int move) {
 }
 
 // main UCI loop
-void uci_loop(engine_t *engine, position_t *pos, searchinfo_t *searchinfo) {
+void uci_loop(position_t *pos, searchinfo_t *searchinfo) {
   // max hash MB
   int max_hash = 65536;
 
@@ -469,7 +472,7 @@ void uci_loop(engine_t *engine, position_t *pos, searchinfo_t *searchinfo) {
   printf("Quanticade %s by DarkNeutrino\n", version);
 
   // Setup engine with start position as default
-  parse_position(engine, pos, start_position);
+  parse_position(pos, start_position);
 
   // main loop
   while (1) {
@@ -498,12 +501,12 @@ void uci_loop(engine_t *engine, position_t *pos, searchinfo_t *searchinfo) {
     // parse UCI "position" command
     else if (strncmp(input, "position", 8) == 0) {
       // call parse position function
-      parse_position(engine, pos, input);
+      parse_position(pos, input);
     }
     // parse UCI "ucinewgame" command
     else if (strncmp(input, "ucinewgame", 10) == 0) {
       // call parse position function
-      parse_position(engine, pos, "position startpos");
+      parse_position(pos, "position startpos");
 
       // clear hash table
       clear_hash_table();
@@ -511,7 +514,7 @@ void uci_loop(engine_t *engine, position_t *pos, searchinfo_t *searchinfo) {
     // parse UCI "go" command
     else if (strncmp(input, "go", 2) == 0)
       // call parse go function
-      parse_go(engine, pos, searchinfo, input);
+      parse_go(pos, searchinfo, input);
 
     // parse UCI "quit" command
     else if (strncmp(input, "quit", 4) == 0)
@@ -526,7 +529,7 @@ void uci_loop(engine_t *engine, position_t *pos, searchinfo_t *searchinfo) {
       printf("option name Hash type spin default 128 min 4 max %d\n", max_hash);
       printf("option name Use NNUE type check default true\n");
       printf("option name EvalFile type string default %s\n",
-             engine->nnue_file);
+             nnue.nnue_file);
       printf("option name Clear Hash type button\n");
       printf("option name SyzygyPath type string default <empty>\n");
       printf("uciok\n");
@@ -544,7 +547,7 @@ void uci_loop(engine_t *engine, position_t *pos, searchinfo_t *searchinfo) {
 
       // set hash table size in MB
       printf("    Set hash table size to %dMB\n", mb);
-      init_hash_table(engine, mb);
+      init_hash_table(mb);
     }
 
     else if (!strncmp(input, "setoption name Use NNUE value ", 30)) {
@@ -554,18 +557,18 @@ void uci_loop(engine_t *engine, position_t *pos, searchinfo_t *searchinfo) {
       sscanf(input, "%*s %*s %*s %*s %s", use_nnue);
 
       if (strncmp(use_nnue, "true", 4) == 0) {
-        engine->nnue = 1;
+        nnue.use_nnue = 1;
       } else {
-        engine->nnue = 0;
+        nnue.use_nnue = 0;
       }
     }
 
     else if (!strncmp(input, "setoption name EvalFile value ", 30)) {
-      free(engine->nnue_file);
+      free(nnue.nnue_file);
       uint16_t length = strlen(input);
-      engine->nnue_file = calloc(length - 30, 1);
-      sscanf(input, "%*s %*s %*s %*s %s", engine->nnue_file);
-      nnue_init(engine->nnue_file);
+      nnue.nnue_file = calloc(length - 30, 1);
+      sscanf(input, "%*s %*s %*s %*s %s", nnue.nnue_file);
+      nnue_init(nnue.nnue_file);
     }
 
     else if (!strncmp(input, "setoption name Clear Hash", 25)) {

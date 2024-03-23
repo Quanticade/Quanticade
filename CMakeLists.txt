@@ -53,7 +53,6 @@ set(QUANTICADE_HEADERS
     "Source/attacks.h"
     "Source/bitboards.h"
     "Source/evaluate.h"
-    "Source/engine.h"
     "Source/movegen.h"
     "Source/structs.h"
     "Source/enums.h"
@@ -62,6 +61,7 @@ set(QUANTICADE_HEADERS
     "Source/perft.h"
     "Source/pvtable.h"
     "Source/search.h"
+    "Source/nnue.h"
     "Source/nnue_consts.h"
     "Source/syzygy.h"
 )

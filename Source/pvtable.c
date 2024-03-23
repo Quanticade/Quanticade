@@ -8,7 +8,7 @@
 
 tt_t tt;
 
-uint64_t generate_hash_key(engine_t *engine, position_t *pos) {
+uint64_t generate_hash_key(position_t *pos) {
   // final hash key
   uint64_t final_key = 0ULL;
 
@@ -26,7 +26,7 @@ uint64_t generate_hash_key(engine_t *engine, position_t *pos) {
       int square = __builtin_ctzll(bitboard);
 
       // hash piece
-      final_key ^= engine->keys.piece_keys[piece][square];
+      final_key ^= pos->keys.piece_keys[piece][square];
 
       // pop LS1B
       pop_bit(bitboard, square);
@@ -36,14 +36,14 @@ uint64_t generate_hash_key(engine_t *engine, position_t *pos) {
   // if enpassant square is on board
   if (pos->enpassant != no_sq)
     // hash enpassant
-    final_key ^= engine->keys.enpassant_keys[pos->enpassant];
+    final_key ^= pos->keys.enpassant_keys[pos->enpassant];
 
   // hash castling rights
-  final_key ^= engine->keys.castle_keys[pos->castle];
+  final_key ^= pos->keys.castle_keys[pos->castle];
 
   // hash the side only if black is to move
   if (pos->side == black)
-    final_key ^= engine->keys.side_key;
+    final_key ^= pos->keys.side_key;
 
   // return generated hash key
   return final_key;
@@ -56,7 +56,7 @@ void clear_hash_table() {
 }
 
 // dynamically allocate memory for hash table
-void init_hash_table(engine_t *engine, uint64_t mb) {
+void init_hash_table(uint64_t mb) {
   // init hash size
   uint64_t hash_size = 0x100000LL * mb;
 
@@ -80,7 +80,7 @@ void init_hash_table(engine_t *engine, uint64_t mb) {
     printf("    Couldn't allocate memory for hash table, trying with half\n");
 
     // try to allocate with half size
-    init_hash_table(engine, mb / 2);
+    init_hash_table(mb / 2);
   }
 
   // if allocation succeeded

@@ -32,6 +32,7 @@ typedef struct keys {
 } keys_t;
 
 typedef struct position {
+  keys_t keys;
   uint64_t bitboards[12];
   uint64_t occupancies[3];
   uint64_t hash_key;
@@ -68,11 +69,16 @@ typedef struct searchthread {
   char line[10000];
 } searchthread_t;
 
-typedef struct engine {
+typedef struct nnue {
+  uint8_t use_nnue;
+  char *nnue_file;
+} nnue_t;
+
+/*typedef struct engine {
   keys_t keys;
   char *nnue_file;
   uint32_t random_state;
   uint8_t nnue;
-} engine_t;
+} engine_t;*/
 
 #endif

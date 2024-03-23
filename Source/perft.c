@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 
-static inline void perft_driver(engine_t *engine, position_t *pos, searchinfo_t *searchinfo, int depth) {
+static inline void perft_driver(position_t *pos, searchinfo_t *searchinfo, int depth) {
   // recursion escape condition
   if (depth == 0) {
     // increment nodes count (count reached positions)
@@ -29,12 +29,12 @@ static inline void perft_driver(engine_t *engine, position_t *pos, searchinfo_t 
                pos->castle, pos->fifty, pos->hash_key);
 
     // make move
-    if (!make_move(engine, pos, move_list->entry[move_count].move, all_moves))
+    if (!make_move(pos, move_list->entry[move_count].move, all_moves))
       // skip to the next move
       continue;
 
     // call perft driver recursively
-    perft_driver(engine, pos, searchinfo, depth - 1);
+    perft_driver(pos, searchinfo, depth - 1);
 
     // take back
     restore_board(pos->bitboards, pos->occupancies,
@@ -44,7 +44,7 @@ static inline void perft_driver(engine_t *engine, position_t *pos, searchinfo_t 
 }
 
 // perft test
-void perft_test(engine_t *engine, position_t* pos, searchinfo_t *searchinfo, int depth) {
+void perft_test(position_t* pos, searchinfo_t *searchinfo, int depth) {
   printf("\n     Performance test\n\n");
 
   // create move list instance
@@ -64,7 +64,7 @@ void perft_test(engine_t *engine, position_t* pos, searchinfo_t *searchinfo, int
                pos->castle, pos->fifty, pos->hash_key);
 
     // make move
-    if (!make_move(engine, pos, move_list->entry[move_count].move, all_moves))
+    if (!make_move(pos, move_list->entry[move_count].move, all_moves))
       // skip to the next move
       continue;
 
@@ -72,7 +72,7 @@ void perft_test(engine_t *engine, position_t* pos, searchinfo_t *searchinfo, int
     long cummulative_nodes = searchinfo->nodes;
 
     // call perft driver recursively
-    perft_driver(engine, pos, searchinfo, depth - 1);
+    perft_driver(pos, searchinfo, depth - 1);
 
     // old nodes
     long old_nodes = searchinfo->nodes - cummulative_nodes;
