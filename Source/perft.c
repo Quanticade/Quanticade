@@ -7,11 +7,11 @@
 #include <stdio.h>
 #include <string.h>
 
-static inline void perft_driver(position_t *pos, searchinfo_t *searchinfo, int depth) {
+static inline void perft_driver(position_t *pos, thread_t *thread, int depth) {
   // recursion escape condition
   if (depth == 0) {
     // increment nodes count (count reached positions)
-    searchinfo->nodes++;
+    thread->nodes++;
     return;
   }
 
@@ -34,7 +34,7 @@ static inline void perft_driver(position_t *pos, searchinfo_t *searchinfo, int d
       continue;
 
     // call perft driver recursively
-    perft_driver(pos, searchinfo, depth - 1);
+    perft_driver(pos, thread, depth - 1);
 
     // take back
     restore_board(pos->bitboards, pos->occupancies,
@@ -44,7 +44,7 @@ static inline void perft_driver(position_t *pos, searchinfo_t *searchinfo, int d
 }
 
 // perft test
-void perft_test(position_t* pos, searchinfo_t *searchinfo, int depth) {
+void perft_test(position_t* pos, thread_t *searchinfo, int depth) {
   printf("\n     Performance test\n\n");
 
   // create move list instance

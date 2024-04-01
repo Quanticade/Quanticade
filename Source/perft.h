@@ -2,6 +2,6 @@
 #define PERFT_H
 
 #include "structs.h"
-void perft_test(position_t* pos, searchinfo_t *searchinfo, int depth);
+void perft_test(position_t* pos, thread_t *thread, int depth);
 
 #endif

@@ -61,11 +61,11 @@ static void init_reductions() {
   }
 }
 
-void communicate(searchinfo_t *searchinfo) {
+void communicate(thread_t *thread) {
   // if time is up break here
-  if (searchinfo->timeset == 1 && get_time_ms() > searchinfo->stoptime) {
+  if (thread->timeset == 1 && get_time_ms() > thread->stoptime) {
     // tell engine to stop calculating
-    searchinfo->stopped = 1;
+    thread->stopped = 1;
   }
 }
 
@@ -207,9 +207,9 @@ static inline int is_repetition(position_t *pos) {
 
 // quiescence search
 static inline int quiescence(position_t *pos,
-                             searchinfo_t *searchinfo, int alpha, int beta) {
+                             thread_t *thread, int alpha, int beta) {
     // Check on time
-    communicate(searchinfo);
+    communicate(thread);
 
   // we are too deep, hence there's an overflow of arrays relying on max ply
   // constant
@@ -271,7 +271,7 @@ static inline int quiescence(position_t *pos,
     }
 
     // score current move
-    int score = -quiescence(pos, searchinfo, -beta, -alpha);
+    int score = -quiescence(pos, thread, -beta, -alpha);
 
     // decrement ply
     pos->ply--;
@@ -284,7 +284,7 @@ static inline int quiescence(position_t *pos,
                   pos->castle, pos->fifty, pos->hash_key);
 
     // reutrn 0 if time is up
-    if (searchinfo->stopped == 1) {
+    if (thread->stopped == 1) {
       return 0;
     }
 
@@ -307,7 +307,7 @@ static inline int quiescence(position_t *pos,
 
 // negamax alpha beta search
 static inline int negamax(position_t *pos,
-                          searchinfo_t *searchinfo, int alpha,
+                          thread_t *thread, int alpha,
                           int beta, int depth) {
   // init PV length
   pos->pv_length[pos->ply] = pos->ply;
@@ -358,7 +358,7 @@ static inline int negamax(position_t *pos,
     return score;
 
   // Check on time
-  communicate(searchinfo);
+  communicate(thread);
 
   int r;
 
@@ -377,11 +377,11 @@ static inline int negamax(position_t *pos,
   // recursion escape condition
   if (depth == 0) {
     // run quiescence search
-    return quiescence(pos, searchinfo, alpha, beta);
+    return quiescence(pos, thread, alpha, beta);
   }
 
   // increment nodes count
-  searchinfo->nodes++;
+  thread->nodes++;
 
   // legal moves counter
   int legal_moves = 0;
@@ -429,7 +429,7 @@ static inline int negamax(position_t *pos,
 
     /* search moves with reduced depth to find beta cutoffs
        depth - 1 - R where R is a reduction limit */
-    score = -negamax(pos, searchinfo, -beta, -beta + 1,
+    score = -negamax(pos, thread, -beta, -beta + 1,
                      depth - 1 - 2);
 
     // decrement ply
@@ -443,7 +443,7 @@ static inline int negamax(position_t *pos,
                   pos->castle, pos->fifty, pos->hash_key);
 
     // reutrn 0 if time is up
-    if (searchinfo->stopped == 1) {
+    if (thread->stopped == 1) {
       return 0;
     }
 
@@ -466,7 +466,7 @@ static inline int negamax(position_t *pos,
       // on depth 1
       if (depth == 1) {
         // get quiescence score
-        new_score = quiescence(pos, searchinfo, alpha, beta);
+        new_score = quiescence(pos, thread, alpha, beta);
 
         // return quiescence score if it's greater then static evaluation
         // score
@@ -479,7 +479,7 @@ static inline int negamax(position_t *pos,
       // static evaluation indicates a fail-low node
       if (score < beta && depth <= 2) {
         // get quiescence score
-        new_score = quiescence(pos, searchinfo, alpha, beta);
+        new_score = quiescence(pos, thread, alpha, beta);
 
         // quiescence score indicates fail-low node
         if (new_score < beta)
@@ -544,7 +544,7 @@ static inline int negamax(position_t *pos,
     // full depth search
     if (moves_searched == 0) {
       // do normal alpha beta search
-      score = -negamax(pos, searchinfo, -beta, -alpha,
+      score = -negamax(pos, thread, -beta, -alpha,
                        depth - 1);
     }
 
@@ -560,7 +560,7 @@ static inline int negamax(position_t *pos,
 
         int reddepth = MAX(1, depth - 1 - MAX(r, 1));
         // search current move with reduced depth:
-        score = -negamax(pos, searchinfo, -alpha - 1,
+        score = -negamax(pos, thread, -alpha - 1,
                          -alpha, reddepth);
       }
 
@@ -576,8 +576,8 @@ static inline int negamax(position_t *pos,
            that they are all bad. It's possible to do this a bit faster than a
            search that worries that one of the remaining moves might be good.
          */
-        searchinfo->nodes++;
-        score = -negamax(pos, searchinfo, -alpha - 1,
+        thread->nodes++;
+        score = -negamax(pos, thread, -alpha - 1,
                          -alpha, depth - 1);
 
         /* If the algorithm finds out that it was wrong, and that one of the
@@ -589,7 +589,7 @@ static inline int negamax(position_t *pos,
         if ((score > alpha) && (score < beta)) {
           /* re-search the move that has failed to be proved to be bad
              with normal alpha beta score bounds*/
-          score = -negamax(pos, searchinfo, -beta, -alpha,
+          score = -negamax(pos, thread, -beta, -alpha,
                            depth - 1);
         }
       }
@@ -607,7 +607,7 @@ static inline int negamax(position_t *pos,
 
     // return infinity so we can deal with timeout in case we are doing
     // re-search
-    if (searchinfo->stopped == 1) {
+    if (thread->stopped == 1) {
       return infinity;
     }
 
@@ -684,7 +684,7 @@ static inline int negamax(position_t *pos,
 
 // search position for the best move
 void search_position(position_t *pos,
-                     searchinfo_t *searchinfo, int depth) {
+                     thread_t *thread, int depth) {
   // search start time
   uint64_t start = get_time_ms();
 
@@ -697,10 +697,10 @@ void search_position(position_t *pos,
   uint8_t window_ok = 1;
 
   // reset nodes counter
-  searchinfo->nodes = 0;
+  thread->nodes = 0;
 
   // reset "time is up" flag
-  searchinfo->stopped = 0;
+  thread->stopped = 0;
 
   // reset follow PV flags
   pos->follow_pv = 0;
@@ -721,7 +721,7 @@ void search_position(position_t *pos,
   // iterative deepening
   for (int current_depth = 1; current_depth <= depth; current_depth++) {
     // if time is up
-    if (searchinfo->stopped == 1) {
+    if (thread->stopped == 1) {
       // stop calculating and return best move so far
       break;
     }
@@ -740,7 +740,7 @@ void search_position(position_t *pos,
     }
 
     // find best move within a given position
-    score = negamax(pos, searchinfo, alpha, beta,
+    score = negamax(pos, thread, alpha, beta,
                     current_depth);
 
     // Reset aspiration window OK flag back to 1
@@ -776,7 +776,7 @@ void search_position(position_t *pos,
     if (pos->pv_length[0]) {
       // print search info
       uint64_t time = get_time_ms() - start;
-      uint64_t nps = (searchinfo->nodes / fmax(time, 1)) * 100;
+      uint64_t nps = (thread->nodes / fmax(time, 1)) * 100;
       if (score > -mate_value && score < -mate_score) {
 #ifdef WIN64
         printf("info depth %d score mate %d nodes %llu nps %llu time %llu pv ",
@@ -784,7 +784,7 @@ void search_position(position_t *pos,
                nps, time);
 #else
         printf("info depth %d score mate %d nodes %lu nps %ld time %lu pv ",
-               current_depth, -(score + mate_value) / 2 - 1, searchinfo->nodes,
+               current_depth, -(score + mate_value) / 2 - 1, thread->nodes,
                nps, time);
 #endif
       }
@@ -796,7 +796,7 @@ void search_position(position_t *pos,
                nps, time);
 #else
         printf("info depth %d score mate %d nodes %lu nps %ld time %lu pv ",
-               current_depth, (mate_value - score) / 2 + 1, searchinfo->nodes,
+               current_depth, (mate_value - score) / 2 + 1, thread->nodes,
                nps, time);
 #endif
       }
@@ -807,7 +807,7 @@ void search_position(position_t *pos,
                current_depth, score, searchinfo->nodes, nps, time);
 #else
         printf("info depth %d score cp %d nodes %lu nps %ld time %lu pv ",
-               current_depth, score, searchinfo->nodes, nps, time);
+               current_depth, score, thread->nodes, nps, time);
 #endif
       }
 

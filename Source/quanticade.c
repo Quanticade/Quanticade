@@ -22,7 +22,7 @@
 
 #define DEFAULT_NNUE "nn-62ef826d1a6d.nnue"
 position_t pos;
-searchinfo_t searchinfo;
+thread_t threads;
 nnue_t nnue;
 uint32_t random_state;
 
@@ -123,8 +123,8 @@ void init_all() {
 
 int main(void) {
   pos.enpassant = no_sq;
-  searchinfo.movestogo = 30;
-  searchinfo.time = -1;
+  threads.movestogo = 30;
+  threads.time = -1;
   nnue.use_nnue = 1;
   random_state = 1804289383;
   tt.hash_entry = NULL;
@@ -136,7 +136,7 @@ int main(void) {
   init_all();
 
   // connect to GUI
-  uci_loop(&pos, &searchinfo);
+  uci_loop(&pos, &threads);
 
   // free hash table memory on exit
   free(tt.hash_entry);

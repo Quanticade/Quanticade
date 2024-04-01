@@ -8,7 +8,7 @@
 extern const char *square_to_coordinates[];
 extern char promoted_pieces[];
 
-void uci_loop(position_t *pos, searchinfo_t *searchinfo);
+void uci_loop(position_t *pos, thread_t *thread);
 void print_move(int move);
 
 #endif

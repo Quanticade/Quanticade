@@ -61,13 +61,13 @@ typedef struct searchinfo {
   uint8_t timeset;
   uint8_t stopped;
   uint8_t quit;
-} searchinfo_t;
+} thread_t;
 
 typedef struct searchthread {
   position_t* pos;
-  searchinfo_t* searchinfo;
+  thread_t* thread;
   char line[10000];
-} searchthread_t;
+} searchthreadinfo_t;
 
 typedef struct nnue {
   uint8_t use_nnue;

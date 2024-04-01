@@ -44,16 +44,16 @@ int char_pieces[] = {
 char promoted_pieces[] = {[Q] = 'q', [R] = 'r', [B] = 'b', [N] = 'n',
                           [q] = 'q', [r] = 'r', [b] = 'b', [n] = 'n'};
 
-static inline void reset_time_control(searchinfo_t *searchinfo) {
+static inline void reset_time_control(thread_t *thread) {
   // reset timing
-  searchinfo->quit = 0;
-  searchinfo->movestogo = 30;
-  searchinfo->time = -1;
-  searchinfo->inc = 0;
-  searchinfo->starttime = 0;
-  searchinfo->stoptime = 0;
-  searchinfo->timeset = 0;
-  searchinfo->stopped = 0;
+  thread->quit = 0;
+  thread->movestogo = 30;
+  thread->time = -1;
+  thread->inc = 0;
+  thread->starttime = 0;
+  thread->stoptime = 0;
+  thread->timeset = 0;
+  thread->stopped = 0;
 }
 
 //  parse user/GUI move string input (e.g. "e7e8q")
@@ -344,12 +344,12 @@ static inline void parse_position(position_t *pos,
 }
 
 static inline void *parse_go(void *searchthread_info) {
-  searchthread_t *sti = (searchthread_t*)searchthread_info;
+  searchthreadinfo_t *sti = (searchthreadinfo_t*)searchthread_info;
   position_t *pos = sti->pos;
-  searchinfo_t *searchinfo = sti->searchinfo;
+  thread_t *thread = sti->thread;
   char *line = sti->line;
   // reset time control
-  reset_time_control(searchinfo);
+  reset_time_control(thread);
 
   // init parameters
   int depth = -1;
@@ -363,31 +363,31 @@ static inline void *parse_go(void *searchthread_info) {
 
   if (pos->side == white) {
     if ((argument = strstr(line, "winc"))) {
-      searchinfo->inc = atoi(argument + 5);
+      thread->inc = atoi(argument + 5);
     }
     if ((argument = strstr(line, "wtime"))) {
-      searchinfo->time = atoi(argument + 6);
+      thread->time = atoi(argument + 6);
     }
   }
   else {
     if ((argument = strstr(line, "binc"))) {
-      searchinfo->inc = atoi(argument + 5);
+      thread->inc = atoi(argument + 5);
     }
     if ((argument = strstr(line, "btime"))) {
-      searchinfo->time = atoi(argument + 6);
+      thread->time = atoi(argument + 6);
     }
   }
 
   // match UCI "movestogo" command
   if ((argument = strstr(line, "movestogo")))
     // parse number of moves to go
-    searchinfo->movestogo = atoi(argument + 10);
+    thread->movestogo = atoi(argument + 10);
 
   // match UCI "movetime" command
   if ((argument = strstr(line, "movetime"))) {
     // parse amount of time allowed to spend to make a move
-    searchinfo->time = atoi(argument + 9);
-    searchinfo->movestogo = 1;
+    thread->time = atoi(argument + 9);
+    thread->movestogo = 1;
   }
 
   // match UCI "depth" command
@@ -398,39 +398,39 @@ static inline void *parse_go(void *searchthread_info) {
 
   if ((argument = strstr(line, "perft"))) {
     depth = atoi(argument + 6);
-    perft_test(pos, searchinfo, depth);
+    perft_test(pos, thread, depth);
   } else {
 
     // init start time
-    searchinfo->starttime = get_time_ms();
+    thread->starttime = get_time_ms();
 
     // if time control is available
-    if (searchinfo->time != -1) {
+    if (thread->time != -1) {
       // flag we're playing with time control
-      searchinfo->timeset = 1;
+      thread->timeset = 1;
 
       // set up timing
-      searchinfo->time /= searchinfo->movestogo;
+      thread->time /= thread->movestogo;
 
       // lag compensation
-      searchinfo->time -= 50;
+      thread->time -= 50;
 
       // if time is up
-      if (searchinfo->time < 0) {
+      if (thread->time < 0) {
         // restore negative time to 0
-        searchinfo->time = 0;
+        thread->time = 0;
 
         // inc lag compensation on 0+inc time controls
-        searchinfo->inc -= 50;
+        thread->inc -= 50;
 
         // timing for 0 seconds left and no inc
-        if (searchinfo->inc < 0)
-          searchinfo->inc = 1;
+        if (thread->inc < 0)
+          thread->inc = 1;
       }
 
       // init stoptime
-      searchinfo->stoptime =
-          searchinfo->starttime + searchinfo->time + searchinfo->inc;
+      thread->stoptime =
+          thread->starttime + thread->time + thread->inc;
     }
 
     // if depth is not available
@@ -439,7 +439,7 @@ static inline void *parse_go(void *searchthread_info) {
       depth = 64;
 
     // search position
-    search_position(pos, searchinfo, depth);
+    search_position(pos, thread, depth);
   }
   return NULL;
 }
@@ -456,7 +456,7 @@ void print_move(int move) {
 }
 
 // main UCI loop
-void uci_loop(position_t *pos, searchinfo_t *searchinfo) {
+void uci_loop(position_t *pos, thread_t *thread) {
   // max hash MB
   int max_hash = 65536;
 
@@ -464,8 +464,8 @@ void uci_loop(position_t *pos, searchinfo_t *searchinfo) {
   int mb = 128;
 
   pthread_t search_thread;
-	searchthread_t sti;
-	sti.searchinfo = searchinfo;
+	searchthreadinfo_t sti;
+	sti.thread = thread;
 	sti.pos  = pos;
 
 // reset STDIN & STDOUT buffers
@@ -525,7 +525,7 @@ void uci_loop(position_t *pos, searchinfo_t *searchinfo) {
     }
 
     else if (strncmp(input, "stop", 4) == 0) {
-      searchinfo->stopped = 1;
+      thread->stopped = 1;
       pthread_join(search_thread, NULL);
       break;
     }
