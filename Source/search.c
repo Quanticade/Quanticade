@@ -70,25 +70,25 @@ void communicate(thread_t *thread) {
 }
 
 // enable PV move scoring
-static inline void enable_pv_scoring(position_t *pos, moves *move_list) {
+static inline void enable_pv_scoring(position_t *pos, thread_t *thread, moves *move_list) {
   // disable following PV
-  pos->follow_pv = 0;
+  thread->pv.follow_pv = 0;
 
   // loop over the moves within a move list
   for (uint32_t count = 0; count < move_list->count; count++) {
     // make sure we hit PV move
-    if (pos->pv_table[0][pos->ply] == move_list->entry[count].move) {
+    if (thread->pv.pv_table[0][pos->ply] == move_list->entry[count].move) {
       // enable move scoring
-      pos->score_pv = 1;
+      thread->pv.score_pv = 1;
 
       // enable following PV
-      pos->follow_pv = 1;
+      thread->pv.follow_pv = 1;
     }
   }
 }
 
 // score moves
-static inline void score_move(position_t *pos, move_t *move_entry,
+static inline void score_move(position_t *pos, thread_t *thread, move_t *move_entry,
                               int hash_move) {
   int move = move_entry->move;
   if (move == hash_move) {
@@ -97,11 +97,11 @@ static inline void score_move(position_t *pos, move_t *move_entry,
   }
 
   // if PV move scoring is allowed
-  if (pos->score_pv) {
+  if (thread->pv.score_pv) {
     // make sure we are dealing with PV move
-    if (pos->pv_table[0][pos->ply] == move) {
+    if (thread->pv.pv_table[0][pos->ply] == move) {
       // disable score PV flag
-      pos->score_pv = 0;
+      thread->pv.score_pv = 0;
 
       // give PV move the highest score to search it first
       move_entry->score = 20000;
@@ -239,7 +239,7 @@ static inline int quiescence(position_t *pos,
   generate_captures(pos, move_list);
 
   for (uint32_t count = 0; count < move_list->count; count++) {
-    score_move(pos, &move_list->entry[count], 0);
+    score_move(pos, thread, &move_list->entry[count], 0);
   }
 
   sort_moves(move_list);
@@ -310,7 +310,7 @@ static inline int negamax(position_t *pos,
                           thread_t *thread, int alpha,
                           int beta, int depth) {
   // init PV length
-  pos->pv_length[pos->ply] = pos->ply;
+  thread->pv.pv_length[pos->ply] = pos->ply;
 
   // variable to store current move's score (from the static evaluation
   // perspective)
@@ -497,12 +497,12 @@ static inline int negamax(position_t *pos,
   generate_moves(pos, move_list);
 
   // if we are now following PV line
-  if (pos->follow_pv)
+  if (thread->pv.follow_pv)
     // enable PV move scoring
-    enable_pv_scoring(pos, move_list);
+    enable_pv_scoring(pos, thread, move_list);
 
   for (uint32_t count = 0; count < move_list->count; count++) {
-    score_move(pos, &move_list->entry[count], move);
+    score_move(pos, thread, &move_list->entry[count], move);
   }
 
   sort_moves(move_list);
@@ -632,17 +632,17 @@ static inline int negamax(position_t *pos,
       alpha = score;
 
       // write PV move
-      pos->pv_table[pos->ply][pos->ply] = list_move;
+      thread->pv.pv_table[pos->ply][pos->ply] = list_move;
 
       // loop over the next ply
-      for (int next_ply = pos->ply + 1; next_ply < pos->pv_length[pos->ply + 1];
+      for (int next_ply = pos->ply + 1; next_ply < thread->pv.pv_length[pos->ply + 1];
            next_ply++)
         // copy move from deeper ply into a current ply's line
-        pos->pv_table[pos->ply][next_ply] =
-            pos->pv_table[pos->ply + 1][next_ply];
+        thread->pv.pv_table[pos->ply][next_ply] =
+            thread->pv.pv_table[pos->ply + 1][next_ply];
 
       // adjust PV length
-      pos->pv_length[pos->ply] = pos->pv_length[pos->ply + 1];
+      thread->pv.pv_length[pos->ply] = thread->pv.pv_length[pos->ply + 1];
 
       // fail-hard beta cutoff
       if (score >= beta) {
@@ -682,6 +682,10 @@ static inline int negamax(position_t *pos,
   return alpha;
 }
 
+/*static void print_thinking(const thread_t thread, int score) {
+
+}*/
+
 // search position for the best move
 void search_position(position_t *pos,
                      thread_t *thread, int depth) {
@@ -703,16 +707,16 @@ void search_position(position_t *pos,
   thread->stopped = 0;
 
   // reset follow PV flags
-  pos->follow_pv = 0;
-  pos->score_pv = 0;
+  thread->pv.follow_pv = 0;
+  thread->pv.score_pv = 0;
 
   tt.current_age++;
 
   // clear helper data structures for search
   memset(pos->killer_moves, 0, sizeof(pos->killer_moves));
   memset(pos->history_moves, 0, sizeof(pos->history_moves));
-  memset(pos->pv_table, 0, sizeof(pos->pv_table));
-  memset(pos->pv_length, 0, sizeof(pos->pv_length));
+  memset(thread->pv.pv_table, 0, sizeof(thread->pv.pv_table));
+  memset(thread->pv.pv_length, 0, sizeof(thread->pv.pv_length));
 
   // define initial alpha beta bounds
   int alpha = -infinity;
@@ -727,7 +731,7 @@ void search_position(position_t *pos,
     }
 
     // enable follow PV flag
-    pos->follow_pv = 1;
+    thread->pv.follow_pv = 1;
 
     // We should not save PV move from unfinished depth for example if depth
     // 12 finishes and goes to search depth 13 now but this triggers window
@@ -735,8 +739,8 @@ void search_position(position_t *pos,
     // case depth 14 search doesnt finish in time we will at least have an
     // full PV line from depth 12
     if (window_ok) {
-      memcpy(pv_table_copy, pos->pv_table, sizeof(pos->pv_table));
-      memcpy(pv_length_copy, pos->pv_length, sizeof(pos->pv_length));
+      memcpy(pv_table_copy, thread->pv.pv_table, sizeof(thread->pv.pv_table));
+      memcpy(pv_length_copy, thread->pv.pv_length, sizeof(thread->pv.pv_length));
     }
 
     // find best move within a given position
@@ -750,8 +754,8 @@ void search_position(position_t *pos,
     // to another depth with wider search which we didnt finish
     if (score == infinity) {
       // Restore the saved best line
-      memcpy(pos->pv_table, pv_table_copy, sizeof(pv_table_copy));
-      memcpy(pos->pv_length, pv_length_copy, sizeof(pv_length_copy));
+      memcpy(thread->pv.pv_table, pv_table_copy, sizeof(pv_table_copy));
+      memcpy(thread->pv.pv_length, pv_length_copy, sizeof(pv_length_copy));
       // Break out of the loop without printing info about the unfinished
       // depth
       break;
@@ -773,7 +777,7 @@ void search_position(position_t *pos,
     beta = score + 50;
 
     // if PV is available
-    if (pos->pv_length[0]) {
+    if (thread->pv.pv_length[0]) {
       // print search info
       uint64_t time = get_time_ms() - start;
       uint64_t nps = (thread->nodes / fmax(time, 1)) * 100;
@@ -812,9 +816,9 @@ void search_position(position_t *pos,
       }
 
       // loop over the moves within a PV line
-      for (int count = 0; count < pos->pv_length[0]; count++) {
+      for (int count = 0; count < thread->pv.pv_length[0]; count++) {
         // print PV move
-        print_move(pos->pv_table[0][count]);
+        print_move(thread->pv.pv_table[0][count]);
         printf(" ");
       }
 
@@ -825,8 +829,8 @@ void search_position(position_t *pos,
 
   // print best move
   printf("bestmove ");
-  if (pos->pv_table[0][0]) {
-    print_move(pos->pv_table[0][0]);
+  if (thread->pv.pv_table[0][0]) {
+    print_move(thread->pv.pv_table[0][0]);
   } else {
     printf("(none)");
   }

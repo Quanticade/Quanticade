@@ -42,16 +42,20 @@ typedef struct position {
   uint32_t fifty;
   int killer_moves[2][max_ply];
   int history_moves[12][64];
-  int pv_length[max_ply];
-  int pv_table[max_ply][max_ply];
-  uint8_t follow_pv;
-  uint8_t score_pv;
   uint8_t side;
   uint8_t enpassant;
   uint8_t castle;
 } position_t;
 
+typedef struct PV {
+  int32_t pv_length[max_ply];
+  int32_t pv_table[max_ply][max_ply];
+  uint8_t follow_pv;
+  uint8_t score_pv;
+} PV_t;
+
 typedef struct searchinfo {
+  PV_t pv;
   uint64_t starttime;
   uint64_t stoptime;
   uint64_t nodes;
