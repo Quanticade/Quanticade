@@ -13,7 +13,7 @@ else()
     message(STATUS "IPO / LTO not supported: <${error}>")
 endif()
 
-add_compile_options(-Wall -Werror -Wextra -Wpedantic -Wno-error=vla)
+add_compile_options(-Wall -Werror -Wextra -Wno-error=vla)
 # Optimizations
 add_compile_options(-march=native -Ofast -funroll-loops -fomit-frame-pointer)
 if ( CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64" ) 
