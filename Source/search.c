@@ -808,7 +808,7 @@ void search_position(position_t *pos,
       else {
 #ifdef WIN64
         printf("info depth %d score cp %d nodes %llu nps %llu time %llu pv ",
-               current_depth, score, searchinfo->nodes, nps, time);
+               current_depth, score, thread->nodes, nps, time);
 #else
         printf("info depth %d score cp %d nodes %lu nps %ld time %lu pv ",
                current_depth, score, thread->nodes, nps, time);
