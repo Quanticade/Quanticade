@@ -784,7 +784,7 @@ void search_position(position_t *pos,
       if (score > -mate_value && score < -mate_score) {
 #ifdef WIN64
         printf("info depth %d score mate %d nodes %llu nps %llu time %llu pv ",
-               current_depth, -(score + mate_value) / 2 - 1, searchinfo->nodes,
+               current_depth, -(score + mate_value) / 2 - 1, thread->nodes,
                nps, time);
 #else
         printf("info depth %d score mate %d nodes %lu nps %ld time %lu pv ",
@@ -796,7 +796,7 @@ void search_position(position_t *pos,
       else if (score > mate_score && score < mate_value) {
 #ifdef WIN64
         printf("info depth %d score mate %d nodes %llu nps %llu time %llu pv ",
-               current_depth, (mate_value - score) / 2 + 1, searchinfo->nodes,
+               current_depth, (mate_value - score) / 2 + 1, thread->nodes,
                nps, time);
 #else
         printf("info depth %d score mate %d nodes %lu nps %ld time %lu pv ",

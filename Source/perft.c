@@ -99,7 +99,7 @@ void perft_test(position_t* pos, thread_t *searchinfo, int depth) {
   // print results
   printf("\n    Depth: %d\n", depth);
 #ifdef WIN64
-  printf("    Nodes: %llu\n", engine->nodes);
+  printf("    Nodes: %llu\n", searchinfo->nodes);
   printf("     Time: %llu\n\n", get_time_ms() - start);
   printf("      NPS: %llu\n\n", searchinfo->nodes / ((get_time_ms() - start) / 100));
 #else
