@@ -780,7 +780,7 @@ void search_position(position_t *pos,
     if (thread->pv.pv_length[0]) {
       // print search info
       uint64_t time = get_time_ms() - start;
-      uint64_t nps = (thread->nodes / fmax(time, 1)) * 100;
+      uint64_t nps = (thread->nodes / fmax(time, 1)) * 1000;
       if (score > -mate_value && score < -mate_score) {
 #ifdef WIN64
         printf("info depth %d score mate %d nodes %llu nps %llu time %llu pv ",
