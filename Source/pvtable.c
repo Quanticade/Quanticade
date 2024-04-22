@@ -8,6 +8,17 @@
 
 tt_t tt;
 
+int hash_full() {
+  uint64_t used = 0;
+  int samples = 1000;
+
+  for (int i = 0; i < samples; ++i)
+    if (tt.hash_entry[i].move != 0)
+      used++;
+
+  return used / (samples / 1000);
+}
+
 uint64_t generate_hash_key(position_t *pos) {
   // final hash key
   uint64_t final_key = 0ULL;

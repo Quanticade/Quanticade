@@ -70,7 +70,8 @@ void communicate(thread_t *thread) {
 }
 
 // enable PV move scoring
-static inline void enable_pv_scoring(position_t *pos, thread_t *thread, moves *move_list) {
+static inline void enable_pv_scoring(position_t *pos, thread_t *thread,
+                                     moves *move_list) {
   // disable following PV
   thread->pv.follow_pv = 0;
 
@@ -88,8 +89,8 @@ static inline void enable_pv_scoring(position_t *pos, thread_t *thread, moves *m
 }
 
 // score moves
-static inline void score_move(position_t *pos, thread_t *thread, move_t *move_entry,
-                              int hash_move) {
+static inline void score_move(position_t *pos, thread_t *thread,
+                              move_t *move_entry, int hash_move) {
   int move = move_entry->move;
   if (move == hash_move) {
     move_entry->score = 30000;
@@ -206,10 +207,10 @@ static inline int is_repetition(position_t *pos) {
 }
 
 // quiescence search
-static inline int quiescence(position_t *pos,
-                             thread_t *thread, int alpha, int beta) {
-    // Check on time
-    communicate(thread);
+static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
+                             int beta) {
+  // Check on time
+  communicate(thread);
 
   // we are too deep, hence there's an overflow of arrays relying on max ply
   // constant
@@ -258,8 +259,7 @@ static inline int quiescence(position_t *pos,
     pos->repetition_table[pos->repetition_index] = pos->hash_key;
 
     // make sure to make only legal moves
-    if (make_move(pos, move_list->entry[count].move, only_captures) ==
-        0) {
+    if (make_move(pos, move_list->entry[count].move, only_captures) == 0) {
       // decrement ply
       pos->ply--;
 
@@ -306,8 +306,7 @@ static inline int quiescence(position_t *pos,
 }
 
 // negamax alpha beta search
-static inline int negamax(position_t *pos,
-                          thread_t *thread, int alpha,
+static inline int negamax(position_t *pos, thread_t *thread, int alpha,
                           int beta, int depth) {
   // init PV length
   thread->pv.pv_length[pos->ply] = pos->ply;
@@ -429,8 +428,7 @@ static inline int negamax(position_t *pos,
 
     /* search moves with reduced depth to find beta cutoffs
        depth - 1 - R where R is a reduction limit */
-    score = -negamax(pos, thread, -beta, -beta + 1,
-                     depth - 1 - 2);
+    score = -negamax(pos, thread, -beta, -beta + 1, depth - 1 - 2);
 
     // decrement ply
     pos->ply--;
@@ -544,8 +542,7 @@ static inline int negamax(position_t *pos,
     // full depth search
     if (moves_searched == 0) {
       // do normal alpha beta search
-      score = -negamax(pos, thread, -beta, -alpha,
-                       depth - 1);
+      score = -negamax(pos, thread, -beta, -alpha, depth - 1);
     }
 
     // late move reduction (LMR)
@@ -560,8 +557,7 @@ static inline int negamax(position_t *pos,
 
         int reddepth = MAX(1, depth - 1 - MAX(r, 1));
         // search current move with reduced depth:
-        score = -negamax(pos, thread, -alpha - 1,
-                         -alpha, reddepth);
+        score = -negamax(pos, thread, -alpha - 1, -alpha, reddepth);
       }
 
       // hack to ensure that full-depth search is done
@@ -577,8 +573,7 @@ static inline int negamax(position_t *pos,
            search that worries that one of the remaining moves might be good.
          */
         thread->nodes++;
-        score = -negamax(pos, thread, -alpha - 1,
-                         -alpha, depth - 1);
+        score = -negamax(pos, thread, -alpha - 1, -alpha, depth - 1);
 
         /* If the algorithm finds out that it was wrong, and that one of the
            subsequent moves was better than the first PV move, it has to
@@ -589,8 +584,7 @@ static inline int negamax(position_t *pos,
         if ((score > alpha) && (score < beta)) {
           /* re-search the move that has failed to be proved to be bad
              with normal alpha beta score bounds*/
-          score = -negamax(pos, thread, -beta, -alpha,
-                           depth - 1);
+          score = -negamax(pos, thread, -beta, -alpha, depth - 1);
         }
       }
     }
@@ -635,8 +629,8 @@ static inline int negamax(position_t *pos,
       thread->pv.pv_table[pos->ply][pos->ply] = list_move;
 
       // loop over the next ply
-      for (int next_ply = pos->ply + 1; next_ply < thread->pv.pv_length[pos->ply + 1];
-           next_ply++)
+      for (int next_ply = pos->ply + 1;
+           next_ply < thread->pv.pv_length[pos->ply + 1]; next_ply++)
         // copy move from deeper ply into a current ply's line
         thread->pv.pv_table[pos->ply][next_ply] =
             thread->pv.pv_table[pos->ply + 1][next_ply];
@@ -682,16 +676,39 @@ static inline int negamax(position_t *pos,
   return alpha;
 }
 
-/*static void print_thinking(const thread_t thread, int score) {
+static void print_thinking(const thread_t *thread, int score,
+                           int current_depth) {
+  uint64_t time = get_time_ms() - thread->starttime;
+  uint64_t nps = (thread->nodes / fmax(time, 1)) * 1000;
 
-}*/
+  printf("info depth %d score ", current_depth);
+
+  if (score > -mate_value && score < -mate_score) {
+    printf("mate %d ", -(score + mate_value) / 2 - 1);
+  } else if (score > mate_value && score < mate_score) {
+    printf("mate %d ", (score + mate_value) / 2 - 1);
+  } else {
+    printf("cp %d ", score);
+  }
+  printf("nodes %lld ", thread->nodes);
+  printf("nps %lld ", nps);
+  printf("hashfull %d ", hash_full());
+  printf("time %lld ", time);
+  printf("pv ");
+
+  // loop over the moves within a PV line
+  for (int count = 0; count < thread->pv.pv_length[0]; count++) {
+    // print PV move
+    print_move(thread->pv.pv_table[0][count]);
+    printf(" ");
+  }
+
+  // print new line
+  printf("\n");
+}
 
 // search position for the best move
-void search_position(position_t *pos,
-                     thread_t *thread, int depth) {
-  // search start time
-  uint64_t start = get_time_ms();
-
+void search_position(position_t *pos, thread_t *thread, int depth) {
   // define best score variable
   int score = 0;
 
@@ -740,12 +757,12 @@ void search_position(position_t *pos,
     // full PV line from depth 12
     if (window_ok) {
       memcpy(pv_table_copy, thread->pv.pv_table, sizeof(thread->pv.pv_table));
-      memcpy(pv_length_copy, thread->pv.pv_length, sizeof(thread->pv.pv_length));
+      memcpy(pv_length_copy, thread->pv.pv_length,
+             sizeof(thread->pv.pv_length));
     }
 
     // find best move within a given position
-    score = negamax(pos, thread, alpha, beta,
-                    current_depth);
+    score = negamax(pos, thread, alpha, beta, current_depth);
 
     // Reset aspiration window OK flag back to 1
     window_ok = 1;
@@ -779,51 +796,7 @@ void search_position(position_t *pos,
     // if PV is available
     if (thread->pv.pv_length[0]) {
       // print search info
-      uint64_t time = get_time_ms() - start;
-      uint64_t nps = (thread->nodes / fmax(time, 1)) * 1000;
-      if (score > -mate_value && score < -mate_score) {
-#ifdef WIN64
-        printf("info depth %d score mate %d nodes %llu nps %llu time %llu pv ",
-               current_depth, -(score + mate_value) / 2 - 1, thread->nodes,
-               nps, time);
-#else
-        printf("info depth %d score mate %d nodes %lu nps %ld time %lu pv ",
-               current_depth, -(score + mate_value) / 2 - 1, thread->nodes,
-               nps, time);
-#endif
-      }
-
-      else if (score > mate_score && score < mate_value) {
-#ifdef WIN64
-        printf("info depth %d score mate %d nodes %llu nps %llu time %llu pv ",
-               current_depth, (mate_value - score) / 2 + 1, thread->nodes,
-               nps, time);
-#else
-        printf("info depth %d score mate %d nodes %lu nps %ld time %lu pv ",
-               current_depth, (mate_value - score) / 2 + 1, thread->nodes,
-               nps, time);
-#endif
-      }
-
-      else {
-#ifdef WIN64
-        printf("info depth %d score cp %d nodes %llu nps %llu time %llu pv ",
-               current_depth, score, thread->nodes, nps, time);
-#else
-        printf("info depth %d score cp %d nodes %lu nps %ld time %lu pv ",
-               current_depth, score, thread->nodes, nps, time);
-#endif
-      }
-
-      // loop over the moves within a PV line
-      for (int count = 0; count < thread->pv.pv_length[0]; count++) {
-        // print PV move
-        print_move(thread->pv.pv_table[0][count]);
-        printf(" ");
-      }
-
-      // print new line
-      printf("\n");
+      print_thinking(thread, score, current_depth);
     }
   }
 

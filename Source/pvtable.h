@@ -25,4 +25,5 @@ void write_hash_entry(position_t *pos, int score, int depth,
                       int move, int hash_flag);
 void init_hash_table(uint64_t mb);
 uint64_t generate_hash_key(position_t *pos);
+int hash_full();
 #endif
