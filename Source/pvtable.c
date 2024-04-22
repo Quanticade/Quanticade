@@ -153,7 +153,7 @@ void write_hash_entry(position_t *pos, int score, int depth,
   tt_entry_t *hash_entry =
       &tt.hash_entry[pos->hash_key % tt.num_of_entries];
 
-  if (!(hash_entry->hash_key == 0 ||
+  if (!(hash_entry->hash_key == pos->hash_key ||
         (hash_entry->age < tt.current_age ||
          hash_entry->depth <= depth))) {
     return;
