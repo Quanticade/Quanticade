@@ -307,7 +307,7 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
 
 // negamax alpha beta search
 static inline int negamax(position_t *pos, thread_t *thread, int alpha,
-                          int beta, int depth) {
+                          int beta, int depth, uint8_t do_null_pruning) {
   // init PV length
   thread->pv.pv_length[pos->ply] = pos->ply;
 
@@ -386,105 +386,111 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
   int legal_moves = 0;
 
   int static_eval = evaluate(pos);
+  if (!in_check) {
+    // evaluation pruning / static null move pruning
+    if (depth < 3 && !pv_node && abs(beta - 1) > -infinity + 100) {
+      // get static evaluation score
 
-  // evaluation pruning / static null move pruning
-  if (depth < 3 && !pv_node && !in_check && abs(beta - 1) > -infinity + 100) {
-    // get static evaluation score
+      // define evaluation margin
+      int eval_margin = 120 * depth;
 
-    // define evaluation margin
-    int eval_margin = 120 * depth;
-
-    // evaluation margin substracted from static evaluation score fails high
-    if (static_eval - eval_margin >= beta)
-      // evaluation margin substracted from static evaluation score
-      return static_eval - eval_margin;
-  }
-
-  // null move pruning
-  if (depth >= 3 && in_check == 0 && pos->ply) {
-    // preserve board state
-    copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-               pos->castle, pos->fifty, pos->hash_key);
-
-    // increment ply
-    pos->ply++;
-
-    // increment repetition index & store hash key
-    pos->repetition_index++;
-    pos->repetition_table[pos->repetition_index] = pos->hash_key;
-
-    // hash enpassant if available
-    if (pos->enpassant != no_sq)
-      pos->hash_key ^= pos->keys.enpassant_keys[pos->enpassant];
-
-    // reset enpassant capture square
-    pos->enpassant = no_sq;
-
-    // switch the side, literally giving opponent an extra move to make
-    pos->side ^= 1;
-
-    // hash the side
-    pos->hash_key ^= pos->keys.side_key;
-
-    /* search moves with reduced depth to find beta cutoffs
-       depth - 1 - R where R is a reduction limit */
-    score = -negamax(pos, thread, -beta, -beta + 1, depth - 1 - 2);
-
-    // decrement ply
-    pos->ply--;
-
-    // decrement repetition index
-    pos->repetition_index--;
-
-    // restore board state
-    restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                  pos->castle, pos->fifty, pos->hash_key);
-
-    // reutrn 0 if time is up
-    if (thread->stopped == 1) {
-      return 0;
+      // evaluation margin substracted from static evaluation score fails high
+      if (static_eval - eval_margin >= beta)
+        // evaluation margin substracted from static evaluation score
+        return static_eval - eval_margin;
     }
 
-    // fail-hard beta cutoff
-    if (score >= beta)
-      // node (position) fails high
-      return beta;
-  }
+    // null move pruning
+    if (do_null_pruning && depth >= 3 && pos->ply) {
+      // preserve board state
+      copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
+                 pos->castle, pos->fifty, pos->hash_key);
 
-  // razoring
-  if (!pv_node && !in_check && depth <= 3) {
-    // get static eval and add first bonus
-    score = static_eval + 125;
+      // increment ply
+      pos->ply++;
 
-    // define new score
-    int new_score;
+      // increment repetition index & store hash key
+      pos->repetition_index++;
+      pos->repetition_table[pos->repetition_index] = pos->hash_key;
 
-    // static evaluation indicates a fail-low node
-    if (score < beta) {
-      // on depth 1
-      if (depth == 1) {
-        // get quiescence score
-        new_score = quiescence(pos, thread, alpha, beta);
+      // hash enpassant if available
+      if (pos->enpassant != no_sq)
+        pos->hash_key ^= pos->keys.enpassant_keys[pos->enpassant];
 
-        // return quiescence score if it's greater then static evaluation
-        // score
-        return (new_score > score) ? new_score : score;
+      // reset enpassant capture square
+      pos->enpassant = no_sq;
+
+      // switch the side, literally giving opponent an extra move to make
+      pos->side ^= 1;
+
+      // hash the side
+      pos->hash_key ^= pos->keys.side_key;
+
+      /* search moves with reduced depth to find beta cutoffs
+         depth - 1 - R where R is a reduction limit */
+      score = -negamax(pos, thread, -beta, -beta + 1, depth - 1 - 2, 0);
+
+      // decrement ply
+      pos->ply--;
+
+      // decrement repetition index
+      pos->repetition_index--;
+
+      // restore board state
+      restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
+                    pos->castle, pos->fifty, pos->hash_key);
+
+      // reutrn 0 if time is up
+      if (thread->stopped == 1) {
+        return 0;
       }
 
-      // add second bonus to static evaluation
-      score += 175;
+      // fail-hard beta cutoff
+      if (score >= beta)
+        // node (position) fails high
+        return beta;
+    }
+
+    // razoring
+    if (!pv_node && depth <= 3) {
+      // get static eval and add first bonus
+      score = static_eval + 125;
+
+      // define new score
+      int new_score;
 
       // static evaluation indicates a fail-low node
-      if (score < beta && depth <= 2) {
-        // get quiescence score
-        new_score = quiescence(pos, thread, alpha, beta);
+      if (score < beta) {
+        // on depth 1
+        if (depth == 1) {
+          // get quiescence score
+          new_score = quiescence(pos, thread, alpha, beta);
 
-        // quiescence score indicates fail-low node
-        if (new_score < beta)
           // return quiescence score if it's greater then static evaluation
           // score
           return (new_score > score) ? new_score : score;
+        }
+
+        // add second bonus to static evaluation
+        score += 175;
+
+        // static evaluation indicates a fail-low node
+        if (score < beta && depth <= 2) {
+          // get quiescence score
+          new_score = quiescence(pos, thread, alpha, beta);
+
+          // quiescence score indicates fail-low node
+          if (new_score < beta)
+            // return quiescence score if it's greater then static evaluation
+            // score
+            return (new_score > score) ? new_score : score;
+        }
       }
+    }
+
+    if (depth >= 4 && !move) {
+      negamax(pos, thread, alpha, beta, MIN(depth / 2, depth - 4), 0);
+      score = read_hash_entry(pos, alpha, &move, beta, depth);
     }
   }
 
@@ -542,7 +548,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     // full depth search
     if (moves_searched == 0) {
       // do normal alpha beta search
-      score = -negamax(pos, thread, -beta, -alpha, depth - 1);
+      score = -negamax(pos, thread, -beta, -alpha, depth - 1, 1);
     }
 
     // late move reduction (LMR)
@@ -557,7 +563,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
         int reddepth = MAX(1, depth - 1 - MAX(r, 1));
         // search current move with reduced depth:
-        score = -negamax(pos, thread, -alpha - 1, -alpha, reddepth);
+        score = -negamax(pos, thread, -alpha - 1, -alpha, reddepth, 1);
       }
 
       // hack to ensure that full-depth search is done
@@ -573,7 +579,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
            search that worries that one of the remaining moves might be good.
          */
         thread->nodes++;
-        score = -negamax(pos, thread, -alpha - 1, -alpha, depth - 1);
+        score = -negamax(pos, thread, -alpha - 1, -alpha, depth - 1, 1);
 
         /* If the algorithm finds out that it was wrong, and that one of the
            subsequent moves was better than the first PV move, it has to
@@ -584,7 +590,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
         if ((score > alpha) && (score < beta)) {
           /* re-search the move that has failed to be proved to be bad
              with normal alpha beta score bounds*/
-          score = -negamax(pos, thread, -beta, -alpha, depth - 1);
+          score = -negamax(pos, thread, -beta, -alpha, depth - 1, 1);
         }
       }
     }
@@ -762,7 +768,7 @@ void search_position(position_t *pos, thread_t *thread, int depth) {
     }
 
     // find best move within a given position
-    score = negamax(pos, thread, alpha, beta, current_depth);
+    score = negamax(pos, thread, alpha, beta, current_depth, 1);
 
     // Reset aspiration window OK flag back to 1
     window_ok = 1;
