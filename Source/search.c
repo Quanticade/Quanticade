@@ -489,8 +489,8 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     }
 
     if (depth >= 4 && !move) {
-      negamax(pos, thread, alpha, beta, MIN(depth / 2, depth - 4), 0);
-      score = read_hash_entry(pos, alpha, &move, beta, depth);
+      negamax(pos, thread, alpha, beta, MAX(1, MIN(depth / 2, depth - 4)), 0);
+      read_hash_entry(pos, alpha, &move, beta, depth);
     }
   }
 
