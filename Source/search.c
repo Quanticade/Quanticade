@@ -11,6 +11,7 @@
 #include "uci.h"
 #include "utils.h"
 #include <math.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -488,6 +489,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
       }
     }
 
+    // Internal Iterative Deepening
     if (depth >= 4 && !move) {
       negamax(pos, thread, alpha, beta, MAX(1, MIN(depth / 2, depth - 4)), 0);
       read_hash_entry(pos, alpha, &move, beta, depth);
@@ -544,6 +546,10 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
     // increment legal moves
     legal_moves++;
+    uint8_t move_is_noisy = in_check == 0 && get_move_capture(list_move) == 0 &&
+                            get_move_promoted(list_move) == 0;
+    uint8_t do_lmr = depth > 2 && moves_searched > (2 + pv_node) && pos->ply &&
+                     move_is_noisy;
 
     // full depth search
     if (moves_searched == 0) {
@@ -554,9 +560,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     // late move reduction (LMR)
     else {
       // condition to consider LMR
-      if (moves_searched >= full_depth_moves && depth >= reduction_limit &&
-          in_check == 0 && get_move_capture(list_move) == 0 &&
-          get_move_promoted(list_move) == 0) {
+      if (do_lmr) {
 
         r = reductions[MIN(31, depth)][MIN(31, moves_searched)];
         r += !pv_node;
