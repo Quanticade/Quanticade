@@ -213,6 +213,8 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
   // Check on time
   communicate(thread);
 
+  thread->nodes++;
+
   // we are too deep, hence there's an overflow of arrays relying on max ply
   // constant
   if (pos->ply > max_ply - 1)
@@ -546,57 +548,31 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
     // increment legal moves
     legal_moves++;
+    // increment the counter of moves searched so far
+    moves_searched++;
+
     uint8_t move_is_noisy = in_check == 0 && get_move_capture(list_move) == 0 &&
                             get_move_promoted(list_move) == 0;
     uint8_t do_lmr = depth > 2 && moves_searched > (2 + pv_node) && pos->ply &&
                      move_is_noisy;
 
-    // full depth search
-    if (moves_searched == 0) {
-      // do normal alpha beta search
-      score = -negamax(pos, thread, -beta, -alpha, depth - 1, 1);
+    // condition to consider LMR
+    if (do_lmr) {
+
+      r = reductions[MIN(31, depth)][MIN(31, moves_searched)];
+      r += !pv_node;
+
+      int reddepth = MAX(1, depth - 1 - MAX(r, 1));
+      // search current move with reduced depth:
+      score = -negamax(pos, thread, -alpha - 1, -alpha, reddepth, 1);
     }
 
-    // late move reduction (LMR)
-    else {
-      // condition to consider LMR
-      if (do_lmr) {
+    if ((do_lmr && score > alpha) || (!do_lmr && (!pv_node || moves_searched > 1))) {
+      score = -negamax(pos, thread, -alpha - 1, -alpha, depth - 1, 1);
+    }
 
-        r = reductions[MIN(31, depth)][MIN(31, moves_searched)];
-        r += !pv_node;
-
-        int reddepth = MAX(1, depth - 1 - MAX(r, 1));
-        // search current move with reduced depth:
-        score = -negamax(pos, thread, -alpha - 1, -alpha, reddepth, 1);
-      }
-
-      // hack to ensure that full-depth search is done
-      else {
-        score = alpha + 1;
-      }
-
-      // principle variation search PVS
-      if (score > alpha) {
-        /* Once you've found a move with a score that is between alpha and
-           beta, the rest of the moves are searched with the goal of proving
-           that they are all bad. It's possible to do this a bit faster than a
-           search that worries that one of the remaining moves might be good.
-         */
-        thread->nodes++;
-        score = -negamax(pos, thread, -alpha - 1, -alpha, depth - 1, 1);
-
-        /* If the algorithm finds out that it was wrong, and that one of the
-           subsequent moves was better than the first PV move, it has to
-           search again, in the normal alpha-beta manner.  This happens
-           sometimes, and it's a waste of time, but generally not often enough
-           to counteract the savings gained from doing the "bad move proof"
-           search referred to earlier. */
-        if ((score > alpha) && (score < beta)) {
-          /* re-search the move that has failed to be proved to be bad
-             with normal alpha beta score bounds*/
-          score = -negamax(pos, thread, -beta, -alpha, depth - 1, 1);
-        }
-      }
+    if (pv_node && ((score > alpha && score < beta) || moves_searched == 1)) {
+      score = -negamax(pos, thread, -beta, -alpha, depth - 1, 1);
     }
 
     // decrement ply
@@ -614,9 +590,6 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     if (thread->stopped == 1) {
       return infinity;
     }
-
-    // increment the counter of moves searched so far
-    moves_searched++;
 
     // found a better move
     if (score > alpha) {
