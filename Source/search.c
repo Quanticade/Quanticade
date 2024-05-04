@@ -318,7 +318,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
   // perspective)
   int score;
 
-  int move = 0;
+  int tt_move = 0;
 
   // define hash flag
   int hash_flag = hash_flag_alpha;
@@ -352,12 +352,13 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
   // read hash entry if we're not in a root ply and hash entry is available
   // and current node is not a PV node
   if (pos->ply &&
-      (score = read_hash_entry(pos, alpha, &move, beta, depth)) !=
+      (score = read_hash_entry(pos, alpha, &tt_move, beta, depth)) !=
           no_hash_entry &&
-      pv_node == 0)
+      pv_node == 0) {
     // if the move has already been searched (hence has a value)
     // we just return the score for this move without searching it
     return score;
+  }
 
   // Check on time
   communicate(thread);
@@ -492,9 +493,9 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     }
 
     // Internal Iterative Deepening
-    if (depth >= 4 && !move) {
+    if (pv_node && depth >= 4 && !tt_move) {
       negamax(pos, thread, alpha, beta, MAX(1, MIN(depth / 2, depth - 4)), 0);
-      read_hash_entry(pos, alpha, &move, beta, depth);
+      score = read_hash_entry(pos, alpha, &tt_move, beta, depth);
     }
   }
 
@@ -509,8 +510,9 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     // enable PV move scoring
     enable_pv_scoring(pos, thread, move_list);
 
+  int move = 0;
   for (uint32_t count = 0; count < move_list->count; count++) {
-    score_move(pos, thread, &move_list->entry[count], move);
+    score_move(pos, thread, &move_list->entry[count], tt_move);
   }
 
   sort_moves(move_list);
@@ -567,7 +569,8 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
       score = -negamax(pos, thread, -alpha - 1, -alpha, reddepth, 1);
     }
 
-    if ((do_lmr && score > alpha) || (!do_lmr && (!pv_node || moves_searched > 1))) {
+    if ((do_lmr && score > alpha) ||
+        (!do_lmr && (!pv_node || moves_searched > 1))) {
       score = -negamax(pos, thread, -alpha - 1, -alpha, depth - 1, 1);
     }
 
