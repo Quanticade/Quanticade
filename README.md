@@ -26,6 +26,7 @@ Quanticade is based on BitBoard Chess engine by Maksim Korzh
 - Maksim Korzh for his BitBoard Chess youtube series
 - BlueFeverSoft for his VICE chess series
 - Daniel Shawul for his nnue probing library
+- TerjeKir for Weiss
 - Stockfish for creating a clearly and easily readable codebase with many great ideas
 
 
