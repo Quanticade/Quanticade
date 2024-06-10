@@ -710,6 +710,11 @@ void search_position(position_t *pos, thread_t *thread, int depth) {
   // define best score variable
   int score = 0;
 
+  int pv_table_copy[max_ply][max_ply];
+  int pv_length_copy[max_ply];
+
+  uint8_t window_ok = 1;
+
   // reset nodes counter
   thread->nodes = 0;
 
@@ -743,8 +748,33 @@ void search_position(position_t *pos, thread_t *thread, int depth) {
     // enable follow PV flag
     thread->pv.follow_pv = 1;
 
+    // We should not save PV move from unfinished depth for example if depth
+    // 12 finishes and goes to search depth 13 now but this triggers window
+    // cutoff we dont want the info from depth 13 as its incomplete and in
+    // case depth 14 search doesnt finish in time we will at least have an
+    // full PV line from depth 12
+    if (window_ok) {
+      memcpy(pv_table_copy, thread->pv.pv_table, sizeof(thread->pv.pv_table));
+      memcpy(pv_length_copy, thread->pv.pv_length,
+             sizeof(thread->pv.pv_length));
+    }
+
     // find best move within a given position
     score = negamax(pos, thread, alpha, beta, current_depth, 1);
+
+        // Reset aspiration window OK flag back to 1
+    window_ok = 1;
+
+    // We hit an apspiration window cut-off before time ran out and we jumped
+    // to another depth with wider search which we didnt finish
+    if (score == infinity) {
+      // Restore the saved best line
+      memcpy(thread->pv.pv_table, pv_table_copy, sizeof(pv_table_copy));
+      memcpy(thread->pv.pv_length, pv_length_copy, sizeof(pv_length_copy));
+      // Break out of the loop without printing info about the unfinished
+      // depth
+      break;
+    }
 
     // we fell outside the window, so try again with a full-width window (and
     // the same depth)
@@ -752,6 +782,7 @@ void search_position(position_t *pos, thread_t *thread, int depth) {
       // Do a full window re-search
       alpha = -infinity;
       beta = infinity;
+      window_ok = 0;
       current_depth--;
       continue;
     }
