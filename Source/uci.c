@@ -437,9 +437,11 @@ static inline void *parse_go(void *searchthread_info) {
     if (depth == -1)
       // set depth to 64 plies (takes ages to complete...)
       depth = 64;
+    
+    thread->depth = depth;
 
     // search position
-    search_position(pos, thread, depth);
+    search_position(pos, thread);
   }
   return NULL;
 }

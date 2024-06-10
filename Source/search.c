@@ -705,40 +705,20 @@ static void print_thinking(const thread_t *thread, int score,
   printf("\n");
 }
 
-// search position for the best move
-void search_position(position_t *pos, thread_t *thread, int depth) {
-  // define best score variable
-  int score = 0;
+void iterative_deepening(thread_t *thread) {
+  position_t *pos = &thread->pos;
 
   int pv_table_copy[max_ply][max_ply];
   int pv_length_copy[max_ply];
 
   uint8_t window_ok = 1;
 
-  // reset nodes counter
-  thread->nodes = 0;
-
-  // reset "time is up" flag
-  thread->stopped = 0;
-
-  // reset follow PV flags
-  thread->pv.follow_pv = 0;
-  thread->pv.score_pv = 0;
-
-  tt.current_age++;
-
-  // clear helper data structures for search
-  memset(pos->killer_moves, 0, sizeof(pos->killer_moves));
-  memset(pos->history_moves, 0, sizeof(pos->history_moves));
-  memset(thread->pv.pv_table, 0, sizeof(thread->pv.pv_table));
-  memset(thread->pv.pv_length, 0, sizeof(thread->pv.pv_length));
-
   // define initial alpha beta bounds
   int alpha = -infinity;
   int beta = infinity;
 
   // iterative deepening
-  for (int current_depth = 1; current_depth <= depth; current_depth++) {
+  for (thread->depth = 1; thread->depth <= 64; thread->depth++) {
     // if time is up
     if (thread->stopped == 1) {
       // stop calculating and return best move so far
@@ -760,14 +740,14 @@ void search_position(position_t *pos, thread_t *thread, int depth) {
     }
 
     // find best move within a given position
-    score = negamax(pos, thread, alpha, beta, current_depth, 1);
+    thread->score = negamax(pos, thread, alpha, beta, thread->depth, 1);
 
-        // Reset aspiration window OK flag back to 1
+    // Reset aspiration window OK flag back to 1
     window_ok = 1;
 
     // We hit an apspiration window cut-off before time ran out and we jumped
     // to another depth with wider search which we didnt finish
-    if (score == infinity) {
+    if (thread->score == infinity) {
       // Restore the saved best line
       memcpy(thread->pv.pv_table, pv_table_copy, sizeof(pv_table_copy));
       memcpy(thread->pv.pv_length, pv_length_copy, sizeof(pv_length_copy));
@@ -778,25 +758,51 @@ void search_position(position_t *pos, thread_t *thread, int depth) {
 
     // we fell outside the window, so try again with a full-width window (and
     // the same depth)
-    if ((score <= alpha) || (score >= beta)) {
+    if ((thread->score <= alpha) || (thread->score >= beta)) {
       // Do a full window re-search
       alpha = -infinity;
       beta = infinity;
       window_ok = 0;
-      current_depth--;
+      thread->depth--;
       continue;
     }
-
-    // set up the window for the next iteration
-    alpha = score - 50;
-    beta = score + 50;
 
     // if PV is available
     if (thread->pv.pv_length[0]) {
       // print search info
-      print_thinking(thread, score, current_depth);
+      print_thinking(thread, thread->score, thread->depth);
     }
+
+    // set up the window for the next iteration
+    alpha = thread->score - 50;
+    beta = thread->score + 50;
   }
+}
+
+// search position for the best move
+void search_position(position_t *pos, thread_t *thread) {
+
+  // reset nodes counter
+  thread->nodes = 0;
+
+  // reset "time is up" flag
+  thread->stopped = 0;
+
+  // reset follow PV flags
+  thread->pv.follow_pv = 0;
+  thread->pv.score_pv = 0;
+
+  tt.current_age++;
+
+  // clear helper data structures for search
+  memset(pos->killer_moves, 0, sizeof(pos->killer_moves));
+  memset(pos->history_moves, 0, sizeof(pos->history_moves));
+  memset(thread->pv.pv_table, 0, sizeof(thread->pv.pv_table));
+  memset(thread->pv.pv_length, 0, sizeof(thread->pv.pv_length));
+
+  memcpy(&thread->pos, pos, sizeof(position_t));
+
+  iterative_deepening(thread);
 
   // print best move
   printf("bestmove ");
