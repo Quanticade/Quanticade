@@ -47,12 +47,12 @@ char promoted_pieces[] = {[Q] = 'q', [R] = 'r', [B] = 'b', [N] = 'n',
 static inline void reset_time_control(thread_t *thread) {
   // reset timing
   thread->quit = 0;
-  thread->movestogo = 30;
-  thread->time = -1;
-  thread->inc = 0;
-  thread->starttime = 0;
-  thread->stoptime = 0;
-  thread->timeset = 0;
+  limits.movestogo = 30;
+  limits.time = -1;
+  limits.inc = 0;
+  limits.starttime = 0;
+  limits.stoptime = 0;
+  limits.timeset = 0;
   thread->stopped = 0;
 }
 
@@ -351,9 +351,6 @@ static inline void *parse_go(void *searchthread_info) {
   // reset time control
   reset_time_control(thread);
 
-  // init parameters
-  int depth = -1;
-
   // init argument
   char *argument = NULL;
 
@@ -363,82 +360,80 @@ static inline void *parse_go(void *searchthread_info) {
 
   if (pos->side == white) {
     if ((argument = strstr(line, "winc"))) {
-      thread->inc = atoi(argument + 5);
+      limits.inc = atoi(argument + 5);
     }
     if ((argument = strstr(line, "wtime"))) {
-      thread->time = atoi(argument + 6);
+      limits.time = atoi(argument + 6);
     }
   }
   else {
     if ((argument = strstr(line, "binc"))) {
-      thread->inc = atoi(argument + 5);
+      limits.inc = atoi(argument + 5);
     }
     if ((argument = strstr(line, "btime"))) {
-      thread->time = atoi(argument + 6);
+      limits.time = atoi(argument + 6);
     }
   }
 
   // match UCI "movestogo" command
   if ((argument = strstr(line, "movestogo")))
     // parse number of moves to go
-    thread->movestogo = atoi(argument + 10);
+    limits.movestogo = atoi(argument + 10);
 
   // match UCI "movetime" command
   if ((argument = strstr(line, "movetime"))) {
     // parse amount of time allowed to spend to make a move
-    thread->time = atoi(argument + 9);
-    thread->movestogo = 1;
+    limits.time = atoi(argument + 9);
+    limits.movestogo = 1;
   }
 
   // match UCI "depth" command
   if ((argument = strstr(line, "depth"))) {
     // parse search depth
-    depth = atoi(argument + 6);
+    limits.depth = atoi(argument + 6);
   }
 
   if ((argument = strstr(line, "perft"))) {
-    depth = atoi(argument + 6);
-    perft_test(pos, thread, depth);
+    limits.depth = atoi(argument + 6);
+    perft_test(pos, thread, limits.depth);
   } else {
 
     // init start time
-    thread->starttime = get_time_ms();
+    limits.starttime = get_time_ms();
 
     // if time control is available
-    if (thread->time != -1) {
+    if (limits.time != -1) {
       // flag we're playing with time control
-      thread->timeset = 1;
+      limits.timeset = 1;
 
       // set up timing
-      thread->time /= thread->movestogo;
+      limits.time /= limits.movestogo;
 
       // lag compensation
-      thread->time -= 50;
+      limits.time -= 50;
 
       // if time is up
-      if (thread->time < 0) {
+      if (limits.time < 0) {
         // restore negative time to 0
-        thread->time = 0;
+        limits.time = 0;
 
         // inc lag compensation on 0+inc time controls
-        thread->inc -= 50;
+        limits.inc -= 50;
 
         // timing for 0 seconds left and no inc
-        if (thread->inc < 0)
-          thread->inc = 1;
+        if (limits.inc < 0)
+          limits.inc = 1;
       }
 
       // init stoptime
-      thread->stoptime =
-          thread->starttime + thread->time + thread->inc;
+      limits.stoptime =
+          limits.starttime + limits.time + limits.inc;
     }
 
     // if depth is not available
-    if (depth == -1)
+    if (limits.depth == -1)
       // set depth to 64 plies (takes ages to complete...)
-      depth = 64;
-    
-    thread->depth = depth;
+      limits.depth = 64;
 
     // search position
     search_position(pos, thread);

@@ -24,6 +24,7 @@
 position_t pos;
 thread_t threads;
 nnue_t nnue;
+limits_t limits;
 uint32_t random_state;
 
 // generate 32-bit pseudo legal numbers
@@ -123,8 +124,8 @@ void init_all() {
 
 int main(void) {
   pos.enpassant = no_sq;
-  threads.movestogo = 30;
-  threads.time = -1;
+  limits.movestogo = 30;
+  limits.time = -1;
   nnue.use_nnue = 1;
   random_state = 1804289383;
   tt.hash_entry = NULL;

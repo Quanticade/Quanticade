@@ -64,7 +64,7 @@ static void init_reductions() {
 
 void communicate(thread_t *thread) {
   // if time is up break here
-  if (thread->timeset == 1 && get_time_ms() > thread->stoptime) {
+  if (limits.timeset == 1 && get_time_ms() > limits.stoptime) {
     // tell engine to stop calculating
     thread->stopped = 1;
   }
@@ -676,7 +676,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
 static void print_thinking(const thread_t *thread, int score,
                            int current_depth) {
-  uint64_t time = get_time_ms() - thread->starttime;
+  uint64_t time = get_time_ms() - limits.starttime;
   uint64_t nps = (thread->nodes / fmax(time, 1)) * 1000;
 
   printf("info depth %d score ", current_depth);
@@ -718,7 +718,7 @@ void iterative_deepening(thread_t *thread) {
   int beta = infinity;
 
   // iterative deepening
-  for (thread->depth = 1; thread->depth <= 64; thread->depth++) {
+  for (thread->depth = 1; thread->depth <= limits.depth; thread->depth++) {
     // if time is up
     if (thread->stopped == 1) {
       // stop calculating and return best move so far

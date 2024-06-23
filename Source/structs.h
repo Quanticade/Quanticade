@@ -57,18 +57,22 @@ typedef struct PV {
 typedef struct searchinfo {
   PV_t pv;
   position_t pos;
-  uint64_t starttime;
-  uint64_t stoptime;
   uint64_t nodes;
-  int64_t time;
   int depth;
   int score;
-  int32_t inc;
-  uint16_t movestogo;
-  uint8_t timeset;
   uint8_t stopped;
   uint8_t quit;
 } thread_t;
+
+typedef struct limits {
+  uint64_t starttime;
+  uint64_t stoptime;
+  int64_t time;
+  int32_t inc;
+  int depth;
+  uint16_t movestogo;
+  uint8_t timeset;
+} limits_t;
 
 typedef struct searchthread {
   position_t *pos;
