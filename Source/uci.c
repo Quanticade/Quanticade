@@ -351,6 +351,8 @@ static inline void *parse_go(void *searchthread_info) {
   // reset time control
   reset_time_control(thread);
 
+  limits.depth = -1;
+
   // init argument
   char *argument = NULL;
 
