@@ -5,6 +5,9 @@
 
 #define version "0.6 Dev"
 
+#define MIN(A, B) ((A) < (B) ? (A) : (B))
+#define MAX(A, B) ((A) > (B) ? (A) : (B))
+
 extern limits_t limits;
 
 extern const char *square_to_coordinates[];

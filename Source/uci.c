@@ -13,7 +13,7 @@
 #include "enums.h"
 #include "movegen.h"
 #include "nnue/nnue.h"
-//do NOT move nnue.h above nnue/nnue.h"
+// do NOT move nnue.h above nnue/nnue.h"
 #include "nnue.h"
 #include "perft.h"
 #include "pvtable.h"
@@ -46,7 +46,8 @@ char promoted_pieces[] = {[Q] = 'q', [R] = 'r', [B] = 'b', [N] = 'n',
                           [q] = 'q', [r] = 'r', [b] = 'b', [n] = 'n'};
 
 //  parse user/GUI move string input (e.g. "e7e8q")
-static inline int parse_move(position_t *pos, thread_t *thread, char *move_string) {
+static inline int parse_move(position_t *pos, thread_t *thread,
+                             char *move_string) {
   // create move list instance
   moves move_list[1];
 
@@ -264,7 +265,8 @@ static inline void parse_fen(position_t *pos, char *fen) {
 }
 
 // parse UCI "position" command
-static inline void parse_position(position_t *pos, thread_t *thread, char *command) {
+static inline void parse_position(position_t *pos, thread_t *thread,
+                                  char *command) {
   // shift pointer to the right where next token begins
   command += 9;
 
@@ -333,22 +335,19 @@ static inline void parse_position(position_t *pos, thread_t *thread, char *comma
   }
 }
 
-static inline void *parse_go(void *searchthread_info) {
-  searchthreadinfo_t *sti = (searchthreadinfo_t *)searchthread_info;
-  position_t *pos = sti->pos;
-  thread_t *thread = sti->thread;
-  char *line = sti->line;
-
+static inline void time_control(position_t *pos, thread_t *thread, char *line) {
   // reset time control
   thread->stopped = 0;
   thread->quit = 0;
   thread->starttime = 0;
   thread->stoptime = 0;
   thread->timeset = 0;
+  memset(&limits, 0, sizeof(limits_t));
+
+  // Default to 1/30 of the time to spend
   limits.movestogo = 30;
-  limits.time = -1;
-  limits.depth = -1;
-  limits.inc = 0;
+
+  thread->starttime = get_time_ms();
 
   // init argument
   char *argument = NULL;
@@ -372,7 +371,6 @@ static inline void *parse_go(void *searchthread_info) {
       limits.time = atoi(argument + 6);
     }
   }
-
   // match UCI "movestogo" command
   if ((argument = strstr(line, "movestogo")))
     // parse number of moves to go
@@ -384,7 +382,6 @@ static inline void *parse_go(void *searchthread_info) {
     limits.time = atoi(argument + 9);
     limits.movestogo = 1;
   }
-
   // match UCI "depth" command
   if ((argument = strstr(line, "depth"))) {
     // parse search depth
@@ -395,46 +392,28 @@ static inline void *parse_go(void *searchthread_info) {
     limits.depth = atoi(argument + 6);
     perft_test(pos, thread, limits.depth);
   } else {
+    limits.depth = limits.depth == 0 ? max_ply : limits.depth;
 
-    // init start time
-    thread->starttime = get_time_ms();
-
-    // if time control is available
-    if (limits.time != -1) {
-      // flag we're playing with time control
+    if (limits.time) {
+      int64_t time_this_move = (limits.time / limits.movestogo) + limits.inc;
+      int64_t max_time = limits.time;
+      thread->stoptime = thread->starttime + MIN(max_time, time_this_move) - 50;
       thread->timeset = 1;
-
-      // set up timing
-      limits.time /= limits.movestogo;
-
-      // lag compensation
-      limits.time -= 50;
-
-      // if time is up
-      if (limits.time < 0) {
-        // restore negative time to 0
-        limits.time = 0;
-
-        // inc lag compensation on 0+inc time controls
-        limits.inc -= 50;
-
-        // timing for 0 seconds left and no inc
-        if (limits.inc < 0)
-          limits.inc = 1;
-      }
-
-      // init stoptime
-      thread->stoptime = thread->starttime + limits.time + limits.inc;
+    } else {
+      thread->timeset = 0;
     }
-
-    // if depth is not available
-    if (limits.depth == -1)
-      // set depth to 64 plies (takes ages to complete...)
-      limits.depth = 64;
-
-    // search position
-    search_position(pos, thread);
   }
+}
+
+static inline void *parse_go(void *searchthread_info) {
+  searchthreadinfo_t *sti = (searchthreadinfo_t *)searchthread_info;
+  position_t *pos = sti->pos;
+  thread_t *thread = sti->thread;
+  char *line = sti->line;
+
+  time_control(pos, thread, line);
+
+  search_position(pos, thread);
   return NULL;
 }
 

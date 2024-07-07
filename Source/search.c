@@ -46,9 +46,6 @@ const int mvv_lva[12][12] = {
     6. Unsorted moves
 */
 
-#define MIN(A, B) ((A) < (B) ? (A) : (B))
-#define MAX(A, B) ((A) > (B) ? (A) : (B))
-
 int reductions[32][32];
 
 // Initializes the late move reduction array
