@@ -13,6 +13,7 @@
 #include "enums.h"
 #include "movegen.h"
 #include "nnue/nnue.h"
+//do NOT move nnue.h above nnue/nnue.h"
 #include "nnue.h"
 #include "perft.h"
 #include "pvtable.h"
@@ -20,10 +21,10 @@
 #include "search.h"
 #include "structs.h"
 #include "utils.h"
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
 
 extern nnue_t nnue;
 
@@ -44,20 +45,8 @@ int char_pieces[] = {
 char promoted_pieces[] = {[Q] = 'q', [R] = 'r', [B] = 'b', [N] = 'n',
                           [q] = 'q', [r] = 'r', [b] = 'b', [n] = 'n'};
 
-static inline void reset_time_control(thread_t *thread) {
-  // reset timing
-  thread->quit = 0;
-  limits.movestogo = 30;
-  limits.time = -1;
-  limits.inc = 0;
-  limits.starttime = 0;
-  limits.stoptime = 0;
-  limits.timeset = 0;
-  thread->stopped = 0;
-}
-
 //  parse user/GUI move string input (e.g. "e7e8q")
-static inline int parse_move(position_t *pos, char *move_string) {
+static inline int parse_move(position_t *pos, thread_t *thread, char *move_string) {
   // create move list instance
   moves move_list[1];
 
@@ -66,7 +55,9 @@ static inline int parse_move(position_t *pos, char *move_string) {
 
   // parse source square
   int source_square = (move_string[0] - 'a') + (8 - (move_string[1] - '0')) * 8;
-
+  thread->starttime = 0;
+  thread->stoptime = 0;
+  thread->timeset = 0;
   // parse target square
   int target_square = (move_string[2] - 'a') + (8 - (move_string[3] - '0')) * 8;
 
@@ -273,8 +264,7 @@ static inline void parse_fen(position_t *pos, char *fen) {
 }
 
 // parse UCI "position" command
-static inline void parse_position(position_t *pos,
-                                  char *command) {
+static inline void parse_position(position_t *pos, thread_t *thread, char *command) {
   // shift pointer to the right where next token begins
   command += 9;
 
@@ -317,7 +307,7 @@ static inline void parse_position(position_t *pos,
     // loop over moves within a move string
     while (*current_char) {
       // parse next move
-      int move = parse_move(pos, current_char);
+      int move = parse_move(pos, thread, current_char);
 
       // if no more moves
       if (move == 0)
@@ -344,14 +334,21 @@ static inline void parse_position(position_t *pos,
 }
 
 static inline void *parse_go(void *searchthread_info) {
-  searchthreadinfo_t *sti = (searchthreadinfo_t*)searchthread_info;
+  searchthreadinfo_t *sti = (searchthreadinfo_t *)searchthread_info;
   position_t *pos = sti->pos;
   thread_t *thread = sti->thread;
   char *line = sti->line;
-  // reset time control
-  reset_time_control(thread);
 
+  // reset time control
+  thread->stopped = 0;
+  thread->quit = 0;
+  thread->starttime = 0;
+  thread->stoptime = 0;
+  thread->timeset = 0;
+  limits.movestogo = 30;
+  limits.time = -1;
   limits.depth = -1;
+  limits.inc = 0;
 
   // init argument
   char *argument = NULL;
@@ -367,8 +364,7 @@ static inline void *parse_go(void *searchthread_info) {
     if ((argument = strstr(line, "wtime"))) {
       limits.time = atoi(argument + 6);
     }
-  }
-  else {
+  } else {
     if ((argument = strstr(line, "binc"))) {
       limits.inc = atoi(argument + 5);
     }
@@ -401,12 +397,12 @@ static inline void *parse_go(void *searchthread_info) {
   } else {
 
     // init start time
-    limits.starttime = get_time_ms();
+    thread->starttime = get_time_ms();
 
     // if time control is available
     if (limits.time != -1) {
       // flag we're playing with time control
-      limits.timeset = 1;
+      thread->timeset = 1;
 
       // set up timing
       limits.time /= limits.movestogo;
@@ -428,8 +424,7 @@ static inline void *parse_go(void *searchthread_info) {
       }
 
       // init stoptime
-      limits.stoptime =
-          limits.starttime + limits.time + limits.inc;
+      thread->stoptime = thread->starttime + limits.time + limits.inc;
     }
 
     // if depth is not available
@@ -463,9 +458,9 @@ void uci_loop(position_t *pos, thread_t *thread) {
   int mb = 128;
 
   pthread_t search_thread;
-	searchthreadinfo_t sti;
-	sti.thread = thread;
-	sti.pos  = pos;
+  searchthreadinfo_t sti;
+  sti.thread = thread;
+  sti.pos = pos;
 
 // reset STDIN & STDOUT buffers
 #ifndef WIN64
@@ -480,7 +475,7 @@ void uci_loop(position_t *pos, thread_t *thread) {
   printf("Quanticade %s by DarkNeutrino\n", version);
 
   // Setup engine with start position as default
-  parse_position(pos, start_position);
+  parse_position(pos, thread, start_position);
 
   // main loop
   while (1) {
@@ -509,7 +504,7 @@ void uci_loop(position_t *pos, thread_t *thread) {
     // parse UCI "position" command
     else if (strncmp(input, "position", 8) == 0) {
       // call parse position function
-      parse_position(pos, input);
+      parse_position(pos, thread, input);
     }
     // parse UCI "ucinewgame" command
     else if (strncmp(input, "ucinewgame", 10) == 0) {
@@ -540,8 +535,7 @@ void uci_loop(position_t *pos, thread_t *thread) {
       printf("id author DarkNeutrino\n\n");
       printf("option name Hash type spin default 128 min 4 max %d\n", max_hash);
       printf("option name Use NNUE type check default true\n");
-      printf("option name EvalFile type string default %s\n",
-             nnue.nnue_file);
+      printf("option name EvalFile type string default %s\n", nnue.nnue_file);
       printf("option name Clear Hash type button\n");
       printf("option name SyzygyPath type string default <empty>\n");
       printf("uciok\n");
@@ -585,8 +579,7 @@ void uci_loop(position_t *pos, thread_t *thread) {
 
     else if (!strncmp(input, "setoption name Clear Hash", 25)) {
       clear_hash_table();
-    }
-    else if (!strncmp(input, "setoption name SyzygyPath value ", 32)) {
+    } else if (!strncmp(input, "setoption name SyzygyPath value ", 32)) {
       char *ptr = input + 32;
       tb_init(ptr);
       printf("info string set SyzygyPath to %s\n", ptr);
