@@ -20,6 +20,7 @@
 #include "pyrrhic/tbprobe.h"
 #include "search.h"
 #include "structs.h"
+#include "threads.h"
 #include "utils.h"
 #include <pthread.h>
 #include <stdio.h>
@@ -27,6 +28,10 @@
 #include <string.h>
 
 extern nnue_t nnue;
+
+const int default_hash_size = 1024;
+
+int thread_count = 1;
 
 #define start_position                                                         \
   "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 "
@@ -335,19 +340,20 @@ static inline void parse_position(position_t *pos, thread_t *thread,
   }
 }
 
-static inline void time_control(position_t *pos, thread_t *thread, char *line) {
+static inline void time_control(position_t *pos, thread_t *threads,
+                                char *line) {
   // reset time control
-  thread->stopped = 0;
-  thread->quit = 0;
-  thread->starttime = 0;
-  thread->stoptime = 0;
-  thread->timeset = 0;
+  threads->stopped = 0;
+  threads->quit = 0;
+  threads->starttime = 0;
+  threads->stoptime = 0;
+  threads->timeset = 0;
   memset(&limits, 0, sizeof(limits_t));
 
   // Default to 1/30 of the time to spend
   limits.movestogo = 30;
 
-  thread->starttime = get_time_ms();
+  threads[0].starttime = get_time_ms();
 
   // init argument
   char *argument = NULL;
@@ -390,17 +396,18 @@ static inline void time_control(position_t *pos, thread_t *thread, char *line) {
 
   if ((argument = strstr(line, "perft"))) {
     limits.depth = atoi(argument + 6);
-    perft_test(pos, thread, limits.depth);
+    perft_test(pos, threads, limits.depth);
   } else {
     limits.depth = limits.depth == 0 ? max_ply : limits.depth;
 
     if (limits.time) {
       int64_t time_this_move = (limits.time / limits.movestogo) + limits.inc;
       int64_t max_time = limits.time;
-      thread->stoptime = thread->starttime + MIN(max_time, time_this_move) - 50;
-      thread->timeset = 1;
+      threads->stoptime =
+          threads->starttime + MIN(max_time, time_this_move) - 50;
+      threads->timeset = 1;
     } else {
-      thread->timeset = 0;
+      threads->timeset = 0;
     }
   }
 }
@@ -408,12 +415,12 @@ static inline void time_control(position_t *pos, thread_t *thread, char *line) {
 static inline void *parse_go(void *searchthread_info) {
   searchthreadinfo_t *sti = (searchthreadinfo_t *)searchthread_info;
   position_t *pos = sti->pos;
-  thread_t *thread = sti->thread;
+  thread_t *threads = sti->threads;
   char *line = sti->line;
 
-  time_control(pos, thread, line);
+  time_control(pos, threads, line);
 
-  search_position(pos, thread);
+  search_position(pos, threads);
   return NULL;
 }
 
@@ -429,16 +436,13 @@ void print_move(int move) {
 }
 
 // main UCI loop
-void uci_loop(position_t *pos, thread_t *thread) {
+void uci_loop(position_t *pos, thread_t *threads) {
   // max hash MB
   int max_hash = 65536;
 
-  // default MB value
-  int mb = 128;
-
   pthread_t search_thread;
   searchthreadinfo_t sti;
-  sti.thread = thread;
+  sti.threads = threads;
   sti.pos = pos;
 
 // reset STDIN & STDOUT buffers
@@ -454,7 +458,7 @@ void uci_loop(position_t *pos, thread_t *thread) {
   printf("Quanticade %s by DarkNeutrino\n", version);
 
   // Setup engine with start position as default
-  parse_position(pos, thread, start_position);
+  parse_position(pos, threads, start_position);
 
   // main loop
   while (1) {
@@ -483,7 +487,7 @@ void uci_loop(position_t *pos, thread_t *thread) {
     // parse UCI "position" command
     else if (strncmp(input, "position", 8) == 0) {
       // call parse position function
-      parse_position(pos, thread, input);
+      parse_position(pos, threads, input);
     }
     // parse UCI "ucinewgame" command
     else if (strncmp(input, "ucinewgame", 10) == 0) {
@@ -498,7 +502,7 @@ void uci_loop(position_t *pos, thread_t *thread) {
     }
 
     else if (strncmp(input, "stop", 4) == 0) {
-      thread->stopped = 1;
+      threads->stopped = 1;
       pthread_join(search_thread, NULL);
       break;
     }
@@ -512,7 +516,10 @@ void uci_loop(position_t *pos, thread_t *thread) {
       // print engine info
       printf("id name Quanticade %s\n", version);
       printf("id author DarkNeutrino\n\n");
-      printf("option name Hash type spin default 128 min 4 max %d\n", max_hash);
+      printf("option name Hash type spin default %d min 4 max %d\n", default_hash_size,
+             max_hash);
+      printf("option name Threads type spin default %d min %d max %d\n", 1, 1,
+             256);
       printf("option name Use NNUE type check default true\n");
       printf("option name EvalFile type string default %s\n", nnue.nnue_file);
       printf("option name Clear Hash type button\n");
@@ -521,6 +528,7 @@ void uci_loop(position_t *pos, thread_t *thread) {
     }
 
     else if (!strncmp(input, "setoption name Hash value ", 26)) {
+      int mb = 0;
       // init MB
       sscanf(input, "%*s %*s %*s %*s %d", &mb);
 
@@ -546,6 +554,13 @@ void uci_loop(position_t *pos, thread_t *thread) {
       } else {
         nnue.use_nnue = 0;
       }
+    }
+
+    else if (!strncmp(input, "setoption name Threads value ", 29)) {
+      sscanf(input, "%*s %*s %*s %*s %d", &thread_count);
+      free(threads);
+      threads = init_threads(thread_count);
+      sti.threads = threads;
     }
 
     else if (!strncmp(input, "setoption name EvalFile value ", 30)) {

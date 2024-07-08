@@ -65,6 +65,7 @@ typedef struct searchinfo {
   uint8_t timeset;
   uint8_t stopped;
   uint8_t quit;
+  uint8_t index;
 } thread_t;
 
 typedef struct limits {
@@ -76,7 +77,7 @@ typedef struct limits {
 
 typedef struct searchthread {
   position_t *pos;
-  thread_t *thread;
+  thread_t *threads;
   char line[10000];
 } searchthreadinfo_t;
 

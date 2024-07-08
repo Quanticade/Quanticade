@@ -8,13 +8,20 @@
 #include "pyrrhic/tbprobe.h"
 #include "structs.h"
 #include "syzygy.h"
+#include "threads.h"
 #include "uci.h"
 #include "utils.h"
 #include <math.h>
+#include <pthread.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+extern volatile uint8_t ABORT_SIGNAL;
+
+extern int thread_count;
 
 const int full_depth_moves = 4;
 const int reduction_limit = 3;
@@ -671,10 +678,12 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
   return best_score;
 }
 
-static void print_thinking(const thread_t *thread, int score,
+static void print_thinking(thread_t *thread, int score,
                            int current_depth) {
+
+  uint64_t nodes = total_nodes(thread, thread_count); 
   uint64_t time = get_time_ms() - thread->starttime;
-  uint64_t nps = (thread->nodes / fmax(time, 1)) * 1000;
+  uint64_t nps = (nodes / fmax(time, 1)) * 1000;
 
   printf("info depth %d score ", current_depth);
 
@@ -685,7 +694,7 @@ static void print_thinking(const thread_t *thread, int score,
   } else {
     printf("cp %d ", score);
   }
-  printf("nodes %lld ", thread->nodes);
+  printf("nodes %lld ", nodes);
   printf("nps %lld ", nps);
   printf("hashfull %d ", hash_full());
   printf("time %lld ", time);
@@ -702,7 +711,8 @@ static void print_thinking(const thread_t *thread, int score,
   printf("\n");
 }
 
-void iterative_deepening(thread_t *thread) {
+void *iterative_deepening(void *thread_void) {
+  thread_t *thread = (thread_t *)thread_void;
   position_t *pos = &thread->pos;
 
   int pv_table_copy[max_ply][max_ply];
@@ -763,48 +773,57 @@ void iterative_deepening(thread_t *thread) {
       thread->depth--;
       continue;
     }
-
-    // if PV is available
-    if (thread->pv.pv_length[0]) {
-      // print search info
-      print_thinking(thread, thread->score, thread->depth);
+    if (thread->index == 0) {
+      // if PV is available
+      if (thread->pv.pv_length[0]) {
+        // print search info
+        print_thinking(thread, thread->score, thread->depth);
+      }
     }
 
     // set up the window for the next iteration
     alpha = thread->score - 50;
     beta = thread->score + 50;
   }
+  return NULL;
 }
 
 // search position for the best move
-void search_position(position_t *pos, thread_t *thread) {
-
-  // reset nodes counter
-  thread->nodes = 0;
-
-  // reset "time is up" flag
-  thread->stopped = 0;
-
-  // reset follow PV flags
-  thread->pv.follow_pv = 0;
-  thread->pv.score_pv = 0;
+void search_position(position_t *pos, thread_t *threads) {
+  pthread_t pthreads[thread_count];
+  for (int i = 0; i < thread_count; ++i) {
+    threads[i].nodes = 0;
+    threads[i].stopped = 0;
+    threads[i].pv.follow_pv = 0;
+    threads[i].pv.score_pv = 0;
+    memcpy(&threads[i].pos, pos, sizeof(position_t));
+  }
 
   tt.current_age++;
 
   // clear helper data structures for search
   memset(pos->killer_moves, 0, sizeof(pos->killer_moves));
   memset(pos->history_moves, 0, sizeof(pos->history_moves));
-  memset(thread->pv.pv_table, 0, sizeof(thread->pv.pv_table));
-  memset(thread->pv.pv_length, 0, sizeof(thread->pv.pv_length));
+  memset(threads->pv.pv_table, 0, sizeof(threads->pv.pv_table));
+  memset(threads->pv.pv_length, 0, sizeof(threads->pv.pv_length));
 
-  memcpy(&thread->pos, pos, sizeof(position_t));
+  memcpy(&threads->pos, pos, sizeof(position_t));
 
-  iterative_deepening(thread);
+  for (int thread_index = 1; thread_index < thread_count; ++thread_index) {
+    pthread_create(&pthreads[thread_index], NULL, &iterative_deepening,
+                   &threads[thread_index]);
+  }
+  iterative_deepening(&threads[0]);
+
+  for (int i = 1; i < thread_count; ++i) {
+    threads[i].stopped = 1;
+    pthread_join(pthreads[i], NULL);
+  }
 
   // print best move
   printf("bestmove ");
-  if (thread->pv.pv_table[0][0]) {
-    print_move(thread->pv.pv_table[0][0]);
+  if (threads->pv.pv_table[0][0]) {
+    print_move(threads->pv.pv_table[0][0]);
   } else {
     printf("(none)");
   }

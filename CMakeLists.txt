@@ -26,7 +26,7 @@ else()
     message(STATUS "Skipping optimizations. No suitable platform found")
 endif()
 #Not default optimizations. Enable for slight boost on supported systems. Aprox 64ms. From 2828 to 2764 on average.
-#add_compile_options(-DUSE_AVX512 -mavx512f)
+add_compile_options(-DUSE_AVX512 -mavx512f)
 
 add_subdirectory(Source/nnue)
 add_subdirectory(Source/pyrrhic)
@@ -52,6 +52,7 @@ set(QUANTICADE_SOURCES
     "Source/pvtable.c"
     "Source/search.c"
     "Source/syzygy.c"
+    "Source/threads.c"
 )
 
 set(QUANTICADE_HEADERS
@@ -69,6 +70,7 @@ set(QUANTICADE_HEADERS
     "Source/nnue.h"
     "Source/nnue_consts.h"
     "Source/syzygy.h"
+    "Source/threads.h"
 )
 
 target_sources(Quanticade

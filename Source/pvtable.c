@@ -75,19 +75,18 @@ void init_hash_table(uint64_t mb) {
   tt.num_of_entries = hash_size / sizeof(tt_entry_t);
 
   // free hash table if not empty
-  if (tt.hash_entry != NULL) {
+  if (tt.mem != NULL) {
     printf("    Clearing hash memory...\n");
 
     // free hash table dynamic memory
-    free(tt.hash_entry);
+    free(tt.mem);
   }
 
   // allocate memory
-  tt.hash_entry =
-      (tt_entry_t *)malloc(tt.num_of_entries * sizeof(tt_entry_t));
+  tt.mem = malloc(tt.num_of_entries * sizeof(tt_t) + 64 - 1);
 
   // if allocation has failed
-  if (tt.hash_entry == NULL) {
+  if (tt.mem == NULL) {
     printf("    Couldn't allocate memory for hash table, trying with half\n");
 
     // try to allocate with half size
@@ -96,6 +95,7 @@ void init_hash_table(uint64_t mb) {
 
   // if allocation succeeded
   else {
+    tt.hash_entry = (tt_entry_t *)(((uintptr_t)tt.mem + 64 - 1) & ~(64 - 1));
     // clear hash table
     clear_hash_table();
   }
@@ -154,8 +154,7 @@ void write_hash_entry(position_t *pos, int score, int depth,
       &tt.hash_entry[pos->hash_key % tt.num_of_entries];
 
   if (!(hash_entry->hash_key == pos->hash_key ||
-        (hash_entry->age < tt.current_age ||
-         hash_entry->depth <= depth))) {
+        (hash_entry->depth <= depth) || hash_entry->flag == hash_flag_exact)) {
     return;
   }
 

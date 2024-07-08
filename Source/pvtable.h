@@ -2,10 +2,12 @@
 #define PVTABLE_H
 
 #include "structs.h"
+#include <sched.h>
 
 typedef struct tt {
+  void* mem;
   tt_entry_t *hash_entry;
-  uint32_t num_of_entries;
+  size_t num_of_entries;
   uint16_t current_age;
 } tt_t;
 

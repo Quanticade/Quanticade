@@ -15,17 +15,22 @@
 #include "attacks.h"
 #include "enums.h"
 #include "nnue/nnue.h"
+//do NOT move nnue.h above nnue/nnue.h
 #include "nnue.h"
 #include "pvtable.h"
 #include "structs.h"
+#include "threads.h"
 #include "uci.h"
 
 #define DEFAULT_NNUE "nn-62ef826d1a6d.nnue"
 position_t pos;
-thread_t threads;
+thread_t *threads;
 nnue_t nnue;
 limits_t limits;
 uint32_t random_state;
+
+extern const int default_hash_size;
+extern int thread_count;
 
 // generate 32-bit pseudo legal numbers
 uint32_t get_random_U32_number() {
@@ -106,8 +111,8 @@ void init_all() {
   // init evaluation masks
   init_evaluation_masks();
 
-  // init hash table with default 128 MB
-  init_hash_table(128);
+  // init hash table with default size
+  init_hash_table(default_hash_size);
 
   if (nnue.use_nnue) {
     nnue_init(DEFAULT_NNUE);
@@ -123,6 +128,7 @@ void init_all() {
 \**********************************/
 
 int main(void) {
+  threads = init_threads(thread_count);
   pos.enpassant = no_sq;
   limits.movestogo = 30;
   limits.time = -1;
@@ -137,7 +143,7 @@ int main(void) {
   init_all();
 
   // connect to GUI
-  uci_loop(&pos, &threads);
+  uci_loop(&pos, threads);
 
   // free hash table memory on exit
   free(tt.hash_entry);
