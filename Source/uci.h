@@ -3,7 +3,7 @@
 
 #include "structs.h"
 
-#define version "0.6 Dev"
+#define version "0.6"
 
 #define MIN(A, B) ((A) < (B) ? (A) : (B))
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
