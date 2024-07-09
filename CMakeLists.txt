@@ -26,7 +26,7 @@ else()
     message(STATUS "Skipping optimizations. No suitable platform found")
 endif()
 #Not default optimizations. Enable for slight boost on supported systems. Aprox 64ms. From 2828 to 2764 on average.
-add_compile_options(-DUSE_AVX512 -mavx512f)
+#add_compile_options(-DUSE_AVX512 -mavx512f)
 
 add_subdirectory(Source/nnue)
 add_subdirectory(Source/pyrrhic)
