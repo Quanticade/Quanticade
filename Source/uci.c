@@ -575,7 +575,7 @@ void uci_loop(position_t *pos, thread_t *threads) {
       clear_hash_table();
     } else if (!strncmp(input, "setoption name SyzygyPath value ", 32)) {
       char *ptr = input + 32;
-      tb_init(ptr);
+      //tb_init(ptr);
       printf("info string set SyzygyPath to %s\n", ptr);
     }
   }
