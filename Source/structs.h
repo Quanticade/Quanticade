@@ -6,11 +6,11 @@
 
 typedef struct tt_entry {
   uint64_t hash_key; // "almost" unique chess position identifier
-  int depth;         // current search depth
-  int flag;          // flag the type of node (fail-low/fail-high/PV)
   int score;         // score (alpha/beta/PV)
   int move;
-  uint16_t age;
+  uint8_t age;
+  uint8_t depth; // current search depth
+  uint8_t flag;  // flag the type of node (fail-low/fail-high/PV)
 } tt_entry_t;
 
 typedef struct move {
@@ -60,7 +60,7 @@ typedef struct searchinfo {
   uint64_t nodes;
   uint64_t starttime;
   uint64_t stoptime;
-  int depth;
+  uint8_t depth;
   int score;
   uint8_t timeset;
   uint8_t stopped;
@@ -71,7 +71,7 @@ typedef struct searchinfo {
 typedef struct limits {
   int64_t time;
   int32_t inc;
-  int depth;
+  uint8_t depth;
   uint16_t movestogo;
 } limits_t;
 
