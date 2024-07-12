@@ -56,8 +56,8 @@ const int mvv_lva[12][12] = {
 int reductions[32][32];
 
 // Initializes the late move reduction array
-static void init_reductions() __attribute__((constructor));
-static void init_reductions() {
+static void init_reductions(void) __attribute__((constructor));
+static void init_reductions(void) {
 
   for (int depth = 0; depth < 32; ++depth) {
     for (int moves = 0; moves < 32; ++moves) {

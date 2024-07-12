@@ -23,8 +23,8 @@ extern uint64_t white_passed_masks[64];
 extern uint64_t black_passed_masks[64];
 
 int is_square_attacked(position_t *pos, int square, int side);
-void init_sliders_attacks();
-void init_leapers_attacks();
+void init_sliders_attacks(void);
+void init_leapers_attacks(void);
 
 // get bishop attacks
 inline uint64_t get_bishop_attacks(int square, uint64_t occupancy) {

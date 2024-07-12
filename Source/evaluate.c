@@ -152,7 +152,7 @@ static inline uint64_t set_file_rank_mask(int file_number, int rank_number) {
 }
 
 // init evaluation masks
-void init_evaluation_masks() {
+void init_evaluation_masks(void) {
   /******** Init file masks ********/
 
   // loop over ranks

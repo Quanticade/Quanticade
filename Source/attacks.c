@@ -316,7 +316,7 @@ uint64_t rook_attacks_on_the_fly(int square, uint64_t block) {
 }
 
 // init leaper pieces attacks
-void init_leapers_attacks() {
+void init_leapers_attacks(void) {
   // loop over 64 board squares
   for (int square = 0; square < 64; square++) {
     // init pawn attacks
@@ -355,7 +355,7 @@ uint64_t set_occupancy(int index, int bits_in_mask, uint64_t attack_mask) {
 }
 
 // init slider piece's attack tables
-void init_sliders_attacks() {
+void init_sliders_attacks(void) {
   // loop over 64 board squares
   for (int square = 0; square < 64; square++) {
     // init bishop & rook masks

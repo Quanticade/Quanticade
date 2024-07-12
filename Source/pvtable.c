@@ -8,7 +8,7 @@
 
 tt_t tt;
 
-int hash_full() {
+int hash_full(void) {
   uint64_t used = 0;
   int samples = 1000;
 
@@ -60,7 +60,7 @@ uint64_t generate_hash_key(position_t *pos) {
   return final_key;
 }
 
-void clear_hash_table() {
+void clear_hash_table(void) {
   memset(tt.hash_entry, 0,
          sizeof(tt_entry_t) * tt.num_of_entries);
   tt.current_age = 0;

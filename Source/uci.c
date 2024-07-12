@@ -436,7 +436,9 @@ void print_move(int move) {
 }
 
 // main UCI loop
-void uci_loop(position_t *pos, thread_t *threads) {
+void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
+  (void)argc;
+  (void)argv;
   // max hash MB
   int max_hash = 65536;
 

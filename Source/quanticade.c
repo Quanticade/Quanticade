@@ -33,7 +33,7 @@ extern const int default_hash_size;
 extern int thread_count;
 
 // generate 32-bit pseudo legal numbers
-uint32_t get_random_U32_number() {
+uint32_t get_random_U32_number(void) {
   // get current state
   uint32_t number = random_state;
 
@@ -50,7 +50,7 @@ uint32_t get_random_U32_number() {
 }
 
 // generate 64-bit pseudo legal numbers
-uint64_t get_random_uint64_number() {
+uint64_t get_random_uint64_number(void) {
   // define 4 random numbers
   uint64_t n1, n2, n3, n4;
 
@@ -65,13 +65,13 @@ uint64_t get_random_uint64_number() {
 }
 
 // generate magic number candidate
-uint64_t generate_magic_number() {
+uint64_t generate_magic_number(void) {
   return get_random_uint64_number() & get_random_uint64_number() &
          get_random_uint64_number();
 }
 
 // init random hash keys (zobrist keys)
-static inline void init_random_keys() {
+static inline void init_random_keys(void) {
   // update pseudo random number state
   random_state = 1804289383;
 
@@ -98,7 +98,7 @@ static inline void init_random_keys() {
 }
 
 // init all variables
-void init_all() {
+void init_all(void) {
   // init leaper pieces attacks
   init_leapers_attacks();
 
@@ -127,7 +127,7 @@ void init_all() {
  ==================================
 \**********************************/
 
-int main(void) {
+int main(int argc, char *argv[]) {
   threads = init_threads(thread_count);
   pos.enpassant = no_sq;
   limits.movestogo = 30;
@@ -143,7 +143,7 @@ int main(void) {
   init_all();
 
   // connect to GUI
-  uci_loop(&pos, threads);
+  uci_loop(&pos, threads, argc, argv);
 
   // free hash table memory on exit
   free(tt.hash_entry);

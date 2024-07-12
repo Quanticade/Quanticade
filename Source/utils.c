@@ -13,7 +13,7 @@
 
 // Misc functions. Some of them from VICE by Richard Allbert
 
-uint64_t get_time_ms() {
+uint64_t get_time_ms(void) {
 #ifdef WIN64
   return GetTickCount();
 #else
@@ -23,7 +23,7 @@ uint64_t get_time_ms() {
 #endif
 }
 
-int input_waiting() {
+int input_waiting(void) {
 #ifndef WIN32
   fd_set readfds;
   struct timeval tv;

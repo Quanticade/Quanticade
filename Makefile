@@ -3,13 +3,14 @@ _THIS       := $(realpath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 _ROOT       := $(_THIS)
 EVALFILE     = $(NETWORK_NAME)
 TARGET      := Quanticade
-WARNINGS     = -Wall -Wcast-qual -Wextra -Wdouble-promotion -Wformat=2 -Wnull-dereference -Wlogical-op -Wundef -pedantic
-CFLAGS    := -funroll-loops -fomit-frame-pointer -O3 -flto -fno-exceptions -lm -DNDEBUG $(WARNINGS)
+WARNINGS     = -Wall -Werror -Wextra -Wno-error=vla -Wpedantic -Wno-unused-command-line-argument
+CFLAGS       := -funroll-loops -fomit-frame-pointer -Ofast -flto -fno-exceptions -DIS_64BIT -DNDEBUG $(WARNINGS)
 NATIVE       = -march=native
 AVX2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi
 BMI2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi -mbmi2
-#AVX512FLAGS  = -DUSE_AVX512 -DUSE_SIMD -mavx512f -mavx512bw
-AVX512FLAGS   := -DUSE_SSE41 -msse4.1 -msse4.2 -DUSE_SSSE3 -mssse3 -DUSE_SSE2 -msse2 -DUSE_SSE -msse -DUSE_AVX2 -mavx2
+AVX512FLAGS  = -DUSE_AVX512 -DUSE_SIMD -mavx512f -mavx512bw
+NEONFLAGS    = -DUSE_NEON -flax-vector-conversions
+#AVX512FLAGS   := -DUSE_SSE41 -msse4.1 -msse4.2 -DUSE_SSSE3 -mssse3 -DUSE_SSE2 -msse2 -DUSE_SSE -msse -DUSE_AVX2 -mavx2
 
 # engine name
 NAME        := Quanticade
@@ -18,7 +19,7 @@ TMPDIR = .tmp
 
 # Detect Clang
 ifeq ($(CC), clang)
-CFLAGS = -funroll-loops -Ofast -flto -fuse-ld=lld -fno-exceptions -lm -DNDEBUG
+	CFLAGS = -funroll-loops -Ofast -flto -fno-exceptions -DIS_64BIT -DNDEBUG $(WARNINGS)
 endif
 
 # Detect Windows
@@ -39,7 +40,7 @@ ifeq ($(OS), Windows_NT)
 	SUFFIX   := .exe
 	CFLAGS += -static
 else
-	FLAGS    = -pthread
+	FLAGS    = -pthread -lm
 	SUFFIX  :=
 	uname_S := $(shell uname -s)
 endif
@@ -67,6 +68,11 @@ ifeq ($(ARCH_DETECTED),)
 		ARCH_DETECTED = AVX2
 	endif
 endif
+ifeq ($(ARCH_DETECTED),)
+	ifneq ($(findstring __aarch64__, $(PROPERTIES)),)
+		ARCH_DETECTED = NEON
+	endif
+endif
 
 # Remove native for builds
 ifdef build
@@ -80,6 +86,9 @@ else
 	endif
 	ifeq ($(ARCH_DETECTED), AVX2)
 		CFLAGS += $(AVX2FLAGS)
+	endif
+	ifeq ($(ARCH_DETECTED), NEON)
+		CFLAGS += $(NEONFLAGS)
 	endif
 endif
 
@@ -95,6 +104,9 @@ ifeq ($(build), native)
 	endif
 	ifeq ($(ARCH_DETECTED), AVX2)
 		CFLAGS += $(AVX2FLAGS)
+	endif
+	ifeq ($(ARCH_DETECTED), NEON)
+		CFLAGS += $(NEONFLAGS)
 	endif
 endif
 
@@ -141,6 +153,9 @@ ifeq ($(build), debug)
 	ifeq ($(ARCH_DETECTED), AVX2)
 		CFLAGS += $(AVX2FLAGS)
 	endif
+	ifeq ($(ARCH_DETECTED), NEON)
+		CFLAGS += $(NEONFLAGS)
+	endif
 endif
 
 # Get what pgo flags we should be using
@@ -170,7 +185,7 @@ clean:
 	@rm -rf $(TMPDIR) *.o *.d $(TARGET)
 
 $(TARGET): $(OBJECTS)
-	$(CC) $(CFLAGS) $(NATIVE) -MMD -MP -o $(EXE) $^ $(FLAGS)
+	$(CC) $(CFLAGS) $(NATIVE) -MMD -MP -o $(EXE) $^ $(FLAGS) $(LDFLAGS)
 
 $(TMPDIR)/%.o: %.c | $(TMPDIR)
 	$(CC) $(CFLAGS) $(NATIVE) -MMD -MP -c $< -o $@ $(FLAGS)
