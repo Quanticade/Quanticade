@@ -522,11 +522,8 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
         search_position(pos, threads);
         total_nodes += threads->nodes;
       }
-      printf("\n===========================\n");
       uint64_t total_time = get_time_ms() - start_time;
-      printf("Total time (ms) : %d\n", total_time);
-      printf("Nodes searched  : %d\n", total_nodes);
-      printf("Nodes/second    : %lld\n", (total_nodes / (total_time + 1) * 1000));
+      printf("\n%lld nodes %d nps\n", total_nodes, (total_nodes / (total_time + 1) * 1000));
       return;
     }
   }
