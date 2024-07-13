@@ -4,6 +4,7 @@
 #include "structs.h"
 #include "uci.h"
 #include "utils.h"
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -98,6 +99,7 @@ void perft_test(position_t* pos, thread_t *searchinfo, int depth) {
 
   // print results
   printf("\n    Depth: %d\n", depth);
+  uint64_t nps = (searchinfo->nodes / fmax(get_time_ms() - start, 1)) * 1000;
 #ifdef WIN64
   printf("    Nodes: %llu\n", searchinfo->nodes);
   printf("     Time: %llu\n\n", get_time_ms() - start);
@@ -105,6 +107,6 @@ void perft_test(position_t* pos, thread_t *searchinfo, int depth) {
 #else
   printf("    Nodes: %lu\n", searchinfo->nodes);
   printf("     Time: %lu\n\n", get_time_ms() - start);
-  printf("      NPS: %lu\n\n", searchinfo->nodes / ((get_time_ms() - start) / 1000));
+  printf("      NPS: %lu\n\n", nps);
 #endif
 }
