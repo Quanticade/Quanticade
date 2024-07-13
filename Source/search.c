@@ -807,12 +807,11 @@ void search_position(position_t *pos, thread_t *threads) {
   memset(threads->pv.pv_table, 0, sizeof(threads->pv.pv_table));
   memset(threads->pv.pv_length, 0, sizeof(threads->pv.pv_length));
 
-  memcpy(&threads->pos, pos, sizeof(position_t));
-
   for (int thread_index = 1; thread_index < thread_count; ++thread_index) {
     pthread_create(&pthreads[thread_index], NULL, &iterative_deepening,
                    &threads[thread_index]);
   }
+  
   iterative_deepening(&threads[0]);
 
   for (int i = 1; i < thread_count; ++i) {
