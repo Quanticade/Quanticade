@@ -401,8 +401,8 @@ static inline void time_control(position_t *pos, thread_t *threads,
   threads->timeset = 0;
   memset(&limits, 0, sizeof(limits_t));
 
-  // Default to 1/30 of the time to spend
-  limits.movestogo = 30;
+  // Default to 1/20 of the time to spend
+  limits.movestogo = 20;
 
   threads[0].starttime = get_time_ms();
 
