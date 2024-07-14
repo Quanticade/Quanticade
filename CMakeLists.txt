@@ -80,4 +80,4 @@ target_sources(Quanticade
         ${QUANTICADE_HEADERS}
 )
 
-configure_file(${PROJECT_SOURCE_DIR}/nnue_binary/nn-62ef826d1a6d.nnue ${CMAKE_BINARY_DIR}/nn-62ef826d1a6d.nnue COPYONLY)
+configure_file(${PROJECT_SOURCE_DIR}/nn-62ef826d1a6d.nnue ${CMAKE_BINARY_DIR}/nn-62ef826d1a6d.nnue COPYONLY)

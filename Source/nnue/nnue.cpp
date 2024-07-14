@@ -1,3 +1,4 @@
+#include "incbin.h"
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -59,6 +60,8 @@ INLINE int16x8_t vmovl_high_s16(int8x16_t v) {
   return vmovl_s16(vget_high_s16(v));
 }
 #endif
+
+INCBIN(EVAL, EVALFILE);
 
 enum {
   PS_W_PAWN = 1,
@@ -386,8 +389,8 @@ INLINE int _mm_movemask_pi8(__m64 v) {
 }
 #elif defined(USE_NEON)
 INLINE int neon_movemask(uint8x16_t v) {
-  const uint8_t __attribute__((aligned(16)))
-  powers[16] = {1, 2, 4, 8, 16, 32, 64, 128, 1, 2, 4, 8, 16, 32, 64, 128};
+  const uint8_t __attribute__((aligned(16))) powers[16] = {
+      1, 2, 4, 8, 16, 32, 64, 128, 1, 2, 4, 8, 16, 32, 64, 128};
   const uint8x16_t kPowers = vld1q_u8(powers);
 
   uint64x2_t mask = vpaddlq_u32(vpaddlq_u16(vpaddlq_u8(vandq_u8(v, kPowers))));
@@ -1270,16 +1273,20 @@ static void init_weights(const void *evalData) {
 
 static bool load_eval_file(const char *evalFile) {
   const void *evalData;
-  map_t mapping;
+  map_t mapping = 0;
   size_t size;
 
   {
     FD fd = open_file(evalFile);
-    if (fd == FD_ERR)
-      return false;
-    evalData = map_file(fd, &mapping);
-    size = file_size(fd);
-    close_file(fd);
+    if (fd != FD_ERR) {
+      evalData = map_file(fd, &mapping);
+      size = file_size(fd);
+      close_file(fd);
+    }
+    else {
+      evalData = gEVALData;
+      size = gEVALSize;
+    }
   }
 
   bool success = verify_net(evalData, size);
