@@ -34,6 +34,9 @@
 #elif defined(USE_MMX)
 #include <mmintrin.h>
 
+#elif defined(USE_AVX512)
+#include <immintrin.h>
+
 #elif defined(USE_NEON)
 #include <arm_neon.h>
 #endif
