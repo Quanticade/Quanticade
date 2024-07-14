@@ -694,10 +694,10 @@ static void print_thinking(thread_t *thread, int score,
   } else {
     printf("cp %d ", score);
   }
-  printf("nodes %lld ", nodes);
-  printf("nps %lld ", nps);
+  printf("nodes %lu ", nodes);
+  printf("nps %lu ", nps);
   printf("hashfull %d ", hash_full());
-  printf("time %lld ", time);
+  printf("time %lu ", time);
   printf("pv ");
 
   // loop over the moves within a PV line
