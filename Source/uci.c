@@ -29,7 +29,7 @@
 
 extern nnue_t nnue;
 
-const int default_hash_size = 1024;
+const int default_hash_size = 16;
 
 int thread_count = 1;
 
