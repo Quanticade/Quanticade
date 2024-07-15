@@ -135,7 +135,6 @@ int main(int argc, char *argv[]) {
   nnue.use_nnue = 1;
   random_state = 1804289383;
   tt.hash_entry = NULL;
-  tt.current_age = 0;
   tt.num_of_entries = 0;
   nnue.nnue_file = calloc(21, 1);
   strcpy(nnue.nnue_file, DEFAULT_NNUE);
