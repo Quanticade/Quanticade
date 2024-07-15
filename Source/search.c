@@ -326,8 +326,8 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
   void update_history_moves(position_t *pos, int best_move, uint8_t depth) {
     int piece = get_move_piece(best_move);
     int target = get_move_target(best_move);
-    int clamped_bonus = clamp(depth * depth, 160000, -160000);
-    pos->history_moves[piece][target] += clamped_bonus - pos->history_moves[piece][target] * abs(clamped_bonus) / 160000;
+    int clamped_bonus = clamp(depth * depth, -16000, 16000);
+    pos->history_moves[piece][target] += clamped_bonus - pos->history_moves[piece][target] * abs(clamped_bonus) / 16000;
   }
 
   // negamax alpha beta search
