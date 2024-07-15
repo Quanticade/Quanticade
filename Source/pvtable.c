@@ -63,7 +63,6 @@ uint64_t generate_hash_key(position_t *pos) {
 void clear_hash_table(void) {
   memset(tt.hash_entry, 0,
          sizeof(tt_entry_t) * tt.num_of_entries);
-  tt.current_age = 0;
 }
 
 // dynamically allocate memory for hash table
@@ -171,5 +170,4 @@ void write_hash_entry(position_t *pos, int score, int depth,
   hash_entry->flag = hash_flag;
   hash_entry->depth = depth;
   hash_entry->move = move;
-  hash_entry->age = tt.current_age;
 }

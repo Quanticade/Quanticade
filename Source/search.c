@@ -799,8 +799,6 @@ void search_position(position_t *pos, thread_t *threads) {
     memcpy(&threads[i].pos, pos, sizeof(position_t));
   }
 
-  tt.current_age++;
-
   // clear helper data structures for search
   memset(pos->killer_moves, 0, sizeof(pos->killer_moves));
   memset(pos->history_moves, 0, sizeof(pos->history_moves));
