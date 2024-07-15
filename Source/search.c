@@ -217,8 +217,6 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
   // Check on time
   communicate(thread);
 
-  thread->nodes++;
-
   // we are too deep, hence there's an overflow of arrays relying on max ply
   // constant
   if (pos->ply > max_ply - 1)
@@ -280,6 +278,8 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
       continue;
     }
 
+    thread->nodes++;
+
     // score current move
     score = -quiescence(pos, thread, -beta, -alpha);
 
@@ -312,33 +312,33 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
       // PV node (position)
       alpha = score;
     }
+    }
+
+    // node (position) fails low
+    return best_score;
   }
 
-  // node (position) fails low
-  return best_score;
-}
+  // negamax alpha beta search
+  static inline int negamax(position_t * pos, thread_t * thread, int alpha,
+                            int beta, int depth, uint8_t do_null_pruning) {
+    // init PV length
+    thread->pv.pv_length[pos->ply] = pos->ply;
 
-// negamax alpha beta search
-static inline int negamax(position_t *pos, thread_t *thread, int alpha,
-                          int beta, int depth, uint8_t do_null_pruning) {
-  // init PV length
-  thread->pv.pv_length[pos->ply] = pos->ply;
+    // variable to store current move's score (from the static evaluation
+    // perspective)
+    int score = -infinity;
 
-  // variable to store current move's score (from the static evaluation
-  // perspective)
-  int score = -infinity;
+    int tt_move = 0;
 
-  int tt_move = 0;
+    // define hash flag
+    int hash_flag = hash_flag_alpha;
 
-  // define hash flag
-  int hash_flag = hash_flag_alpha;
-
-  if (pos->ply) {
-    // if position repetition occurs
-    if (is_repetition(pos) || pos->fifty >= 100) {
-      // return draw score
-      return 0;
-    }
+    if (pos->ply) {
+      // if position repetition occurs
+      if (is_repetition(pos) || pos->fifty >= 100) {
+        // return draw score
+        return 0;
+      }
 #if 0
     if ((tbresult = quant_probe_wdl(pos)) != TB_RESULT_FAILED) {
       val = tbresult == TB_LOSS  ? -infinity + max_ply + pos->ply + 1
@@ -347,78 +347,197 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
       return val;
     }
 #endif
-    // we are too deep, hence there's an overflow of arrays relying on max ply
-    // constant
-    if (pos->ply > max_ply - 1) {
-      // evaluate position
-      return evaluate(pos);
-    }
-  }
-
-  // a hack by Pedro Castro to figure out whether the current node is PV node
-  // or not
-  int pv_node = beta - alpha > 1;
-
-  // read hash entry if we're not in a root ply and hash entry is available
-  // and current node is not a PV node
-  if (pos->ply &&
-      (score = read_hash_entry(pos, alpha, &tt_move, beta, depth)) !=
-          no_hash_entry &&
-      pv_node == 0) {
-    // if the move has already been searched (hence has a value)
-    // we just return the score for this move without searching it
-    return score;
-  }
-
-  // Check on time
-  communicate(thread);
-
-  int r;
-
-  // is king in check
-  int in_check = is_square_attacked(pos,
-                                    (pos->side == white)
-                                        ? __builtin_ctzll(pos->bitboards[K])
-                                        : __builtin_ctzll(pos->bitboards[k]),
-                                    pos->side ^ 1);
-
-  // increase search depth if the king has been exposed into a check
-  if (in_check) {
-    depth++;
-  }
-
-  // recursion escape condition
-  if (depth == 0) {
-    // run quiescence search
-    return quiescence(pos, thread, alpha, beta);
-  }
-
-  // increment nodes count
-  thread->nodes++;
-
-  // legal moves counter
-  int legal_moves = 0;
-
-  int static_eval = evaluate(pos);
-  if (!in_check) {
-    // evaluation pruning / static null move pruning
-    if (depth < 3 && !pv_node && abs(beta - 1) > -infinity + 100) {
-      // get static evaluation score
-
-      // define evaluation margin
-      int eval_margin = 120 * depth;
-
-      // evaluation margin substracted from static evaluation score fails high
-      if (static_eval - eval_margin >= beta)
-        // evaluation margin substracted from static evaluation score
-        return static_eval - eval_margin;
+      // we are too deep, hence there's an overflow of arrays relying on max ply
+      // constant
+      if (pos->ply > max_ply - 1) {
+        // evaluate position
+        return evaluate(pos);
+      }
     }
 
-    // null move pruning
-    if (do_null_pruning && depth >= 3 && pos->ply) {
+    // a hack by Pedro Castro to figure out whether the current node is PV node
+    // or not
+    int pv_node = beta - alpha > 1;
+
+    // read hash entry if we're not in a root ply and hash entry is available
+    // and current node is not a PV node
+    if (pos->ply &&
+        (score = read_hash_entry(pos, alpha, &tt_move, beta, depth)) !=
+            no_hash_entry &&
+        pv_node == 0) {
+      // if the move has already been searched (hence has a value)
+      // we just return the score for this move without searching it
+      return score;
+    }
+
+    // Check on time
+    communicate(thread);
+
+    int r;
+
+    // is king in check
+    int in_check = is_square_attacked(pos,
+                                      (pos->side == white)
+                                          ? __builtin_ctzll(pos->bitboards[K])
+                                          : __builtin_ctzll(pos->bitboards[k]),
+                                      pos->side ^ 1);
+
+    // increase search depth if the king has been exposed into a check
+    if (in_check) {
+      depth++;
+    }
+
+    // recursion escape condition
+    if (depth == 0) {
+      // run quiescence search
+      return quiescence(pos, thread, alpha, beta);
+    }
+
+    // legal moves counter
+    int legal_moves = 0;
+
+    int static_eval = evaluate(pos);
+    if (!in_check) {
+      // evaluation pruning / static null move pruning
+      if (depth < 3 && !pv_node && abs(beta - 1) > -infinity + 100) {
+        // get static evaluation score
+
+        // define evaluation margin
+        int eval_margin = 120 * depth;
+
+        // evaluation margin substracted from static evaluation score fails high
+        if (static_eval - eval_margin >= beta)
+          // evaluation margin substracted from static evaluation score
+          return static_eval - eval_margin;
+      }
+
+      // null move pruning
+      if (do_null_pruning && depth >= 3 && pos->ply) {
+        // preserve board state
+        copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
+                   pos->castle, pos->fifty, pos->hash_key);
+
+        // increment ply
+        pos->ply++;
+
+        // increment repetition index & store hash key
+        pos->repetition_index++;
+        pos->repetition_table[pos->repetition_index] = pos->hash_key;
+
+        // hash enpassant if available
+        if (pos->enpassant != no_sq)
+          pos->hash_key ^= pos->keys.enpassant_keys[pos->enpassant];
+
+        // reset enpassant capture square
+        pos->enpassant = no_sq;
+
+        // switch the side, literally giving opponent an extra move to make
+        pos->side ^= 1;
+
+        // hash the side
+        pos->hash_key ^= pos->keys.side_key;
+
+        /* search moves with reduced depth to find beta cutoffs
+           depth - 1 - R where R is a reduction limit */
+        score = -negamax(pos, thread, -beta, -beta + 1, depth - 1 - 2, 0);
+
+        // decrement ply
+        pos->ply--;
+
+        // decrement repetition index
+        pos->repetition_index--;
+
+        // restore board state
+        restore_board(pos->bitboards, pos->occupancies, pos->side,
+                      pos->enpassant, pos->castle, pos->fifty, pos->hash_key);
+
+        // reutrn 0 if time is up
+        if (thread->stopped == 1) {
+          return 0;
+        }
+
+        // fail-hard beta cutoff
+        if (score >= beta)
+          // node (position) fails high
+          return score;
+      }
+
+      // razoring
+      if (!pv_node && depth <= 3) {
+        // get static eval and add first bonus
+        score = static_eval + 125;
+
+        // define new score
+        int new_score;
+
+        // static evaluation indicates a fail-low node
+        if (score < beta) {
+          // on depth 1
+          if (depth == 1) {
+            // get quiescence score
+            new_score = quiescence(pos, thread, alpha, beta);
+
+            // return quiescence score if it's greater then static evaluation
+            // score
+            return (new_score > score) ? new_score : score;
+          }
+
+          // add second bonus to static evaluation
+          score += 175;
+
+          // static evaluation indicates a fail-low node
+          if (score < beta && depth <= 2) {
+            // get quiescence score
+            new_score = quiescence(pos, thread, alpha, beta);
+
+            // quiescence score indicates fail-low node
+            if (new_score < beta)
+              // return quiescence score if it's greater then static evaluation
+              // score
+              return (new_score > score) ? new_score : score;
+          }
+        }
+      }
+
+      // Internal Iterative Deepening
+      if (pv_node && depth >= 4 && !tt_move) {
+        negamax(pos, thread, alpha, beta, MAX(1, MIN(depth / 2, depth - 4)), 0);
+        score = read_hash_entry(pos, alpha, &tt_move, beta, depth);
+      }
+    }
+
+    // create move list instance
+    moves move_list[1];
+
+    // generate moves
+    generate_moves(pos, move_list);
+
+    int best_score = -infinity;
+    score = -infinity;
+
+    // if we are now following PV line
+    if (thread->pv.follow_pv)
+      // enable PV move scoring
+      enable_pv_scoring(pos, thread, move_list);
+
+    int move = 0;
+    for (uint32_t count = 0; count < move_list->count; count++) {
+      score_move(pos, thread, &move_list->entry[count], tt_move);
+    }
+
+    sort_moves(move_list);
+
+    // number of moves searched in a move list
+    int moves_searched = 0;
+
+    // loop over moves within a movelist
+    for (uint32_t count = 0; count < move_list->count; count++) {
+
       // preserve board state
       copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
                  pos->castle, pos->fifty, pos->hash_key);
+
+      int list_move = move_list->entry[count].move;
 
       // increment ply
       pos->ply++;
@@ -427,22 +546,51 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
       pos->repetition_index++;
       pos->repetition_table[pos->repetition_index] = pos->hash_key;
 
-      // hash enpassant if available
-      if (pos->enpassant != no_sq)
-        pos->hash_key ^= pos->keys.enpassant_keys[pos->enpassant];
+      // make sure to make only legal moves
+      if (make_move(pos, list_move, all_moves) == 0) {
+        // decrement ply
+        pos->ply--;
 
-      // reset enpassant capture square
-      pos->enpassant = no_sq;
+        // decrement repetition index
+        pos->repetition_index--;
 
-      // switch the side, literally giving opponent an extra move to make
-      pos->side ^= 1;
+        // skip to next move
+        continue;
+      }
 
-      // hash the side
-      pos->hash_key ^= pos->keys.side_key;
+      // increment nodes count
+      thread->nodes++;
 
-      /* search moves with reduced depth to find beta cutoffs
-         depth - 1 - R where R is a reduction limit */
-      score = -negamax(pos, thread, -beta, -beta + 1, depth - 1 - 2, 0);
+      // increment legal moves
+      legal_moves++;
+      // increment the counter of moves searched so far
+      moves_searched++;
+
+      uint8_t move_is_noisy = in_check == 0 &&
+                              get_move_capture(list_move) == 0 &&
+                              get_move_promoted(list_move) == 0;
+      uint8_t do_lmr = depth > 2 && moves_searched > (2 + pv_node) &&
+                       pos->ply && move_is_noisy;
+
+      // condition to consider LMR
+      if (do_lmr) {
+
+        r = reductions[MIN(31, depth)][MIN(31, moves_searched)];
+        r += !pv_node;
+
+        int reddepth = MAX(1, depth - 1 - MAX(r, 1));
+        // search current move with reduced depth:
+        score = -negamax(pos, thread, -alpha - 1, -alpha, reddepth, 1);
+      }
+
+      if ((do_lmr && score > alpha) ||
+          (!do_lmr && (!pv_node || moves_searched > 1))) {
+        score = -negamax(pos, thread, -alpha - 1, -alpha, depth - 1, 1);
+      }
+
+      if (pv_node && ((score > alpha && score < beta) || moves_searched == 1)) {
+        score = -negamax(pos, thread, -beta, -alpha, depth - 1, 1);
+      }
 
       // decrement ply
       pos->ply--;
@@ -450,381 +598,233 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
       // decrement repetition index
       pos->repetition_index--;
 
-      // restore board state
+      // take move back
       restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
                     pos->castle, pos->fifty, pos->hash_key);
 
-      // reutrn 0 if time is up
+      // return infinity so we can deal with timeout in case we are doing
+      // re-search
       if (thread->stopped == 1) {
-        return 0;
+        return infinity;
       }
 
-      // fail-hard beta cutoff
-      if (score >= beta)
-        // node (position) fails high
-        return score;
-    }
+      // found a better move
+      if (score > best_score) {
+        best_score = score;
+        if (score > alpha) {
+          // switch hash flag from storing score for fail-low node
+          // to the one storing score for PV node
+          hash_flag = hash_flag_exact;
 
-    // razoring
-    if (!pv_node && depth <= 3) {
-      // get static eval and add first bonus
-      score = static_eval + 125;
-
-      // define new score
-      int new_score;
-
-      // static evaluation indicates a fail-low node
-      if (score < beta) {
-        // on depth 1
-        if (depth == 1) {
-          // get quiescence score
-          new_score = quiescence(pos, thread, alpha, beta);
-
-          // return quiescence score if it's greater then static evaluation
-          // score
-          return (new_score > score) ? new_score : score;
-        }
-
-        // add second bonus to static evaluation
-        score += 175;
-
-        // static evaluation indicates a fail-low node
-        if (score < beta && depth <= 2) {
-          // get quiescence score
-          new_score = quiescence(pos, thread, alpha, beta);
-
-          // quiescence score indicates fail-low node
-          if (new_score < beta)
-            // return quiescence score if it's greater then static evaluation
-            // score
-            return (new_score > score) ? new_score : score;
-        }
-      }
-    }
-
-    // Internal Iterative Deepening
-    if (pv_node && depth >= 4 && !tt_move) {
-      negamax(pos, thread, alpha, beta, MAX(1, MIN(depth / 2, depth - 4)), 0);
-      score = read_hash_entry(pos, alpha, &tt_move, beta, depth);
-    }
-  }
-
-  // create move list instance
-  moves move_list[1];
-
-  // generate moves
-  generate_moves(pos, move_list);
-
-  int best_score = -infinity;
-  score = -infinity;
-
-  // if we are now following PV line
-  if (thread->pv.follow_pv)
-    // enable PV move scoring
-    enable_pv_scoring(pos, thread, move_list);
-
-  int move = 0;
-  for (uint32_t count = 0; count < move_list->count; count++) {
-    score_move(pos, thread, &move_list->entry[count], tt_move);
-  }
-
-  sort_moves(move_list);
-
-  // number of moves searched in a move list
-  int moves_searched = 0;
-
-  // loop over moves within a movelist
-  for (uint32_t count = 0; count < move_list->count; count++) {
-
-    // preserve board state
-    copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-               pos->castle, pos->fifty, pos->hash_key);
-
-    int list_move = move_list->entry[count].move;
-
-    // increment ply
-    pos->ply++;
-
-    // increment repetition index & store hash key
-    pos->repetition_index++;
-    pos->repetition_table[pos->repetition_index] = pos->hash_key;
-
-    // make sure to make only legal moves
-    if (make_move(pos, list_move, all_moves) == 0) {
-      // decrement ply
-      pos->ply--;
-
-      // decrement repetition index
-      pos->repetition_index--;
-
-      // skip to next move
-      continue;
-    }
-
-    // increment legal moves
-    legal_moves++;
-    // increment the counter of moves searched so far
-    moves_searched++;
-
-    uint8_t move_is_noisy = in_check == 0 && get_move_capture(list_move) == 0 &&
-                            get_move_promoted(list_move) == 0;
-    uint8_t do_lmr = depth > 2 && moves_searched > (2 + pv_node) && pos->ply &&
-                     move_is_noisy;
-
-    // condition to consider LMR
-    if (do_lmr) {
-
-      r = reductions[MIN(31, depth)][MIN(31, moves_searched)];
-      r += !pv_node;
-
-      int reddepth = MAX(1, depth - 1 - MAX(r, 1));
-      // search current move with reduced depth:
-      score = -negamax(pos, thread, -alpha - 1, -alpha, reddepth, 1);
-    }
-
-    if ((do_lmr && score > alpha) ||
-        (!do_lmr && (!pv_node || moves_searched > 1))) {
-      score = -negamax(pos, thread, -alpha - 1, -alpha, depth - 1, 1);
-    }
-
-    if (pv_node && ((score > alpha && score < beta) || moves_searched == 1)) {
-      score = -negamax(pos, thread, -beta, -alpha, depth - 1, 1);
-    }
-
-    // decrement ply
-    pos->ply--;
-
-    // decrement repetition index
-    pos->repetition_index--;
-
-    // take move back
-    restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                  pos->castle, pos->fifty, pos->hash_key);
-
-    // return infinity so we can deal with timeout in case we are doing
-    // re-search
-    if (thread->stopped == 1) {
-      return infinity;
-    }
-
-    // found a better move
-    if (score > best_score) {
-      best_score = score;
-      if (score > alpha) {
-        // switch hash flag from storing score for fail-low node
-        // to the one storing score for PV node
-        hash_flag = hash_flag_exact;
-
-        move = list_move;
-
-        // on quiet moves
-        if (get_move_capture(list_move) == 0)
-          // store history moves
-          pos->history_moves[get_move_piece(list_move)]
-                            [get_move_target(list_move)] += depth;
-
-        // PV node (position)
-        alpha = score;
-
-        // write PV move
-        thread->pv.pv_table[pos->ply][pos->ply] = list_move;
-
-        // loop over the next ply
-        for (int next_ply = pos->ply + 1;
-             next_ply < thread->pv.pv_length[pos->ply + 1]; next_ply++)
-          // copy move from deeper ply into a current ply's line
-          thread->pv.pv_table[pos->ply][next_ply] =
-              thread->pv.pv_table[pos->ply + 1][next_ply];
-
-        // adjust PV length
-        thread->pv.pv_length[pos->ply] = thread->pv.pv_length[pos->ply + 1];
-
-        // fail-hard beta cutoff
-        if (score >= beta) {
-          // store hash entry with the score equal to beta
-          write_hash_entry(pos, best_score, depth, move, hash_flag_beta);
+          move = list_move;
 
           // on quiet moves
-          if (get_move_capture(list_move) == 0) {
-            // store killer moves
-            pos->killer_moves[1][pos->ply] = pos->killer_moves[0][pos->ply];
-            pos->killer_moves[0][pos->ply] = list_move;
-          }
+          if (get_move_capture(list_move) == 0)
+            // store history moves
+            pos->history_moves[get_move_piece(list_move)]
+                              [get_move_target(list_move)] += depth;
 
-          // node (position) fails high
-          return best_score;
+          // PV node (position)
+          alpha = score;
+
+          // write PV move
+          thread->pv.pv_table[pos->ply][pos->ply] = list_move;
+
+          // loop over the next ply
+          for (int next_ply = pos->ply + 1;
+               next_ply < thread->pv.pv_length[pos->ply + 1]; next_ply++)
+            // copy move from deeper ply into a current ply's line
+            thread->pv.pv_table[pos->ply][next_ply] =
+                thread->pv.pv_table[pos->ply + 1][next_ply];
+
+          // adjust PV length
+          thread->pv.pv_length[pos->ply] = thread->pv.pv_length[pos->ply + 1];
+
+          // fail-hard beta cutoff
+          if (score >= beta) {
+            // store hash entry with the score equal to beta
+            write_hash_entry(pos, best_score, depth, move, hash_flag_beta);
+
+            // on quiet moves
+            if (get_move_capture(list_move) == 0) {
+              // store killer moves
+              pos->killer_moves[1][pos->ply] = pos->killer_moves[0][pos->ply];
+              pos->killer_moves[0][pos->ply] = list_move;
+            }
+
+            // node (position) fails high
+            return best_score;
+          }
         }
       }
     }
-  }
 
-  // we don't have any legal moves to make in the current postion
-  if (legal_moves == 0) {
-    // king is in check
-    if (in_check)
-      // return mating score (assuming closest distance to mating position)
-      return -mate_value + pos->ply;
+    // we don't have any legal moves to make in the current postion
+    if (legal_moves == 0) {
+      // king is in check
+      if (in_check)
+        // return mating score (assuming closest distance to mating position)
+        return -mate_value + pos->ply;
 
-    // king is not in check
-    else
-      // return stalemate score
-      return 0;
-  }
-
-  // store hash entry with the score equal to alpha
-  write_hash_entry(pos, best_score, depth, move, hash_flag);
-
-  // node (position) fails low
-  return best_score;
-}
-
-static void print_thinking(thread_t *thread, int score,
-                           int current_depth) {
-
-  uint64_t nodes = total_nodes(thread, thread_count); 
-  uint64_t time = get_time_ms() - thread->starttime;
-  uint64_t nps = (nodes / fmax(time, 1)) * 1000;
-
-  printf("info depth %d score ", current_depth);
-
-  if (score > -mate_value && score < -mate_score) {
-    printf("mate %d ", -(score + mate_value) / 2 - 1);
-  } else if (score > mate_value && score < mate_score) {
-    printf("mate %d ", (score + mate_value) / 2 - 1);
-  } else {
-    printf("cp %d ", score);
-  }
-  printf("nodes %lu ", nodes);
-  printf("nps %lu ", nps);
-  printf("hashfull %d ", hash_full());
-  printf("time %lu ", time);
-  printf("pv ");
-
-  // loop over the moves within a PV line
-  for (int count = 0; count < thread->pv.pv_length[0]; count++) {
-    // print PV move
-    print_move(thread->pv.pv_table[0][count]);
-    printf(" ");
-  }
-
-  // print new line
-  printf("\n");
-}
-
-void *iterative_deepening(void *thread_void) {
-  thread_t *thread = (thread_t *)thread_void;
-  position_t *pos = &thread->pos;
-
-  int pv_table_copy[max_ply][max_ply];
-  int pv_length_copy[max_ply];
-
-  uint8_t window_ok = 1;
-
-  // define initial alpha beta bounds
-  int alpha = -infinity;
-  int beta = infinity;
-
-  // iterative deepening
-  for (thread->depth = 1; thread->depth <= limits.depth; thread->depth++) {
-    // if time is up
-    if (thread->stopped == 1) {
-      // stop calculating and return best move so far
-      break;
+      // king is not in check
+      else
+        // return stalemate score
+        return 0;
     }
 
-    // enable follow PV flag
-    thread->pv.follow_pv = 1;
+    // store hash entry with the score equal to alpha
+    write_hash_entry(pos, best_score, depth, move, hash_flag);
 
-    // We should not save PV move from unfinished depth for example if depth
-    // 12 finishes and goes to search depth 13 now but this triggers window
-    // cutoff we dont want the info from depth 13 as its incomplete and in
-    // case depth 14 search doesnt finish in time we will at least have an
-    // full PV line from depth 12
-    if (window_ok) {
-      memcpy(pv_table_copy, thread->pv.pv_table, sizeof(thread->pv.pv_table));
-      memcpy(pv_length_copy, thread->pv.pv_length,
-             sizeof(thread->pv.pv_length));
+    // node (position) fails low
+    return best_score;
+  }
+
+  static void print_thinking(thread_t * thread, int score, int current_depth) {
+
+    uint64_t nodes = total_nodes(thread, thread_count);
+    uint64_t time = get_time_ms() - thread->starttime;
+    uint64_t nps = (nodes / fmax(time, 1)) * 1000;
+
+    printf("info depth %d score ", current_depth);
+
+    if (score > -mate_value && score < -mate_score) {
+      printf("mate %d ", -(score + mate_value) / 2 - 1);
+    } else if (score > mate_value && score < mate_score) {
+      printf("mate %d ", (score + mate_value) / 2 - 1);
+    } else {
+      printf("cp %d ", score);
+    }
+    printf("nodes %lu ", nodes);
+    printf("nps %lu ", nps);
+    printf("hashfull %d ", hash_full());
+    printf("time %lu ", time);
+    printf("pv ");
+
+    // loop over the moves within a PV line
+    for (int count = 0; count < thread->pv.pv_length[0]; count++) {
+      // print PV move
+      print_move(thread->pv.pv_table[0][count]);
+      printf(" ");
     }
 
-    // find best move within a given position
-    thread->score = negamax(pos, thread, alpha, beta, thread->depth, 1);
+    // print new line
+    printf("\n");
+  }
 
-    // Reset aspiration window OK flag back to 1
-    window_ok = 1;
+  void *iterative_deepening(void *thread_void) {
+    thread_t *thread = (thread_t *)thread_void;
+    position_t *pos = &thread->pos;
 
-    // We hit an apspiration window cut-off before time ran out and we jumped
-    // to another depth with wider search which we didnt finish
-    if (thread->score == infinity) {
-      // Restore the saved best line
-      memcpy(thread->pv.pv_table, pv_table_copy, sizeof(pv_table_copy));
-      memcpy(thread->pv.pv_length, pv_length_copy, sizeof(pv_length_copy));
-      // Break out of the loop without printing info about the unfinished
-      // depth
-      break;
-    }
+    int pv_table_copy[max_ply][max_ply];
+    int pv_length_copy[max_ply];
 
-    // we fell outside the window, so try again with a full-width window (and
-    // the same depth)
-    if ((thread->score <= alpha) || (thread->score >= beta)) {
-      // Do a full window re-search
-      alpha = -infinity;
-      beta = infinity;
-      window_ok = 0;
-      thread->depth--;
-      continue;
-    }
-    if (thread->index == 0) {
-      // if PV is available
-      if (thread->pv.pv_length[0]) {
-        // print search info
-        print_thinking(thread, thread->score, thread->depth);
+    uint8_t window_ok = 1;
+
+    // define initial alpha beta bounds
+    int alpha = -infinity;
+    int beta = infinity;
+
+    // iterative deepening
+    for (thread->depth = 1; thread->depth <= limits.depth; thread->depth++) {
+      // if time is up
+      if (thread->stopped == 1) {
+        // stop calculating and return best move so far
+        break;
       }
+
+      // enable follow PV flag
+      thread->pv.follow_pv = 1;
+
+      // We should not save PV move from unfinished depth for example if depth
+      // 12 finishes and goes to search depth 13 now but this triggers window
+      // cutoff we dont want the info from depth 13 as its incomplete and in
+      // case depth 14 search doesnt finish in time we will at least have an
+      // full PV line from depth 12
+      if (window_ok) {
+        memcpy(pv_table_copy, thread->pv.pv_table, sizeof(thread->pv.pv_table));
+        memcpy(pv_length_copy, thread->pv.pv_length,
+               sizeof(thread->pv.pv_length));
+      }
+
+      // find best move within a given position
+      thread->score = negamax(pos, thread, alpha, beta, thread->depth, 1);
+
+      // Reset aspiration window OK flag back to 1
+      window_ok = 1;
+
+      // We hit an apspiration window cut-off before time ran out and we jumped
+      // to another depth with wider search which we didnt finish
+      if (thread->score == infinity) {
+        // Restore the saved best line
+        memcpy(thread->pv.pv_table, pv_table_copy, sizeof(pv_table_copy));
+        memcpy(thread->pv.pv_length, pv_length_copy, sizeof(pv_length_copy));
+        // Break out of the loop without printing info about the unfinished
+        // depth
+        break;
+      }
+
+      // we fell outside the window, so try again with a full-width window (and
+      // the same depth)
+      if ((thread->score <= alpha) || (thread->score >= beta)) {
+        // Do a full window re-search
+        alpha = -infinity;
+        beta = infinity;
+        window_ok = 0;
+        thread->depth--;
+        continue;
+      }
+      if (thread->index == 0) {
+        // if PV is available
+        if (thread->pv.pv_length[0]) {
+          // print search info
+          print_thinking(thread, thread->score, thread->depth);
+        }
+      }
+
+      // set up the window for the next iteration
+      alpha = thread->score - 50;
+      beta = thread->score + 50;
+    }
+    return NULL;
+  }
+
+  // search position for the best move
+  void search_position(position_t * pos, thread_t * threads) {
+    pthread_t pthreads[thread_count];
+    for (int i = 0; i < thread_count; ++i) {
+      threads[i].nodes = 0;
+      threads[i].stopped = 0;
+      threads[i].pv.follow_pv = 0;
+      threads[i].pv.score_pv = 0;
+      memcpy(&threads[i].pos, pos, sizeof(position_t));
     }
 
-    // set up the window for the next iteration
-    alpha = thread->score - 50;
-    beta = thread->score + 50;
+    tt.current_age++;
+
+    // clear helper data structures for search
+    memset(pos->killer_moves, 0, sizeof(pos->killer_moves));
+    memset(pos->history_moves, 0, sizeof(pos->history_moves));
+    memset(threads->pv.pv_table, 0, sizeof(threads->pv.pv_table));
+    memset(threads->pv.pv_length, 0, sizeof(threads->pv.pv_length));
+
+    for (int thread_index = 1; thread_index < thread_count; ++thread_index) {
+      pthread_create(&pthreads[thread_index], NULL, &iterative_deepening,
+                     &threads[thread_index]);
+    }
+
+    iterative_deepening(&threads[0]);
+
+    for (int i = 1; i < thread_count; ++i) {
+      threads[i].stopped = 1;
+      pthread_join(pthreads[i], NULL);
+    }
+
+    // print best move
+    printf("bestmove ");
+    if (threads->pv.pv_table[0][0]) {
+      print_move(threads->pv.pv_table[0][0]);
+    } else {
+      printf("(none)");
+    }
+    printf("\n");
   }
-  return NULL;
-}
-
-// search position for the best move
-void search_position(position_t *pos, thread_t *threads) {
-  pthread_t pthreads[thread_count];
-  for (int i = 0; i < thread_count; ++i) {
-    threads[i].nodes = 0;
-    threads[i].stopped = 0;
-    threads[i].pv.follow_pv = 0;
-    threads[i].pv.score_pv = 0;
-    memcpy(&threads[i].pos, pos, sizeof(position_t));
-  }
-
-  tt.current_age++;
-
-  // clear helper data structures for search
-  memset(pos->killer_moves, 0, sizeof(pos->killer_moves));
-  memset(pos->history_moves, 0, sizeof(pos->history_moves));
-  memset(threads->pv.pv_table, 0, sizeof(threads->pv.pv_table));
-  memset(threads->pv.pv_length, 0, sizeof(threads->pv.pv_length));
-
-  for (int thread_index = 1; thread_index < thread_count; ++thread_index) {
-    pthread_create(&pthreads[thread_index], NULL, &iterative_deepening,
-                   &threads[thread_index]);
-  }
-  
-  iterative_deepening(&threads[0]);
-
-  for (int i = 1; i < thread_count; ++i) {
-    threads[i].stopped = 1;
-    pthread_join(pthreads[i], NULL);
-  }
-
-  // print best move
-  printf("bestmove ");
-  if (threads->pv.pv_table[0][0]) {
-    print_move(threads->pv.pv_table[0][0]);
-  } else {
-    printf("(none)");
-  }
-  printf("\n");
-}
