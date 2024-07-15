@@ -186,7 +186,7 @@ clean:
 	@rm -rf $(TMPDIR) *.o *.d $(TARGET)
 
 $(TARGET): $(OBJECTS)
-	$(CC) $(CFLAGS) $(NATIVE) -MMD -MP -o $(EXE) $^ $(FLAGS) $(LDFLAGS)
+	$(CC) $(CFLAGS) $(NATIVE) -MMD -MP -o $(EXE) $^ $(FLAGS)
 
 $(TMPDIR)/%.o: %.c | $(TMPDIR)
 	$(CC) $(CFLAGS) $(NATIVE) -MMD -MP -c $< -o $@ $(FLAGS)
@@ -197,8 +197,8 @@ $(TMPDIR):
 
 # Usual disservin yoink for makefile related stuff
 pgo:
-	$(CC) $(CFLAGS) $(PGO_GEN) $(NATIVE) $(INSTRUCTIONS) -MMD -MP -o $(EXE) $(SOURCES) $(LDFLAGS)
+	$(CC) $(CFLAGS) $(PGO_GEN) $(NATIVE) $(INSTRUCTIONS) -MMD -MP -o $(EXE) $(SOURCES) -lm $(LDFLAGS)
 	./$(EXE) bench
 	$(PGO_MERGE)
-	$(CC) $(CFLAGS) $(NATIVE) $(INSTRUCTIONS) $(PGO_USE) -MMD -MP -o $(EXE) $(SOURCES) $(LDFLAGS)
-	@rm -f *.gcda *.profraw *.o $(DEPENDS) *.d  profdata
+	$(CC) $(CFLAGS) $(NATIVE) $(INSTRUCTIONS) $(PGO_USE) -MMD -MP -o $(EXE) $(SOURCES) -lm $(LDFLAGS)
+	@rm -f *.gcda *.profraw *.o *.d  profdata
