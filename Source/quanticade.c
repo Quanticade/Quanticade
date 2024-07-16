@@ -22,7 +22,7 @@
 #define DEFAULT_NNUE "nn-62ef826d1a6d.nnue"
 position_t pos;
 thread_t *threads;
-nnue_t nnue;
+nnue_settings_t nnue_settings;
 limits_t limits;
 uint32_t random_state;
 
@@ -111,7 +111,7 @@ void init_all(void) {
   // init hash table with default size
   init_hash_table(default_hash_size);
 
-  if (nnue.use_nnue) {
+  if (nnue_settings.use_nnue) {
     //nnue_init(DEFAULT_NNUE);
   }
 }
@@ -129,12 +129,12 @@ int main(int argc, char *argv[]) {
   pos.enpassant = no_sq;
   limits.movestogo = 30;
   limits.time = -1;
-  nnue.use_nnue = 0;
+  nnue_settings.use_nnue = 0;
   random_state = 1804289383;
   tt.hash_entry = NULL;
   tt.num_of_entries = 0;
-  nnue.nnue_file = calloc(21, 1);
-  strcpy(nnue.nnue_file, DEFAULT_NNUE);
+  nnue_settings.nnue_file = calloc(21, 1);
+  strcpy(nnue_settings.nnue_file, DEFAULT_NNUE);
   // init all
   init_all();
 

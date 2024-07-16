@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 
-extern nnue_t nnue;
+extern nnue_settings_t nnue_settings;
 
 const int castling_rights[64] = {
     7,  15, 15, 15, 3,  15, 15, 11, 15, 15, 15, 15, 15, 15, 15, 15,

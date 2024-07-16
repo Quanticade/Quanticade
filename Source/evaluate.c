@@ -2,9 +2,11 @@
 #include "attacks.h"
 #include "bitboards.h"
 #include "enums.h"
+#include "nnue.h"
 #include "structs.h"
 
-extern nnue_t nnue;
+nnue_t nnue_data;
+extern nnue_settings_t nnue_settings;
 
 const int material_score[2][12] = {
     // opening material score
@@ -263,7 +265,7 @@ int evaluate(position_t *pos) {
       // init square
       square = __builtin_ctzll(bitboard);
 
-      if (nnue.use_nnue) {
+      if (nnue_settings.use_nnue) {
         //space reserved
       } else {
         // get opening/endgame material score
@@ -543,7 +545,7 @@ int evaluate(position_t *pos) {
     }
   }
 
-  if (nnue.use_nnue) {
+  if (nnue_settings.use_nnue) {
     // The structure for NNUE enable is here even tho it will be reworked more
     // then likely with our net
     return 0;

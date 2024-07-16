@@ -81,9 +81,9 @@ typedef struct searchthread {
   char line[10000];
 } searchthreadinfo_t;
 
-typedef struct nnue {
+typedef struct nnue_settings {
   uint8_t use_nnue;
   char *nnue_file;
-} nnue_t;
+} nnue_settings_t;
 
 #endif

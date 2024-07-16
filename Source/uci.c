@@ -23,8 +23,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "nnue.h"
 
-extern nnue_t nnue;
+extern nnue_settings_t nnue_settings;
 
 const int default_hash_size = 16;
 
@@ -508,6 +509,11 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
   // Setup engine with start position as default
   parse_position(pos, threads, start_position);
 
+  //nnue_init("nn.nnue");
+  //printf("Eval of startpos: %d\n", nnue_eval_pos(pos));
+
+  //return;
+
   if (argc >= 2) {
     if (strncmp("bench", argv[1], 5) == 0) {
       uint64_t total_nodes = 0;
@@ -617,9 +623,9 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
       sscanf(input, "%*s %*s %*s %*s %s", use_nnue);
 
       if (strncmp(use_nnue, "true", 4) == 0) {
-        nnue.use_nnue = 1;
+        nnue_settings.use_nnue = 1;
       } else {
-        nnue.use_nnue = 0;
+        nnue_settings.use_nnue = 0;
       }
     }
 
@@ -631,12 +637,12 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
     }
 
     else if (!strncmp(input, "setoption name EvalFile value ", 30)) {
-      free(nnue.nnue_file);
+      free(nnue_settings.nnue_file);
       uint16_t length = strlen(input);
-      nnue.nnue_file = calloc(length - 30, 1);
-      sscanf(input, "%*s %*s %*s %*s %s", nnue.nnue_file);
+      nnue_settings.nnue_file = calloc(length - 30, 1);
+      sscanf(input, "%*s %*s %*s %*s %s", nnue_settings.nnue_file);
       //nnue_init(nnue.nnue_file);
-      free(nnue.nnue_file);
+      free(nnue_settings.nnue_file);
     }
 
     else if (!strncmp(input, "setoption name Clear Hash", 25)) {
