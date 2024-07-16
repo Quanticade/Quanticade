@@ -98,7 +98,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
                               move_t *move_entry, int hash_move) {
   int move = move_entry->move;
   if (move == hash_move) {
-    move_entry->score = 30000;
+    move_entry->score = 2000000000;
     return;
   }
 
@@ -110,7 +110,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
       thread->pv.score_pv = 0;
 
       // give PV move the highest score to search it first
-      move_entry->score = 20000;
+      move_entry->score = 1500000000;
       return;
     }
   }
@@ -143,7 +143,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
     }
 
     // score move by MVV LVA lookup [source piece][target piece]
-    move_entry->score = mvv_lva[get_move_piece(move)][target_piece] + 10000;
+    move_entry->score = mvv_lva[get_move_piece(move)][target_piece] + 1000000000;
     return;
   }
 
@@ -151,12 +151,12 @@ static inline void score_move(position_t *pos, thread_t *thread,
   else {
     // score 1st killer move
     if (pos->killer_moves[0][pos->ply] == move) {
-      move_entry->score = 9000;
+      move_entry->score = 900000000;
     }
 
     // score 2nd killer move
     else if (pos->killer_moves[1][pos->ply] == move) {
-      move_entry->score = 8000;
+      move_entry->score = 800000000;
     }
 
     // score history move
@@ -316,6 +316,18 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
 
     // node (position) fails low
     return best_score;
+  }
+
+  double clamp(double d, double min, double max) {
+    const double t = d < min ? min : d;
+    return t > max ? max : t;
+  }
+
+  void update_history_moves(position_t *pos, int best_move, uint8_t depth) {
+    int piece = get_move_piece(best_move);
+    int target = get_move_target(best_move);
+    int clamped_bonus = clamp(depth * depth, -16000, 16000);
+    pos->history_moves[piece][target] += clamped_bonus - pos->history_moves[piece][target] * abs(clamped_bonus) / 16000;
   }
 
   // negamax alpha beta search
@@ -619,10 +631,10 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
           move = list_move;
 
           // on quiet moves
-          if (get_move_capture(list_move) == 0)
+          if (get_move_capture(list_move) == 0) {
             // store history moves
-            pos->history_moves[get_move_piece(list_move)]
-                              [get_move_target(list_move)] += depth;
+            update_history_moves(pos, list_move, depth);
+          }
 
           // PV node (position)
           alpha = score;
