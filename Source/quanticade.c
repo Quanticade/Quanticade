@@ -14,9 +14,6 @@
 
 #include "attacks.h"
 #include "enums.h"
-#include "nnue/nnue.h"
-//do NOT move nnue.h above nnue/nnue.h
-#include "nnue.h"
 #include "pvtable.h"
 #include "structs.h"
 #include "threads.h"
@@ -115,7 +112,7 @@ void init_all(void) {
   init_hash_table(default_hash_size);
 
   if (nnue.use_nnue) {
-    nnue_init(DEFAULT_NNUE);
+    //nnue_init(DEFAULT_NNUE);
   }
 }
 
@@ -132,7 +129,7 @@ int main(int argc, char *argv[]) {
   pos.enpassant = no_sq;
   limits.movestogo = 30;
   limits.time = -1;
-  nnue.use_nnue = 1;
+  nnue.use_nnue = 0;
   random_state = 1804289383;
   tt.hash_entry = NULL;
   tt.num_of_entries = 0;

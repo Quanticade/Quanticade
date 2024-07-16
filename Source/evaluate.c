@@ -1,10 +1,7 @@
 #include "evaluate.h"
 #include "attacks.h"
-#include "enums.h"
 #include "bitboards.h"
-#include "nnue/nnue.h"
-#include "nnue.h"
-#include "nnue_consts.h"
+#include "enums.h"
 #include "structs.h"
 
 extern nnue_t nnue;
@@ -136,7 +133,6 @@ const int queen_mobility_opening = 1;
 const int queen_mobility_endgame = 2;
 const int king_shield_bonus = 5;
 
-
 // set file or rank mask
 static inline uint64_t set_file_rank_mask(int file_number, int rank_number) {
   if (file_number >= 0) {
@@ -173,31 +169,25 @@ void init_evaluation_masks(void) {
       isolated_masks[square] |= set_file_rank_mask(file + 1, -1);
 
       // init white passed pawns mask for a current square
-      white_passed_masks[square] |=
-          set_file_rank_mask(file - 1, -1);
+      white_passed_masks[square] |= set_file_rank_mask(file - 1, -1);
       white_passed_masks[square] |= set_file_rank_mask(file, -1);
-      white_passed_masks[square] |=
-          set_file_rank_mask(file + 1, -1);
+      white_passed_masks[square] |= set_file_rank_mask(file + 1, -1);
 
       // init black passed pawns mask for a current square
-      black_passed_masks[square] |=
-          set_file_rank_mask(file - 1, -1);
+      black_passed_masks[square] |= set_file_rank_mask(file - 1, -1);
       black_passed_masks[square] |= set_file_rank_mask(file, -1);
-      black_passed_masks[square] |=
-          set_file_rank_mask(file + 1, -1);
+      black_passed_masks[square] |= set_file_rank_mask(file + 1, -1);
 
       // loop over redundant ranks
       for (int i = 0; i < (8 - rank); i++) {
         // reset redundant bits
-        white_passed_masks[square] &=
-            ~rank_masks[(7 - i) * 8 + file];
+        white_passed_masks[square] &= ~rank_masks[(7 - i) * 8 + file];
       }
 
       // loop over redundant ranks
       for (int i = 0; i < rank + 1; i++) {
         // reset redundant bits
-        black_passed_masks[square] &=
-            ~rank_masks[i * 8 + file];
+        black_passed_masks[square] &= ~rank_masks[i * 8 + file];
       }
     }
   }
@@ -260,15 +250,6 @@ int evaluate(position_t *pos) {
   // penalties
   int double_pawns = 0;
 
-  // array of piece codes converted to Stockfish piece codes
-  int pieces[33];
-
-  // array of square indices converted to Stockfish square indices
-  int squares[33];
-
-  // pieces and squares current index to write next piece square pair at
-  int index = 2;
-
   // loop over piece bitboards
   for (int bb_piece = P; bb_piece <= k; bb_piece++) {
     // init piece bitboard copy
@@ -283,28 +264,7 @@ int evaluate(position_t *pos) {
       square = __builtin_ctzll(bitboard);
 
       if (nnue.use_nnue) {
-        // Convert our pieces to stockfish pieces for NNUE
-        switch (piece) {
-          case K:
-          {
-            pieces[0] = nnue_pieces[piece];
-            squares[0] = nnue_squares[square];
-            break;
-          }
-          case k:
-          {
-            pieces[1] = nnue_pieces[piece];
-            squares[1] = nnue_squares[square];
-            break;
-          }
-          default:
-          {
-            pieces[index] = nnue_pieces[piece];
-            squares[index] = nnue_squares[square];
-            index++;
-            break;
-          }
-        }
+        //space reserved
       } else {
         // get opening/endgame material score
         score_opening += material_score[opening][piece];
@@ -319,8 +279,8 @@ int evaluate(position_t *pos) {
           score_endgame += positional_score[endgame][PAWN][square];
 
           // double pawn penalty
-          double_pawns = __builtin_popcountll(pos->bitboards[P] &
-                                              file_masks[square]);
+          double_pawns =
+              __builtin_popcountll(pos->bitboards[P] & file_masks[square]);
 
           // on double pawns (tripple, etc)
           if (double_pawns > 1) {
@@ -329,15 +289,13 @@ int evaluate(position_t *pos) {
           }
 
           // on isolated pawn
-          if ((pos->bitboards[P] &
-               isolated_masks[square]) == 0) {
+          if ((pos->bitboards[P] & isolated_masks[square]) == 0) {
             // give an isolated pawn penalty
             score_opening += isolated_pawn_penalty_opening;
             score_endgame += isolated_pawn_penalty_endgame;
           }
           // on passed pawn
-          if ((white_passed_masks[square] &
-               pos->bitboards[p]) == 0) {
+          if ((white_passed_masks[square] & pos->bitboards[p]) == 0) {
             // give passed pawn bonus
             score_opening += passed_pawn_bonus[get_rank[square]];
             score_endgame += passed_pawn_bonus[get_rank[square]];
@@ -360,16 +318,14 @@ int evaluate(position_t *pos) {
           score_endgame += positional_score[endgame][BISHOP][square];
 
           // mobility
-          score_opening +=
-              (__builtin_popcountll(get_bishop_attacks(
-                   square, pos->occupancies[both])) -
-               bishop_unit) *
-              bishop_mobility_opening;
-          score_endgame +=
-              (__builtin_popcountll(get_bishop_attacks(
-                   square, pos->occupancies[both])) -
-               bishop_unit) *
-              bishop_mobility_endgame;
+          score_opening += (__builtin_popcountll(get_bishop_attacks(
+                                square, pos->occupancies[both])) -
+                            bishop_unit) *
+                           bishop_mobility_opening;
+          score_endgame += (__builtin_popcountll(get_bishop_attacks(
+                                square, pos->occupancies[both])) -
+                            bishop_unit) *
+                           bishop_mobility_endgame;
           break;
 
         // evaluate white rooks
@@ -379,16 +335,15 @@ int evaluate(position_t *pos) {
           score_endgame += positional_score[endgame][ROOK][square];
 
           // semi open file
-          if ((pos->bitboards[P] & file_masks[square]) ==
-              0) {
+          if ((pos->bitboards[P] & file_masks[square]) == 0) {
             // add semi open file bonus
             score_opening += semi_open_file_score;
             score_endgame += semi_open_file_score;
           }
 
           // semi open file
-          if (((pos->bitboards[P] | pos->bitboards[p]) &
-               file_masks[square]) == 0) {
+          if (((pos->bitboards[P] | pos->bitboards[p]) & file_masks[square]) ==
+              0) {
             // add semi open file bonus
             score_opening += open_file_score;
             score_endgame += open_file_score;
@@ -403,16 +358,14 @@ int evaluate(position_t *pos) {
           score_endgame += positional_score[endgame][QUEEN][square];
 
           // mobility
-          score_opening +=
-              (__builtin_popcountll(get_queen_attacks(
-                   square, pos->occupancies[both])) -
-               queen_unit) *
-              queen_mobility_opening;
-          score_endgame +=
-              (__builtin_popcountll(get_queen_attacks(
-                   square, pos->occupancies[both])) -
-               queen_unit) *
-              queen_mobility_endgame;
+          score_opening += (__builtin_popcountll(get_queen_attacks(
+                                square, pos->occupancies[both])) -
+                            queen_unit) *
+                           queen_mobility_opening;
+          score_endgame += (__builtin_popcountll(get_queen_attacks(
+                                square, pos->occupancies[both])) -
+                            queen_unit) *
+                           queen_mobility_endgame;
           break;
 
         // evaluate white king
@@ -422,30 +375,27 @@ int evaluate(position_t *pos) {
           score_endgame += positional_score[endgame][KING][square];
 
           // semi open file
-          if ((pos->bitboards[P] & file_masks[square]) ==
-              0) {
+          if ((pos->bitboards[P] & file_masks[square]) == 0) {
             // add semi open file penalty
             score_opening -= semi_open_file_score;
             score_endgame -= semi_open_file_score;
           }
 
           // semi open file
-          if (((pos->bitboards[P] | pos->bitboards[p]) &
-               file_masks[square]) == 0) {
+          if (((pos->bitboards[P] | pos->bitboards[p]) & file_masks[square]) ==
+              0) {
             // add semi open file penalty
             score_opening -= open_file_score;
             score_endgame -= open_file_score;
           }
 
           // king safety bonus
-          score_opening +=
-              __builtin_popcountll(king_attacks[square] &
-                                   pos->occupancies[white]) *
-              king_shield_bonus;
-          score_endgame +=
-              __builtin_popcountll(king_attacks[square] &
-                                   pos->occupancies[white]) *
-              king_shield_bonus;
+          score_opening += __builtin_popcountll(king_attacks[square] &
+                                                pos->occupancies[white]) *
+                           king_shield_bonus;
+          score_endgame += __builtin_popcountll(king_attacks[square] &
+                                                pos->occupancies[white]) *
+                           king_shield_bonus;
 
           break;
 
@@ -458,8 +408,8 @@ int evaluate(position_t *pos) {
               positional_score[endgame][PAWN][mirror_score[square]];
 
           // double pawn penalty
-          double_pawns = __builtin_popcountll(pos->bitboards[p] &
-                                              file_masks[square]);
+          double_pawns =
+              __builtin_popcountll(pos->bitboards[p] & file_masks[square]);
 
           // on double pawns (tripple, etc)
           if (double_pawns > 1) {
@@ -468,15 +418,13 @@ int evaluate(position_t *pos) {
           }
 
           // on isolated pawn
-          if ((pos->bitboards[p] &
-               isolated_masks[square]) == 0) {
+          if ((pos->bitboards[p] & isolated_masks[square]) == 0) {
             // give an isolated pawn penalty
             score_opening -= isolated_pawn_penalty_opening;
             score_endgame -= isolated_pawn_penalty_endgame;
           }
           // on passed pawn
-          if ((black_passed_masks[square] &
-               pos->bitboards[P]) == 0) {
+          if ((black_passed_masks[square] & pos->bitboards[P]) == 0) {
             // give passed pawn bonus
             score_opening -= passed_pawn_bonus[get_rank[square]];
             score_endgame -= passed_pawn_bonus[get_rank[square]];
@@ -503,16 +451,14 @@ int evaluate(position_t *pos) {
               positional_score[endgame][BISHOP][mirror_score[square]];
 
           // mobility
-          score_opening -=
-              (__builtin_popcountll(get_bishop_attacks(
-                   square, pos->occupancies[both])) -
-               bishop_unit) *
-              bishop_mobility_opening;
-          score_endgame -=
-              (__builtin_popcountll(get_bishop_attacks(
-                   square, pos->occupancies[both])) -
-               bishop_unit) *
-              bishop_mobility_endgame;
+          score_opening -= (__builtin_popcountll(get_bishop_attacks(
+                                square, pos->occupancies[both])) -
+                            bishop_unit) *
+                           bishop_mobility_opening;
+          score_endgame -= (__builtin_popcountll(get_bishop_attacks(
+                                square, pos->occupancies[both])) -
+                            bishop_unit) *
+                           bishop_mobility_endgame;
           break;
 
         // evaluate black rooks
@@ -524,16 +470,15 @@ int evaluate(position_t *pos) {
               positional_score[endgame][ROOK][mirror_score[square]];
 
           // semi open file
-          if ((pos->bitboards[p] & file_masks[square]) ==
-              0) {
+          if ((pos->bitboards[p] & file_masks[square]) == 0) {
             // add semi open file bonus
             score_opening -= semi_open_file_score;
             score_endgame -= semi_open_file_score;
           }
 
           // semi open file
-          if (((pos->bitboards[P] | pos->bitboards[p]) &
-               file_masks[square]) == 0) {
+          if (((pos->bitboards[P] | pos->bitboards[p]) & file_masks[square]) ==
+              0) {
             // add semi open file bonus
             score_opening -= open_file_score;
             score_endgame -= open_file_score;
@@ -550,16 +495,14 @@ int evaluate(position_t *pos) {
               positional_score[endgame][QUEEN][mirror_score[square]];
 
           // mobility
-          score_opening -=
-              (__builtin_popcountll(get_queen_attacks(
-                   square, pos->occupancies[both])) -
-               queen_unit) *
-              queen_mobility_opening;
-          score_endgame -=
-              (__builtin_popcountll(get_queen_attacks(
-                   square, pos->occupancies[both])) -
-               queen_unit) *
-              queen_mobility_endgame;
+          score_opening -= (__builtin_popcountll(get_queen_attacks(
+                                square, pos->occupancies[both])) -
+                            queen_unit) *
+                           queen_mobility_opening;
+          score_endgame -= (__builtin_popcountll(get_queen_attacks(
+                                square, pos->occupancies[both])) -
+                            queen_unit) *
+                           queen_mobility_endgame;
           break;
 
         // evaluate black king
@@ -571,30 +514,27 @@ int evaluate(position_t *pos) {
               positional_score[endgame][KING][mirror_score[square]];
 
           // semi open file
-          if ((pos->bitboards[p] & file_masks[square]) ==
-              0) {
+          if ((pos->bitboards[p] & file_masks[square]) == 0) {
             // add semi open file penalty
             score_opening += semi_open_file_score;
             score_endgame += semi_open_file_score;
           }
 
           // semi open file
-          if (((pos->bitboards[P] | pos->bitboards[p]) &
-               file_masks[square]) == 0) {
+          if (((pos->bitboards[P] | pos->bitboards[p]) & file_masks[square]) ==
+              0) {
             // add semi open file penalty
             score_opening += open_file_score;
             score_endgame += open_file_score;
           }
 
           // king safety bonus
-          score_opening -=
-              __builtin_popcountll(king_attacks[square] &
-                                   pos->occupancies[black]) *
-              king_shield_bonus;
-          score_endgame -=
-              __builtin_popcountll(king_attacks[square] &
-                                   pos->occupancies[black]) *
-              king_shield_bonus;
+          score_opening -= __builtin_popcountll(king_attacks[square] &
+                                                pos->occupancies[black]) *
+                           king_shield_bonus;
+          score_endgame -= __builtin_popcountll(king_attacks[square] &
+                                                pos->occupancies[black]) *
+                           king_shield_bonus;
           break;
         }
       }
@@ -604,10 +544,9 @@ int evaluate(position_t *pos) {
   }
 
   if (nnue.use_nnue) {
-    pieces[index] = 0;
-    squares[index] = 0;
-    return (int)(nnue_evaluate(pos->side, pieces, squares) *
-                 (float)((100 - (float)pos->fifty) / 100));
+    // The structure for NNUE enable is here even tho it will be reworked more
+    // then likely with our net
+    return 0;
   } else {
     /*
         Now in order to calculate interpolated score

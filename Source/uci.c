@@ -12,9 +12,6 @@
 #include "bitboards.h"
 #include "enums.h"
 #include "movegen.h"
-#include "nnue/nnue.h"
-// do NOT move nnue.h above nnue/nnue.h"
-#include "nnue.h"
 #include "perft.h"
 #include "pvtable.h"
 #include "pyrrhic/tbprobe.h"
@@ -591,7 +588,7 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
       printf("option name Threads type spin default %d min %d max %d\n", 1, 1,
              256);
       printf("option name Use NNUE type check default true\n");
-      printf("option name EvalFile type string default %s\n", nnue.nnue_file);
+      //printf("option name EvalFile type string default %s\n", nnue.nnue_file);
       printf("option name Clear Hash type button\n");
       printf("option name SyzygyPath type string default <empty>\n");
       printf("uciok\n");
@@ -638,7 +635,8 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
       uint16_t length = strlen(input);
       nnue.nnue_file = calloc(length - 30, 1);
       sscanf(input, "%*s %*s %*s %*s %s", nnue.nnue_file);
-      nnue_init(nnue.nnue_file);
+      //nnue_init(nnue.nnue_file);
+      free(nnue.nnue_file);
     }
 
     else if (!strncmp(input, "setoption name Clear Hash", 25)) {
