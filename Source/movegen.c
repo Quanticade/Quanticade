@@ -3,6 +3,7 @@
 #include "bitboards.h"
 #include "enums.h"
 #include "structs.h"
+#include <stdio.h>
 #include <string.h>
 
 extern nnue_t nnue;
@@ -17,9 +18,8 @@ int make_move(position_t *pos, int move, int move_flag) {
   // quiet moves
   if (move_flag == all_moves) {
     // preserve board state
-    copy_board(pos->bitboards, pos->occupancies,
-               pos->side, pos->enpassant,
-               pos->castle, pos->fifty, pos->hash_key);
+    copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
+               pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
 
     // parse move
     int source_square = get_move_source(move);
@@ -31,20 +31,6 @@ int make_move(position_t *pos, int move, int move_flag) {
     int enpass = get_move_enpassant(move);
     int castling = get_move_castling(move);
 
-    // move piece
-    pop_bit(pos->bitboards[piece], source_square);
-    set_bit(pos->bitboards[piece], target_square);
-
-    // hash piece
-    pos->hash_key ^=
-        pos->keys
-            .piece_keys[piece][source_square]; // remove piece from source
-                                               // square in hash key
-    pos->hash_key ^=
-        pos->keys
-            .piece_keys[piece][target_square]; // set piece to the target square
-                                               // in hash key
-
     // increment fifty move rule counter
     pos->fifty++;
 
@@ -55,38 +41,58 @@ int make_move(position_t *pos, int move, int move_flag) {
 
     // handling capture moves
     if (capture) {
-      // pick up bitboard piece index ranges depending on side
-      int start_piece, end_piece;
-
       // reset fifty move rule counter
       pos->fifty = 0;
 
+      // loop over bitboards opposite to the current side to move
+      // if there's a piece on the target square
+      uint8_t bb_piece = pos->mailbox[target_square];
+      if (get_bit(pos->bitboards[bb_piece], target_square)) {
+
+        // remove it from corresponding bitboard
+        pop_bit(pos->bitboards[bb_piece], target_square);
+
+        // remove the piece from hash key
+        pos->hash_key ^= pos->keys.piece_keys[bb_piece][target_square];
+      }
+    }
+
+    // handle enpassant captures
+    if (enpass) {
       // white to move
       if (pos->side == white) {
-        start_piece = p;
-        end_piece = k;
+        // remove captured pawn
+        pop_bit(pos->bitboards[p], target_square + 8);
+        pos->mailbox[target_square + 8] = 64;
+
+        // remove pawn from hash key
+        pos->hash_key ^= pos->keys.piece_keys[p][target_square + 8];
       }
 
       // black to move
       else {
-        start_piece = P;
-        end_piece = K;
-      }
+        // remove captured pawn
+        pop_bit(pos->bitboards[P], target_square - 8);
+        pos->mailbox[target_square - 8] = 64;
 
-      // loop over bitboards opposite to the current side to move
-      for (int bb_piece = start_piece; bb_piece <= end_piece; bb_piece++) {
-        // if there's a piece on the target square
-        if (get_bit(pos->bitboards[bb_piece], target_square)) {
-          // remove it from corresponding bitboard
-          pop_bit(pos->bitboards[bb_piece], target_square);
-
-          // remove the piece from hash key
-          pos->hash_key ^=
-              pos->keys.piece_keys[bb_piece][target_square];
-          break;
-        }
+        // remove pawn from hash key
+        pos->hash_key ^= pos->keys.piece_keys[P][target_square - 8];
       }
     }
+
+    // move piece
+    pop_bit(pos->bitboards[piece], source_square);
+    set_bit(pos->bitboards[piece], target_square);
+    pos->mailbox[source_square] = 64;
+    pos->mailbox[target_square] = piece;
+
+    // hash piece
+    pos->hash_key ^=
+        pos->keys.piece_keys[piece][source_square]; // remove piece from source
+                                                    // square in hash key
+    pos->hash_key ^=
+        pos->keys.piece_keys[piece][target_square]; // set piece to the target
+                                                    // square in hash key
 
     // handle pawn promotions
     if (promoted_piece) {
@@ -110,42 +116,15 @@ int make_move(position_t *pos, int move, int move_flag) {
 
       // set up promoted piece on chess board
       set_bit(pos->bitboards[promoted_piece], target_square);
+      pos->mailbox[target_square] = promoted_piece;
 
       // add promoted piece into the hash key
-      pos->hash_key ^=
-          pos->keys.piece_keys[promoted_piece][target_square];
-    }
-
-    // handle enpassant captures
-    if (enpass) {
-      // erase the pawn depending on side to move
-      (pos->side == white)
-          ? pop_bit(pos->bitboards[p], target_square + 8)
-          : pop_bit(pos->bitboards[P], target_square - 8);
-
-      // white to move
-      if (pos->side == white) {
-        // remove captured pawn
-        pop_bit(pos->bitboards[p], target_square + 8);
-
-        // remove pawn from hash key
-        pos->hash_key ^= pos->keys.piece_keys[p][target_square + 8];
-      }
-
-      // black to move
-      else {
-        // remove captured pawn
-        pop_bit(pos->bitboards[P], target_square - 8);
-
-        // remove pawn from hash key
-        pos->hash_key ^= pos->keys.piece_keys[P][target_square - 8];
-      }
+      pos->hash_key ^= pos->keys.piece_keys[promoted_piece][target_square];
     }
 
     // hash enpassant if available (remove enpassant square from hash key)
     if (pos->enpassant != no_sq)
-      pos->hash_key ^=
-          pos->keys.enpassant_keys[pos->enpassant];
+      pos->hash_key ^= pos->keys.enpassant_keys[pos->enpassant];
 
     // reset enpassant square
     pos->enpassant = no_sq;
@@ -158,8 +137,7 @@ int make_move(position_t *pos, int move, int move_flag) {
         pos->enpassant = target_square + 8;
 
         // hash enpassant
-        pos->hash_key ^=
-            pos->keys.enpassant_keys[target_square + 8];
+        pos->hash_key ^= pos->keys.enpassant_keys[target_square + 8];
       }
 
       // black to move
@@ -168,8 +146,7 @@ int make_move(position_t *pos, int move, int move_flag) {
         pos->enpassant = target_square - 8;
 
         // hash enpassant
-        pos->hash_key ^=
-            pos->keys.enpassant_keys[target_square - 8];
+        pos->hash_key ^= pos->keys.enpassant_keys[target_square - 8];
       }
     }
 
@@ -182,6 +159,8 @@ int make_move(position_t *pos, int move, int move_flag) {
         // move H rook
         pop_bit(pos->bitboards[R], h1);
         set_bit(pos->bitboards[R], f1);
+        pos->mailbox[h1] = 64;
+        pos->mailbox[f1] = R;
 
         // hash rook
         pos->hash_key ^=
@@ -195,6 +174,8 @@ int make_move(position_t *pos, int move, int move_flag) {
         // move A rook
         pop_bit(pos->bitboards[R], a1);
         set_bit(pos->bitboards[R], d1);
+        pos->mailbox[a1] = 64;
+        pos->mailbox[d1] = R;
 
         // hash rook
         pos->hash_key ^=
@@ -208,6 +189,8 @@ int make_move(position_t *pos, int move, int move_flag) {
         // move H rook
         pop_bit(pos->bitboards[r], h8);
         set_bit(pos->bitboards[r], f8);
+        pos->mailbox[h8] = 64;
+        pos->mailbox[f8] = r;
 
         // hash rook
         pos->hash_key ^=
@@ -221,6 +204,8 @@ int make_move(position_t *pos, int move, int move_flag) {
         // move A rook
         pop_bit(pos->bitboards[r], a8);
         set_bit(pos->bitboards[r], d8);
+        pos->mailbox[a8] = 64;
+        pos->mailbox[d8] = r;
 
         // hash rook
         pos->hash_key ^=
@@ -271,10 +256,8 @@ int make_move(position_t *pos, int move, int move_flag) {
                                : __builtin_ctzll(pos->bitboards[K]),
                            pos->side)) {
       // take move back
-      restore_board(pos->bitboards, pos->occupancies,
-                    pos->side, pos->enpassant,
-                    pos->castle, pos->fifty,
-                    pos->hash_key);
+      restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
+                    pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
 
       // return illegal move
       return 0;
@@ -337,8 +320,7 @@ void generate_captures(position_t *pos, moves *move_list) {
           target_square = source_square - 8;
 
           // init pawn attacks bitboard
-          attacks = pawn_attacks[side][source_square] &
-                    pos->occupancies[black];
+          attacks = pawn_attacks[side][source_square] & pos->occupancies[black];
 
           // generate pawn captures
           while (attacks) {
@@ -369,8 +351,8 @@ void generate_captures(position_t *pos, moves *move_list) {
           // generate enpassant captures
           if (pos->enpassant != no_sq) {
             // lookup pawn attacks and bitwise AND with enpassant square (bit)
-            uint64_t enpassant_attacks = pawn_attacks[side][source_square] &
-                                         (1ULL << pos->enpassant);
+            uint64_t enpassant_attacks =
+                pawn_attacks[side][source_square] & (1ULL << pos->enpassant);
 
             // make sure enpassant capture available
             if (enpassant_attacks) {
@@ -400,8 +382,7 @@ void generate_captures(position_t *pos, moves *move_list) {
           target_square = source_square + 8;
 
           // init pawn attacks bitboard
-          attacks = pawn_attacks[side][source_square] &
-                    pos->occupancies[white];
+          attacks = pawn_attacks[side][source_square] & pos->occupancies[white];
 
           // generate pawn captures
           while (attacks) {
@@ -432,8 +413,8 @@ void generate_captures(position_t *pos, moves *move_list) {
           // generate enpassant captures
           if (pos->enpassant != no_sq) {
             // lookup pawn attacks and bitwise AND with enpassant square (bit)
-            uint64_t enpassant_attacks = pawn_attacks[side][source_square] &
-                                         (1ULL << pos->enpassant);
+            uint64_t enpassant_attacks =
+                pawn_attacks[side][source_square] & (1ULL << pos->enpassant);
 
             // make sure enpassant capture available
             if (enpassant_attacks) {
@@ -491,8 +472,7 @@ void generate_captures(position_t *pos, moves *move_list) {
         source_square = __builtin_ctzll(bitboard);
 
         // init piece attacks in order to get set of target squares
-        attacks = get_bishop_attacks(source_square,
-                                     pos->occupancies[both]) &
+        attacks = get_bishop_attacks(source_square, pos->occupancies[both]) &
                   ((side == white) ? ~pos->occupancies[white]
                                    : ~pos->occupancies[black]);
 
@@ -525,8 +505,7 @@ void generate_captures(position_t *pos, moves *move_list) {
         source_square = __builtin_ctzll(bitboard);
 
         // init piece attacks in order to get set of target squares
-        attacks = get_rook_attacks(source_square,
-                                   pos->occupancies[both]) &
+        attacks = get_rook_attacks(source_square, pos->occupancies[both]) &
                   ((side == white) ? ~pos->occupancies[white]
                                    : ~pos->occupancies[black]);
 
@@ -559,8 +538,7 @@ void generate_captures(position_t *pos, moves *move_list) {
         source_square = __builtin_ctzll(bitboard);
 
         // init piece attacks in order to get set of target squares
-        attacks = get_queen_attacks(source_square,
-                                    pos->occupancies[both]) &
+        attacks = get_queen_attacks(source_square, pos->occupancies[both]) &
                   ((side == white) ? ~pos->occupancies[white]
                                    : ~pos->occupancies[black]);
 
@@ -678,8 +656,8 @@ void generate_moves(position_t *pos, moves *move_list) {
           }
 
           // init pawn attacks bitboard
-          attacks = pawn_attacks[pos->side][source_square] &
-                    pos->occupancies[black];
+          attacks =
+              pawn_attacks[pos->side][source_square] & pos->occupancies[black];
 
           // generate pawn captures
           while (attacks) {
@@ -799,8 +777,8 @@ void generate_moves(position_t *pos, moves *move_list) {
           }
 
           // init pawn attacks bitboard
-          attacks = pawn_attacks[pos->side][source_square] &
-                    pos->occupancies[white];
+          attacks =
+              pawn_attacks[pos->side][source_square] & pos->occupancies[white];
 
           // generate pawn captures
           while (attacks) {
@@ -886,10 +864,9 @@ void generate_moves(position_t *pos, moves *move_list) {
         source_square = __builtin_ctzll(bitboard);
 
         // init piece attacks in order to get set of target squares
-        attacks =
-            knight_attacks[source_square] &
-            ((pos->side == white) ? ~pos->occupancies[white]
-                                           : ~pos->occupancies[black]);
+        attacks = knight_attacks[source_square] &
+                  ((pos->side == white) ? ~pos->occupancies[white]
+                                        : ~pos->occupancies[black]);
 
         // loop over target squares available from generated attacks
         while (attacks) {
@@ -897,9 +874,8 @@ void generate_moves(position_t *pos, moves *move_list) {
           target_square = __builtin_ctzll(attacks);
 
           // quiet move
-          if (!get_bit(((pos->side == white)
-                            ? pos->occupancies[black]
-                            : pos->occupancies[white]),
+          if (!get_bit(((pos->side == white) ? pos->occupancies[black]
+                                             : pos->occupancies[white]),
                        target_square))
             add_move(move_list, encode_move(source_square, target_square, piece,
                                             0, 0, 0, 0, 0));
@@ -926,11 +902,9 @@ void generate_moves(position_t *pos, moves *move_list) {
         source_square = __builtin_ctzll(bitboard);
 
         // init piece attacks in order to get set of target squares
-        attacks =
-            get_bishop_attacks(source_square,
-                               pos->occupancies[both]) &
-            ((pos->side == white) ? ~pos->occupancies[white]
-                                           : ~pos->occupancies[black]);
+        attacks = get_bishop_attacks(source_square, pos->occupancies[both]) &
+                  ((pos->side == white) ? ~pos->occupancies[white]
+                                        : ~pos->occupancies[black]);
 
         // loop over target squares available from generated attacks
         while (attacks) {
@@ -938,9 +912,8 @@ void generate_moves(position_t *pos, moves *move_list) {
           target_square = __builtin_ctzll(attacks);
 
           // quiet move
-          if (!get_bit(((pos->side == white)
-                            ? pos->occupancies[black]
-                            : pos->occupancies[white]),
+          if (!get_bit(((pos->side == white) ? pos->occupancies[black]
+                                             : pos->occupancies[white]),
                        target_square))
             add_move(move_list, encode_move(source_square, target_square, piece,
                                             0, 0, 0, 0, 0));
@@ -967,11 +940,9 @@ void generate_moves(position_t *pos, moves *move_list) {
         source_square = __builtin_ctzll(bitboard);
 
         // init piece attacks in order to get set of target squares
-        attacks =
-            get_rook_attacks(source_square,
-                             pos->occupancies[both]) &
-            ((pos->side == white) ? ~pos->occupancies[white]
-                                           : ~pos->occupancies[black]);
+        attacks = get_rook_attacks(source_square, pos->occupancies[both]) &
+                  ((pos->side == white) ? ~pos->occupancies[white]
+                                        : ~pos->occupancies[black]);
 
         // loop over target squares available from generated attacks
         while (attacks) {
@@ -979,9 +950,8 @@ void generate_moves(position_t *pos, moves *move_list) {
           target_square = __builtin_ctzll(attacks);
 
           // quiet move
-          if (!get_bit(((pos->side == white)
-                            ? pos->occupancies[black]
-                            : pos->occupancies[white]),
+          if (!get_bit(((pos->side == white) ? pos->occupancies[black]
+                                             : pos->occupancies[white]),
                        target_square))
             add_move(move_list, encode_move(source_square, target_square, piece,
                                             0, 0, 0, 0, 0));
@@ -1008,11 +978,9 @@ void generate_moves(position_t *pos, moves *move_list) {
         source_square = __builtin_ctzll(bitboard);
 
         // init piece attacks in order to get set of target squares
-        attacks =
-            get_queen_attacks(source_square,
-                              pos->occupancies[both]) &
-            ((pos->side == white) ? ~pos->occupancies[white]
-                                           : ~pos->occupancies[black]);
+        attacks = get_queen_attacks(source_square, pos->occupancies[both]) &
+                  ((pos->side == white) ? ~pos->occupancies[white]
+                                        : ~pos->occupancies[black]);
 
         // loop over target squares available from generated attacks
         while (attacks) {
@@ -1020,9 +988,8 @@ void generate_moves(position_t *pos, moves *move_list) {
           target_square = __builtin_ctzll(attacks);
 
           // quiet move
-          if (!get_bit(((pos->side == white)
-                            ? pos->occupancies[black]
-                            : pos->occupancies[white]),
+          if (!get_bit(((pos->side == white) ? pos->occupancies[black]
+                                             : pos->occupancies[white]),
                        target_square))
             add_move(move_list, encode_move(source_square, target_square, piece,
                                             0, 0, 0, 0, 0));
@@ -1049,10 +1016,9 @@ void generate_moves(position_t *pos, moves *move_list) {
         source_square = __builtin_ctzll(bitboard);
 
         // init piece attacks in order to get set of target squares
-        attacks =
-            king_attacks[source_square] &
-            ((pos->side == white) ? ~pos->occupancies[white]
-                                           : ~pos->occupancies[black]);
+        attacks = king_attacks[source_square] &
+                  ((pos->side == white) ? ~pos->occupancies[white]
+                                        : ~pos->occupancies[black]);
 
         // loop over target squares available from generated attacks
         while (attacks) {
@@ -1060,9 +1026,8 @@ void generate_moves(position_t *pos, moves *move_list) {
           target_square = __builtin_ctzll(attacks);
 
           // quiet move
-          if (!get_bit(((pos->side == white)
-                            ? pos->occupancies[black]
-                            : pos->occupancies[white]),
+          if (!get_bit(((pos->side == white) ? pos->occupancies[black]
+                                             : pos->occupancies[white]),
                        target_square))
             add_move(move_list, encode_move(source_square, target_square, piece,
                                             0, 0, 0, 0, 0));

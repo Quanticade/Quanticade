@@ -11,7 +11,6 @@ BMI2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi -mbmi2
 #While we get this fixed lets include AVX2 in AVX512 flags (I mean if you have AVX512 you damn better have AVX2 as well.....)
 AVX512FLAGS  = -DUSE_AVX512 -DUSE_SIMD -mavx512f -mavx512bw -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi -mbmi2
 NEONFLAGS    = -DUSE_NEON -flax-vector-conversions
-#AVX512FLAGS   := -DUSE_SSE41 -msse4.1 -msse4.2 -DUSE_SSSE3 -mssse3 -DUSE_SSE2 -msse2 -DUSE_SSE -msse -DUSE_AVX2 -mavx2
 
 # engine name
 NAME        := Quanticade

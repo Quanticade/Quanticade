@@ -41,6 +41,7 @@ typedef struct position {
   uint32_t fifty;
   int killer_moves[2][max_ply];
   int history_moves[12][64];
+  uint8_t mailbox[64];
   uint8_t side;
   uint8_t enpassant;
   uint8_t castle;
