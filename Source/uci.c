@@ -509,11 +509,6 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
   // Setup engine with start position as default
   parse_position(pos, threads, start_position);
 
-  //nnue_init("nn.nnue");
-  //printf("Eval of startpos: %d\n", nnue_eval_pos(pos));
-
-  //return;
-
   if (argc >= 2) {
     if (strncmp("bench", argv[1], 5) == 0) {
       uint64_t total_nodes = 0;

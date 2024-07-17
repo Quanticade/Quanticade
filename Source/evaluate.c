@@ -266,7 +266,7 @@ int evaluate(position_t *pos) {
       square = __builtin_ctzll(bitboard);
 
       if (nnue_settings.use_nnue) {
-        //space reserved
+        // Do nothing
       } else {
         // get opening/endgame material score
         score_opening += material_score[opening][piece];
@@ -546,9 +546,8 @@ int evaluate(position_t *pos) {
   }
 
   if (nnue_settings.use_nnue) {
-    // The structure for NNUE enable is here even tho it will be reworked more
-    // then likely with our net
-    return 0;
+    return (int)(nnue_eval_pos(pos) *
+                 (float)((100 - (float)pos->fifty) / 100));
   } else {
     /*
         Now in order to calculate interpolated score

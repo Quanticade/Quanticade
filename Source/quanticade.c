@@ -1,5 +1,6 @@
 // system headers
 #include "evaluate.h"
+#include "nnue.h"
 #include "pyrrhic/tbprobe.h"
 #include <stdint.h>
 #include <stdio.h>
@@ -125,11 +126,12 @@ void init_all(void) {
 \**********************************/
 
 int main(int argc, char *argv[]) {
+  nnue_init("nn.nnue");
   threads = init_threads(thread_count);
   pos.enpassant = no_sq;
   limits.movestogo = 30;
   limits.time = -1;
-  nnue_settings.use_nnue = 0;
+  nnue_settings.use_nnue = 1;
   random_state = 1804289383;
   tt.hash_entry = NULL;
   tt.num_of_entries = 0;
