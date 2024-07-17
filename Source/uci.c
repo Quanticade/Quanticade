@@ -200,7 +200,7 @@ static inline void parse_fen(position_t *pos, char *fen) {
     for (int file = 0; file < 8; file++) {
       // init current square
       int square = rank * 8 + file;
-      pos->mailbox[square] = 64;
+      pos->mailbox[square] = NO_PIECE;
 
       // match ascii pieces within FEN string
       if ((*fen >= 'a' && *fen <= 'z') || (*fen >= 'A' && *fen <= 'Z')) {

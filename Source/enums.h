@@ -73,7 +73,7 @@ enum {
 };
 
 // encode pieces
-enum { P, N, B, R, Q, K, p, n, b, r, q, k };
+enum { P, N, B, R, Q, K, p, n, b, r, q, k, NO_PIECE };
 
 // sides to move (colors)
 enum { white, black, both };

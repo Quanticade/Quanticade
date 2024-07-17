@@ -63,7 +63,7 @@ int make_move(position_t *pos, int move, int move_flag) {
       if (pos->side == white) {
         // remove captured pawn
         pop_bit(pos->bitboards[p], target_square + 8);
-        pos->mailbox[target_square + 8] = 64;
+        pos->mailbox[target_square + 8] = NO_PIECE;
 
         // remove pawn from hash key
         pos->hash_key ^= pos->keys.piece_keys[p][target_square + 8];
@@ -73,7 +73,7 @@ int make_move(position_t *pos, int move, int move_flag) {
       else {
         // remove captured pawn
         pop_bit(pos->bitboards[P], target_square - 8);
-        pos->mailbox[target_square - 8] = 64;
+        pos->mailbox[target_square - 8] = NO_PIECE;
 
         // remove pawn from hash key
         pos->hash_key ^= pos->keys.piece_keys[P][target_square - 8];
@@ -83,7 +83,7 @@ int make_move(position_t *pos, int move, int move_flag) {
     // move piece
     pop_bit(pos->bitboards[piece], source_square);
     set_bit(pos->bitboards[piece], target_square);
-    pos->mailbox[source_square] = 64;
+    pos->mailbox[source_square] = NO_PIECE;
     pos->mailbox[target_square] = piece;
 
     // hash piece
@@ -159,7 +159,7 @@ int make_move(position_t *pos, int move, int move_flag) {
         // move H rook
         pop_bit(pos->bitboards[R], h1);
         set_bit(pos->bitboards[R], f1);
-        pos->mailbox[h1] = 64;
+        pos->mailbox[h1] = NO_PIECE;
         pos->mailbox[f1] = R;
 
         // hash rook
@@ -174,7 +174,7 @@ int make_move(position_t *pos, int move, int move_flag) {
         // move A rook
         pop_bit(pos->bitboards[R], a1);
         set_bit(pos->bitboards[R], d1);
-        pos->mailbox[a1] = 64;
+        pos->mailbox[a1] = NO_PIECE;
         pos->mailbox[d1] = R;
 
         // hash rook
@@ -189,7 +189,7 @@ int make_move(position_t *pos, int move, int move_flag) {
         // move H rook
         pop_bit(pos->bitboards[r], h8);
         set_bit(pos->bitboards[r], f8);
-        pos->mailbox[h8] = 64;
+        pos->mailbox[h8] = NO_PIECE;
         pos->mailbox[f8] = r;
 
         // hash rook
@@ -204,7 +204,7 @@ int make_move(position_t *pos, int move, int move_flag) {
         // move A rook
         pop_bit(pos->bitboards[r], a8);
         set_bit(pos->bitboards[r], d8);
-        pos->mailbox[a8] = 64;
+        pos->mailbox[a8] = NO_PIECE;
         pos->mailbox[d8] = r;
 
         // hash rook
