@@ -546,8 +546,8 @@ int evaluate(position_t *pos) {
   }
 
   if (nnue_settings.use_nnue) {
-    return (int)(nnue_eval_pos(pos) *
-                 (float)((100 - (float)pos->fifty) / 100));
+    //init_accumulator(pos);
+    return (int)(nnue_evaluate(pos) * (float)((100 - (float)pos->fifty) / 100));
   } else {
     /*
         Now in order to calculate interpolated score

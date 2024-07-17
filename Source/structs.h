@@ -30,8 +30,13 @@ typedef struct keys {
   uint64_t side_key;
 } keys_t;
 
+typedef struct accumulator {
+    int16_t accumulator[2][1024]; //This is very cursed but for now lets have it this way
+} accumulator_t;
+
 typedef struct position {
   keys_t keys;
+  accumulator_t accumulator;
   uint64_t bitboards[12];
   uint64_t occupancies[3];
   uint64_t hash_key;

@@ -18,14 +18,12 @@ typedef struct nnue {
     int16_t output_bias;
 } nnue_t;
 
-typedef struct accumulator {
-    int16_t accumulator[2][HIDDEN_SIZE];
-} accumulator_t;
-
 extern nnue_t nnue;
-extern accumulator_t accumulator;
 
 void nnue_init(const char *nnue_file_name);
+void init_accumulator(position_t *pos);
+int nnue_evaluate(position_t *pos);
 int nnue_eval_pos(position_t *pos);
+void accumulator_make_move(position_t *pos, int move, uint8_t *mailbox);
 
 #endif

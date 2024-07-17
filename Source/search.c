@@ -4,6 +4,7 @@
 #include "enums.h"
 #include "evaluate.h"
 #include "movegen.h"
+#include "nnue.h"
 #include "pvtable.h"
 #include "pyrrhic/tbprobe.h"
 #include "structs.h"
@@ -243,7 +244,7 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
   for (uint32_t count = 0; count < move_list->count; count++) {
     // preserve board state
     copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-               pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+               pos->castle, pos->fifty, pos->hash_key, pos->mailbox, pos->accumulator.accumulator);
 
     // increment ply
     pos->ply++;
@@ -263,6 +264,7 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
       // skip to next move
       continue;
     }
+    accumulator_make_move(pos, move_list->entry[count].move, mailbox_copy);
 
     thread->nodes++;
 
@@ -277,7 +279,7 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
 
     // take move back
     restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                  pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+                  pos->castle, pos->fifty, pos->hash_key, pos->mailbox, pos->accumulator.accumulator);
 
     // return 0 if time is up
     if (thread->stopped == 1) {
@@ -415,7 +417,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     if (do_null_pruning && depth >= 3 && pos->ply) {
       // preserve board state
       copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                 pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+                 pos->castle, pos->fifty, pos->hash_key, pos->mailbox, pos->accumulator.accumulator);
 
       // increment ply
       pos->ply++;
@@ -449,7 +451,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
       // restore board state
       restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                    pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+                    pos->castle, pos->fifty, pos->hash_key, pos->mailbox, pos->accumulator.accumulator);
 
       // reutrn 0 if time is up
       if (thread->stopped == 1) {
@@ -535,7 +537,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
     // preserve board state
     copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-               pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+               pos->castle, pos->fifty, pos->hash_key, pos->mailbox, pos->accumulator.accumulator);
 
     int list_move = move_list->entry[count].move;
 
@@ -557,6 +559,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
       // skip to next move
       continue;
     }
+    accumulator_make_move(pos, list_move, mailbox_copy);
 
     // increment nodes count
     thread->nodes++;
@@ -599,7 +602,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
     // take move back
     restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                  pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+                  pos->castle, pos->fifty, pos->hash_key, pos->mailbox, pos->accumulator.accumulator);
 
     // return infinity so we can deal with timeout in case we are doing
     // re-search

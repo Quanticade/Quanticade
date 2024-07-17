@@ -508,6 +508,7 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
 
   // Setup engine with start position as default
   parse_position(pos, threads, start_position);
+  init_accumulator(pos);
 
   if (argc >= 2) {
     if (strncmp("bench", argv[1], 5) == 0) {
@@ -556,6 +557,7 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
     else if (strncmp(input, "position", 8) == 0) {
       // call parse position function
       parse_position(pos, threads, input);
+      init_accumulator(pos);
     }
     // parse UCI "ucinewgame" command
     else if (strncmp(input, "ucinewgame", 10) == 0) {
