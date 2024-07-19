@@ -20,7 +20,6 @@
 #include "threads.h"
 #include "uci.h"
 
-#define DEFAULT_NNUE "nn-62ef826d1a6d.nnue"
 position_t pos;
 thread_t *threads;
 nnue_settings_t nnue_settings;
@@ -113,7 +112,7 @@ void init_all(void) {
   init_hash_table(default_hash_size);
 
   if (nnue_settings.use_nnue) {
-    //nnue_init(DEFAULT_NNUE);
+    nnue_init(EVALFILE);
   }
 }
 
@@ -126,7 +125,6 @@ void init_all(void) {
 \**********************************/
 
 int main(int argc, char *argv[]) {
-  nnue_init("nn.nnue");
   threads = init_threads(thread_count);
   pos.enpassant = no_sq;
   limits.movestogo = 30;
@@ -136,7 +134,7 @@ int main(int argc, char *argv[]) {
   tt.hash_entry = NULL;
   tt.num_of_entries = 0;
   nnue_settings.nnue_file = calloc(21, 1);
-  strcpy(nnue_settings.nnue_file, DEFAULT_NNUE);
+  strcpy(nnue_settings.nnue_file, EVALFILE);
   // init all
   init_all();
 

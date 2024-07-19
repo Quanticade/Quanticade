@@ -572,6 +572,9 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
     // parse UCI "go" command
     else if (strncmp(input, "go", 2) == 0) {
       // call parse go function
+      if (nnue_settings.use_nnue) {
+        printf("info string NNUE evaluation using %s\n", nnue_settings.nnue_file);
+      }
       strncpy(sti.line, input, 10000);
       pthread_create(&search_thread, NULL, &parse_go, &sti);
     }

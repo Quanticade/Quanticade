@@ -1,11 +1,21 @@
 #include "nnue.h"
 #include "bitboards.h"
 #include "enums.h"
+#include "incbin/incbin.h"
 #include "structs.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 nnue_t nnue;
+
+#if !defined(_MSC_VER)
+INCBIN(EVAL, EVALFILE);
+#else
+const unsigned char gEVALData[1] = {};
+const unsigned char *const gEVALEnd = &gEVALData[1];
+const unsigned int gEVALSize = 1;
+#endif
 
 int32_t clamp_int32(int32_t d, int32_t min, int32_t max) {
   const int32_t t = d < min ? min : d;
@@ -41,6 +51,19 @@ void nnue_init(const char *nnue_file_name) {
 
     // after reading the config we can close the file
     fclose(nn);
+  } else {
+    uint64_t memoryIndex = 0;
+    memcpy(nnue.feature_weights, &gEVALData[memoryIndex],
+           INPUT_WEIGHTS * HIDDEN_SIZE * sizeof(int16_t));
+    memoryIndex += INPUT_WEIGHTS * HIDDEN_SIZE * sizeof(int16_t);
+    memcpy(nnue.feature_bias, &gEVALData[memoryIndex],
+           HIDDEN_SIZE * sizeof(int16_t));
+    memoryIndex += HIDDEN_SIZE * sizeof(int16_t);
+
+    memcpy(nnue.output_weights, &gEVALData[memoryIndex],
+           HIDDEN_SIZE * sizeof(int16_t) * 2);
+    memoryIndex += HIDDEN_SIZE * sizeof(int16_t) * 2;
+    memcpy(&nnue.output_bias, &gEVALData[memoryIndex], 1 * sizeof(int16_t));
   }
 }
 
