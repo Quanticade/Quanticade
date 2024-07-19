@@ -12,6 +12,7 @@
 #include "bitboards.h"
 #include "enums.h"
 #include "movegen.h"
+#include "nnue.h"
 #include "perft.h"
 #include "pvtable.h"
 #include "pyrrhic/tbprobe.h"
@@ -23,7 +24,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "nnue.h"
 
 extern nnue_settings_t nnue_settings;
 
@@ -198,7 +198,6 @@ static inline void parse_fen(position_t *pos, char *fen) {
     for (int file = 0; file < 8; file++) {
       // init current square
       int square = rank * 8 + file;
-      pos->mailbox[square] = NO_PIECE;
 
       // match ascii pieces within FEN string
       if ((*fen >= 'a' && *fen <= 'z') || (*fen >= 'A' && *fen <= 'Z')) {
@@ -327,6 +326,10 @@ static inline void parse_position(position_t *pos, thread_t *thread,
   // init pointer to the current character in the command string
   char *current_char = command;
 
+  for (int i = 0; i < 64; ++i) {
+    pos->mailbox[i] = NO_PIECE;
+  }
+
   // parse UCI "startpos" command
   if (strncmp(command, "startpos", 8) == 0)
     // init chess board with start position
@@ -351,6 +354,8 @@ static inline void parse_position(position_t *pos, thread_t *thread,
       parse_fen(pos, current_char);
     }
   }
+
+  init_accumulator(pos);
 
   // parse moves after position
   current_char = strstr(command, "moves");
@@ -507,7 +512,7 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
   printf("Quanticade %s by DarkNeutrino\n", version);
 
   // Setup engine with start position as default
-  parse_position(pos, threads, start_position);
+  parse_position(pos, threads, "position startpos");
   init_accumulator(pos);
 
   if (argc >= 2) {
@@ -591,7 +596,8 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
       printf("option name Threads type spin default %d min %d max %d\n", 1, 1,
              256);
       printf("option name Use NNUE type check default true\n");
-      //printf("option name EvalFile type string default %s\n", nnue.nnue_file);
+      // printf("option name EvalFile type string default %s\n",
+      // nnue.nnue_file);
       printf("option name Clear Hash type button\n");
       printf("option name SyzygyPath type string default <empty>\n");
       printf("uciok\n");
@@ -638,7 +644,7 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
       uint16_t length = strlen(input);
       nnue_settings.nnue_file = calloc(length - 30, 1);
       sscanf(input, "%*s %*s %*s %*s %s", nnue_settings.nnue_file);
-      //nnue_init(nnue.nnue_file);
+      // nnue_init(nnue.nnue_file);
       free(nnue_settings.nnue_file);
     }
 

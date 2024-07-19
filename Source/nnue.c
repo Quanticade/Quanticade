@@ -198,18 +198,18 @@ void accumulator_addsub(position_t *pos, uint8_t piece, uint8_t from,
 }
 
 void accumulator_make_move(position_t *pos, int move, uint8_t *mailbox) {
-  uint8_t from = get_move_source(move);
-  uint8_t to = get_move_target(move);
-  uint8_t promotion = get_move_promoted(move);
-  uint8_t enpassant = get_move_enpassant(move);
-  uint8_t capture = get_move_capture(move);
-  uint8_t castle = get_move_castling(move);
-  uint8_t moving_piece = get_move_piece(move);
+  int from = get_move_source(move);
+  int to = get_move_target(move);
+  int moving_piece = get_move_piece(move);
+  int promoted_piece = get_move_promoted(move);
+  int capture = get_move_capture(move);
+  int enpass = get_move_enpassant(move);
+  int castling = get_move_castling(move);
 
-  if (promotion) {
-    uint8_t pawn = pos->side == 0 ? P : p;
+  if (promoted_piece) {
+    uint8_t pawn = pos->side == 0 ? p : P;
     accumulator_remove(pos, pawn, from);
-    accumulator_add(pos, promotion, to);
+    accumulator_add(pos, promoted_piece, to);
 
     if (capture) {
       uint8_t captured_piece = mailbox[to];
@@ -220,20 +220,24 @@ void accumulator_make_move(position_t *pos, int move, uint8_t *mailbox) {
     return;
   }
 
-  if (enpassant) {
-    uint8_t remove_square = to + ((pos->side == white) ? 8 : -8);
-    uint8_t pawn = (pos->side ^ 1) == 0 ? P : p;
-    accumulator_remove(pos, pawn, remove_square);
-  } else if (capture) {
+  else if (enpass) {
+    uint8_t remove_square = to + ((pos->side == white) ? -8 : 8);
+    uint8_t captured_piece = mailbox[remove_square];
+    accumulator_remove(pos, captured_piece, remove_square);
+  }
+
+  else if (capture) {
     uint8_t captured_piece = mailbox[to];
     accumulator_remove(pos, captured_piece, to);
   }
 
   // moves the piece
   accumulator_remove(pos, moving_piece, from);
-  accumulator_add(pos, moving_piece, to);
+  if (!promoted_piece) {
+    accumulator_add(pos, moving_piece, to);
+  }
 
-  if (castle) {
+  if (castling) {
     // switch target square
     switch (to) {
     // white castles king side

@@ -265,9 +265,7 @@ int evaluate(position_t *pos) {
       // init square
       square = __builtin_ctzll(bitboard);
 
-      if (nnue_settings.use_nnue) {
-        // Do nothing
-      } else {
+      if (!nnue_settings.use_nnue) {
         // get opening/endgame material score
         score_opening += material_score[opening][piece];
         score_endgame += material_score[endgame][piece];
@@ -546,7 +544,6 @@ int evaluate(position_t *pos) {
   }
 
   if (nnue_settings.use_nnue) {
-    //init_accumulator(pos);
     return (int)(nnue_evaluate(pos) * (float)((100 - (float)pos->fifty) / 100));
   } else {
     /*

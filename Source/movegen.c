@@ -3,7 +3,6 @@
 #include "bitboards.h"
 #include "enums.h"
 #include "structs.h"
-#include <stdio.h>
 #include <string.h>
 
 extern nnue_settings_t nnue_settings;
