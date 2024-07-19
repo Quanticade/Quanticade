@@ -1,7 +1,6 @@
 // system headers
 #include "evaluate.h"
 #include "nnue.h"
-#include "pyrrhic/tbprobe.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -112,7 +111,7 @@ void init_all(void) {
   init_hash_table(default_hash_size);
 
   if (nnue_settings.use_nnue) {
-    nnue_init(EVALFILE);
+    nnue_init("nn.nnue");
   }
 }
 
@@ -134,7 +133,7 @@ int main(int argc, char *argv[]) {
   tt.hash_entry = NULL;
   tt.num_of_entries = 0;
   nnue_settings.nnue_file = calloc(21, 1);
-  strcpy(nnue_settings.nnue_file, EVALFILE);
+  strcpy(nnue_settings.nnue_file, "nn.nnue");
   // init all
   init_all();
 
