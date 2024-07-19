@@ -3,10 +3,9 @@
 #include "bitboards.h"
 #include "enums.h"
 #include "structs.h"
-#include <stdio.h>
 #include <string.h>
 
-extern nnue_t nnue;
+extern nnue_settings_t nnue_settings;
 
 const int castling_rights[64] = {
     7,  15, 15, 15, 3,  15, 15, 11, 15, 15, 15, 15, 15, 15, 15, 15,
@@ -19,7 +18,7 @@ int make_move(position_t *pos, int move, int move_flag) {
   if (move_flag == all_moves) {
     // preserve board state
     copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-               pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+               pos->castle, pos->fifty, pos->hash_key, pos->mailbox, pos->accumulator.accumulator);
 
     // parse move
     int source_square = get_move_source(move);
@@ -257,7 +256,7 @@ int make_move(position_t *pos, int move, int move_flag) {
                            pos->side)) {
       // take move back
       restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                    pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+                    pos->castle, pos->fifty, pos->hash_key, pos->mailbox, pos->accumulator.accumulator);
 
       // return illegal move
       return 0;

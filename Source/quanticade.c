@@ -1,6 +1,6 @@
 // system headers
 #include "evaluate.h"
-#include "pyrrhic/tbprobe.h"
+#include "nnue.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,18 +14,14 @@
 
 #include "attacks.h"
 #include "enums.h"
-#include "nnue/nnue.h"
-//do NOT move nnue.h above nnue/nnue.h
-#include "nnue.h"
 #include "pvtable.h"
 #include "structs.h"
 #include "threads.h"
 #include "uci.h"
 
-#define DEFAULT_NNUE "nn-62ef826d1a6d.nnue"
 position_t pos;
 thread_t *threads;
-nnue_t nnue;
+nnue_settings_t nnue_settings;
 limits_t limits;
 uint32_t random_state;
 
@@ -114,8 +110,8 @@ void init_all(void) {
   // init hash table with default size
   init_hash_table(default_hash_size);
 
-  if (nnue.use_nnue) {
-    nnue_init(DEFAULT_NNUE);
+  if (nnue_settings.use_nnue) {
+    nnue_init("nn.nnue");
   }
 }
 
@@ -132,12 +128,12 @@ int main(int argc, char *argv[]) {
   pos.enpassant = no_sq;
   limits.movestogo = 30;
   limits.time = -1;
-  nnue.use_nnue = 1;
+  nnue_settings.use_nnue = 1;
   random_state = 1804289383;
   tt.hash_entry = NULL;
   tt.num_of_entries = 0;
-  nnue.nnue_file = calloc(21, 1);
-  strcpy(nnue.nnue_file, DEFAULT_NNUE);
+  nnue_settings.nnue_file = calloc(21, 1);
+  strcpy(nnue_settings.nnue_file, "nn.nnue");
   // init all
   init_all();
 

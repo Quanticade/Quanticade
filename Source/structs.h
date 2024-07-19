@@ -30,8 +30,13 @@ typedef struct keys {
   uint64_t side_key;
 } keys_t;
 
+typedef struct accumulator {
+    int16_t accumulator[2][1024]; //This is very cursed but for now lets have it this way
+} accumulator_t;
+
 typedef struct position {
   keys_t keys;
+  accumulator_t accumulator;
   uint64_t bitboards[12];
   uint64_t occupancies[3];
   uint64_t hash_key;
@@ -81,9 +86,9 @@ typedef struct searchthread {
   char line[10000];
 } searchthreadinfo_t;
 
-typedef struct nnue {
+typedef struct nnue_settings {
   uint8_t use_nnue;
   char *nnue_file;
-} nnue_t;
+} nnue_settings_t;
 
 #endif
