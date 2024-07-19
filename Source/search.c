@@ -12,6 +12,7 @@
 #include "threads.h"
 #include "uci.h"
 #include "utils.h"
+#include <inttypes.h>
 #include <math.h>
 #include <pthread.h>
 #include <stddef.h>
@@ -696,10 +697,10 @@ static void print_thinking(thread_t *thread, int score, int current_depth) {
   } else {
     printf("cp %d ", score);
   }
-  printf("nodes %lu ", nodes);
-  printf("nps %lu ", nps);
+  printf("nodes %" PRIu64 " ", nodes);
+  printf("nps %" PRIu64 " ", nps);
   printf("hashfull %d ", hash_full());
-  printf("time %lu ", time);
+  printf("time %" PRIu64 " ", time);
   printf("pv ");
 
   // loop over the moves within a PV line

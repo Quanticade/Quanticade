@@ -4,6 +4,7 @@
 #include "structs.h"
 #include "uci.h"
 #include "utils.h"
+#include <inttypes.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -25,9 +26,9 @@ static inline void perft_driver(position_t *pos, thread_t *thread, int depth) {
   // loop over generated moves
   for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
     // preserve board state
-    copy_board(pos->bitboards, pos->occupancies,
-               pos->side, pos->enpassant,
-               pos->castle, pos->fifty, pos->hash_key, pos->mailbox, pos->accumulator.accumulator);
+    copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
+               pos->castle, pos->fifty, pos->hash_key, pos->mailbox,
+               pos->accumulator.accumulator);
 
     // make move
     if (!make_move(pos, move_list->entry[move_count].move, all_moves))
@@ -38,14 +39,14 @@ static inline void perft_driver(position_t *pos, thread_t *thread, int depth) {
     perft_driver(pos, thread, depth - 1);
 
     // take back
-    restore_board(pos->bitboards, pos->occupancies,
-                  pos->side, pos->enpassant,
-                  pos->castle, pos->fifty, pos->hash_key, pos->mailbox, pos->accumulator.accumulator);
+    restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
+                  pos->castle, pos->fifty, pos->hash_key, pos->mailbox,
+                  pos->accumulator.accumulator);
   }
 }
 
 // perft test
-void perft_test(position_t* pos, thread_t *searchinfo, int depth) {
+void perft_test(position_t *pos, thread_t *searchinfo, int depth) {
   printf("\n     Performance test\n\n");
 
   // create move list instance
@@ -60,9 +61,9 @@ void perft_test(position_t* pos, thread_t *searchinfo, int depth) {
   // loop over generated moves
   for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
     // preserve board state
-    copy_board(pos->bitboards, pos->occupancies,
-               pos->side, pos->enpassant,
-               pos->castle, pos->fifty, pos->hash_key, pos->mailbox, pos->accumulator.accumulator);
+    copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
+               pos->castle, pos->fifty, pos->hash_key, pos->mailbox,
+               pos->accumulator.accumulator);
 
     // make move
     if (!make_move(pos, move_list->entry[move_count].move, all_moves))
@@ -80,9 +81,9 @@ void perft_test(position_t* pos, thread_t *searchinfo, int depth) {
     (void)old_nodes;
 
     // take back
-    restore_board(pos->bitboards, pos->occupancies,
-                  pos->side, pos->enpassant,
-                  pos->castle, pos->fifty, pos->hash_key, pos->mailbox, pos->accumulator.accumulator);
+    restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
+                  pos->castle, pos->fifty, pos->hash_key, pos->mailbox,
+                  pos->accumulator.accumulator);
 
     // print move
     printf("     move: %s%s%c  nodes: %ld\n",
@@ -100,13 +101,7 @@ void perft_test(position_t* pos, thread_t *searchinfo, int depth) {
   // print results
   printf("\n    Depth: %d\n", depth);
   uint64_t nps = (searchinfo->nodes / fmax(get_time_ms() - start, 1)) * 1000;
-#ifdef WIN64
-  printf("    Nodes: %llu\n", searchinfo->nodes);
-  printf("     Time: %llu\n\n", get_time_ms() - start);
-  printf("      NPS: %llu\n\n", searchinfo->nodes / ((get_time_ms() - start) / 1000));
-#else
-  printf("    Nodes: %lu\n", searchinfo->nodes);
-  printf("     Time: %lu\n\n", get_time_ms() - start);
-  printf("      NPS: %lu\n\n", nps);
-#endif
+  printf("    Nodes: %" PRIu64 "\n", searchinfo->nodes);
+  printf("     Time: %" PRIu64 "\n\n", get_time_ms() - start);
+  printf("      NPS: %" PRIu64 "\n\n", nps);
 }

@@ -20,6 +20,7 @@
 #include "structs.h"
 #include "threads.h"
 #include "utils.h"
+#include <inttypes.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -528,7 +529,7 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
         total_nodes += threads->nodes;
       }
       uint64_t total_time = get_time_ms() - start_time;
-      printf("\n%lu nodes %lu nps\n", total_nodes,
+      printf("\n%" PRIu64 " nodes %" PRIu64 " nps\n", total_nodes,
              (total_nodes / (total_time + 1) * 1000));
       return;
     }
