@@ -6,7 +6,7 @@
 extern nnue_settings_t nnue_settings;
 
 #define INPUT_WEIGHTS 768
-#define HIDDEN_SIZE   1024
+#define HIDDEN_SIZE   1536
 #define SCALE         400
 #define L1Q           255
 #define OutputQ       64
