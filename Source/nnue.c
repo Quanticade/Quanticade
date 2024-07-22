@@ -17,12 +17,12 @@ const unsigned char *const gEVALEnd = &gEVALData[1];
 const unsigned int gEVALSize = 1;
 #endif
 
-int32_t clamp_int32(int32_t d, int32_t min, int32_t max) {
+static int32_t clamp_int32(int32_t d, int32_t min, int32_t max) {
   const int32_t t = d < min ? min : d;
   return t > max ? max : t;
 }
 
-inline int32_t screlu(int16_t value) {
+static inline int32_t screlu(int16_t value) {
   const int32_t clipped = clamp_int32((int32_t)value, 0, L1Q);
   return clipped * clipped;
 }
