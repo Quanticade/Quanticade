@@ -211,8 +211,22 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
     // evaluate position
     return evaluate(pos);
 
+  int32_t best_move = 0;
+  int score = 0;
+  int pv_node = beta - alpha > 1;
+  int hash_flag = hash_flag_alpha;
+
+  if (pos->ply &&
+      (score = read_hash_entry(pos, alpha, &best_move, beta, 0)) !=
+          no_hash_entry &&
+      pv_node == 0) {
+    // if the move has already been searched (hence has a value)
+    // we just return the score for this move without searching it
+    return score;
+  }
+
   // evaluate position
-  int score = evaluate(pos);
+  score = evaluate(pos);
 
   // fail-hard beta cutoff
   if (score >= beta) {
@@ -294,7 +308,10 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
     // found a better move
     if (score > alpha) {
       // fail-hard beta cutoff
+      hash_flag = hash_flag_exact;
+      best_move = move_list->entry[count].move;
       if (score >= beta) {
+        write_hash_entry(pos, best_score, 0, best_move, hash_flag_beta);
         // node (position) fails high
         return best_score;
       }
@@ -302,7 +319,7 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
       alpha = score;
     }
   }
-
+  write_hash_entry(pos, alpha, 0, best_move, hash_flag);
   // node (position) fails low
   return best_score;
 }
