@@ -709,8 +709,8 @@ static void print_thinking(thread_t *thread, int score, int current_depth) {
 
   if (score > -mate_value && score < -mate_score) {
     printf("mate %d ", -(score + mate_value) / 2 - 1);
-  } else if (score > mate_value && score < mate_score) {
-    printf("mate %d ", (score + mate_value) / 2 - 1);
+  } else if (score > mate_score && score < mate_value) {
+    printf("mate %d ", (mate_value - score) / 2 + 1);
   } else {
     printf("cp %d ", score);
   }
