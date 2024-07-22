@@ -6,9 +6,9 @@ Quanticade is an decent uci command-line chess engine written in C in developmen
 
 ## Playing Strength
 
-Currently Quanticade isnt rated on any website (We are looking to get it rated on CCRL and others).
+Currently Quanticade isnt rated on any website (Testing in progress).
 
-Estimated elo is currently ~3000.
+Estimated elo is currently ~3250.
 
 ## History
 
@@ -25,7 +25,6 @@ Quanticade is based on BitBoard Chess engine by Maksim Korzh
 
 - Maksim Korzh for his BitBoard Chess youtube series
 - BlueFeverSoft for his VICE chess series
-- Daniel Shawul for his nnue probing library
 - TerjeKir for Weiss
 - Stockfish for creating a clearly and easily readable codebase with many great ideas
 
