@@ -329,22 +329,22 @@ double clamp(double d, double min, double max) {
   return t > max ? max : t;
 }
 
-static inline void update_history_move(position_t *pos, int move, uint8_t depth, int32_t bonus) {
+static inline void update_history_move(position_t *pos, int move, uint8_t depth, uint8_t is_best_move) {
   int piece = get_move_piece(move);
   int target = get_move_target(move);
-  int clamped_bonus = clamp(depth * depth, -bonus, bonus);
+  int clamped_bonus = clamp(depth * depth, -16000, 16000);
   pos->history_moves[piece][target] +=
       clamped_bonus -
-      pos->history_moves[piece][target] * abs(clamped_bonus) / bonus;
+      pos->history_moves[piece][target] * abs(clamped_bonus) / (is_best_move ?  16000 : -16000);
 }
 
-static inline void update_all_history_moves(position_t *pos, moves *quiet_moves, int best_move, uint8_t depth, int32_t bonus) {
+static inline void update_all_history_moves(position_t *pos, moves *quiet_moves, int best_move, uint8_t depth) {
   for (uint32_t i = 0; i < quiet_moves->count; ++i) {
     if (quiet_moves->entry[i].move == best_move) {
-      update_history_move(pos, best_move, depth, bonus);
+      update_history_move(pos, best_move, depth, 1);
     }
     else {
-      update_history_move(pos, quiet_moves->entry[i].move, depth, -bonus);
+      update_history_move(pos, quiet_moves->entry[i].move, depth, 0);
     }
   }
 }
@@ -679,7 +679,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
           // on quiet moves
           if (is_quiet) {
-            update_all_history_moves(pos, quiet_list, best_move, depth, 16000);
+            update_all_history_moves(pos, quiet_list, best_move, depth);
             // store killer moves
             pos->killer_moves[1][pos->ply] = pos->killer_moves[0][pos->ply];
             pos->killer_moves[0][pos->ply] = move;
