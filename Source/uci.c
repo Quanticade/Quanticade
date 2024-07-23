@@ -574,7 +574,8 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
     else if (strncmp(input, "go", 2) == 0) {
       // call parse go function
       if (nnue_settings.use_nnue) {
-        printf("info string NNUE evaluation using %s\n", nnue_settings.nnue_file);
+        printf("info string NNUE evaluation using %s\n",
+               nnue_settings.nnue_file);
       }
       strncpy(sti.line, input, 10000);
       pthread_create(&search_thread, NULL, &parse_go, &sti);
@@ -600,8 +601,8 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
       printf("option name Threads type spin default %d min %d max %d\n", 1, 1,
              256);
       printf("option name Use NNUE type check default true\n");
-      // printf("option name EvalFile type string default %s\n",
-      // nnue.nnue_file);
+      printf("option name EvalFile type string default %s\n",
+             nnue_settings.nnue_file);
       printf("option name Clear Hash type button\n");
       printf("option name SyzygyPath type string default <empty>\n");
       printf("uciok\n");
@@ -648,8 +649,7 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
       uint16_t length = strlen(input);
       nnue_settings.nnue_file = calloc(length - 30, 1);
       sscanf(input, "%*s %*s %*s %*s %s", nnue_settings.nnue_file);
-      // nnue_init(nnue.nnue_file);
-      free(nnue_settings.nnue_file);
+      nnue_init(nnue_settings.nnue_file);
     }
 
     else if (!strncmp(input, "setoption name Clear Hash", 25)) {
