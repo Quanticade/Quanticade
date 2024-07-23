@@ -31,7 +31,7 @@ typedef struct keys {
 } keys_t;
 
 typedef struct accumulator {
-    int16_t accumulator[2][1536]; //This is very cursed but for now lets have it this way
+  int16_t accumulator[2][1536]; //This is very cursed but for now lets have it this way
 } accumulator_t;
 
 typedef struct position {
@@ -44,8 +44,6 @@ typedef struct position {
   uint32_t repetition_index;
   uint32_t ply;
   uint32_t fifty;
-  int killer_moves[2][max_ply];
-  int history_moves[12][64];
   uint8_t mailbox[64];
   uint8_t side;
   uint8_t enpassant;
@@ -66,6 +64,8 @@ typedef struct searchinfo {
   uint64_t starttime;
   uint64_t stoptime;
   uint8_t depth;
+  int killer_moves[2][max_ply];
+  int history_moves[12][64];
   int score;
   uint8_t timeset;
   uint8_t stopped;
