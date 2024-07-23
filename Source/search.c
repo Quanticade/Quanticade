@@ -319,7 +319,7 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
       alpha = score;
     }
   }
-  write_hash_entry(pos, alpha, 0, best_move, hash_flag);
+  write_hash_entry(pos, best_score, 0, best_move, hash_flag);
   // node (position) fails low
   return best_score;
 }
