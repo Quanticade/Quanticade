@@ -579,7 +579,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
       quiet_count++;
     }
 
-    if (!pv_node && !in_check && quiet && depth <= 3 &&
+    if (!pv_node && !in_check && quiet &&
         quiet_count > 6 + (depth * depth * 2)) {
       break;
     }
