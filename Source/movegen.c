@@ -272,7 +272,7 @@ int make_move(position_t *pos, int move, int move_flag) {
 }
 
 // add move to the move list
-static inline void add_move(moves *move_list, int move) {
+void add_move(moves *move_list, int move) {
   // store move
   move_list->entry[move_list->count].move = move;
 

@@ -138,19 +138,19 @@ static inline void score_move(position_t *pos, thread_t *thread,
   // score quiet move
   else {
     // score 1st killer move
-    if (pos->killer_moves[0][pos->ply] == move) {
+    if (thread->killer_moves[0][pos->ply] == move) {
       move_entry->score = 900000000;
     }
 
     // score 2nd killer move
-    else if (pos->killer_moves[1][pos->ply] == move) {
+    else if (thread->killer_moves[1][pos->ply] == move) {
       move_entry->score = 800000000;
     }
 
     // score history move
     else {
       move_entry->score =
-          pos->history_moves[get_move_piece(move)][get_move_target(move)];
+          thread->history_moves[get_move_piece(move)][get_move_target(move)];
     }
 
     return;
@@ -259,7 +259,8 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
   for (uint32_t count = 0; count < move_list->count; count++) {
     // preserve board state
     copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-               pos->castle, pos->fifty, pos->hash_key, pos->mailbox, pos->accumulator.accumulator);
+               pos->castle, pos->fifty, pos->hash_key, pos->mailbox,
+               pos->accumulator.accumulator);
 
     // increment ply
     pos->ply++;
@@ -294,7 +295,8 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
 
     // take move back
     restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                  pos->castle, pos->fifty, pos->hash_key, pos->mailbox, pos->accumulator.accumulator);
+                  pos->castle, pos->fifty, pos->hash_key, pos->mailbox,
+                  pos->accumulator.accumulator);
 
     // return 0 if time is up
     if (thread->stopped == 1) {
@@ -329,13 +331,25 @@ double clamp(double d, double min, double max) {
   return t > max ? max : t;
 }
 
-void update_history_moves(position_t *pos, int best_move, uint8_t depth) {
-  int piece = get_move_piece(best_move);
-  int target = get_move_target(best_move);
-  int clamped_bonus = clamp(depth * depth, -16000, 16000);
-  pos->history_moves[piece][target] +=
+static inline void update_history_move(thread_t *thread, int move, uint8_t depth, uint8_t is_best_move) {
+  int piece = get_move_piece(move);
+  int target = get_move_target(move);
+  int bonus = 16 * depth * depth + 32 * depth + 16;
+  int clamped_bonus = clamp(is_best_move ? bonus : -bonus, -1200, 1200);
+  thread->history_moves[piece][target] +=
       clamped_bonus -
-      pos->history_moves[piece][target] * abs(clamped_bonus) / 16000;
+      thread->history_moves[piece][target] * abs(clamped_bonus) / 8192;
+}
+
+static inline void update_all_history_moves(thread_t *thread, moves *quiet_moves, int best_move, uint8_t depth) {
+  for (uint32_t i = 0; i < quiet_moves->count; ++i) {
+    if (quiet_moves->entry[i].move == best_move) {
+      update_history_move(thread, best_move, depth, 1);
+    }
+    else {
+      update_history_move(thread, quiet_moves->entry[i].move, depth, 0);
+    }
+  }
 }
 
 // negamax alpha beta search
@@ -435,7 +449,8 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     if (do_null_pruning && depth >= 3 && pos->ply) {
       // preserve board state
       copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                 pos->castle, pos->fifty, pos->hash_key, pos->mailbox, pos->accumulator.accumulator);
+                 pos->castle, pos->fifty, pos->hash_key, pos->mailbox,
+                 pos->accumulator.accumulator);
 
       // increment ply
       pos->ply++;
@@ -469,7 +484,8 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
       // restore board state
       restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                    pos->castle, pos->fifty, pos->hash_key, pos->mailbox, pos->accumulator.accumulator);
+                    pos->castle, pos->fifty, pos->hash_key, pos->mailbox,
+                    pos->accumulator.accumulator);
 
       // reutrn 0 if time is up
       if (thread->stopped == 1) {
@@ -528,6 +544,8 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
   // create move list instance
   moves move_list[1];
+  moves quiet_list[1];
+  quiet_list->count = 0;
 
   // generate moves
   generate_moves(pos, move_list);
@@ -540,7 +558,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     // enable PV move scoring
     enable_pv_scoring(pos, thread, move_list);
 
-  int move = 0;
+  int best_move = 0;
   for (uint32_t count = 0; count < move_list->count; count++) {
     score_move(pos, thread, &move_list->entry[count], tt_move);
   }
@@ -553,11 +571,13 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
 
+    int move = move_list->entry[count].move;
+    uint8_t is_quiet = get_move_capture(move) == 0;
+
     // preserve board state
     copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-               pos->castle, pos->fifty, pos->hash_key, pos->mailbox, pos->accumulator.accumulator);
-
-    int list_move = move_list->entry[count].move;
+               pos->castle, pos->fifty, pos->hash_key, pos->mailbox,
+               pos->accumulator.accumulator);
 
     // increment ply
     pos->ply++;
@@ -567,7 +587,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     pos->repetition_table[pos->repetition_index] = pos->hash_key;
 
     // make sure to make only legal moves
-    if (make_move(pos, list_move, all_moves) == 0) {
+    if (make_move(pos, move, all_moves) == 0) {
       // decrement ply
       pos->ply--;
 
@@ -577,7 +597,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
       // skip to next move
       continue;
     }
-    accumulator_make_move(pos, list_move, mailbox_copy);
+    accumulator_make_move(pos, move, mailbox_copy);
 
     // increment nodes count
     thread->nodes++;
@@ -587,8 +607,12 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     // increment the counter of moves searched so far
     moves_searched++;
 
-    uint8_t move_is_noisy = in_check == 0 && get_move_capture(list_move) == 0 &&
-                            get_move_promoted(list_move) == 0;
+    if (is_quiet) {
+      add_move(quiet_list, move);
+    }
+
+    uint8_t move_is_noisy = in_check == 0 && is_quiet &&
+                            get_move_promoted(move) == 0;
     uint8_t do_lmr = depth > 2 && moves_searched > (2 + pv_node) && pos->ply &&
                      move_is_noisy;
 
@@ -620,7 +644,8 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
     // take move back
     restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                  pos->castle, pos->fifty, pos->hash_key, pos->mailbox, pos->accumulator.accumulator);
+                  pos->castle, pos->fifty, pos->hash_key, pos->mailbox,
+                  pos->accumulator.accumulator);
 
     // return infinity so we can deal with timeout in case we are doing
     // re-search
@@ -636,19 +661,13 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
         // to the one storing score for PV node
         hash_flag = hash_flag_exact;
 
-        move = list_move;
-
-        // on quiet moves
-        if (get_move_capture(list_move) == 0) {
-          // store history moves
-          update_history_moves(pos, list_move, depth);
-        }
+        best_move = move;
 
         // PV node (position)
         alpha = score;
 
         // write PV move
-        thread->pv.pv_table[pos->ply][pos->ply] = list_move;
+        thread->pv.pv_table[pos->ply][pos->ply] = move;
 
         // loop over the next ply
         for (int next_ply = pos->ply + 1;
@@ -663,13 +682,15 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
         // fail-hard beta cutoff
         if (score >= beta) {
           // store hash entry with the score equal to beta
-          write_hash_entry(pos, best_score, depth, move, hash_flag_beta);
+          write_hash_entry(pos, best_score, depth, best_move, hash_flag_beta);
 
           // on quiet moves
-          if (get_move_capture(list_move) == 0) {
+          if (is_quiet) {
+            update_all_history_moves(thread, quiet_list, best_move, depth);
             // store killer moves
-            pos->killer_moves[1][pos->ply] = pos->killer_moves[0][pos->ply];
-            pos->killer_moves[0][pos->ply] = list_move;
+            thread->killer_moves[1][pos->ply] =
+                thread->killer_moves[0][pos->ply];
+            thread->killer_moves[0][pos->ply] = move;
           }
 
           // node (position) fails high
@@ -693,7 +714,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
   }
 
   // store hash entry with the score equal to alpha
-  write_hash_entry(pos, best_score, depth, move, hash_flag);
+  write_hash_entry(pos, best_score, depth, best_move, hash_flag);
 
   // node (position) fails low
   return best_score;
@@ -816,12 +837,11 @@ void search_position(position_t *pos, thread_t *threads) {
     threads[i].stopped = 0;
     threads[i].pv.follow_pv = 0;
     threads[i].pv.score_pv = 0;
+    memset(threads[i].killer_moves, 0, sizeof(threads[i].killer_moves));
     memcpy(&threads[i].pos, pos, sizeof(position_t));
   }
 
   // clear helper data structures for search
-  memset(pos->killer_moves, 0, sizeof(pos->killer_moves));
-  memset(pos->history_moves, 0, sizeof(pos->history_moves));
   memset(threads->pv.pv_table, 0, sizeof(threads->pv.pv_table));
   memset(threads->pv.pv_length, 0, sizeof(threads->pv.pv_length));
 
