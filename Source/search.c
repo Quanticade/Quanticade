@@ -334,11 +334,11 @@ double clamp(double d, double min, double max) {
 static inline void update_history_move(thread_t *thread, int move, uint8_t depth, uint8_t is_best_move) {
   int piece = get_move_piece(move);
   int target = get_move_target(move);
-  int bonus = depth * depth;
-  int clamped_bonus = clamp(is_best_move ? bonus : -bonus, -16000, 16000);
+  int bonus = 16 * depth * depth + 32 * depth + 16;
+  int clamped_bonus = clamp(is_best_move ? bonus : -bonus, -1200, 1200);
   thread->history_moves[piece][target] +=
       clamped_bonus -
-      thread->history_moves[piece][target] * abs(clamped_bonus) / 16000;
+      thread->history_moves[piece][target] * abs(clamped_bonus) / 8192;
 }
 
 static inline void update_all_history_moves(thread_t *thread, moves *quiet_moves, int best_move, uint8_t depth) {
