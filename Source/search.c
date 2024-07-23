@@ -487,7 +487,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
                     pos->castle, pos->fifty, pos->hash_key, pos->mailbox,
                     pos->accumulator.accumulator);
 
-      // reutrn 0 if time is up
+      // return 0 if time is up
       if (thread->stopped == 1) {
         return 0;
       }
