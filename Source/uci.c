@@ -584,7 +584,6 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
     else if (strncmp(input, "stop", 4) == 0) {
       threads->stopped = 1;
       pthread_join(search_thread, NULL);
-      break;
     }
     // parse UCI "quit" command
     else if (strncmp(input, "quit", 4) == 0)
