@@ -25,6 +25,8 @@ extern volatile uint8_t ABORT_SIGNAL;
 
 extern int thread_count;
 
+extern keys_t keys;
+
 const int full_depth_moves = 4;
 const int reduction_limit = 3;
 
@@ -461,7 +463,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
       // hash enpassant if available
       if (pos->enpassant != no_sq)
-        pos->hash_key ^= pos->keys.enpassant_keys[pos->enpassant];
+        pos->hash_key ^= keys.enpassant_keys[pos->enpassant];
 
       // reset enpassant capture square
       pos->enpassant = no_sq;
@@ -470,7 +472,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
       pos->side ^= 1;
 
       // hash the side
-      pos->hash_key ^= pos->keys.side_key;
+      pos->hash_key ^= keys.side_key;
 
       /* search moves with reduced depth to find beta cutoffs
          depth - 1 - R where R is a reduction limit */

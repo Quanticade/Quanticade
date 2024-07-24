@@ -7,6 +7,7 @@
 #include <string.h>
 
 tt_t tt;
+extern keys_t keys;
 
 int hash_full(void) {
   uint64_t used = 0;
@@ -37,7 +38,7 @@ uint64_t generate_hash_key(position_t *pos) {
       int square = __builtin_ctzll(bitboard);
 
       // hash piece
-      final_key ^= pos->keys.piece_keys[piece][square];
+      final_key ^= keys.piece_keys[piece][square];
 
       // pop LS1B
       pop_bit(bitboard, square);
@@ -47,14 +48,14 @@ uint64_t generate_hash_key(position_t *pos) {
   // if enpassant square is on board
   if (pos->enpassant != no_sq)
     // hash enpassant
-    final_key ^= pos->keys.enpassant_keys[pos->enpassant];
+    final_key ^= keys.enpassant_keys[pos->enpassant];
 
   // hash castling rights
-  final_key ^= pos->keys.castle_keys[pos->castle];
+  final_key ^= keys.castle_keys[pos->castle];
 
   // hash the side only if black is to move
   if (pos->side == black)
-    final_key ^= pos->keys.side_key;
+    final_key ^= keys.side_key;
 
   // return generated hash key
   return final_key;

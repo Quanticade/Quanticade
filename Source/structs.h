@@ -35,7 +35,6 @@ typedef struct accumulator {
 } accumulator_t;
 
 typedef struct position {
-  keys_t keys;
   accumulator_t accumulator;
   uint64_t bitboards[12];
   uint64_t occupancies[3];
