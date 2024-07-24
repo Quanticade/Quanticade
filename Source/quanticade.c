@@ -23,6 +23,7 @@ position_t pos;
 thread_t *threads;
 nnue_settings_t nnue_settings;
 limits_t limits;
+keys_t keys;
 uint32_t random_state;
 
 extern const int default_hash_size;
@@ -76,21 +77,21 @@ static inline void init_random_keys(void) {
     // loop over board squares
     for (int square = 0; square < 64; square++)
       // init random piece keys
-      pos.keys.piece_keys[piece][square] = get_random_uint64_number();
+      keys.piece_keys[piece][square] = get_random_uint64_number();
   }
 
   // loop over board squares
   for (int square = 0; square < 64; square++)
     // init random enpassant keys
-    pos.keys.enpassant_keys[square] = get_random_uint64_number();
+    keys.enpassant_keys[square] = get_random_uint64_number();
 
   // loop over castling keys
   for (int index = 0; index < 16; index++)
     // init castling keys
-    pos.keys.castle_keys[index] = get_random_uint64_number();
+    keys.castle_keys[index] = get_random_uint64_number();
 
   // init random side key
-  pos.keys.side_key = get_random_uint64_number();
+  keys.side_key = get_random_uint64_number();
 }
 
 // init all variables

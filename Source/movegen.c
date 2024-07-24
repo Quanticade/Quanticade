@@ -6,6 +6,7 @@
 #include <string.h>
 
 extern nnue_settings_t nnue_settings;
+extern keys_t keys;
 
 const int castling_rights[64] = {
     7,  15, 15, 15, 3,  15, 15, 11, 15, 15, 15, 15, 15, 15, 15, 15,
@@ -54,7 +55,7 @@ int make_move(position_t *pos, int move, int move_flag) {
       pop_bit(pos->bitboards[bb_piece], target_square);
 
       // remove the piece from hash key
-      pos->hash_key ^= pos->keys.piece_keys[bb_piece][target_square];
+      pos->hash_key ^= keys.piece_keys[bb_piece][target_square];
     }
   }
 
@@ -67,7 +68,7 @@ int make_move(position_t *pos, int move, int move_flag) {
       pos->mailbox[target_square + 8] = NO_PIECE;
 
       // remove pawn from hash key
-      pos->hash_key ^= pos->keys.piece_keys[p][target_square + 8];
+      pos->hash_key ^= keys.piece_keys[p][target_square + 8];
     }
 
     // black to move
@@ -77,7 +78,7 @@ int make_move(position_t *pos, int move, int move_flag) {
       pos->mailbox[target_square - 8] = NO_PIECE;
 
       // remove pawn from hash key
-      pos->hash_key ^= pos->keys.piece_keys[P][target_square - 8];
+      pos->hash_key ^= keys.piece_keys[P][target_square - 8];
     }
   }
 
@@ -89,10 +90,10 @@ int make_move(position_t *pos, int move, int move_flag) {
 
   // hash piece
   pos->hash_key ^=
-      pos->keys.piece_keys[piece][source_square]; // remove piece from source
+      keys.piece_keys[piece][source_square]; // remove piece from source
                                                   // square in hash key
   pos->hash_key ^=
-      pos->keys.piece_keys[piece][target_square]; // set piece to the target
+      keys.piece_keys[piece][target_square]; // set piece to the target
                                                   // square in hash key
 
   // handle pawn promotions
@@ -103,7 +104,7 @@ int make_move(position_t *pos, int move, int move_flag) {
       pop_bit(pos->bitboards[P], target_square);
 
       // remove pawn from hash key
-      pos->hash_key ^= pos->keys.piece_keys[P][target_square];
+      pos->hash_key ^= keys.piece_keys[P][target_square];
     }
 
     // black to move
@@ -112,7 +113,7 @@ int make_move(position_t *pos, int move, int move_flag) {
       pop_bit(pos->bitboards[p], target_square);
 
       // remove pawn from hash key
-      pos->hash_key ^= pos->keys.piece_keys[p][target_square];
+      pos->hash_key ^= keys.piece_keys[p][target_square];
     }
 
     // set up promoted piece on chess board
@@ -120,12 +121,12 @@ int make_move(position_t *pos, int move, int move_flag) {
     pos->mailbox[target_square] = promoted_piece;
 
     // add promoted piece into the hash key
-    pos->hash_key ^= pos->keys.piece_keys[promoted_piece][target_square];
+    pos->hash_key ^= keys.piece_keys[promoted_piece][target_square];
   }
 
   // hash enpassant if available (remove enpassant square from hash key)
   if (pos->enpassant != no_sq)
-    pos->hash_key ^= pos->keys.enpassant_keys[pos->enpassant];
+    pos->hash_key ^= keys.enpassant_keys[pos->enpassant];
 
   // reset enpassant square
   pos->enpassant = no_sq;
@@ -138,7 +139,7 @@ int make_move(position_t *pos, int move, int move_flag) {
       pos->enpassant = target_square + 8;
 
       // hash enpassant
-      pos->hash_key ^= pos->keys.enpassant_keys[target_square + 8];
+      pos->hash_key ^= keys.enpassant_keys[target_square + 8];
     }
 
     // black to move
@@ -147,7 +148,7 @@ int make_move(position_t *pos, int move, int move_flag) {
       pos->enpassant = target_square - 8;
 
       // hash enpassant
-      pos->hash_key ^= pos->keys.enpassant_keys[target_square - 8];
+      pos->hash_key ^= keys.enpassant_keys[target_square - 8];
     }
   }
 
@@ -165,9 +166,9 @@ int make_move(position_t *pos, int move, int move_flag) {
 
       // hash rook
       pos->hash_key ^=
-          pos->keys.piece_keys[R][h1]; // remove rook from h1 from hash key
+          keys.piece_keys[R][h1]; // remove rook from h1 from hash key
       pos->hash_key ^=
-          pos->keys.piece_keys[R][f1]; // put rook on f1 into a hash key
+          keys.piece_keys[R][f1]; // put rook on f1 into a hash key
       break;
 
     // white castles queen side
@@ -180,9 +181,9 @@ int make_move(position_t *pos, int move, int move_flag) {
 
       // hash rook
       pos->hash_key ^=
-          pos->keys.piece_keys[R][a1]; // remove rook from a1 from hash key
+          keys.piece_keys[R][a1]; // remove rook from a1 from hash key
       pos->hash_key ^=
-          pos->keys.piece_keys[R][d1]; // put rook on d1 into a hash key
+          keys.piece_keys[R][d1]; // put rook on d1 into a hash key
       break;
 
     // black castles king side
@@ -195,9 +196,9 @@ int make_move(position_t *pos, int move, int move_flag) {
 
       // hash rook
       pos->hash_key ^=
-          pos->keys.piece_keys[r][h8]; // remove rook from h8 from hash key
+          keys.piece_keys[r][h8]; // remove rook from h8 from hash key
       pos->hash_key ^=
-          pos->keys.piece_keys[r][f8]; // put rook on f8 into a hash key
+          keys.piece_keys[r][f8]; // put rook on f8 into a hash key
       break;
 
     // black castles queen side
@@ -210,22 +211,22 @@ int make_move(position_t *pos, int move, int move_flag) {
 
       // hash rook
       pos->hash_key ^=
-          pos->keys.piece_keys[r][a8]; // remove rook from a8 from hash key
+          keys.piece_keys[r][a8]; // remove rook from a8 from hash key
       pos->hash_key ^=
-          pos->keys.piece_keys[r][d8]; // put rook on d8 into a hash key
+          keys.piece_keys[r][d8]; // put rook on d8 into a hash key
       break;
     }
   }
 
   // hash castling
-  pos->hash_key ^= pos->keys.castle_keys[pos->castle];
+  pos->hash_key ^= keys.castle_keys[pos->castle];
 
   // update castling rights
   pos->castle &= castling_rights[source_square];
   pos->castle &= castling_rights[target_square];
 
   // hash castling
-  pos->hash_key ^= pos->keys.castle_keys[pos->castle];
+  pos->hash_key ^= keys.castle_keys[pos->castle];
 
   // reset occupancies
   memset(pos->occupancies, 0ULL, 24);
@@ -248,7 +249,7 @@ int make_move(position_t *pos, int move, int move_flag) {
   pos->side ^= 1;
 
   // hash side
-  pos->hash_key ^= pos->keys.side_key;
+  pos->hash_key ^= keys.side_key;
 
   // make sure that king has not been exposed into a check
   if (is_square_attacked(pos,
