@@ -406,6 +406,10 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     return score;
   }
 
+  if (depth >= 4 && !tt_move && pv_node) {
+    depth--;
+  }
+
   // Check on time
   check_time(thread);
 
