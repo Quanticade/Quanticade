@@ -448,7 +448,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     }
 
     // null move pruning
-    if (do_null_pruning && depth >= 4 && pos->ply) {
+    if (do_null_pruning && depth >= 4 && pos->ply && static_eval >= beta) {
       // preserve board state
       copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
                  pos->castle, pos->fifty, pos->hash_key, pos->mailbox,
