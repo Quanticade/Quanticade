@@ -434,8 +434,8 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
   int static_eval = evaluate(pos);
   if (!in_check) {
-    // evaluation pruning / static null move pruning
-    if (depth < 3 && !pv_node && abs(beta - 1) > -infinity + 100) {
+    // Reverse Futility Pruning
+    if (depth <= 6 && !pv_node && abs(beta - 1) > -infinity + 100) {
       // get static evaluation score
 
       // define evaluation margin
