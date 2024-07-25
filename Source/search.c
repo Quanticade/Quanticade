@@ -448,7 +448,9 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     }
 
     // null move pruning
-    if (do_null_pruning && depth >= 4 && pos->ply && static_eval >= beta) {
+    if (do_null_pruning && depth >= 1 && pos->ply && static_eval >= beta) {
+      int R = 5 + depth / 9;
+      R = MIN(R, depth);
       // preserve board state
       copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
                  pos->castle, pos->fifty, pos->hash_key, pos->mailbox,
@@ -476,7 +478,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
       /* search moves with reduced depth to find beta cutoffs
          depth - 1 - R where R is a reduction limit */
-      score = -negamax(pos, thread, -beta, -beta + 1, depth - 1 - 3, 0);
+      score = -negamax(pos, thread, -beta, -beta + 1, depth - R, 0);
 
       // decrement ply
       pos->ply--;
