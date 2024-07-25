@@ -70,7 +70,7 @@ static void init_reductions(void) {
   }
 }
 
-void communicate(thread_t *thread) {
+void check_time(thread_t *thread) {
   // if time is up break here
   if (thread->timeset == 1 && get_time_ms() > thread->stoptime) {
     // tell engine to stop calculating
@@ -205,7 +205,7 @@ static inline int is_repetition(position_t *pos) {
 static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
                              int beta) {
   // Check on time
-  communicate(thread);
+  check_time(thread);
 
   // we are too deep, hence there's an overflow of arrays relying on max ply
   // constant
@@ -407,7 +407,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
   }
 
   // Check on time
-  communicate(thread);
+  check_time(thread);
 
   int r;
 
