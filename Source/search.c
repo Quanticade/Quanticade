@@ -126,7 +126,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
 
     uint8_t bb_piece = pos->mailbox[get_move_target(move)];
     // if there's a piece on the target square
-    if (get_bit(pos->bitboards[bb_piece], get_move_target(move))) {
+    if (bb_piece != NO_PIECE && get_bit(pos->bitboards[bb_piece], get_move_target(move))) {
       // remove it from corresponding bitboard
       target_piece = bb_piece;
     }

@@ -49,7 +49,7 @@ int make_move(position_t *pos, int move, int move_flag) {
     // loop over bitboards opposite to the current side to move
     // if there's a piece on the target square
     uint8_t bb_piece = pos->mailbox[target_square];
-    if (get_bit(pos->bitboards[bb_piece], target_square)) {
+    if (bb_piece != NO_PIECE && get_bit(pos->bitboards[bb_piece], target_square)) {
 
       // remove it from corresponding bitboard
       pop_bit(pos->bitboards[bb_piece], target_square);

@@ -222,7 +222,7 @@ static inline void parse_fen(position_t *pos, char *fen) {
 
         uint8_t bb_piece = pos->mailbox[square];
         // if there is a piece on current square
-        if (get_bit(pos->bitboards[bb_piece], square))
+        if (bb_piece != NO_PIECE && get_bit(pos->bitboards[bb_piece], square))
           // get piece code
           piece = bb_piece;
 
