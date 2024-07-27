@@ -333,8 +333,7 @@ double clamp(double d, double min, double max) {
   return t > max ? max : t;
 }
 
-static inline void update_history_move(thread_t *thread, int move,
-                                       uint8_t depth, uint8_t is_best_move) {
+static inline void update_history_move(thread_t *thread, int move, uint8_t depth, uint8_t is_best_move) {
   int piece = get_move_piece(move);
   int target = get_move_target(move);
   int bonus = 16 * depth * depth + 32 * depth + 16;
@@ -344,13 +343,12 @@ static inline void update_history_move(thread_t *thread, int move,
       thread->history_moves[piece][target] * abs(clamped_bonus) / 8192;
 }
 
-static inline void update_all_history_moves(thread_t *thread,
-                                            moves *quiet_moves, int best_move,
-                                            uint8_t depth) {
+static inline void update_all_history_moves(thread_t *thread, moves *quiet_moves, int best_move, uint8_t depth) {
   for (uint32_t i = 0; i < quiet_moves->count; ++i) {
     if (quiet_moves->entry[i].move == best_move) {
       update_history_move(thread, best_move, depth, 1);
-    } else {
+    }
+    else {
       update_history_move(thread, quiet_moves->entry[i].move, depth, 0);
     }
   }
@@ -359,6 +357,9 @@ static inline void update_all_history_moves(thread_t *thread,
 // negamax alpha beta search
 static inline int negamax(position_t *pos, thread_t *thread, int alpha,
                           int beta, int depth, uint8_t do_null_pruning) {
+  // init PV length
+  thread->pv.pv_length[pos->ply] = pos->ply;
+
   // variable to store current move's score (from the static evaluation
   // perspective)
   int score = -infinity;
@@ -393,11 +394,6 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
   // a hack by Pedro Castro to figure out whether the current node is PV node
   // or not
   int pv_node = beta - alpha > 1;
-
-  if (pv_node) {
-    // init PV length
-    thread->pv.pv_length[pos->ply] = pos->ply;
-  }
 
   // read hash entry if we're not in a root ply and hash entry is available
   // and current node is not a PV node
@@ -632,8 +628,8 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
       add_move(quiet_list, move);
     }
 
-    uint8_t move_is_noisy =
-        in_check == 0 && is_quiet && get_move_promoted(move) == 0;
+    uint8_t move_is_noisy = in_check == 0 && is_quiet &&
+                            get_move_promoted(move) == 0;
     uint8_t do_lmr = depth > 2 && moves_searched > (2 + pv_node) && pos->ply &&
                      move_is_noisy;
 
@@ -687,20 +683,18 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
         // PV node (position)
         alpha = score;
 
-        if (pv_node) {
-          // write PV move
-          thread->pv.pv_table[pos->ply][pos->ply] = move;
+        // write PV move
+        thread->pv.pv_table[pos->ply][pos->ply] = move;
 
-          // loop over the next ply
-          for (int next_ply = pos->ply + 1;
-               next_ply < thread->pv.pv_length[pos->ply + 1]; next_ply++)
-            // copy move from deeper ply into a current ply's line
-            thread->pv.pv_table[pos->ply][next_ply] =
-                thread->pv.pv_table[pos->ply + 1][next_ply];
+        // loop over the next ply
+        for (int next_ply = pos->ply + 1;
+             next_ply < thread->pv.pv_length[pos->ply + 1]; next_ply++)
+          // copy move from deeper ply into a current ply's line
+          thread->pv.pv_table[pos->ply][next_ply] =
+              thread->pv.pv_table[pos->ply + 1][next_ply];
 
-          // adjust PV length
-          thread->pv.pv_length[pos->ply] = thread->pv.pv_length[pos->ply + 1];
-        }
+        // adjust PV length
+        thread->pv.pv_length[pos->ply] = thread->pv.pv_length[pos->ply + 1];
 
         // fail-hard beta cutoff
         if (score >= beta) {
