@@ -761,8 +761,9 @@ void *iterative_deepening(void *thread_void) {
     // find best move within a given position
     thread->score = negamax(pos, thread, alpha, beta, thread->depth, 1);
 
-    if (thread->stopped == 1) {
-      // stop calculating and return best move so far
+    // We hit an apspiration window cut-off before time ran out and we jumped
+    // to another depth with wider search which we didnt finish
+    if (thread->score == infinity) {
       break;
     }
 
@@ -775,7 +776,6 @@ void *iterative_deepening(void *thread_void) {
       thread->depth--;
       continue;
     }
-
     if (thread->index == 0) {
       // if PV is available
       if (thread->pv.pv_length[0]) {
