@@ -502,40 +502,10 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
         return score;
     }
 
-    // razoring
-    if (!pv_node && depth <= 3) {
-      // get static eval and add first bonus
-      score = static_eval + 125;
-
-      // define new score
-      int new_score;
-
-      // static evaluation indicates a fail-low node
-      if (score < beta) {
-        // on depth 1
-        if (depth == 1) {
-          // get quiescence score
-          new_score = quiescence(pos, thread, alpha, beta);
-
-          // return quiescence score if it's greater then static evaluation
-          // score
-          return (new_score > score) ? new_score : score;
-        }
-
-        // add second bonus to static evaluation
-        score += 175;
-
-        // static evaluation indicates a fail-low node
-        if (score < beta && depth <= 2) {
-          // get quiescence score
-          new_score = quiescence(pos, thread, alpha, beta);
-
-          // quiescence score indicates fail-low node
-          if (new_score < beta)
-            // return quiescence score if it's greater then static evaluation
-            // score
-            return (new_score > score) ? new_score : score;
-        }
+    if (!pv_node && depth <= 7 && static_eval + 298 * depth < alpha) {
+      const int razor_score = quiescence(pos, thread, alpha, beta);
+      if (razor_score <= alpha) {
+        return razor_score;
       }
     }
 
