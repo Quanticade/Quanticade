@@ -743,11 +743,6 @@ void *iterative_deepening(void *thread_void) {
   thread_t *thread = (thread_t *)thread_void;
   position_t *pos = &thread->pos;
 
-  int pv_table_copy[max_ply][max_ply];
-  int pv_length_copy[max_ply];
-
-  uint8_t window_ok = 1;
-
   // define initial alpha beta bounds
   int alpha = -infinity;
   int beta = infinity;
@@ -763,31 +758,11 @@ void *iterative_deepening(void *thread_void) {
     // enable follow PV flag
     thread->pv.follow_pv = 1;
 
-    // We should not save PV move from unfinished depth for example if depth
-    // 12 finishes and goes to search depth 13 now but this triggers window
-    // cutoff we dont want the info from depth 13 as its incomplete and in
-    // case depth 14 search doesnt finish in time we will at least have an
-    // full PV line from depth 12
-    if (window_ok) {
-      memcpy(pv_table_copy, thread->pv.pv_table, sizeof(thread->pv.pv_table));
-      memcpy(pv_length_copy, thread->pv.pv_length,
-             sizeof(thread->pv.pv_length));
-    }
-
     // find best move within a given position
     thread->score = negamax(pos, thread, alpha, beta, thread->depth, 1);
 
-    // Reset aspiration window OK flag back to 1
-    window_ok = 1;
-
-    // We hit an apspiration window cut-off before time ran out and we jumped
-    // to another depth with wider search which we didnt finish
-    if (thread->score == infinity) {
-      // Restore the saved best line
-      memcpy(thread->pv.pv_table, pv_table_copy, sizeof(pv_table_copy));
-      memcpy(thread->pv.pv_length, pv_length_copy, sizeof(pv_length_copy));
-      // Break out of the loop without printing info about the unfinished
-      // depth
+    if (thread->stopped == 1) {
+      // stop calculating and return best move so far
       break;
     }
 
@@ -797,10 +772,10 @@ void *iterative_deepening(void *thread_void) {
       // Do a full window re-search
       alpha = -infinity;
       beta = infinity;
-      window_ok = 0;
       thread->depth--;
       continue;
     }
+
     if (thread->index == 0) {
       // if PV is available
       if (thread->pv.pv_length[0]) {
