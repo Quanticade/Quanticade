@@ -62,8 +62,7 @@ uint64_t generate_hash_key(position_t *pos) {
 }
 
 void clear_hash_table(void) {
-  memset(tt.hash_entry, 0,
-         sizeof(tt_entry_t) * tt.num_of_entries);
+  memset(tt.hash_entry, 0, sizeof(tt_entry_t) * tt.num_of_entries);
 }
 
 // dynamically allocate memory for hash table
@@ -102,12 +101,11 @@ void init_hash_table(uint64_t mb) {
 }
 
 // read hash entry data
-int read_hash_entry(position_t *pos, int alpha, int *move,
-                    int beta, int depth) {
+int read_hash_entry(position_t *pos, int alpha, int *move, int beta,
+                    int depth) {
   // create a TT instance pointer to particular hash entry storing
   // the scoring data for the current board position if available
-  tt_entry_t *hash_entry =
-      &tt.hash_entry[pos->hash_key % tt.num_of_entries];
+  tt_entry_t *hash_entry = &tt.hash_entry[pos->hash_key % tt.num_of_entries];
 
   // make sure we're dealing with the exact position we need
   if (hash_entry->hash_key == pos->hash_key) {
@@ -146,15 +144,17 @@ int read_hash_entry(position_t *pos, int alpha, int *move,
 }
 
 // write hash entry data
-void write_hash_entry(position_t *pos, int score, int depth,
-                      int move, int hash_flag) {
+void write_hash_entry(position_t *pos, int score, int depth, int move,
+                      int hash_flag) {
   // create a TT instance pointer to particular hash entry storing
   // the scoring data for the current board position if available
-  tt_entry_t *hash_entry =
-      &tt.hash_entry[pos->hash_key % tt.num_of_entries];
+  tt_entry_t *hash_entry = &tt.hash_entry[pos->hash_key % tt.num_of_entries];
 
-  if (!(hash_entry->hash_key == pos->hash_key ||
-        (hash_entry->depth <= depth) || hash_entry->flag == hash_flag_exact)) {
+  uint8_t replace = hash_entry->hash_key != pos->hash_key ||
+                    depth + 4 > hash_entry->depth ||
+                    hash_flag == hash_flag_exact;
+
+  if (!replace) {
     return;
   }
 
