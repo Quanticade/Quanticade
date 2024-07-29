@@ -553,8 +553,9 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
       quiet_count++;
     }
 
+    // Late Move Pruning
     if (!pv_node && !in_check && quiet &&
-        quiet_count > 6 + (depth * depth * 2)) {
+        quiet_count >= 2 + 1 * depth * depth) {
       break;
     }
 
