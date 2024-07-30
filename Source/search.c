@@ -542,20 +542,21 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
   // number of moves searched in a move list
   int moves_searched = 0;
 
-  int quiet_count = 0;
+  uint8_t skip_quiets = 0;
 
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
     int list_move = move_list->entry[count].move;
     uint8_t quiet = (get_move_capture(list_move) == 0);
 
-    if (quiet) {
-      quiet_count++;
+    if (skip_quiets && quiet) {
+      continue;
     }
 
+    // Late Move Pruning
     if (!pv_node && !in_check && quiet &&
-        quiet_count > 6 + (depth * depth * 2)) {
-      break;
+        legal_moves > 6 + 2 * depth * depth) {
+      skip_quiets = 1;
     }
 
     int move = move_list->entry[count].move;
