@@ -30,6 +30,15 @@ extern nnue_settings_t nnue_settings;
 
 extern int LMP_BASE;
 extern int LMP_MULTIPLIER;
+extern int RAZOR_DEPTH;
+extern int RAZOR_MARGIN;
+extern int RFP_DEPTH;
+extern int RFP_MARGIN;
+extern int NMP_BASE_REDUCTION;
+extern int NMP_DIVISER;
+extern int NMP_DEPTH;
+extern int IID_DEPTH;
+extern int IID_REDUCTION;
 
 const int default_hash_size = 16;
 
@@ -611,8 +620,31 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
       printf("option name Clear Hash type button\n");
       printf("option name LMP_BASE type spin default 6 min 1 max 12\n");
       printf("option name LMP_MULTIPLIER type spin default 2 min 1 max 4\n");
+      printf("option name RAZOR_DEPTH type spin default 7 min 1 max 14\n");
+      printf("option name RAZOR_MARGIN type spin default 298 min 1 max 586\n");
+      printf("option name RFP_DEPTH type spin default 6 min 1 max 12\n");
+      printf("option name RFP_MARGIN type spin default 120 min 1 max 240\n");
+      printf(
+          "option name NMP_BASE_REDUCTION type spin default 5 min 1 max 10\n");
+      printf("option name NMP_DIVISOR type spin default 9 min 1 max 18\n");
+      printf("option name NMP_DEPTH type spin default 1 min 1 max 4\n");
+      printf("option name IID_DEPTH type spin default 4 min 1 max 8\n");
+      printf("option name IID_REDUCTION type spin default 4 min 1 max 8\n");
       // printf("option name SyzygyPath type string default <empty>\n");
       printf("uciok\n");
+    }
+    else if (strncmp(input, "spsa", 4) == 0) {
+      printf("LMP_BASE, int, %.3f, 1.000, %.3f, %.3f, 0.002\n", (float)LMP_BASE, (float)LMP_BASE*2, MAX(0.5, MAX(1, (((float)LMP_BASE*2)-1))/20));
+      printf("LMP_MULTIPLIER, int, %.3f, 1.000, %.3f, %.3f, 0.002\n", (float)LMP_MULTIPLIER, (float)LMP_MULTIPLIER*2, MAX(0.5, MAX(1, (((float)LMP_MULTIPLIER*2)-1))/20));
+      printf("RAZOR_DEPTH, int, %.3f, 1.000, %.3f, %.3f, 0.002\n", (float)RAZOR_DEPTH, (float)RAZOR_DEPTH*2, MAX(0.5, MAX(1, (((float)RAZOR_DEPTH*2)-1))/20));
+      printf("RAZOR_MARGIN, int, %.3f, 1.000, %.3f, %.3f, 0.002\n", (float)RAZOR_MARGIN, (float)RAZOR_MARGIN*2, MAX(0.5, MAX(1, (((float)RAZOR_MARGIN*2)-1))/20));
+      printf("RFP_DEPTH, int, %.3f, 1.000, %.3f, %.3f, 0.002\n", (float)RFP_DEPTH, (float)RFP_DEPTH*2, MAX(0.5, MAX(1, (((float)RFP_DEPTH*2)-1))/20));
+      printf("RFP_MARGIN, int, %.3f, 1.000, %.3f, %.3f, 0.002\n", (float)RFP_MARGIN, (float)RFP_MARGIN*2, MAX(0.5, MAX(1, (((float)RFP_MARGIN*2)-1))/20));
+      printf("NMP_BASE_REDUCTION, int, %.3f, 1.000, %.3f, %.3f, 0.002\n", (float)NMP_BASE_REDUCTION, (float)NMP_BASE_REDUCTION*2, MAX(0.5, MAX(1, (((float)NMP_BASE_REDUCTION*2)-1))/20));
+      printf("NMP_DIVISOR, int, %.3f, 1.000, %.3f, %.3f, 0.002\n", (float)NMP_DIVISER, (float)NMP_DIVISER*2, MAX(0.5, MAX(1, (((float)NMP_DIVISER*2)-1))/20));
+      printf("NMP_DEPTH, int, %.3f, 1.000, %.3f, %.3f, 0.002\n", (float)NMP_DEPTH, (float)4, 0.5);
+      printf("IID_DEPTH, int, %.3f, 1.000, %.3f, %.3f, 0.002\n", (float)IID_DEPTH, (float)IID_DEPTH*2, MAX(0.5, MAX(1, (((float)IID_DEPTH*2)-1))/20));
+      printf("IID_REDUCTION, int, %.3f, 1.000, %.3f, %.3f, 0.002\n", (float)IID_REDUCTION, (float)IID_REDUCTION*2, MAX(0.5, MAX(1, (((float)IID_REDUCTION*2)-1))/20));
     }
 
     else if (!strncmp(input, "setoption name Hash value ", 26)) {
@@ -668,7 +700,25 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
     } else if (!strncmp(input, "setoption name LMP_BASE value ", 30)) {
       sscanf(input, "%*s %*s %*s %*s %d", &LMP_BASE);
     } else if (!strncmp(input, "setoption name LMP_MULTIPLIER value ", 36)) {
-      sscanf(input, "%*s %*s %*s %*s %d", &LMP_BASE);
+      sscanf(input, "%*s %*s %*s %*s %d", &LMP_MULTIPLIER);
+    } else if (!strncmp(input, "setoption name RAZOR_DEPTH value ", 33)) {
+      sscanf(input, "%*s %*s %*s %*s %d", &RAZOR_DEPTH);
+    } else if (!strncmp(input, "setoption name RAZOR_MARGIN value ", 34)) {
+      sscanf(input, "%*s %*s %*s %*s %d", &RAZOR_MARGIN);
+    } else if (!strncmp(input, "setoption name RFP_DEPTH value ", 31)) {
+      sscanf(input, "%*s %*s %*s %*s %d", &RFP_DEPTH);
+    } else if (!strncmp(input, "setoption name RFP_MARGIN value ", 32)) {
+      sscanf(input, "%*s %*s %*s %*s %d", &RFP_MARGIN);
+    } else if (!strncmp(input, "setoption name NMP_BASE_REDUCTION value ", 40)) {
+      sscanf(input, "%*s %*s %*s %*s %d", &NMP_BASE_REDUCTION);
+    } else if (!strncmp(input, "setoption name NMP_DIVISOR value ", 33)) {
+      sscanf(input, "%*s %*s %*s %*s %d", &NMP_DIVISER);
+    } else if (!strncmp(input, "setoption name NMP_DEPTH value ", 31)) {
+      sscanf(input, "%*s %*s %*s %*s %d", &NMP_DEPTH);
+    } else if (!strncmp(input, "setoption name IID_DEPTH value ", 31)) {
+      sscanf(input, "%*s %*s %*s %*s %d", &IID_DEPTH);
+    } else if (!strncmp(input, "setoption name IID_REDUCTION value ", 35)) {
+      sscanf(input, "%*s %*s %*s %*s %d", &IID_REDUCTION);
     }
   }
 }

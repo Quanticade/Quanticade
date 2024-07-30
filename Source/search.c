@@ -29,6 +29,15 @@ extern keys_t keys;
 
 int LMP_BASE = 6;
 int LMP_MULTIPLIER = 2;
+int RAZOR_DEPTH = 7;
+int RAZOR_MARGIN = 298;
+int RFP_DEPTH = 6;
+int RFP_MARGIN = 120;
+int NMP_BASE_REDUCTION = 5;
+int NMP_DIVISER = 9;
+int NMP_DEPTH = 1;
+int IID_DEPTH = 4;
+int IID_REDUCTION = 4;
 
 const int full_depth_moves = 4;
 const int reduction_limit = 3;
@@ -438,11 +447,11 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
   int static_eval = evaluate(pos);
   if (!in_check) {
     // Reverse Futility Pruning
-    if (depth <= 6 && !pv_node && abs(beta - 1) > -infinity + 100) {
+    if (depth <= RFP_DEPTH && !pv_node && abs(beta - 1) > -infinity + 100) {
       // get static evaluation score
 
       // define evaluation margin
-      int eval_margin = 120 * depth;
+      int eval_margin = RFP_MARGIN * depth;
 
       // evaluation margin substracted from static evaluation score fails high
       if (static_eval - eval_margin >= beta)
@@ -451,8 +460,8 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     }
 
     // null move pruning
-    if (do_null_pruning && depth >= 1 && pos->ply && static_eval >= beta) {
-      int R = 5 + depth / 9;
+    if (do_null_pruning && depth >= NMP_DEPTH && pos->ply && static_eval >= beta) {
+      int R = NMP_BASE_REDUCTION + depth / NMP_DIVISER;
       R = MIN(R, depth);
       // preserve board state
       copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
@@ -505,7 +514,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
         return score;
     }
 
-    if (!pv_node && depth <= 7 && static_eval + 298 * depth < alpha) {
+    if (!pv_node && depth <= RAZOR_DEPTH && static_eval + RAZOR_MARGIN * depth < alpha) {
       const int razor_score = quiescence(pos, thread, alpha, beta);
       if (razor_score <= alpha) {
         return razor_score;
@@ -513,8 +522,8 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     }
 
     // Internal Iterative Deepening
-    if (pv_node && depth >= 4 && !tt_move) {
-      negamax(pos, thread, alpha, beta, MAX(1, MIN(depth / 2, depth - 4)), 0);
+    if (pv_node && depth >= IID_DEPTH && !tt_move) {
+      negamax(pos, thread, alpha, beta, MAX(1, MIN(depth / 2, depth - IID_REDUCTION)), 0);
       score = read_hash_entry(pos, alpha, &tt_move, beta, depth);
     }
   }
