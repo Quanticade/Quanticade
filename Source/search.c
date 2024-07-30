@@ -542,8 +542,6 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
   // number of moves searched in a move list
   int moves_searched = 0;
 
-  int quiet_count = 0;
-
   uint8_t skip_quiets = 0;
 
   // loop over moves within a movelist
@@ -557,7 +555,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
     // Late Move Pruning
     if (!pv_node && !in_check && quiet &&
-        quiet_count > 6 + 2 * depth * depth) {
+        legal_moves > 6 + 2 * depth * depth) {
       skip_quiets = 1;
     }
 
