@@ -28,6 +28,9 @@
 
 extern nnue_settings_t nnue_settings;
 
+extern int LMP_BASE;
+extern int LMP_MULTIPLIER;
+
 const int default_hash_size = 16;
 
 int thread_count = 1;
@@ -603,7 +606,9 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
       printf("option name EvalFile type string default %s\n",
              nnue_settings.nnue_file);
       printf("option name Clear Hash type button\n");
-      printf("option name SyzygyPath type string default <empty>\n");
+      printf("option name LMP_BASE type spin default 6 min 1 max 12\n");
+      printf("option name LMP_MULTIPLIER type spin default 2 min 1 max 4\n");
+      //printf("option name SyzygyPath type string default <empty>\n");
       printf("uciok\n");
     }
 
@@ -657,6 +662,12 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
       char *ptr = input + 32;
       // tb_init(ptr);
       printf("info string set SyzygyPath to %s\n", ptr);
+    }
+    else if (!strncmp(input, "setoption name LMP_BASE value ", 30)) {
+      sscanf(input, "%*s %*s %*s %*s %d", &LMP_BASE);
+    }
+    else if (!strncmp(input, "setoption name LMP_MULTIPLIER value ", 36)) {
+      sscanf(input, "%*s %*s %*s %*s %d", &LMP_BASE);
     }
   }
 }
