@@ -27,7 +27,7 @@ void init_sliders_attacks(void);
 void init_leapers_attacks(void);
 
 // get bishop attacks
-inline uint64_t get_bishop_attacks(int square, uint64_t occupancy) {
+static inline uint64_t get_bishop_attacks(int square, uint64_t occupancy) {
   // get bishop attacks assuming current board occupancy
   occupancy &= bishop_masks[square];
   occupancy *= bishop_magic_numbers[square];
@@ -38,7 +38,7 @@ inline uint64_t get_bishop_attacks(int square, uint64_t occupancy) {
 }
 
 // get rook attacks
-inline uint64_t get_rook_attacks(int square, uint64_t occupancy) {
+static inline uint64_t get_rook_attacks(int square, uint64_t occupancy) {
   // get rook attacks assuming current board occupancy
   occupancy &= rook_masks[square];
   occupancy *= rook_magic_numbers[square];
@@ -49,7 +49,7 @@ inline uint64_t get_rook_attacks(int square, uint64_t occupancy) {
 }
 
 // get queen attacks
-inline uint64_t get_queen_attacks(int square, uint64_t occupancy) {
+static inline uint64_t get_queen_attacks(int square, uint64_t occupancy) {
   // init result attacks bitboard
   uint64_t queen_attacks = 0ULL;
 
@@ -79,14 +79,14 @@ inline uint64_t get_queen_attacks(int square, uint64_t occupancy) {
   return queen_attacks;
 }
 
-inline uint64_t get_pawn_attacks(uint8_t side, int square) {
+static inline uint64_t get_pawn_attacks(uint8_t side, int square) {
   return pawn_attacks[side][square];
 }
 
-inline uint64_t get_knight_attacks(int square) {
+static inline uint64_t get_knight_attacks(int square) {
   return knight_attacks[square];
 }
 
-inline uint64_t get_king_attacks(int square) { return king_attacks[square]; }
+static inline uint64_t get_king_attacks(int square) { return king_attacks[square]; }
 
 #endif

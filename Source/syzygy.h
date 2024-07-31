@@ -2,6 +2,6 @@
 #define SYZYGY_H
 
 #include "structs.h"
-unsigned quant_probe_wdl(position_t *pos);
+//unsigned quant_probe_wdl(position_t *pos);
 
 #endif

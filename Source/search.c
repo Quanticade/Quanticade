@@ -77,7 +77,11 @@ static void init_reductions(void) {
 
   for (int depth = 0; depth < 32; ++depth) {
     for (int moves = 0; moves < 32; ++moves) {
-      reductions[depth][moves] = 0.75 + log(depth) * log(moves) / 2.25;
+      if (depth == 0 || moves == 0) {
+        reductions[depth][moves] = 0;
+      } else {
+        reductions[depth][moves] = 0.75 + log(depth) * log(moves) / 2.25;
+      }
     }
   }
 }
@@ -138,7 +142,8 @@ static inline void score_move(position_t *pos, thread_t *thread,
 
     uint8_t bb_piece = pos->mailbox[get_move_target(move)];
     // if there's a piece on the target square
-    if (bb_piece != NO_PIECE && get_bit(pos->bitboards[bb_piece], get_move_target(move))) {
+    if (bb_piece != NO_PIECE &&
+        get_bit(pos->bitboards[bb_piece], get_move_target(move))) {
       // remove it from corresponding bitboard
       target_piece = bb_piece;
     }
@@ -345,7 +350,8 @@ double clamp(double d, double min, double max) {
   return t > max ? max : t;
 }
 
-static inline void update_history_move(thread_t *thread, int move, uint8_t depth, uint8_t is_best_move) {
+static inline void update_history_move(thread_t *thread, int move,
+                                       uint8_t depth, uint8_t is_best_move) {
   int piece = get_move_piece(move);
   int target = get_move_target(move);
   int bonus = 16 * depth * depth + 32 * depth + 16;
@@ -355,12 +361,13 @@ static inline void update_history_move(thread_t *thread, int move, uint8_t depth
       thread->history_moves[piece][target] * abs(clamped_bonus) / 8192;
 }
 
-static inline void update_all_history_moves(thread_t *thread, moves *quiet_moves, int best_move, uint8_t depth) {
+static inline void update_all_history_moves(thread_t *thread,
+                                            moves *quiet_moves, int best_move,
+                                            uint8_t depth) {
   for (uint32_t i = 0; i < quiet_moves->count; ++i) {
     if (quiet_moves->entry[i].move == best_move) {
       update_history_move(thread, best_move, depth, 1);
-    }
-    else {
+    } else {
       update_history_move(thread, quiet_moves->entry[i].move, depth, 0);
     }
   }
@@ -460,7 +467,8 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     }
 
     // null move pruning
-    if (do_null_pruning && depth >= NMP_DEPTH && pos->ply && static_eval >= beta) {
+    if (do_null_pruning && depth >= NMP_DEPTH && pos->ply &&
+        static_eval >= beta) {
       int R = NMP_BASE_REDUCTION + depth / NMP_DIVISER;
       R = MIN(R, depth);
       // preserve board state
@@ -514,7 +522,8 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
         return score;
     }
 
-    if (!pv_node && depth <= RAZOR_DEPTH && static_eval + RAZOR_MARGIN * depth < alpha) {
+    if (!pv_node && depth <= RAZOR_DEPTH &&
+        static_eval + RAZOR_MARGIN * depth < alpha) {
       const int razor_score = quiescence(pos, thread, alpha, beta);
       if (razor_score <= alpha) {
         return razor_score;
@@ -523,7 +532,8 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
     // Internal Iterative Deepening
     if (pv_node && depth >= IID_DEPTH && !tt_move) {
-      negamax(pos, thread, alpha, beta, MAX(1, MIN(depth / 2, depth - IID_REDUCTION)), 0);
+      negamax(pos, thread, alpha, beta,
+              MAX(1, MIN(depth / 2, depth - IID_REDUCTION)), 0);
       score = read_hash_entry(pos, alpha, &tt_move, beta, depth);
     }
   }
@@ -611,8 +621,8 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
       add_move(quiet_list, move);
     }
 
-    uint8_t move_is_noisy = in_check == 0 && is_quiet &&
-                            get_move_promoted(move) == 0;
+    uint8_t move_is_noisy =
+        in_check == 0 && is_quiet && get_move_promoted(move) == 0;
     uint8_t do_lmr = depth > 2 && moves_searched > (2 + pv_node) && pos->ply &&
                      move_is_noisy;
 

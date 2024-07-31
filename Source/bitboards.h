@@ -10,16 +10,16 @@
 #define mate_score 48000
 
 // Population count/Hamming weight
-inline int popcount(const uint64_t bb) {
+static inline int popcount(const uint64_t bb) {
     return __builtin_popcountll(bb);
 }
 
 // Returns the index of the least significant bit
-inline int get_lsb(const uint64_t bb) {
+static inline int get_lsb(const uint64_t bb) {
     return __builtin_ctzll(bb);
 }
 
-inline int poplsb(uint64_t *bb) {
+static inline int poplsb(uint64_t *bb) {
     int lsb = get_lsb(*bb);
     *bb &= *bb - 1;
     return lsb;
