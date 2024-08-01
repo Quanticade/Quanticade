@@ -3,6 +3,8 @@
 #include "enums.h"
 #include "incbin/incbin.h"
 #include "structs.h"
+#include "uci.h"
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -27,6 +29,29 @@ static inline int32_t screlu(int16_t value) {
   return clipped * clipped;
 }
 
+int nnue_init_incbin(void) {
+  uint64_t memoryIndex = 0;
+  char version_string[21];
+  memcpy(version_string, &gEVALData[memoryIndex], 20 * sizeof(char));
+  version_string[20] = '\0';
+  if (strcmp(version_string, "4D617374657231353336") != 0) {
+    return 0;
+  }
+  memoryIndex += 20 * sizeof(char);
+  memcpy(nnue.feature_weights, &gEVALData[memoryIndex],
+         INPUT_WEIGHTS * HIDDEN_SIZE * sizeof(int16_t));
+  memoryIndex += INPUT_WEIGHTS * HIDDEN_SIZE * sizeof(int16_t);
+  memcpy(nnue.feature_bias, &gEVALData[memoryIndex],
+         HIDDEN_SIZE * sizeof(int16_t));
+  memoryIndex += HIDDEN_SIZE * sizeof(int16_t);
+
+  memcpy(nnue.output_weights, &gEVALData[memoryIndex],
+         HIDDEN_SIZE * sizeof(int16_t) * 2);
+  memoryIndex += HIDDEN_SIZE * sizeof(int16_t) * 2;
+  memcpy(&nnue.output_bias, &gEVALData[memoryIndex], 1 * sizeof(int16_t));
+  return 1;
+}
+
 void nnue_init(const char *nnue_file_name) {
   // open the nn file
   FILE *nn = fopen(nnue_file_name, "rb");
@@ -36,34 +61,39 @@ void nnue_init(const char *nnue_file_name) {
     // initialize an accumulator for every input of the second layer
     size_t read = 0;
     size_t fileSize = sizeof(nnue_t);
-    size_t objectsExpected = fileSize / sizeof(int16_t);
+    size_t objectsExpected = (fileSize / sizeof(int16_t)) + 20;
+    char version_string[21];
+    read += fread(version_string, sizeof(char), 20, nn);
+    version_string[20] = '\0';
 
-    read += fread(nnue.feature_weights, sizeof(int16_t),
-                  INPUT_WEIGHTS * HIDDEN_SIZE, nn);
-    read += fread(nnue.feature_bias, sizeof(int16_t), HIDDEN_SIZE, nn);
-    read += fread(nnue.output_weights, sizeof(int16_t), HIDDEN_SIZE * 2, nn);
-    read += fread(&nnue.output_bias, sizeof(int16_t), 1, nn);
+    if (strcmp(version_string, "4D617374657231353336") != 0) {
+      printf("Imcompatible NNUE file. Trying to load NNUE from binary\n");
+      fclose(nn);
+      if (nnue_init_incbin() == 0) {
+        printf("Failed to load network from incbin. Exiting\n");
+        exit(1);
+      }
+    } else {
 
-    if (read != objectsExpected) {
-      printf("Error loading the net, aborting\n");
+      read += fread(nnue.feature_weights, sizeof(int16_t),
+                    INPUT_WEIGHTS * HIDDEN_SIZE, nn);
+      read += fread(nnue.feature_bias, sizeof(int16_t), HIDDEN_SIZE, nn);
+      read += fread(nnue.output_weights, sizeof(int16_t), HIDDEN_SIZE * 2, nn);
+      read += fread(&nnue.output_bias, sizeof(int16_t), 1, nn);
+
+      if (read != objectsExpected) {
+        printf("Error loading the net, aborting\n");
+        exit(1);
+      }
+
+      // after reading the config we can close the file
+      fclose(nn);
+    }
+  } else {
+    if (nnue_init_incbin() == 0) {
+      printf("Failed to load network from incbin. Exiting\n");
       exit(1);
     }
-
-    // after reading the config we can close the file
-    fclose(nn);
-  } else {
-    uint64_t memoryIndex = 0;
-    memcpy(nnue.feature_weights, &gEVALData[memoryIndex],
-           INPUT_WEIGHTS * HIDDEN_SIZE * sizeof(int16_t));
-    memoryIndex += INPUT_WEIGHTS * HIDDEN_SIZE * sizeof(int16_t);
-    memcpy(nnue.feature_bias, &gEVALData[memoryIndex],
-           HIDDEN_SIZE * sizeof(int16_t));
-    memoryIndex += HIDDEN_SIZE * sizeof(int16_t);
-
-    memcpy(nnue.output_weights, &gEVALData[memoryIndex],
-           HIDDEN_SIZE * sizeof(int16_t) * 2);
-    memoryIndex += HIDDEN_SIZE * sizeof(int16_t) * 2;
-    memcpy(&nnue.output_bias, &gEVALData[memoryIndex], 1 * sizeof(int16_t));
   }
 }
 
