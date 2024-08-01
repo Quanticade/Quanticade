@@ -536,7 +536,7 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
         printf("\nPosition %d/%d (%s)\n", pos_index, 49,
                bench_positions[pos_index]);
         parse_fen(pos, bench_positions[pos_index]);
-        time_control(pos, threads, "go depth 10");
+        time_control(pos, threads, "go depth 12");
         search_position(pos, threads);
         total_nodes += threads->nodes;
       }
