@@ -27,7 +27,7 @@ extern int thread_count;
 
 extern keys_t keys;
 
-int LMP_BASE = 6;
+int LMP_BASE = 4;
 int LMP_MULTIPLIER = 1;
 int RAZOR_DEPTH = 7;
 int RAZOR_MARGIN = 291;
@@ -577,7 +577,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
     // Late Move Pruning
     if (!pv_node && quiet &&
-        legal_moves > LMP_BASE + LMP_MULTIPLIER * depth * depth) {
+        legal_moves >= LMP_BASE + LMP_MULTIPLIER * depth * depth) {
       skip_quiets = 1;
     }
 
