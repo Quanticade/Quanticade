@@ -28,13 +28,13 @@ extern int thread_count;
 extern keys_t keys;
 
 int LMP_BASE = 6;
-int LMP_MULTIPLIER = 2;
+int LMP_MULTIPLIER = 1;
 int RAZOR_DEPTH = 7;
-int RAZOR_MARGIN = 298;
+int RAZOR_MARGIN = 291;
 int RFP_DEPTH = 6;
-int RFP_MARGIN = 120;
-int NMP_BASE_REDUCTION = 5;
-int NMP_DIVISER = 9;
+int RFP_MARGIN = 105;
+int NMP_BASE_REDUCTION = 6;
+int NMP_DIVISER = 8;
 int NMP_DEPTH = 1;
 int IID_DEPTH = 4;
 int IID_REDUCTION = 4;
