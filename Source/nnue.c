@@ -2,8 +2,8 @@
 #include "bitboards.h"
 #include "enums.h"
 #include "incbin/incbin.h"
+#include "simd.h"
 #include "structs.h"
-#include "uci.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -61,7 +61,8 @@ void nnue_init(const char *nnue_file_name) {
     // initialize an accumulator for every input of the second layer
     size_t read = 0;
     size_t fileSize = sizeof(nnue_t);
-    size_t objectsExpected = (fileSize / sizeof(int16_t)) + 20;
+    size_t objectsExpected = (fileSize / sizeof(int16_t)) + 20 -
+                             15; // Due to alligment we deduct 15 from it
     char version_string[21];
     read += fread(version_string, sizeof(char), 20, nn);
     version_string[20] = '\0';
@@ -82,6 +83,7 @@ void nnue_init(const char *nnue_file_name) {
       read += fread(&nnue.output_bias, sizeof(int16_t), 1, nn);
 
       if (read != objectsExpected) {
+        printf("We read: %zu but the expected is %zu\n", read, objectsExpected);
         printf("Error loading the net, aborting\n");
         exit(1);
       }
@@ -189,6 +191,41 @@ int nnue_eval_pos(position_t *pos) {
 
 int nnue_evaluate(position_t *pos) {
   int eval = 0;
+
+#if defined(USE_SIMD)
+  vepi32 sum = zero_epi32();
+  const int chunk_size = sizeof(vepi16) / sizeof(int16_t);
+
+  for (int i = 0; i < HIDDEN_SIZE; i += chunk_size) {
+    const vepi16 accumulator_data =
+        load_epi16(&pos->accumulator.accumulator[pos->side][i]);
+    const vepi16 weights = load_epi16(&nnue.output_weights[0][i]);
+
+    const vepi16 clipped_accumulator = clip(accumulator_data, L1Q);
+
+    const vepi16 intermediate = multiply_epi16(clipped_accumulator, weights);
+
+    const vepi32 result = multiply_add_epi16(intermediate, clipped_accumulator);
+
+    sum = add_epi32(sum, result);
+  }
+
+  for (int i = 0; i < HIDDEN_SIZE; i += chunk_size) {
+    const vepi16 accumulator_data =
+        load_epi16(&pos->accumulator.accumulator[pos->side ^ 1][i]);
+    const vepi16 weights = load_epi16(&nnue.output_weights[1][i]);
+
+    const vepi16 clipped_accumulator = clip(accumulator_data, L1Q);
+
+    const vepi16 intermediate = multiply_epi16(clipped_accumulator, weights);
+
+    const vepi32 result = multiply_add_epi16(intermediate, clipped_accumulator);
+
+    sum = add_epi32(sum, result);
+  }
+
+  eval = reduce_add_epi32(sum);
+#else
   // feed everything forward to get the final value
   for (int i = 0; i < HIDDEN_SIZE; ++i)
     eval += screlu(pos->accumulator.accumulator[pos->side][i]) *
@@ -197,7 +234,7 @@ int nnue_evaluate(position_t *pos) {
   for (int i = 0; i < HIDDEN_SIZE; ++i)
     eval += screlu(pos->accumulator.accumulator[pos->side ^ 1][i]) *
             nnue.output_weights[1][i];
-
+#endif
   eval /= L1Q;
   eval += nnue.output_bias;
   eval = (eval * SCALE) / (L1Q * OutputQ);
