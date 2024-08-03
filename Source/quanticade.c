@@ -28,6 +28,7 @@ uint32_t random_state;
 
 extern const int default_hash_size;
 extern int thread_count;
+extern nnue_t nnue;
 
 // generate 32-bit pseudo legal numbers
 uint32_t get_random_U32_number(void) {

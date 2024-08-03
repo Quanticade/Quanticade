@@ -9,7 +9,7 @@ NATIVE       = -march=native
 AVX2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi
 BMI2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi -mbmi2
 #While we get this fixed lets include AVX2 in AVX512 flags (I mean if you have AVX512 you damn better have AVX2 as well.....)
-AVX512FLAGS  = -DUSE_AVX512 -DUSE_SIMD -mavx512f -mavx512bw -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi -mbmi2
+AVX512FLAGS  = -DUSE_AVX512 -DUSE_SIMD -mavx512f -mavx512bw
 NEONFLAGS    = -DUSE_NEON -flax-vector-conversions
 
 # engine name
