@@ -385,29 +385,30 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
   int tt_move = 0;
 
+  uint8_t root_node = pos->ply == 0;
+
   // define hash flag
   int hash_flag = hash_flag_alpha;
 
-  if (pos->ply) {
+  if (!root_node) {
     // if position repetition occurs
     if (is_repetition(pos) || pos->fifty >= 100) {
       // return draw score
       return 0;
     }
-#if 0
-    if ((tbresult = quant_probe_wdl(pos)) != TB_RESULT_FAILED) {
-      val = tbresult == TB_LOSS  ? -infinity + max_ply + pos->ply + 1
-            : tbresult == TB_WIN ? infinity - max_ply - pos->ply - 1
-                                 : 0;
-      return val;
-    }
-#endif
+
     // we are too deep, hence there's an overflow of arrays relying on max ply
     // constant
     if (pos->ply > max_ply - 1) {
       // evaluate position
       return evaluate(pos);
     }
+
+    //Mate distance pruning
+    alpha = MAX(alpha, -mate_value + (int)pos->ply);
+    beta = MIN(beta, mate_value - (int)pos->ply - 1);
+    if (alpha >= beta)
+      return alpha;
   }
 
   // a hack by Pedro Castro to figure out whether the current node is PV node
@@ -416,7 +417,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
   // read hash entry if we're not in a root ply and hash entry is available
   // and current node is not a PV node
-  if (pos->ply &&
+  if (!root_node &&
       (score = read_hash_entry(pos, alpha, &tt_move, beta, depth)) !=
           no_hash_entry &&
       pv_node == 0) {
@@ -467,7 +468,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     }
 
     // null move pruning
-    if (do_null_pruning && depth >= NMP_DEPTH && pos->ply &&
+    if (do_null_pruning && depth >= NMP_DEPTH && !root_node &&
         static_eval >= beta) {
       int R = NMP_BASE_REDUCTION + depth / NMP_DIVISER;
       R = MIN(R, depth);
