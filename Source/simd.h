@@ -26,8 +26,8 @@ static inline int reduce_add_epi32(vepi32 v) { return _mm512_reduce_add_epi32(v)
 typedef __m256i vepi16;
 typedef __m256i vepi32;
 
-static inline vepi16 zero_epi16() { return _mm256_setzero_si256(); }
-static inline vepi32 zero_epi32() { return _mm256_setzero_si256(); }
+static inline vepi16 zero_epi16(void) { return _mm256_setzero_si256(); }
+static inline vepi32 zero_epi32(void) { return _mm256_setzero_si256(); }
 static inline vepi16 load_epi16(const int16_t *memory_address) { return _mm256_load_si256((const __m256i *)memory_address); }
 static inline vepi32 load_epi32(const int32_t *memory_address) { return _mm256_load_si256((const __m256i *)memory_address); }
 static inline vepi16 load_epi16_broadcast(int num) { return _mm256_set1_epi16(num); }
