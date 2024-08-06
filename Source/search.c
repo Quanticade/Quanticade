@@ -429,6 +429,9 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
 
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
+
+    if (!SEE(pos, move_list->entry[count].move, -7)) continue;
+
     // preserve board state
     copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
                pos->castle, pos->fifty, pos->hash_key, pos->mailbox,
