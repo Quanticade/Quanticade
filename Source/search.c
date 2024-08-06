@@ -57,6 +57,8 @@ const int mvv_lva[12][12] = {
     {101, 201, 301, 401, 501, 601, 101, 201, 301, 401, 501, 601},
     {100, 200, 300, 400, 500, 600, 100, 200, 300, 400, 500, 600}};
 
+const int SEEPieceValues[] = {100, 300, 300, 500, 1200, 0, 0};
+
 /*  =======================
          Move ordering
     =======================
@@ -113,6 +115,157 @@ static inline void enable_pv_scoring(position_t *pos, thread_t *thread,
   }
 }
 
+int move_estimated_value(position_t *pos, int move) {
+
+  // Start with the value of the piece on the target square
+  int target_piece = pos->mailbox[get_move_target(move)] > 5
+                         ? pos->mailbox[get_move_target(move)] - 6
+                         : pos->mailbox[get_move_target(move)];
+  int promoted_piece = get_move_promoted(move) > 5 ? get_move_promoted(move) - 6
+                                                   : get_move_promoted(move);
+  int value = SEEPieceValues[target_piece];
+
+  // Factor in the new piece's value and remove our promoted pawn
+  if (get_move_promoted(move))
+    value += SEEPieceValues[promoted_piece] - SEEPieceValues[PAWN];
+
+  // Target square is encoded as empty for enpass moves
+  else if (get_move_enpassant(move))
+    value = SEEPieceValues[PAWN];
+
+  // We encode Castle moves as KxR, so the initial step is wrong
+  else if (get_move_castling(move))
+    value = 0;
+
+  return value;
+}
+
+uint64_t all_attackers_to_square(position_t *pos, uint64_t occupied, int sq) {
+
+  // When performing a static exchange evaluation we need to find all
+  // attacks to a given square, but we also are given an updated occupied
+  // bitboard, which will likely not match the actual board, as pieces are
+  // removed during the iterations in the static exchange evaluation
+
+  return (get_pawn_attacks(white, sq) & pos->bitboards[p]) |
+         (get_pawn_attacks(black, sq) & pos->bitboards[P]) |
+         (get_knight_attacks(sq) & (pos->bitboards[n] | pos->bitboards[N])) |
+         (get_bishop_attacks(sq, occupied) &
+          ((pos->bitboards[b] | pos->bitboards[B]) |
+           (pos->bitboards[q] | pos->bitboards[Q]))) |
+         (get_rook_attacks(sq, occupied) &
+          ((pos->bitboards[r] | pos->bitboards[R]) |
+           (pos->bitboards[q] | pos->bitboards[Q]))) |
+         (get_king_attacks(sq) & (pos->bitboards[k] | pos->bitboards[K]));
+}
+
+int SEE(position_t *pos, int move, int threshold) {
+
+  int from, to, enpassant, promotion, colour, balance, nextVictim;
+  uint64_t bishops, rooks, occupied, attackers, myAttackers;
+
+  // Unpack move information
+  from = get_move_source(move);
+  to = get_move_target(move);
+  enpassant = get_move_enpassant(move);
+  promotion = get_move_promoted(move);
+
+  // Next victim is moved piece or promotion type
+  nextVictim = promotion ? promotion : pos->mailbox[from];
+  nextVictim = nextVictim > 5 ? nextVictim - 6 : nextVictim;
+
+  // Balance is the value of the move minus threshold. Function
+  // call takes care for Enpass, Promotion and Castling moves.
+  balance = move_estimated_value(pos, move) - threshold;
+
+  // Best case still fails to beat the threshold
+  if (balance < 0)
+    return 0;
+
+  // Worst case is losing the moved piece
+  balance -= SEEPieceValues[nextVictim];
+
+  // If the balance is positive even if losing the moved piece,
+  // the exchange is guaranteed to beat the threshold.
+  if (balance >= 0)
+    return 1;
+
+  // Grab sliders for updating revealed attackers
+  bishops = pos->bitboards[b] | pos->bitboards[B] | pos->bitboards[q] |
+            pos->bitboards[Q];
+  rooks = pos->bitboards[r] | pos->bitboards[R] | pos->bitboards[q] |
+          pos->bitboards[Q];
+
+  // Let occupied suppose that the move was actually made
+  occupied = pos->occupancies[both];
+  occupied = (occupied ^ (1ull << from)) | (1ull << to);
+  if (enpassant)
+    occupied ^= (1ull << pos->enpassant);
+
+  // Get all pieces which attack the target square. And with occupied
+  // so that we do not let the same piece attack twice
+  attackers = all_attackers_to_square(pos, occupied, to) & occupied;
+
+  // Now our opponents turn to recapture
+  colour = pos->side ^ 1;
+
+  while (1) {
+
+    // If we have no more attackers left we lose
+    myAttackers = attackers & pos->occupancies[colour];
+    if (myAttackers == 0ull) {
+      // printf("WELL FUCK\n");
+      break;
+    }
+
+    // Find our weakest piece to attack with
+    for (nextVictim = PAWN; nextVictim <= QUEEN; nextVictim++) {
+      if (myAttackers &
+          (pos->bitboards[nextVictim] | pos->bitboards[nextVictim + 6])) {
+        // printf("Taking with %d\n", nextVictim);
+        break;
+      }
+    }
+
+    // Remove this attacker from the occupied
+    occupied ^=
+        (1ull << get_lsb(myAttackers & (pos->bitboards[nextVictim] |
+                                        pos->bitboards[nextVictim + 6])));
+
+    // A diagonal move may reveal bishop or queen attackers
+    if (nextVictim == PAWN || nextVictim == BISHOP || nextVictim == QUEEN)
+      attackers |= get_bishop_attacks(to, occupied) & bishops;
+
+    // A vertical or horizontal move may reveal rook or queen attackers
+    if (nextVictim == ROOK || nextVictim == QUEEN)
+      attackers |= get_rook_attacks(to, occupied) & rooks;
+
+    // Make sure we did not add any already used attacks
+    attackers &= occupied;
+
+    // Swap the turn
+    colour = !colour;
+
+    // Negamax the balance and add the value of the next victim
+    balance = -balance - 1 - SEEPieceValues[nextVictim];
+
+    // If the balance is non negative after giving away our piece then we win
+    if (balance >= 0) {
+
+      // As a slide speed up for move legality checking, if our last attacking
+      // piece is a king, and our opponent still has attackers, then we've
+      // lost as the move we followed would be illegal
+      if (nextVictim == KING && (attackers & pos->occupancies[colour]))
+        colour = colour ^ 1;
+
+      break;
+    }
+  }
+
+  // Side to move after the loop loses
+  return pos->side != colour;
+}
+
 // score moves
 static inline void score_move(position_t *pos, thread_t *thread,
                               move_t *move_entry, int hash_move) {
@@ -151,6 +304,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
     // score move by MVV LVA lookup [source piece][target piece]
     move_entry->score =
         mvv_lva[get_move_piece(move)][target_piece] + 1000000000;
+    //move_entry->score += SEE(pos, move, -107) ? 1000000000 : -1000000;
     return;
   }
 
@@ -612,6 +766,10 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
         legal_moves > LMP_BASE + LMP_MULTIPLIER * depth * depth) {
       skip_quiets = 1;
     }
+
+    const int see_threshold = quiet ? -67 * depth : -32 * depth * depth;
+    if (depth <= 10 && legal_moves > 0 && !SEE(pos, list_move, see_threshold))
+      continue;
 
     int move = move_list->entry[count].move;
     uint8_t is_quiet = get_move_capture(move) == 0;
