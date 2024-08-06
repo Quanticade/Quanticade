@@ -297,14 +297,13 @@ static inline void score_move(position_t *pos, thread_t *thread,
     // if there's a piece on the target square
     if (bb_piece != NO_PIECE &&
         get_bit(pos->bitboards[bb_piece], get_move_target(move))) {
-      // remove it from corresponding bitboard
       target_piece = bb_piece;
     }
 
     // score move by MVV LVA lookup [source piece][target piece]
     move_entry->score =
-        mvv_lva[get_move_piece(move)][target_piece] + 1000000000;
-    //move_entry->score += SEE(pos, move, -107) ? 1000000000 : -1000000;
+        mvv_lva[get_move_piece(move)][target_piece];
+    move_entry->score += SEE(pos, move, -107) ? 1000000000 : -1000000;
     return;
   }
 
