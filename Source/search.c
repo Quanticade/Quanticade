@@ -306,7 +306,8 @@ static inline void score_move(position_t *pos, thread_t *thread,
 
     // score move by MVV LVA lookup [source piece][target piece]
     move_entry->score = mvv_lva[get_move_piece(move)][target_piece];
-    move_entry->score += SEE(pos, move, -MO_SEE_THRESHOLD) ? 1000000000 : -1000000;
+    move_entry->score +=
+        SEE(pos, move, -MO_SEE_THRESHOLD) ? 1000000000 : -1000000;
     return;
   }
 
@@ -771,8 +772,21 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
       skip_quiets = 1;
     }
 
-    const int see_threshold = quiet ? -SEE_QUIET * depth : -SEE_CAPTURE * depth * depth;
-    if (depth <= SEE_DEPTH && legal_moves > 0 && !SEE(pos, list_move, see_threshold))
+    r = reductions[MIN(31, depth)][MIN(31, moves_searched)];
+    r += !pv_node;
+    int lmr_depth = MAX(1, depth - 1 - MAX(r, 1));
+
+    // Futility Pruning
+    if (!root_node && depth <= 5 && !in_check && quiet &&
+        static_eval + lmr_depth * 150 + 150 <= alpha) {
+      skip_quiets = true;
+      continue;
+    }
+    // SEE PVS Pruning
+    const int see_threshold =
+        quiet ? -SEE_QUIET * depth : -SEE_CAPTURE * depth * depth;
+    if (depth <= SEE_DEPTH && legal_moves > 0 &&
+        !SEE(pos, list_move, see_threshold))
       continue;
 
     int move = move_list->entry[count].move;
