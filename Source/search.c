@@ -592,10 +592,10 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     }
 
     // Mate distance pruning
-    alpha = MAX(alpha, -mate_value + (int)pos->ply);
-    beta = MIN(beta, mate_value - (int)pos->ply - 1);
-    if (alpha >= beta)
-      return alpha;
+    int mdp_alpha = MAX(alpha, -mate_value + (int)pos->ply);
+    int mdp_beta = MIN(beta, mate_value - (int)pos->ply - 1);
+    if (mdp_alpha >= mdp_beta)
+      return mdp_alpha;
   }
 
   // a hack by Pedro Castro to figure out whether the current node is PV node
