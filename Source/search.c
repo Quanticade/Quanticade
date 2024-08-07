@@ -301,8 +301,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
     }
 
     // score move by MVV LVA lookup [source piece][target piece]
-    move_entry->score =
-        mvv_lva[get_move_piece(move)][target_piece];
+    move_entry->score = mvv_lva[get_move_piece(move)][target_piece];
     move_entry->score += SEE(pos, move, -107) ? 1000000000 : -1000000;
     return;
   }
@@ -430,7 +429,8 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
 
-    if (!SEE(pos, move_list->entry[count].move, -7)) continue;
+    if (!SEE(pos, move_list->entry[count].move, -7))
+      continue;
 
     // preserve board state
     copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
@@ -718,11 +718,9 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
       }
     }
 
-    // Internal Iterative Deepening
-    if (pv_node && depth >= IID_DEPTH && !tt_move) {
-      negamax(pos, thread, alpha, beta,
-              MAX(1, MIN(depth / 2, depth - IID_REDUCTION)), 0);
-      score = read_hash_entry(pos, alpha, &tt_move, beta, depth);
+    // Internal Iterative Reductions
+    if (depth >= 4 && !tt_move) {
+      depth--;
     }
   }
 
