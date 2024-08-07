@@ -719,7 +719,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     }
 
     // Internal Iterative Reductions
-    if (!pv_node && depth >= 4 && !tt_move) {
+    if (pv_node && depth >= 4 && !tt_move) {
       depth--;
     }
   }
