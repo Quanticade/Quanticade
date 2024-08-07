@@ -459,11 +459,6 @@ static inline void time_control(position_t *pos, thread_t *threads,
   if ((argument = strstr(line, "depth"))) {
     // parse search depth
     limits.depth = atoi(argument + 6);
-  }
-
-  if ((argument = strstr(line, "perft"))) {
-    limits.depth = atoi(argument + 6);
-    perft_test(pos, threads, limits.depth);
   } else {
     limits.depth = limits.depth == 0 ? max_ply : limits.depth;
 
@@ -484,6 +479,13 @@ static inline void *parse_go(void *searchthread_info) {
   position_t *pos = sti->pos;
   thread_t *threads = sti->threads;
   char *line = sti->line;
+  char *argument = NULL;
+
+  if ((argument = strstr(line, "perft"))) {
+    limits.depth = atoi(argument + 6);
+    perft_test(pos, threads, limits.depth);
+    return NULL;
+  }
 
   time_control(pos, threads, line);
 
@@ -632,19 +634,39 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
       printf("option name IID_REDUCTION type spin default 4 min 1 max 8\n");
       // printf("option name SyzygyPath type string default <empty>\n");
       printf("uciok\n");
-    }
-    else if (strncmp(input, "spsa", 4) == 0) {
-      printf("LMP_BASE, int, %.3f, 1.000, %.3f, %.3f, 0.002\n", (float)LMP_BASE, (float)LMP_BASE*2, MAX(0.5, MAX(1, (((float)LMP_BASE*2)-1))/20));
-      printf("LMP_MULTIPLIER, int, %.3f, 1.000, %.3f, %.3f, 0.002\n", (float)LMP_MULTIPLIER, (float)LMP_MULTIPLIER*2, MAX(0.5, MAX(1, (((float)LMP_MULTIPLIER*2)-1))/20));
-      printf("RAZOR_DEPTH, int, %.3f, 1.000, %.3f, %.3f, 0.002\n", (float)RAZOR_DEPTH, (float)RAZOR_DEPTH*2, MAX(0.5, MAX(1, (((float)RAZOR_DEPTH*2)-1))/20));
-      printf("RAZOR_MARGIN, int, %.3f, 1.000, %.3f, %.3f, 0.002\n", (float)RAZOR_MARGIN, (float)RAZOR_MARGIN*2, MAX(0.5, MAX(1, (((float)RAZOR_MARGIN*2)-1))/20));
-      printf("RFP_DEPTH, int, %.3f, 1.000, %.3f, %.3f, 0.002\n", (float)RFP_DEPTH, (float)RFP_DEPTH*2, MAX(0.5, MAX(1, (((float)RFP_DEPTH*2)-1))/20));
-      printf("RFP_MARGIN, int, %.3f, 1.000, %.3f, %.3f, 0.002\n", (float)RFP_MARGIN, (float)RFP_MARGIN*2, MAX(0.5, MAX(1, (((float)RFP_MARGIN*2)-1))/20));
-      printf("NMP_BASE_REDUCTION, int, %.3f, 1.000, %.3f, %.3f, 0.002\n", (float)NMP_BASE_REDUCTION, (float)NMP_BASE_REDUCTION*2, MAX(0.5, MAX(1, (((float)NMP_BASE_REDUCTION*2)-1))/20));
-      printf("NMP_DIVISOR, int, %.3f, 1.000, %.3f, %.3f, 0.002\n", (float)NMP_DIVISER, (float)NMP_DIVISER*2, MAX(0.5, MAX(1, (((float)NMP_DIVISER*2)-1))/20));
-      printf("NMP_DEPTH, int, %.3f, 1.000, %.3f, %.3f, 0.002\n", (float)NMP_DEPTH, (float)4, 0.5);
-      printf("IID_DEPTH, int, %.3f, 1.000, %.3f, %.3f, 0.002\n", (float)IID_DEPTH, (float)IID_DEPTH*2, MAX(0.5, MAX(1, (((float)IID_DEPTH*2)-1))/20));
-      printf("IID_REDUCTION, int, %.3f, 1.000, %.3f, %.3f, 0.002\n", (float)IID_REDUCTION, (float)IID_REDUCTION*2, MAX(0.5, MAX(1, (((float)IID_REDUCTION*2)-1))/20));
+    } else if (strncmp(input, "spsa", 4) == 0) {
+      printf("LMP_BASE, int, %.3f, 1.000, %.3f, %.3f, 0.002\n", (float)LMP_BASE,
+             (float)LMP_BASE * 2,
+             MAX(0.5, MAX(1, (((float)LMP_BASE * 2) - 1)) / 20));
+      printf("LMP_MULTIPLIER, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
+             (float)LMP_MULTIPLIER, (float)LMP_MULTIPLIER * 2,
+             MAX(0.5, MAX(1, (((float)LMP_MULTIPLIER * 2) - 1)) / 20));
+      printf("RAZOR_DEPTH, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
+             (float)RAZOR_DEPTH, (float)RAZOR_DEPTH * 2,
+             MAX(0.5, MAX(1, (((float)RAZOR_DEPTH * 2) - 1)) / 20));
+      printf("RAZOR_MARGIN, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
+             (float)RAZOR_MARGIN, (float)RAZOR_MARGIN * 2,
+             MAX(0.5, MAX(1, (((float)RAZOR_MARGIN * 2) - 1)) / 20));
+      printf("RFP_DEPTH, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
+             (float)RFP_DEPTH, (float)RFP_DEPTH * 2,
+             MAX(0.5, MAX(1, (((float)RFP_DEPTH * 2) - 1)) / 20));
+      printf("RFP_MARGIN, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
+             (float)RFP_MARGIN, (float)RFP_MARGIN * 2,
+             MAX(0.5, MAX(1, (((float)RFP_MARGIN * 2) - 1)) / 20));
+      printf("NMP_BASE_REDUCTION, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
+             (float)NMP_BASE_REDUCTION, (float)NMP_BASE_REDUCTION * 2,
+             MAX(0.5, MAX(1, (((float)NMP_BASE_REDUCTION * 2) - 1)) / 20));
+      printf("NMP_DIVISOR, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
+             (float)NMP_DIVISER, (float)NMP_DIVISER * 2,
+             MAX(0.5, MAX(1, (((float)NMP_DIVISER * 2) - 1)) / 20));
+      printf("NMP_DEPTH, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
+             (float)NMP_DEPTH, (float)4, 0.5);
+      printf("IID_DEPTH, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
+             (float)IID_DEPTH, (float)IID_DEPTH * 2,
+             MAX(0.5, MAX(1, (((float)IID_DEPTH * 2) - 1)) / 20));
+      printf("IID_REDUCTION, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
+             (float)IID_REDUCTION, (float)IID_REDUCTION * 2,
+             MAX(0.5, MAX(1, (((float)IID_REDUCTION * 2) - 1)) / 20));
     }
 
     else if (!strncmp(input, "setoption name Hash value ", 26)) {
@@ -709,7 +731,8 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
       sscanf(input, "%*s %*s %*s %*s %d", &RFP_DEPTH);
     } else if (!strncmp(input, "setoption name RFP_MARGIN value ", 32)) {
       sscanf(input, "%*s %*s %*s %*s %d", &RFP_MARGIN);
-    } else if (!strncmp(input, "setoption name NMP_BASE_REDUCTION value ", 40)) {
+    } else if (!strncmp(input, "setoption name NMP_BASE_REDUCTION value ",
+                        40)) {
       sscanf(input, "%*s %*s %*s %*s %d", &NMP_BASE_REDUCTION);
     } else if (!strncmp(input, "setoption name NMP_DIVISOR value ", 33)) {
       sscanf(input, "%*s %*s %*s %*s %d", &NMP_DIVISER);
