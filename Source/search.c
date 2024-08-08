@@ -36,8 +36,12 @@ int RFP_MARGIN = 105;
 int NMP_BASE_REDUCTION = 6;
 int NMP_DIVISER = 8;
 int NMP_DEPTH = 1;
-int IID_DEPTH = 4;
-int IID_REDUCTION = 4;
+int IIR_DEPTH = 4;
+int SEE_QUIET = 67;
+int SEE_CAPTURE = 32;
+int SEE_DEPTH = 10;
+int QS_SEE_THRESHOLD = 7;
+int MO_SEE_THRESHOLD = 107;
 
 const int full_depth_moves = 4;
 const int reduction_limit = 3;
@@ -57,7 +61,7 @@ const int mvv_lva[12][12] = {
     {101, 201, 301, 401, 501, 601, 101, 201, 301, 401, 501, 601},
     {100, 200, 300, 400, 500, 600, 100, 200, 300, 400, 500, 600}};
 
-const int SEEPieceValues[] = {100, 300, 300, 500, 1200, 0, 0};
+int SEEPieceValues[] = {100, 300, 300, 500, 1200, 0, 0};
 
 /*  =======================
          Move ordering
@@ -302,7 +306,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
 
     // score move by MVV LVA lookup [source piece][target piece]
     move_entry->score = mvv_lva[get_move_piece(move)][target_piece];
-    move_entry->score += SEE(pos, move, -107) ? 1000000000 : -1000000;
+    move_entry->score += SEE(pos, move, -MO_SEE_THRESHOLD) ? 1000000000 : -1000000;
     return;
   }
 
@@ -429,7 +433,7 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
 
-    if (!SEE(pos, move_list->entry[count].move, -7))
+    if (!SEE(pos, move_list->entry[count].move, -QS_SEE_THRESHOLD))
       continue;
 
     // preserve board state
@@ -719,7 +723,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     }
 
     // Internal Iterative Reductions
-    if (depth >= 4 && !tt_move) {
+    if (depth >= IIR_DEPTH && !tt_move) {
       depth--;
     }
   }
@@ -767,8 +771,8 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
       skip_quiets = 1;
     }
 
-    const int see_threshold = quiet ? -67 * depth : -32 * depth * depth;
-    if (depth <= 10 && legal_moves > 0 && !SEE(pos, list_move, see_threshold))
+    const int see_threshold = quiet ? -SEE_QUIET * depth : -SEE_CAPTURE * depth * depth;
+    if (depth <= SEE_DEPTH && legal_moves > 0 && !SEE(pos, list_move, see_threshold))
       continue;
 
     int move = move_list->entry[count].move;

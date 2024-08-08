@@ -37,8 +37,14 @@ extern int RFP_MARGIN;
 extern int NMP_BASE_REDUCTION;
 extern int NMP_DIVISER;
 extern int NMP_DEPTH;
-extern int IID_DEPTH;
-extern int IID_REDUCTION;
+extern int IIR_DEPTH;
+extern int SEE_QUIET;
+extern int SEE_CAPTURE;
+extern int SEE_DEPTH;
+extern int QS_SEE_THRESHOLD;
+extern int MO_SEE_THRESHOLD;
+
+extern int SEEPieceValues[];
 
 const int default_hash_size = 16;
 
@@ -630,8 +636,18 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
           "option name NMP_BASE_REDUCTION type spin default 5 min 1 max 10\n");
       printf("option name NMP_DIVISOR type spin default 9 min 1 max 18\n");
       printf("option name NMP_DEPTH type spin default 1 min 1 max 4\n");
-      printf("option name IID_DEPTH type spin default 4 min 1 max 8\n");
-      printf("option name IID_REDUCTION type spin default 4 min 1 max 8\n");
+      printf("option name IIR_DEPTH type spin default 4 min 1 max 8\n");
+      printf("option name SEE_QUIET type spin default 67 min 1 max 134\n");
+      printf("option name SEE_CAPTURE type spin default 32 min 1 max 64\n");
+      printf("option name SEE_DEPTH type spin default 10 min 1 max 20\n");
+      printf("option name QS_SEE_THRESHOLD type spin default 7 min 1 max 14\n");
+      printf(
+          "option name MO_SEE_THRESHOLD type spin default 107 min 1 max 214\n");
+      printf("option name SEE_PAWN type spin default 100 min 1 max 200\n");
+      printf("option name SEE_KNIGHT type spin default 300 min 1 max 600\n");
+      printf("option name SEE_BISHOP type spin default 300 min 1 max 600\n");
+      printf("option name SEE_ROOK type spin default 500 min 1 max 1000\n");
+      printf("option name SEE_QUEEN type spin default 1200 min 1 max 2400\n");
       // printf("option name SyzygyPath type string default <empty>\n");
       printf("uciok\n");
     } else if (strncmp(input, "spsa", 4) == 0) {
@@ -661,12 +677,39 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
              MAX(0.5, MAX(1, (((float)NMP_DIVISER * 2) - 1)) / 20));
       printf("NMP_DEPTH, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
              (float)NMP_DEPTH, (float)4, 0.5);
-      printf("IID_DEPTH, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
-             (float)IID_DEPTH, (float)IID_DEPTH * 2,
-             MAX(0.5, MAX(1, (((float)IID_DEPTH * 2) - 1)) / 20));
-      printf("IID_REDUCTION, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
-             (float)IID_REDUCTION, (float)IID_REDUCTION * 2,
-             MAX(0.5, MAX(1, (((float)IID_REDUCTION * 2) - 1)) / 20));
+      printf("IIR_DEPTH, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
+             (float)IIR_DEPTH, (float)IIR_DEPTH * 2,
+             MAX(0.5, MAX(1, (((float)IIR_DEPTH * 2) - 1)) / 20));
+      printf("SEE_QUIET, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
+             (float)SEE_QUIET, (float)SEE_QUIET * 2,
+             MAX(0.5, MAX(1, (((float)SEE_QUIET * 2) - 1)) / 20));
+      printf("SEE_CAPTURE, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
+             (float)SEE_CAPTURE, (float)SEE_CAPTURE * 2,
+             MAX(0.5, MAX(1, (((float)SEE_CAPTURE * 2) - 1)) / 20));
+      printf("SEE_DEPTH, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
+             (float)SEE_DEPTH, (float)SEE_DEPTH * 2,
+             MAX(0.5, MAX(1, (((float)SEE_DEPTH * 2) - 1)) / 20));
+      printf("QS_SEE_THRESHOLD, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
+             (float)QS_SEE_THRESHOLD, (float)QS_SEE_THRESHOLD * 2,
+             MAX(0.5, MAX(1, (((float)QS_SEE_THRESHOLD * 2) - 1)) / 20));
+      printf("MO_SEE_THRESHOLD, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
+             (float)MO_SEE_THRESHOLD, (float)MO_SEE_THRESHOLD * 2,
+             MAX(0.5, MAX(1, (((float)MO_SEE_THRESHOLD * 2) - 1)) / 20));
+      printf("SEE_PAWN, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
+             (float)SEEPieceValues[0], (float)SEEPieceValues[0] * 1.5,
+             MAX(0.5, MAX(1, (((float)SEEPieceValues[0] * 2) - 1)) / 20));
+      printf("SEE_KNIGHT, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
+             (float)SEEPieceValues[1], (float)SEEPieceValues[1] * 1.5,
+             MAX(0.5, MAX(1, (((float)SEEPieceValues[1] * 2) - 1)) / 20));
+      printf("SEE_BISHOP, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
+             (float)SEEPieceValues[2], (float)SEEPieceValues[2] * 1.5,
+             MAX(0.5, MAX(1, (((float)SEEPieceValues[2] * 2) - 1)) / 20));
+      printf("SEE_ROOK, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
+             (float)SEEPieceValues[3], (float)SEEPieceValues[3] * 1.5,
+             MAX(0.5, MAX(1, (((float)SEEPieceValues[3] * 2) - 1)) / 20));
+      printf("SEE_QUEEN, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
+             (float)SEEPieceValues[4], (float)SEEPieceValues[4] * 1.5,
+             MAX(0.5, MAX(1, (((float)SEEPieceValues[4] * 2) - 1)) / 20));
     }
 
     else if (!strncmp(input, "setoption name Hash value ", 26)) {
@@ -738,10 +781,28 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
       sscanf(input, "%*s %*s %*s %*s %d", &NMP_DIVISER);
     } else if (!strncmp(input, "setoption name NMP_DEPTH value ", 31)) {
       sscanf(input, "%*s %*s %*s %*s %d", &NMP_DEPTH);
-    } else if (!strncmp(input, "setoption name IID_DEPTH value ", 31)) {
-      sscanf(input, "%*s %*s %*s %*s %d", &IID_DEPTH);
-    } else if (!strncmp(input, "setoption name IID_REDUCTION value ", 35)) {
-      sscanf(input, "%*s %*s %*s %*s %d", &IID_REDUCTION);
+    } else if (!strncmp(input, "setoption name IIR_DEPTH value ", 31)) {
+      sscanf(input, "%*s %*s %*s %*s %d", &IIR_DEPTH);
+    } else if (!strncmp(input, "setoption name SEE_QUIET value ", 31)) {
+      sscanf(input, "%*s %*s %*s %*s %d", &SEE_QUIET);
+    } else if (!strncmp(input, "setoption name SEE_CAPTURE value ", 33)) {
+      sscanf(input, "%*s %*s %*s %*s %d", &SEE_CAPTURE);
+    } else if (!strncmp(input, "setoption name SEE_DEPTH value ", 31)) {
+      sscanf(input, "%*s %*s %*s %*s %d", &SEE_DEPTH);
+    } else if (!strncmp(input, "setoption name QS_SEE_THRESHOLD value ", 38)) {
+      sscanf(input, "%*s %*s %*s %*s %d", &QS_SEE_THRESHOLD);
+    } else if (!strncmp(input, "setoption name MO_SEE_THRESHOLD value ", 38)) {
+      sscanf(input, "%*s %*s %*s %*s %d", &MO_SEE_THRESHOLD);
+    } else if (!strncmp(input, "setoption name SEE_PAWN value ", 30)) {
+      sscanf(input, "%*s %*s %*s %*s %d", &SEEPieceValues[0]);
+    } else if (!strncmp(input, "setoption name SEE_KNIGHT value ", 32)) {
+      sscanf(input, "%*s %*s %*s %*s %d", &SEEPieceValues[1]);
+    } else if (!strncmp(input, "setoption name SEE_BISHOP value ", 32)) {
+      sscanf(input, "%*s %*s %*s %*s %d", &SEEPieceValues[2]);
+    } else if (!strncmp(input, "setoption name SEE_ROOK value ", 30)) {
+      sscanf(input, "%*s %*s %*s %*s %d", &SEEPieceValues[3]);
+    } else if (!strncmp(input, "setoption name SEE_QUEEN value ", 31)) {
+      sscanf(input, "%*s %*s %*s %*s %d", &SEEPieceValues[4]);
     }
   }
 }
