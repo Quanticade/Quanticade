@@ -813,30 +813,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
       add_move(quiet_list, move);
     }
 
-    /*uint8_t move_is_noisy =
-        in_check == 0 && is_quiet && get_move_promoted(move) == 0;
-    uint8_t do_lmr = depth > 2 && moves_searched > (2 + pv_node) && pos->ply &&
-                     move_is_noisy;
-
-    // condition to consider LMR
-    if (do_lmr) {
-
-      r = lmr[MIN(31, depth)][MIN(31, moves_searched)];
-      r += !pv_node;
-
-      int reddepth = MAX(1, depth - 1 - MAX(r, 1));
-      // search current move with reduced depth:
-      score = -negamax(pos, thread, -alpha - 1, -alpha, reddepth, 1);
-    }
-
-    if ((do_lmr && score > alpha) ||
-        (!do_lmr && (!pv_node || moves_searched > 1))) {
-      score = -negamax(pos, thread, -alpha - 1, -alpha, depth - 1, 1);
-    }
-
-    if (pv_node && ((score > alpha && score < beta) || moves_searched == 1)) {
-      score = -negamax(pos, thread, -beta, -alpha, depth - 1, 1);
-    }*/
+    // PVS & LMR
     const int history_score = thread->history_moves[get_move_piece(move)][get_move_target(move)];
     const int new_depth = depth - 1;
 
