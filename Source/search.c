@@ -42,6 +42,8 @@ int SEE_CAPTURE = 32;
 int SEE_DEPTH = 10;
 int QS_SEE_THRESHOLD = 7;
 int MO_SEE_THRESHOLD = 107;
+double LMR_OFFSET = 0.5137;
+double LMR_DIVISOR = 1.711;
 
 const int full_depth_moves = 4;
 const int reduction_limit = 3;
@@ -75,19 +77,19 @@ int SEEPieceValues[] = {100, 300, 300, 500, 1200, 0, 0};
     6. Unsorted moves
 */
 
-int reductions[32][32];
+int lmr[max_ply][64];
 
 // Initializes the late move reduction array
 static void init_reductions(void) __attribute__((constructor));
 static void init_reductions(void) {
-
-  for (int depth = 0; depth < 32; ++depth) {
-    for (int moves = 0; moves < 32; ++moves) {
-      if (depth == 0 || moves == 0) {
-        reductions[depth][moves] = 0;
-      } else {
-        reductions[depth][moves] = 0.75 + log(depth) * log(moves) / 2.25;
+  for (int depth = 0; depth < max_ply; depth++) {
+    for (int move = 0; move < 64; move++) {
+      if (move == 0 || depth == 0) {
+        lmr[depth][move] = 0;
+        continue;
       }
+      lmr[depth][move] =
+          MAX(1.0, LMR_OFFSET + log(depth) * log(move) / LMR_DIVISOR);
     }
   }
 }
@@ -306,7 +308,8 @@ static inline void score_move(position_t *pos, thread_t *thread,
 
     // score move by MVV LVA lookup [source piece][target piece]
     move_entry->score = mvv_lva[get_move_piece(move)][target_piece];
-    move_entry->score += SEE(pos, move, -MO_SEE_THRESHOLD) ? 1000000000 : -1000000;
+    move_entry->score +=
+        SEE(pos, move, -MO_SEE_THRESHOLD) ? 1000000000 : -1000000;
     return;
   }
 
@@ -620,8 +623,6 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
   // Check on time
   check_time(thread);
 
-  int r;
-
   // is king in check
   int in_check = is_square_attacked(pos,
                                     (pos->side == white)
@@ -751,9 +752,6 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
   sort_moves(move_list);
 
-  // number of moves searched in a move list
-  int moves_searched = 0;
-
   uint8_t skip_quiets = 0;
 
   // loop over moves within a movelist
@@ -771,8 +769,10 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
       skip_quiets = 1;
     }
 
-    const int see_threshold = quiet ? -SEE_QUIET * depth : -SEE_CAPTURE * depth * depth;
-    if (depth <= SEE_DEPTH && legal_moves > 0 && !SEE(pos, list_move, see_threshold))
+    const int see_threshold =
+        quiet ? -SEE_QUIET * depth : -SEE_CAPTURE * depth * depth;
+    if (depth <= SEE_DEPTH && legal_moves > 0 &&
+        !SEE(pos, list_move, see_threshold))
       continue;
 
     int move = move_list->entry[count].move;
@@ -808,14 +808,12 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
     // increment legal moves
     legal_moves++;
-    // increment the counter of moves searched so far
-    moves_searched++;
 
     if (is_quiet) {
       add_move(quiet_list, move);
     }
 
-    uint8_t move_is_noisy =
+    /*uint8_t move_is_noisy =
         in_check == 0 && is_quiet && get_move_promoted(move) == 0;
     uint8_t do_lmr = depth > 2 && moves_searched > (2 + pv_node) && pos->ply &&
                      move_is_noisy;
@@ -823,7 +821,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     // condition to consider LMR
     if (do_lmr) {
 
-      r = reductions[MIN(31, depth)][MIN(31, moves_searched)];
+      r = lmr[MIN(31, depth)][MIN(31, moves_searched)];
       r += !pv_node;
 
       int reddepth = MAX(1, depth - 1 - MAX(r, 1));
@@ -838,6 +836,31 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
     if (pv_node && ((score > alpha && score < beta) || moves_searched == 1)) {
       score = -negamax(pos, thread, -beta, -alpha, depth - 1, 1);
+    }*/
+    const int history_score = thread->history_moves[get_move_piece(move)][get_move_target(move)];
+    const int new_depth = depth - 1;
+
+    int R = lmr[MIN(63, depth)][MIN(63, legal_moves)] + (pv_node ? 0 : 1);
+    R -= (quiet ? history_score / 8192 : 0);
+    R -= in_check;
+
+    if (depth > 1 && legal_moves > 1) {
+      R = clamp(R, 1, new_depth);
+      int lmr_depth = new_depth - R + 1;
+      score = -negamax(pos, thread, -alpha - 1, -alpha, lmr_depth, 1);
+
+      if (score > alpha && R > 0) {
+        score = -negamax(pos, thread, -alpha - 1, -alpha, new_depth, 1);
+      }
+    }
+
+    else if (!pv_node || legal_moves > 1) {
+      score = -negamax(pos, thread, -alpha - 1, -alpha, new_depth, 1);
+    }
+
+    if (pv_node &&
+        (legal_moves == 1 || (score > alpha && (root_node || score < beta)))) {
+      score = -negamax(pos, thread, -beta, -alpha, new_depth, 1);
     }
 
     // decrement ply
