@@ -30,18 +30,18 @@ extern keys_t keys;
 int LMP_BASE = 6;
 int LMP_MULTIPLIER = 1;
 int RAZOR_DEPTH = 7;
-int RAZOR_MARGIN = 291;
+int RAZOR_MARGIN = 295;
 int RFP_DEPTH = 6;
-int RFP_MARGIN = 105;
-int NMP_BASE_REDUCTION = 6;
+int RFP_MARGIN = 102;
+int NMP_BASE_REDUCTION = 7;
 int NMP_DIVISER = 8;
 int NMP_DEPTH = 1;
 int IIR_DEPTH = 4;
-int SEE_QUIET = 67;
+int SEE_QUIET = 66;
 int SEE_CAPTURE = 32;
 int SEE_DEPTH = 10;
 int QS_SEE_THRESHOLD = 7;
-int MO_SEE_THRESHOLD = 107;
+int MO_SEE_THRESHOLD = 108;
 
 const int full_depth_moves = 4;
 const int reduction_limit = 3;
@@ -61,7 +61,7 @@ const int mvv_lva[12][12] = {
     {101, 201, 301, 401, 501, 601, 101, 201, 301, 401, 501, 601},
     {100, 200, 300, 400, 500, 600, 100, 200, 300, 400, 500, 600}};
 
-int SEEPieceValues[] = {100, 300, 300, 500, 1200, 0, 0};
+int SEEPieceValues[] = {100, 300, 295, 509, 1203, 0, 0};
 
 /*  =======================
          Move ordering
