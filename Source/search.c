@@ -77,7 +77,7 @@ int SEEPieceValues[] = {100, 300, 300, 500, 1200, 0, 0};
     6. Unsorted moves
 */
 
-int lmr[max_ply][64] = {0};
+int lmr[max_ply][64];
 
 // Initializes the late move reduction array
 static void init_reductions(void) __attribute__((constructor));
