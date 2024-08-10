@@ -569,7 +569,7 @@ static inline uint8_t is_material_draw(position_t *pos) {
 
 // negamax alpha beta search
 static inline int negamax(position_t *pos, thread_t *thread, int alpha,
-                          int beta, int depth, uint8_t cutnode) {
+                          int beta, int depth, uint8_t do_nmp, uint8_t cutnode) {
   // init PV length
   thread->pv.pv_length[pos->ply] = pos->ply;
 
@@ -660,7 +660,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     }
 
     // null move pruning
-    if (depth >= NMP_DEPTH && !root_node &&
+    if (do_nmp && depth >= NMP_DEPTH && !root_node &&
         static_eval >= beta) {
       int R = NMP_BASE_REDUCTION + depth / NMP_DIVISER;
       R = MIN(R, depth);
@@ -691,7 +691,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
       /* search moves with reduced depth to find beta cutoffs
          depth - 1 - R where R is a reduction limit */
-      score = -negamax(pos, thread, -beta, -beta + 1, depth - R, !cutnode);
+      score = -negamax(pos, thread, -beta, -beta + 1, depth - R, 0, !cutnode);
 
       // decrement ply
       pos->ply--;
@@ -825,20 +825,20 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     if (depth > 1 && legal_moves > 1) {
       R = clamp(R, 1, new_depth);
       int lmr_depth = new_depth - R + 1;
-      score = -negamax(pos, thread, -alpha - 1, -alpha, lmr_depth, 1);
+      score = -negamax(pos, thread, -alpha - 1, -alpha, lmr_depth, 1, 1);
 
       if (score > alpha && R > 0) {
-        score = -negamax(pos, thread, -alpha - 1, -alpha, new_depth, !cutnode);
+        score = -negamax(pos, thread, -alpha - 1, -alpha, new_depth, 1, !cutnode);
       }
     }
 
     else if (!pv_node || legal_moves > 1) {
-      score = -negamax(pos, thread, -alpha - 1, -alpha, new_depth, !cutnode);
+      score = -negamax(pos, thread, -alpha - 1, -alpha, new_depth, 1, !cutnode);
     }
 
     if (pv_node &&
         (legal_moves == 1 || (score > alpha && (root_node || score < beta)))) {
-      score = -negamax(pos, thread, -beta, -alpha, new_depth, 0);
+      score = -negamax(pos, thread, -beta, -alpha, new_depth, 1, 0);
     }
 
     // decrement ply
@@ -993,7 +993,7 @@ void *iterative_deepening(void *thread_void) {
     }
 
     // find best move within a given position
-    thread->score = negamax(pos, thread, alpha, beta, thread->depth, 0);
+    thread->score = negamax(pos, thread, alpha, beta, thread->depth, 1, 0);
 
     // Reset aspiration window OK flag back to 1
     window_ok = 1;
