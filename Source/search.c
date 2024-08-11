@@ -377,11 +377,47 @@ static inline int is_repetition(position_t *pos) {
   return 0;
 }
 
+static inline uint8_t is_material_draw(position_t *pos) {
+  uint8_t piece_count = __builtin_popcountll(pos->occupancies[both]);
+
+  // K v K
+  if (piece_count == 2) {
+    return 1;
+  }
+  // Initialize knight and bishop count only after we check that piece count is
+  // higher then 2 as there cannot be a knight or bishop with 2 pieces on the
+  // board
+  uint8_t knight_count =
+      __builtin_popcountll(pos->bitboards[n] | pos->bitboards[N]);
+  // KN v K || KB v K
+  if (piece_count == 3 &&
+      (knight_count == 1 ||
+       __builtin_popcountll(pos->bitboards[b] | pos->bitboards[B]) == 1)) {
+    return 1;
+  } else if (piece_count == 4) {
+    // KNN v K || KN v KN
+    if (knight_count == 2) {
+      return 1;
+    }
+    // KB v KB
+    else if (__builtin_popcountll(pos->bitboards[b]) == 1 &&
+             __builtin_popcountll(pos->bitboards[B]) == 1) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
 // quiescence search
 static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
                              int beta) {
   // Check on time
   check_time(thread);
+
+  if (is_repetition(pos) || pos->fifty >= 100 || is_material_draw(pos)) {
+    // return draw score with some variance
+    return 1 - (thread->nodes & 2);
+  }
 
   // we are too deep, hence there's an overflow of arrays relying on max ply
   // constant
@@ -536,40 +572,10 @@ static inline void update_all_history_moves(thread_t *thread,
   }
 }
 
-static inline uint8_t is_material_draw(position_t *pos) {
-  uint8_t piece_count = __builtin_popcountll(pos->occupancies[both]);
-
-  // K v K
-  if (piece_count == 2) {
-    return 1;
-  }
-  // Initialize knight and bishop count only after we check that piece count is
-  // higher then 2 as there cannot be a knight or bishop with 2 pieces on the
-  // board
-  uint8_t knight_count =
-      __builtin_popcountll(pos->bitboards[n] | pos->bitboards[N]);
-  // KN v K || KB v K
-  if (piece_count == 3 &&
-      (knight_count == 1 ||
-       __builtin_popcountll(pos->bitboards[b] | pos->bitboards[B]) == 1)) {
-    return 1;
-  } else if (piece_count == 4) {
-    // KNN v K || KN v KN
-    if (knight_count == 2) {
-      return 1;
-    }
-    // KB v KB
-    else if (__builtin_popcountll(pos->bitboards[b]) == 1 &&
-             __builtin_popcountll(pos->bitboards[B]) == 1) {
-      return 1;
-    }
-  }
-  return 0;
-}
-
 // negamax alpha beta search
 static inline int negamax(position_t *pos, thread_t *thread, int alpha,
-                          int beta, int depth, uint8_t do_nmp, uint8_t cutnode) {
+                          int beta, int depth, uint8_t do_nmp,
+                          uint8_t cutnode) {
   // init PV length
   thread->pv.pv_length[pos->ply] = pos->ply;
 
@@ -587,8 +593,8 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
   if (!root_node) {
     // if position repetition occurs
     if (is_repetition(pos) || pos->fifty >= 100 || is_material_draw(pos)) {
-      // return draw score
-      return 0;
+      // return draw score with some variance
+      return 1 - (thread->nodes & 2);
     }
 
     // we are too deep, hence there's an overflow of arrays relying on max ply
@@ -660,8 +666,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     }
 
     // null move pruning
-    if (do_nmp && depth >= NMP_DEPTH && !root_node &&
-        static_eval >= beta) {
+    if (do_nmp && depth >= NMP_DEPTH && !root_node && static_eval >= beta) {
       int R = NMP_BASE_REDUCTION + depth / NMP_DIVISER;
       R = MIN(R, depth);
       // preserve board state
@@ -814,7 +819,8 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     }
 
     // PVS & LMR
-    const int history_score = thread->history_moves[get_move_piece(move)][get_move_target(move)];
+    const int history_score =
+        thread->history_moves[get_move_piece(move)][get_move_target(move)];
     const int new_depth = depth - 1;
 
     int R = lmr[MIN(63, depth)][MIN(63, legal_moves)] + (pv_node ? 0 : 1);
@@ -828,7 +834,8 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
       score = -negamax(pos, thread, -alpha - 1, -alpha, lmr_depth, 1, 1);
 
       if (score > alpha && R > 0) {
-        score = -negamax(pos, thread, -alpha - 1, -alpha, new_depth, 1, !cutnode);
+        score =
+            -negamax(pos, thread, -alpha - 1, -alpha, new_depth, 1, !cutnode);
       }
     }
 
