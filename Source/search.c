@@ -576,6 +576,12 @@ static inline void update_all_history_moves(thread_t *thread,
 static inline int negamax(position_t *pos, thread_t *thread, int alpha,
                           int beta, int depth, uint8_t do_nmp,
                           uint8_t cutnode) {
+  // recursion escape condition
+  if (depth <= 0) {
+    // run quiescence search
+    return quiescence(pos, thread, alpha, beta);
+  }
+
   // init PV length
   thread->pv.pv_length[pos->ply] = pos->ply;
 
@@ -639,12 +645,6 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
   // increase search depth if the king has been exposed into a check
   if (in_check) {
     depth++;
-  }
-
-  // recursion escape condition
-  if (depth == 0) {
-    // run quiescence search
-    return quiescence(pos, thread, alpha, beta);
   }
 
   // legal moves counter
