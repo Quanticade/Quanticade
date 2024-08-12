@@ -110,6 +110,7 @@ int read_hash_entry(position_t *pos, int alpha, int *move, int beta,
   // make sure we're dealing with the exact position we need
   if (hash_entry->hash_key == pos->hash_key) {
     // make sure that we match the exact depth our search is now at
+    *move = hash_entry->move;
     if (hash_entry->depth >= depth) {
       // extract stored score from TT entry
       int score = hash_entry->score;
@@ -136,7 +137,6 @@ int read_hash_entry(position_t *pos, int alpha, int *move, int beta,
         // return beta (fail-high node) score
         return beta;
     }
-    *move = hash_entry->move;
   }
 
   // if hash entry doesn't exist
