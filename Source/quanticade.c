@@ -14,7 +14,7 @@
 
 #include "attacks.h"
 #include "enums.h"
-#include "pvtable.h"
+#include "transposition.h"
 #include "structs.h"
 #include "threads.h"
 #include "uci.h"

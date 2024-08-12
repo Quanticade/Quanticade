@@ -1,4 +1,4 @@
-#include "pvtable.h"
+#include "transposition.h"
 #include "bitboards.h"
 #include "enums.h"
 #include "structs.h"

@@ -14,7 +14,7 @@
 #include "movegen.h"
 #include "nnue.h"
 #include "perft.h"
-#include "pvtable.h"
+#include "transposition.h"
 #include "pyrrhic/tbprobe.h"
 #include "search.h"
 #include "structs.h"

@@ -1,5 +1,5 @@
-#ifndef PVTABLE_H
-#define PVTABLE_H
+#ifndef TRANSPOSITION_H
+#define TRANSPOSITION_H
 
 #include "structs.h"
 #include <sched.h>
