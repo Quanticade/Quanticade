@@ -108,7 +108,7 @@ int read_hash_entry(position_t *pos, int alpha, int *move, int beta,
   tt_entry_t *hash_entry = &tt.hash_entry[pos->hash_key % tt.num_of_entries];
 
   // make sure we're dealing with the exact position we need
-  if (hash_entry->hash_key == pos->hash_key) {
+  if (hash_entry->hash_key == (pos->hash_key >> 32)) {
     // make sure that we match the exact depth our search is now at
     *move = hash_entry->move;
     if (hash_entry->depth >= depth) {
@@ -150,7 +150,7 @@ void write_hash_entry(position_t *pos, int score, int depth, int move,
   // the scoring data for the current board position if available
   tt_entry_t *hash_entry = &tt.hash_entry[pos->hash_key % tt.num_of_entries];
 
-  uint8_t replace = hash_entry->hash_key != pos->hash_key ||
+  uint8_t replace = hash_entry->hash_key != pos->hash_key >> 32 ||
                     depth + 4 > hash_entry->depth ||
                     hash_flag == hash_flag_exact;
 
@@ -166,7 +166,7 @@ void write_hash_entry(position_t *pos, int score, int depth, int move,
     score += pos->ply;
 
   // write hash entry data
-  hash_entry->hash_key = pos->hash_key;
+  hash_entry->hash_key = pos->hash_key >> 32;
   hash_entry->score = score;
   hash_entry->flag = hash_flag;
   hash_entry->depth = depth;
