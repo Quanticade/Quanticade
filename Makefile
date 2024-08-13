@@ -20,7 +20,7 @@ NAME        := Quanticade
 TMPDIR = .tmp
 
 # Detect Clang
-ifeq ($(CC), clang)
+ifeq (clang, clang)
 	CFLAGS = -std=gnu11 -funroll-loops -Ofast -flto -fno-exceptions -DIS_64BIT -DNDEBUG $(WARNINGS)
 endif
 
@@ -54,7 +54,7 @@ ifeq ($(uname_S), Darwin)
 endif
 
 ARCH_DETECTED =
-PROPERTIES = $(shell echo | $(CC) -march=native -E -dM -)
+PROPERTIES = $(shell echo | clang -march=native -E -dM -)
 ifneq ($(findstring __AVX512F__, $(PROPERTIES)),)
 	ifneq ($(findstring __AVX512BW__, $(PROPERTIES)),)
 		ARCH_DETECTED = AVX512
@@ -162,12 +162,12 @@ endif
 
 # Get what pgo flags we should be using
 
-ifneq ($(findstring gcc, $(CC)),)
+ifneq ($(findstring gcc, clang),)
 	PGOGEN   = -fprofile-generate
 	PGOUSE   = -fprofile-use
 endif
 
-ifneq ($(findstring clang, $(CC)),)
+ifneq ($(findstring clang, clang),)
 	PGOMERGE = llvm-profdata merge -output=quanticade.profdata *.profraw
 	PGOGEN   = -fprofile-instr-generate
 	PGOUSE   = -fprofile-instr-use=quanticade.profdata
@@ -187,10 +187,10 @@ clean:
 	@rm -rf $(TMPDIR) *.o *.d $(TARGET)
 
 $(TARGET): $(OBJECTS)
-	$(CC) $(CFLAGS) $(NATIVE) -MMD -MP -o $(EXE) $^ $(FLAGS)
+	clang $(CFLAGS) $(NATIVE) -MMD -MP -o $(EXE) $^ $(FLAGS)
 
 $(TMPDIR)/%.o: %.c | $(TMPDIR)
-	$(CC) $(CFLAGS) $(NATIVE) -MMD -MP -c $< -o $@ $(FLAGS)
+	clang $(CFLAGS) $(NATIVE) -MMD -MP -c $< -o $@ $(FLAGS)
 
 $(TMPDIR):
 	$(MKDIR) "$(TMPDIR)" "$(TMPDIR)/Source" "$(TMPDIR)/Source/nnue"
@@ -198,8 +198,8 @@ $(TMPDIR):
 
 # Usual disservin yoink for makefile related stuff
 pgo:
-	$(CC) $(CFLAGS) $(PGO_GEN) $(NATIVE) $(INSTRUCTIONS) -MMD -MP -o $(EXE) $(SOURCES) -lm $(LDFLAGS)
+	clang $(CFLAGS) $(PGO_GEN) $(NATIVE) $(INSTRUCTIONS) -MMD -MP -o $(EXE) $(SOURCES) -lm $(LDFLAGS)
 	./$(EXE) bench
 	$(PGO_MERGE)
-	$(CC) $(CFLAGS) $(NATIVE) $(INSTRUCTIONS) $(PGO_USE) -MMD -MP -o $(EXE) $(SOURCES) -lm $(LDFLAGS)
+	clang $(CFLAGS) $(NATIVE) $(INSTRUCTIONS) $(PGO_USE) -MMD -MP -o $(EXE) $(SOURCES) -lm $(LDFLAGS)
 	@rm -f *.gcda *.profraw *.o *.d  profdata
