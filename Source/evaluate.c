@@ -551,7 +551,7 @@ int evaluate(position_t *pos) {
                 5 * popcount(pos->bitboards[r] | pos->bitboards[R]) +
                 10 * popcount(pos->bitboards[q] | pos->bitboards[Q]);
 
-    eval = eval * (204 + phase) / 254;
+    eval = eval * (206 + phase) / 256;
     return (int)(eval * (float)((100 - (float)pos->fifty) / 100));
   } else {
     /*
