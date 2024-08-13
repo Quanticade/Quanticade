@@ -5,7 +5,7 @@
 #include "evaluate.h"
 #include "movegen.h"
 #include "nnue.h"
-#include "pvtable.h"
+#include "transposition.h"
 #include "pyrrhic/tbprobe.h"
 #include "structs.h"
 #include "syzygy.h"
