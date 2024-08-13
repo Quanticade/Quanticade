@@ -544,7 +544,15 @@ int evaluate(position_t *pos) {
   }
 
   if (nnue_settings.use_nnue) {
-    return (int)(nnue_evaluate(pos) * (float)((100 - (float)pos->fifty) / 100));
+    int eval = nnue_evaluate(pos);
+
+    int phase = 3 * popcount(pos->bitboards[n] | pos->bitboards[N]) +
+                3 * popcount(pos->bitboards[b] | pos->bitboards[B]) +
+                5 * popcount(pos->bitboards[r] | pos->bitboards[R]) +
+                10 * popcount(pos->bitboards[q] | pos->bitboards[Q]);
+
+    eval = eval * (206 + phase) / 256;
+    return (int)(eval * (float)((100 - (float)pos->fifty) / 100));
   } else {
     /*
         Now in order to calculate interpolated score
