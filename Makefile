@@ -186,6 +186,7 @@ clean:
 
 $(TARGET): $(OBJECTS)
 	$(CC) $(CFLAGS) $(NATIVE) -MMD -MP -o $(EXE) $^ $(FLAGS)
+	./$(EXE) bench
 
 $(TMPDIR)/%.o: %.c | $(TMPDIR)
 	$(CC) $(CFLAGS) $(NATIVE) -MMD -MP -c $< -o $@ $(FLAGS)
