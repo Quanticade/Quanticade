@@ -14,11 +14,11 @@
 #include "movegen.h"
 #include "nnue.h"
 #include "perft.h"
-#include "transposition.h"
 #include "pyrrhic/tbprobe.h"
 #include "search.h"
 #include "structs.h"
 #include "threads.h"
+#include "transposition.h"
 #include "utils.h"
 #include <inttypes.h>
 #include <pthread.h>
@@ -374,8 +374,6 @@ static inline void parse_position(position_t *pos, thread_t *thread,
     }
   }
 
-  init_accumulator(pos);
-
   // parse moves after position
   current_char = strstr(command, "moves");
 
@@ -541,9 +539,15 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
       uint64_t total_nodes = 0;
       uint64_t start_time = get_time_ms();
       for (int pos_index = 0; pos_index < 50; ++pos_index) {
+        memset(input, 0, sizeof(input));
+        strcpy(input, "position fen ");
+        strcat(input, bench_positions[pos_index]);
+        memset(threads, 0, sizeof(thread_t));
         printf("\nPosition %d/%d (%s)\n", pos_index, 49,
                bench_positions[pos_index]);
-        parse_fen(pos, bench_positions[pos_index]);
+        
+        parse_position(pos, threads, input);
+        init_accumulator(pos);
         time_control(pos, threads, "go depth 16");
         search_position(pos, threads);
         total_nodes += threads->nodes;
