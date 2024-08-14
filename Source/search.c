@@ -5,11 +5,11 @@
 #include "evaluate.h"
 #include "movegen.h"
 #include "nnue.h"
-#include "transposition.h"
 #include "pyrrhic/tbprobe.h"
 #include "structs.h"
 #include "syzygy.h"
 #include "threads.h"
+#include "transposition.h"
 #include "uci.h"
 #include "utils.h"
 #include <inttypes.h>
@@ -569,7 +569,8 @@ static inline uint8_t is_material_draw(position_t *pos) {
 
 // negamax alpha beta search
 static inline int negamax(position_t *pos, thread_t *thread, int alpha,
-                          int beta, int depth, uint8_t do_nmp, uint8_t cutnode) {
+                          int beta, int depth, uint8_t do_nmp,
+                          uint8_t cutnode) {
   // init PV length
   thread->pv.pv_length[pos->ply] = pos->ply;
 
@@ -659,9 +660,14 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
         return static_eval - eval_margin;
     }
 
+    // Alpha pruning. If move is so bad that even a large bonus doesnt get us
+    // over alpha we drop the move
+    if (!pv_node && depth <= 4 && static_eval + 3488 <= alpha) {
+      return static_eval;
+    }
+
     // null move pruning
-    if (do_nmp && depth >= NMP_DEPTH && !root_node &&
-        static_eval >= beta) {
+    if (do_nmp && depth >= NMP_DEPTH && !root_node && static_eval >= beta) {
       int R = NMP_BASE_REDUCTION + depth / NMP_DIVISER;
       R = MIN(R, depth);
       // preserve board state
@@ -814,7 +820,8 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     }
 
     // PVS & LMR
-    const int history_score = thread->history_moves[get_move_piece(move)][get_move_target(move)];
+    const int history_score =
+        thread->history_moves[get_move_piece(move)][get_move_target(move)];
     const int new_depth = depth - 1;
 
     int R = lmr[MIN(63, depth)][MIN(63, legal_moves)] + (pv_node ? 0 : 1);
@@ -828,7 +835,8 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
       score = -negamax(pos, thread, -alpha - 1, -alpha, lmr_depth, 1, 1);
 
       if (score > alpha && R > 0) {
-        score = -negamax(pos, thread, -alpha - 1, -alpha, new_depth, 1, !cutnode);
+        score =
+            -negamax(pos, thread, -alpha - 1, -alpha, new_depth, 1, !cutnode);
       }
     }
 
