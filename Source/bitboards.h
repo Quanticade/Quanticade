@@ -30,12 +30,12 @@ static inline int poplsb(uint64_t *bb) {
                    hash_key, mailbox, accumulator)                             \
   uint64_t bitboards_copy[12], occupancies_copy[3];                            \
   uint8_t mailbox_copy[64];                                                    \
-  int16_t accumulator_copy[2][1536];                                           \
+  int16_t accumulator_copy[2][2048];                                           \
   int side_copy, enpassant_copy, castle_copy, fifty_copy;                      \
   memcpy(bitboards_copy, bitboards, 96);                                       \
   memcpy(occupancies_copy, occupancies, 24);                                   \
   memcpy(mailbox_copy, mailbox, 64);                                           \
-  memcpy(accumulator_copy, accumulator, 2 * 2 * 1536);                                 \
+  memcpy(accumulator_copy, accumulator, 2 * 2 * 2048);                                 \
   side_copy = side, enpassant_copy = enpassant, castle_copy = castle;          \
   fifty_copy = fifty;                                                          \
   uint64_t hash_key_copy = hash_key;
@@ -46,7 +46,7 @@ static inline int poplsb(uint64_t *bb) {
   memcpy(bitboards, bitboards_copy, 96);                                       \
   memcpy(occupancies, occupancies_copy, 24);                                   \
   memcpy(mailbox, mailbox_copy, 64);                                           \
-  memcpy(accumulator, accumulator_copy, 2 * 2 * 1536);                                 \
+  memcpy(accumulator, accumulator_copy, 2 * 2 * 2048);                                 \
   side = side_copy, enpassant = enpassant_copy, castle = castle_copy;          \
   fifty = fifty_copy;                                                          \
   hash_key = hash_key_copy;
