@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 typedef struct tt_entry {
-  uint64_t hash_key; // "almost" unique chess position identifier
+  uint32_t hash_key; // "almost" unique chess position identifier
   int move;
   int16_t score; // score (alpha/beta/PV)
   uint8_t depth; // current search depth
