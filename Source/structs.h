@@ -7,7 +7,7 @@
 typedef struct tt_entry {
   uint64_t hash_key; // "almost" unique chess position identifier
   int move;
-  int16_t score;         // score (alpha/beta/PV)
+  int16_t score; // score (alpha/beta/PV)
   uint8_t depth; // current search depth
   uint8_t flag;  // flag the type of node (fail-low/fail-high/PV)
 } tt_entry_t;
@@ -31,7 +31,7 @@ typedef struct keys {
 } keys_t;
 
 typedef struct accumulator {
-  _Alignas(32) int16_t accumulator[2][1536]; //This is very cursed but for now lets have it this way
+  _Alignas(32) int16_t accumulator[2][1536]; // This is very cursed but for now lets have it this way
 } accumulator_t;
 
 typedef struct position {
@@ -57,15 +57,15 @@ typedef struct PV {
 } PV_t;
 
 typedef struct searchinfo {
-  PV_t pv;
   position_t pos;
   uint64_t nodes;
   uint64_t starttime;
   uint64_t stoptime;
-  uint8_t depth;
+  int score;
   int killer_moves[2][max_ply];
   int history_moves[12][64];
-  int score;
+  PV_t pv;
+  uint8_t depth;
   uint8_t timeset;
   uint8_t stopped;
   uint8_t quit;
