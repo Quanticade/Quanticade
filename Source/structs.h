@@ -6,8 +6,8 @@
 
 typedef struct tt_entry {
   uint64_t hash_key; // "almost" unique chess position identifier
-  int score;         // score (alpha/beta/PV)
   int move;
+  int16_t score;         // score (alpha/beta/PV)
   uint8_t depth; // current search depth
   uint8_t flag;  // flag the type of node (fail-low/fail-high/PV)
 } tt_entry_t;
