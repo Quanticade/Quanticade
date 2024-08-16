@@ -5,9 +5,9 @@
 #include <stdint.h>
 #define max_ply 64
 
-#define infinity 50000
-#define mate_value 49000
-#define mate_score 48000
+#define infinity 32000
+#define mate_value 31000
+#define mate_score 30000
 
 // Population count/Hamming weight
 static inline int popcount(const uint64_t bb) {
