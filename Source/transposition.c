@@ -9,7 +9,7 @@
 tt_t tt;
 extern keys_t keys;
 
-typedef unsigned __int128 uint128_t;
+__extension__ typedef unsigned __int128 uint128_t;
 
 int hash_full(void) {
   uint64_t used = 0;
