@@ -17,7 +17,7 @@ typedef __m512i vepi32;
 static inline vepi16 zero_epi16(void) { return _mm512_setzero_si512(); }
 static inline vepi32 zero_epi32(void) { return _mm512_setzero_si512(); }
 static inline vepi16 load_epi16(const int16_t *memory_address) {
-  return _mm512_load_si512((const __m512i *)memory_address);
+  return _mm512_loadu_si512((const __m512i *)memory_address);
 }
 static inline vepi32 load_epi32(const int32_t *memory_address) {
   return _mm512_load_si512((const __m512i *)memory_address);
@@ -54,7 +54,7 @@ typedef __m256i vepi32;
 static inline vepi16 zero_epi16(void) { return _mm256_setzero_si256(); }
 static inline vepi32 zero_epi32(void) { return _mm256_setzero_si256(); }
 static inline vepi16 load_epi16(const int16_t *memory_address) {
-  return _mm256_load_si256((const __m256i *)memory_address);
+  return _mm256_loadu_si256((const __m256i *)memory_address);
 }
 static inline vepi32 load_epi32(const int32_t *memory_address) {
   return _mm256_load_si256((const __m256i *)memory_address);
