@@ -19,7 +19,7 @@ TMPDIR = .tmp
 
 # Detect Clang
 ifeq ($(CC), clang)
-	CFLAGS = -std=gnu11 -funroll-loops -Ofast -flto -fno-exceptions -DIS_64BIT -DNDEBUG $(WARNINGS)
+	CFLAGS = -std=gnu11 -fuse-ld=lld -funroll-loops -Ofast -flto -fno-exceptions -DIS_64BIT -DNDEBUG $(WARNINGS)
 endif
 
 # Detect Windows
@@ -186,7 +186,6 @@ clean:
 
 $(TARGET): $(OBJECTS)
 	$(CC) $(CFLAGS) $(NATIVE) -MMD -MP -o $(EXE) $^ $(FLAGS)
-	./$(EXE) bench
 
 $(TMPDIR)/%.o: %.c | $(TMPDIR)
 	$(CC) $(CFLAGS) $(NATIVE) -MMD -MP -c $< -o $@ $(FLAGS)
