@@ -4,7 +4,7 @@ _ROOT       := $(_THIS)
 EVALFILE     = $(NETWORK_NAME)
 TARGET      := Quanticade
 WARNINGS     = -Wall -Werror -Wextra -Wno-error=vla -Wpedantic -Wno-unused-command-line-argument
-CFLAGS       := -std=gnu11 -funroll-loops -fomit-frame-pointer -Ofast -fno-fast-math -flto -fno-exceptions -DIS_64BIT -DNDEBUG $(WARNINGS)
+CFLAGS       := -std=gnu11 -fuse-ld=lld -funroll-loops -Ofast -flto -fno-exceptions -DIS_64BIT -DNDEBUG $(WARNINGS)
 NATIVE       = -march=native
 AVX2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi
 BMI2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi -mbmi2
@@ -185,10 +185,10 @@ clean:
 	@rm -rf $(TMPDIR) *.o *.d $(TARGET)
 
 $(TARGET): $(OBJECTS)
-	$(CC) $(CFLAGS) $(NATIVE) -MMD -MP -o $(EXE) $^ $(FLAGS)
+	clang $(CFLAGS) $(NATIVE) -MMD -MP -o $(EXE) $^ $(FLAGS)
 
 $(TMPDIR)/%.o: %.c | $(TMPDIR)
-	$(CC) $(CFLAGS) $(NATIVE) -MMD -MP -c $< -o $@ $(FLAGS)
+	clang $(CFLAGS) $(NATIVE) -MMD -MP -c $< -o $@ $(FLAGS)
 
 $(TMPDIR):
 	$(MKDIR) "$(TMPDIR)" "$(TMPDIR)/Source" "$(TMPDIR)/Source/nnue"
@@ -196,8 +196,8 @@ $(TMPDIR):
 
 # Usual disservin yoink for makefile related stuff
 pgo:
-	$(CC) $(CFLAGS) $(PGO_GEN) $(NATIVE) $(INSTRUCTIONS) -MMD -MP -o $(EXE) $(SOURCES) -lm $(LDFLAGS)
+	clang $(CFLAGS) $(PGO_GEN) $(NATIVE) $(INSTRUCTIONS) -MMD -MP -o $(EXE) $(SOURCES) -lm $(LDFLAGS)
 	./$(EXE) bench
 	$(PGO_MERGE)
-	$(CC) $(CFLAGS) $(NATIVE) $(INSTRUCTIONS) $(PGO_USE) -MMD -MP -o $(EXE) $(SOURCES) -lm $(LDFLAGS)
+	clang $(CFLAGS) $(NATIVE) $(INSTRUCTIONS) $(PGO_USE) -MMD -MP -o $(EXE) $(SOURCES) -lm $(LDFLAGS)
 	@rm -f *.gcda *.profraw *.o *.d  profdata
