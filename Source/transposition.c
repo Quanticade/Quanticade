@@ -9,6 +9,8 @@
 tt_t tt;
 extern keys_t keys;
 
+__extension__ typedef unsigned __int128 uint128_t;
+
 int hash_full(void) {
   uint64_t used = 0;
   int samples = 1000;
@@ -18,6 +20,14 @@ int hash_full(void) {
       used++;
 
   return used / (samples / 1000);
+}
+
+static inline uint64_t get_hash_index(uint64_t hash) {
+  return ((uint128_t)hash * (uint128_t)tt.num_of_entries) >> 64;
+}
+
+static inline uint32_t get_hash_low_bits(uint64_t hash) {
+  return (uint32_t)hash;
 }
 
 uint64_t generate_hash_key(position_t *pos) {
@@ -105,10 +115,10 @@ int read_hash_entry(position_t *pos, int alpha, int *move, int beta,
                     int depth) {
   // create a TT instance pointer to particular hash entry storing
   // the scoring data for the current board position if available
-  tt_entry_t *hash_entry = &tt.hash_entry[pos->hash_key % tt.num_of_entries];
+  tt_entry_t *hash_entry = &tt.hash_entry[get_hash_index(pos->hash_key)];
 
   // make sure we're dealing with the exact position we need
-  if (hash_entry->hash_key == pos->hash_key) {
+  if (hash_entry->hash_key == get_hash_low_bits(pos->hash_key)) {
     // make sure that we match the exact depth our search is now at
     *move = hash_entry->move;
     if (hash_entry->depth >= depth) {
@@ -148,9 +158,9 @@ void write_hash_entry(position_t *pos, int score, int depth, int move,
                       int hash_flag) {
   // create a TT instance pointer to particular hash entry storing
   // the scoring data for the current board position if available
-  tt_entry_t *hash_entry = &tt.hash_entry[pos->hash_key % tt.num_of_entries];
+  tt_entry_t *hash_entry = &tt.hash_entry[get_hash_index(pos->hash_key)];
 
-  uint8_t replace = hash_entry->hash_key != pos->hash_key ||
+  uint8_t replace = hash_entry->hash_key != get_hash_low_bits(pos->hash_key) ||
                     depth + 4 > hash_entry->depth ||
                     hash_flag == hash_flag_exact;
 
@@ -166,7 +176,7 @@ void write_hash_entry(position_t *pos, int score, int depth, int move,
     score += pos->ply;
 
   // write hash entry data
-  hash_entry->hash_key = pos->hash_key;
+  hash_entry->hash_key = get_hash_low_bits(pos->hash_key);
   hash_entry->score = score;
   hash_entry->flag = hash_flag;
   hash_entry->depth = depth;
