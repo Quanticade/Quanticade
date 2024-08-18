@@ -393,9 +393,10 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
   int score = 0;
   int pv_node = beta - alpha > 1;
   int hash_flag = hash_flag_alpha;
+  uint16_t tt_score = 0;
 
   if (pos->ply &&
-      (score = read_hash_entry(pos, alpha, &best_move, beta, 0)) !=
+      (score = read_hash_entry(pos, alpha, beta, 0, &best_move, &tt_score)) !=
           no_hash_entry &&
       pv_node == 0) {
     // if the move has already been searched (hence has a value)
@@ -578,6 +579,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
   int score = -infinity;
 
   int tt_move = 0;
+  uint16_t tt_score = 0;
 
   uint8_t root_node = pos->ply == 0;
 
@@ -612,7 +614,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
   // read hash entry if we're not in a root ply and hash entry is available
   // and current node is not a PV node
   if (!root_node &&
-      (score = read_hash_entry(pos, alpha, &tt_move, beta, depth)) !=
+      (score = read_hash_entry(pos, alpha, beta, depth, &tt_move, &tt_score)) !=
           no_hash_entry &&
       pv_node == 0) {
     // if the move has already been searched (hence has a value)

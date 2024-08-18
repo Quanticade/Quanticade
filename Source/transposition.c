@@ -111,8 +111,9 @@ void init_hash_table(uint64_t mb) {
 }
 
 // read hash entry data
-int read_hash_entry(position_t *pos, int alpha, int *move, int beta,
-                    int depth) {
+int read_hash_entry(position_t *pos, int alpha, int beta,
+                    int depth, int *move, uint16_t *tt_score) {
+  (void)tt_score;
   // create a TT instance pointer to particular hash entry storing
   // the scoring data for the current board position if available
   tt_entry_t *hash_entry = &tt.hash_entry[get_hash_index(pos->hash_key)];
@@ -140,12 +141,12 @@ int read_hash_entry(position_t *pos, int alpha, int *move, int beta,
       // match alpha (fail-low node) score
       if ((hash_entry->flag == hash_flag_alpha) && (score <= alpha))
         // return alpha (fail-low node) score
-        return alpha;
+        return score;
 
       // match beta (fail-high node) score
       if ((hash_entry->flag == hash_flag_beta) && (score >= beta))
         // return beta (fail-high node) score
-        return beta;
+        return score;
     }
   }
 

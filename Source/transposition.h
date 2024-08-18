@@ -20,8 +20,8 @@ extern tt_t tt;
 #define hash_flag_beta 2
 
 void clear_hash_table(void);
-int read_hash_entry(position_t *pos, int alpha, int *move,
-                    int beta, int depth);
+int read_hash_entry(position_t *pos, int alpha, int beta,
+                    int depth, int *move, uint16_t *tt_score);
 void write_hash_entry(position_t *pos, int score, int depth,
                       int move, int hash_flag);
 void init_hash_table(uint64_t mb);
