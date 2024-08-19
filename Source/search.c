@@ -390,7 +390,7 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
     return evaluate(pos);
 
   int32_t best_move = 0;
-  int score = 0;
+  int score, best_score = 0;
   int pv_node = beta - alpha > 1;
   int hash_flag = hash_flag_alpha;
   int16_t tt_score = 0;
@@ -412,7 +412,7 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
   }
 
   // evaluate position
-  score = evaluate(pos);
+  score = best_score = tt_hit ? tt_score : evaluate(pos);
 
   // fail-hard beta cutoff
   if (score >= beta) {
@@ -438,7 +438,6 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
 
   sort_moves(move_list);
 
-  int best_score = score;
   score = -infinity;
 
   // loop over moves within a movelist
