@@ -111,47 +111,27 @@ void init_hash_table(uint64_t mb) {
 }
 
 // read hash entry data
-int read_hash_entry(position_t *pos, int alpha, int beta,
-                    int depth, int *move, uint16_t *tt_score) {
-  (void)tt_score;
-  // create a TT instance pointer to particular hash entry storing
-  // the scoring data for the current board position if available
+int read_hash_entry(position_t *pos, int *move, int16_t *tt_score,
+                    uint8_t *tt_depth, uint8_t *tt_flag) {
   tt_entry_t *hash_entry = &tt.hash_entry[get_hash_index(pos->hash_key)];
 
   // make sure we're dealing with the exact position we need
   if (hash_entry->hash_key == get_hash_low_bits(pos->hash_key)) {
-    // make sure that we match the exact depth our search is now at
+    int score = hash_entry->score;
+    if (score < -mate_score)
+      score += pos->ply;
+    if (score > mate_score)
+      score -= pos->ply;
+
     *move = hash_entry->move;
-    if (hash_entry->depth >= depth) {
-      // extract stored score from TT entry
-      int score = hash_entry->score;
-
-      // retrieve score independent from the actual path
-      // from root node (position) to current node (position)
-      if (score < -mate_score)
-        score += pos->ply;
-      if (score > mate_score)
-        score -= pos->ply;
-
-      // match the exact (PV node) score
-      if (hash_entry->flag == hash_flag_exact)
-        // return exact (PV node) score
-        return score;
-
-      // match alpha (fail-low node) score
-      if ((hash_entry->flag == hash_flag_alpha) && (score <= alpha))
-        // return alpha (fail-low node) score
-        return score;
-
-      // match beta (fail-high node) score
-      if ((hash_entry->flag == hash_flag_beta) && (score >= beta))
-        // return beta (fail-high node) score
-        return score;
-    }
+    *tt_score = score;
+    *tt_depth = hash_entry->depth;
+    *tt_flag = hash_entry->flag;
+    return 1;
   }
 
   // if hash entry doesn't exist
-  return no_hash_entry;
+  return 0;
 }
 
 // write hash entry data

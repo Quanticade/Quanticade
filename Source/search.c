@@ -5,11 +5,11 @@
 #include "evaluate.h"
 #include "movegen.h"
 #include "nnue.h"
-#include "transposition.h"
 #include "pyrrhic/tbprobe.h"
 #include "structs.h"
 #include "syzygy.h"
 #include "threads.h"
+#include "transposition.h"
 #include "uci.h"
 #include "utils.h"
 #include <inttypes.h>
@@ -393,15 +393,22 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
   int score = 0;
   int pv_node = beta - alpha > 1;
   int hash_flag = hash_flag_alpha;
-  uint16_t tt_score = 0;
+  int16_t tt_score = 0;
+  uint8_t tt_hit = 0;
+  uint8_t tt_depth = 0;
+  uint8_t tt_flag = hash_flag_exact;
 
   if (pos->ply &&
-      (score = read_hash_entry(pos, alpha, beta, 0, &best_move, &tt_score)) !=
-          no_hash_entry &&
+      (tt_hit =
+           read_hash_entry(pos, &best_move, &tt_score, &tt_depth, &tt_flag)) &&
       pv_node == 0) {
-    // if the move has already been searched (hence has a value)
-    // we just return the score for this move without searching it
-    return score;
+    if (tt_depth >= 0) {
+      if ((tt_flag == hash_flag_exact) ||
+          ((tt_flag == hash_flag_alpha) && (tt_score <= alpha)) ||
+          ((tt_flag == hash_flag_beta) && (tt_score >= beta))) {
+        return tt_score;
+      }
+    }
   }
 
   // evaluate position
@@ -570,7 +577,8 @@ static inline uint8_t is_material_draw(position_t *pos) {
 
 // negamax alpha beta search
 static inline int negamax(position_t *pos, thread_t *thread, int alpha,
-                          int beta, int depth, uint8_t do_nmp, uint8_t cutnode) {
+                          int beta, int depth, uint8_t do_nmp,
+                          uint8_t cutnode) {
   // init PV length
   thread->pv.pv_length[pos->ply] = pos->ply;
 
@@ -579,7 +587,10 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
   int score = -infinity;
 
   int tt_move = 0;
-  uint16_t tt_score = 0;
+  int16_t tt_score = 0;
+  uint8_t tt_hit = 0;
+  uint8_t tt_depth = 0;
+  uint8_t tt_flag = hash_flag_exact;
 
   uint8_t root_node = pos->ply == 0;
 
@@ -614,13 +625,19 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
   // read hash entry if we're not in a root ply and hash entry is available
   // and current node is not a PV node
   if (!root_node &&
-      (score = read_hash_entry(pos, alpha, beta, depth, &tt_move, &tt_score)) !=
-          no_hash_entry &&
+      (tt_hit =
+           read_hash_entry(pos, &tt_move, &tt_score, &tt_depth, &tt_flag)) &&
       pv_node == 0) {
-    // if the move has already been searched (hence has a value)
-    // we just return the score for this move without searching it
-    return score;
+    if (tt_depth >= depth) {
+      if ((tt_flag == hash_flag_exact) ||
+          ((tt_flag == hash_flag_alpha) && (tt_score <= alpha)) ||
+          ((tt_flag == hash_flag_beta) && (tt_score >= beta))) {
+        return tt_score;
+      }
+    }
   }
+
+  score = tt_score;
 
   // Check on time
   check_time(thread);
@@ -662,8 +679,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     }
 
     // null move pruning
-    if (do_nmp && depth >= NMP_DEPTH && !root_node &&
-        static_eval >= beta) {
+    if (do_nmp && depth >= NMP_DEPTH && !root_node && static_eval >= beta) {
       int R = NMP_BASE_REDUCTION + depth / NMP_DIVISER;
       R = MIN(R, depth);
       // preserve board state
@@ -775,8 +791,8 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     int lmr_depth = MAX(1, depth - 1 - MAX(r, 1));
 
     // Futility Pruning
-    if (!root_node && score > -mate_value && lmr_depth <= 5 && !in_check && quiet &&
-        static_eval + lmr_depth * 150 + 150 <= alpha) {
+    if (!root_node && score > -mate_value && lmr_depth <= 5 && !in_check &&
+        quiet && static_eval + lmr_depth * 150 + 150 <= alpha) {
       continue;
     }
 
@@ -826,7 +842,8 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     }
 
     // PVS & LMR
-    const int history_score = thread->history_moves[get_move_piece(move)][get_move_target(move)];
+    const int history_score =
+        thread->history_moves[get_move_piece(move)][get_move_target(move)];
     const int new_depth = depth - 1;
 
     int R = lmr[MIN(63, depth)][MIN(63, legal_moves)] + (pv_node ? 0 : 1);
@@ -840,7 +857,8 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
       score = -negamax(pos, thread, -alpha - 1, -alpha, lmr_depth, 1, 1);
 
       if (score > alpha && R > 0) {
-        score = -negamax(pos, thread, -alpha - 1, -alpha, new_depth, 1, !cutnode);
+        score =
+            -negamax(pos, thread, -alpha - 1, -alpha, new_depth, 1, !cutnode);
       }
     }
 
