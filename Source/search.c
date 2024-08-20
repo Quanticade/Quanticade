@@ -634,17 +634,17 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     }
   }
 
-  score = tt_score;
-
-  // Check on time
-  check_time(thread);
-
   // is king in check
   int in_check = is_square_attacked(pos,
                                     (pos->side == white)
                                         ? __builtin_ctzll(pos->bitboards[K])
                                         : __builtin_ctzll(pos->bitboards[k]),
                                     pos->side ^ 1);
+
+  int static_eval = in_check ? infinity : (tt_hit ? tt_score : evaluate(pos));
+
+  // Check on time
+  check_time(thread);
 
   // increase search depth if the king has been exposed into a check
   if (in_check) {
@@ -660,7 +660,6 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
   // legal moves counter
   int legal_moves = 0;
 
-  int static_eval = evaluate(pos);
   if (!in_check) {
     // Reverse Futility Pruning
     if (depth <= RFP_DEPTH && !pv_node && abs(beta - 1) > -infinity + 100) {
