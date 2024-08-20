@@ -389,6 +389,10 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
     // evaluate position
     return evaluate(pos);
 
+  if (pos->ply > pos->seldepth) {
+    pos->seldepth = pos->ply;
+  }
+
   int32_t best_move = 0;
   int score, best_score = 0;
   int pv_node = beta - alpha > 1;
@@ -593,6 +597,10 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
   // define hash flag
   int hash_flag = hash_flag_alpha;
+
+  if (depth == 0 && pos->ply > pos->seldepth) {
+    pos->seldepth = pos->ply;
+  }
 
   if (!root_node) {
     // if position repetition occurs
@@ -957,7 +965,7 @@ static void print_thinking(thread_t *thread, int score, int current_depth) {
   uint64_t time = get_time_ms() - thread->starttime;
   uint64_t nps = (nodes / fmax(time, 1)) * 1000;
 
-  printf("info depth %d score ", current_depth);
+  printf("info depth %d seldepth %d score ", current_depth, thread->pos.seldepth);
 
   if (score > -mate_value && score < -mate_score) {
     printf("mate %d ", -(score + mate_value) / 2 - 1);
@@ -995,6 +1003,8 @@ void *iterative_deepening(void *thread_void) {
   // define initial alpha beta bounds
   int alpha = -infinity;
   int beta = infinity;
+
+  pos->seldepth = 0;
 
   // iterative deepening
   for (thread->depth = 1; thread->depth <= limits.depth; thread->depth++) {

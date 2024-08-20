@@ -42,6 +42,7 @@ typedef struct position {
   uint64_t repetition_table[1000];
   uint32_t repetition_index;
   uint32_t ply;
+  uint32_t seldepth;
   uint32_t fifty;
   uint8_t mailbox[64];
   uint8_t side;
