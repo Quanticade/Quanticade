@@ -438,8 +438,6 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
 
   sort_moves(move_list);
 
-  score = -infinity;
-
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
 
