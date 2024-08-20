@@ -1004,7 +1004,6 @@ void *iterative_deepening(void *thread_void) {
   int alpha = -infinity;
   int beta = infinity;
 
-  pos->seldepth = 0;
 
   // iterative deepening
   for (thread->depth = 1; thread->depth <= limits.depth; thread->depth++) {
@@ -1013,6 +1012,8 @@ void *iterative_deepening(void *thread_void) {
       // stop calculating and return best move so far
       break;
     }
+
+    pos->seldepth = 0;
 
     // enable follow PV flag
     thread->pv.follow_pv = 1;
