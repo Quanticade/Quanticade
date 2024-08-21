@@ -406,13 +406,11 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
       (tt_hit =
            read_hash_entry(pos, &best_move, &tt_score, &tt_depth, &tt_flag)) &&
       pv_node == 0) {
-    if (tt_depth >= 0) {
       if ((tt_flag == hash_flag_exact) ||
           ((tt_flag == hash_flag_alpha) && (tt_score <= alpha)) ||
           ((tt_flag == hash_flag_beta) && (tt_score >= beta))) {
         return tt_score;
       }
-    }
   }
 
   // evaluate position
@@ -474,6 +472,8 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
     accumulator_make_move(pos, move_list->entry[count].move, mailbox_copy);
 
     thread->nodes++;
+
+    prefetch_hash_entry(pos->hash_key);
 
     // score current move
     score = -quiescence(pos, thread, -beta, -alpha);
@@ -711,6 +711,8 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
       // hash the side
       pos->hash_key ^= keys.side_key;
 
+      prefetch_hash_entry(pos->hash_key);
+
       /* search moves with reduced depth to find beta cutoffs
          depth - 1 - R where R is a reduction limit */
       score = -negamax(pos, thread, -beta, -beta + 1, depth - R, 0, !cutnode);
@@ -844,6 +846,8 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     if (is_quiet) {
       add_move(quiet_list, move);
     }
+
+    prefetch_hash_entry(pos->hash_key);
 
     // PVS & LMR
     const int history_score =
