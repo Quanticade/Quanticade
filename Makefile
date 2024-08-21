@@ -4,11 +4,10 @@ _ROOT       := $(_THIS)
 EVALFILE     = $(NETWORK_NAME)
 TARGET      := Quanticade
 WARNINGS     = -Wall -Werror -Wextra -Wno-error=vla -Wpedantic -Wno-unused-command-line-argument
-CFLAGS       := -std=gnu11 -fuse-ld=lld -funroll-loops -Ofast -flto -fno-exceptions -DIS_64BIT -DNDEBUG $(WARNINGS)
+CFLAGS       := -std=gnu11 -fuse-ld=lld -funroll-loops -O3 -flto -fno-exceptions -DIS_64BIT -DNDEBUG $(WARNINGS)
 NATIVE       = -march=native
 AVX2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi
 BMI2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi -mbmi2
-#While we get this fixed lets include AVX2 in AVX512 flags (I mean if you have AVX512 you damn better have AVX2 as well.....)
 AVX512FLAGS  = -DUSE_AVX512 -DUSE_SIMD -mavx512f -mavx512bw
 NEONFLAGS    = -DUSE_NEON -DUSE_SIMD -flax-vector-conversions
 
@@ -19,7 +18,7 @@ TMPDIR = .tmp
 
 # Detect Clang
 ifeq ($(CC), clang)
-	CFLAGS = -std=gnu11 -fuse-ld=lld -funroll-loops -Ofast -flto -fno-exceptions -DIS_64BIT -DNDEBUG $(WARNINGS)
+	CFLAGS = -std=gnu11 -fuse-ld=lld -funroll-loops -O3 -flto -fno-exceptions -DIS_64BIT -DNDEBUG $(WARNINGS)
 endif
 
 # Detect Windows
