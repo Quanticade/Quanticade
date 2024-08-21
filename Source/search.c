@@ -600,7 +600,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
   // variable to store current move's score (from the static evaluation
   // perspective)
-  int score = -infinity;
+  int score, static_eval = -infinity;
 
   int tt_move = 0;
   int16_t tt_score = 0;
@@ -644,7 +644,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
   // read hash entry if we're not in a root ply and hash entry is available
   // and current node is not a PV node
-  if (!root_node &&
+  if (!ss->excluded_move && !root_node &&
       (tt_hit =
            read_hash_entry(pos, &tt_move, &tt_score, &tt_depth, &tt_flag)) &&
       pv_node == 0) {
@@ -668,9 +668,9 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
                                         ? __builtin_ctzll(pos->bitboards[K])
                                         : __builtin_ctzll(pos->bitboards[k]),
                                     pos->side ^ 1);
-
-  int static_eval = ss->static_eval =
-      in_check ? infinity : (tt_hit ? tt_score : evaluate(pos));
+  if (!ss->excluded_move) {
+    static_eval = ss->static_eval = in_check ? infinity : (tt_hit ? tt_score : evaluate(pos));
+  }
 
   // Check on time
   check_time(thread);
@@ -689,7 +689,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   // legal moves counter
   int legal_moves = 0;
 
-  if (!in_check) {
+  if (!in_check && !ss->excluded_move) {
     // Reverse Futility Pruning
     if (depth <= RFP_DEPTH && !pv_node && abs(beta - 1) > -infinity + 100) {
       // get static evaluation score
@@ -797,8 +797,12 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
-    int list_move = move_list->entry[count].move;
-    uint8_t quiet = (get_move_capture(list_move) == 0);
+    int move = move_list->entry[count].move;
+    uint8_t quiet = (get_move_capture(move) == 0);
+
+    if (move == ss->excluded_move) {
+      continue;
+    }
 
     if (skip_quiets && quiet) {
       continue;
@@ -823,12 +827,31 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     // SEE PVS Pruning
     const int see_threshold =
         quiet ? -SEE_QUIET * depth : -SEE_CAPTURE * depth * depth;
-    if (depth <= SEE_DEPTH && legal_moves > 0 &&
-        !SEE(pos, list_move, see_threshold))
+    if (depth <= SEE_DEPTH && legal_moves > 0 && !SEE(pos, move, see_threshold))
       continue;
 
-    int move = move_list->entry[count].move;
-    uint8_t is_quiet = get_move_capture(move) == 0;
+    int extensions = 0;
+
+    // Singular Extensions
+    // A rather simple idea that if our TT move is accurate we run a reduced
+    // search to see if we can beat this score. If not we extend the TT move
+    // search
+    if (!root_node && depth >= 8 && move == tt_move && !ss->excluded_move &&
+        tt_depth >= depth - 3 && tt_flag != hash_flag_alpha) {
+      const int s_beta = tt_score - depth * 2;
+      const int s_depth = (depth - 1) / 2;
+
+      ss->excluded_move = move;
+
+      const int16_t s_score =
+          negamax(pos, thread, ss, s_beta - 1, s_beta, s_depth, 1, cutnode);
+
+      ss->excluded_move = 0;
+
+      if (s_score < s_beta) {
+        extensions++;
+      }
+    }
 
     // preserve board state
     copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
@@ -861,7 +884,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     // increment legal moves
     legal_moves++;
 
-    if (is_quiet) {
+    if (quiet) {
       add_move(quiet_list, move);
     }
 
@@ -870,7 +893,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     // PVS & LMR
     const int history_score =
         thread->history_moves[get_move_piece(move)][get_move_target(move)];
-    const int new_depth = depth - 1;
+    const int new_depth = depth + extensions - 1;
 
     int R = lmr[MIN(63, depth)][MIN(63, legal_moves)] + (pv_node ? 0 : 1);
     R -= (quiet ? history_score / 8192 : 0);
@@ -944,11 +967,13 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
         // fail-hard beta cutoff
         if (score >= beta) {
-          // store hash entry with the score equal to beta
-          write_hash_entry(pos, best_score, depth, best_move, hash_flag_beta);
+          if (!ss->excluded_move) {
+            // store hash entry with the score equal to beta
+            write_hash_entry(pos, best_score, depth, best_move, hash_flag_beta);
+          }
 
           // on quiet moves
-          if (is_quiet) {
+          if (quiet) {
             update_all_history_moves(thread, quiet_list, best_move, depth);
             // store killer moves
             thread->killer_moves[1][pos->ply] =
@@ -965,6 +990,9 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
   // we don't have any legal moves to make in the current postion
   if (legal_moves == 0) {
+    if (!ss->excluded_move) {
+      return alpha;
+    }
     // king is in check
     if (in_check)
       // return mating score (assuming closest distance to mating position)
