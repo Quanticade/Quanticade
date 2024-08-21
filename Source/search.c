@@ -406,11 +406,11 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
       (tt_hit =
            read_hash_entry(pos, &best_move, &tt_score, &tt_depth, &tt_flag)) &&
       pv_node == 0) {
-      if ((tt_flag == hash_flag_exact) ||
-          ((tt_flag == hash_flag_alpha) && (tt_score <= alpha)) ||
-          ((tt_flag == hash_flag_beta) && (tt_score >= beta))) {
-        return tt_score;
-      }
+    if ((tt_flag == hash_flag_exact) ||
+        ((tt_flag == hash_flag_alpha) && (tt_score <= alpha)) ||
+        ((tt_flag == hash_flag_beta) && (tt_score >= beta))) {
+      return tt_score;
+    }
   }
 
   // evaluate position
@@ -642,6 +642,11 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     }
   }
 
+  // Internal Iterative Reductions
+  if ((pv_node || cutnode) && depth >= IIR_DEPTH && !tt_move) {
+    depth--;
+  }
+
   // is king in check
   int in_check = is_square_attacked(pos,
                                     (pos->side == white)
@@ -745,11 +750,6 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
       if (razor_score <= alpha) {
         return razor_score;
       }
-    }
-
-    // Internal Iterative Reductions
-    if (depth >= IIR_DEPTH && !tt_move) {
-      depth--;
     }
   }
 
@@ -969,7 +969,8 @@ static void print_thinking(thread_t *thread, int score, int current_depth) {
   uint64_t time = get_time_ms() - thread->starttime;
   uint64_t nps = (nodes / fmax(time, 1)) * 1000;
 
-  printf("info depth %d seldepth %d score ", current_depth, thread->pos.seldepth);
+  printf("info depth %d seldepth %d score ", current_depth,
+         thread->pos.seldepth);
 
   if (score > -mate_value && score < -mate_score) {
     printf("mate %d ", -(score + mate_value) / 2 - 1);
@@ -1007,7 +1008,6 @@ void *iterative_deepening(void *thread_void) {
   // define initial alpha beta bounds
   int alpha = -infinity;
   int beta = infinity;
-
 
   // iterative deepening
   for (thread->depth = 1; thread->depth <= limits.depth; thread->depth++) {
