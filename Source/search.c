@@ -876,13 +876,12 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     // PVS & LMR
     const int history_score =
         thread->history_moves[get_move_piece(move)][get_move_target(move)];
-    const int new_depth = depth - 1;
+    const int new_depth = depth + extensions - 1;
 
     int R = lmr[MIN(63, depth)][MIN(63, legal_moves)] + (pv_node ? 0 : 1);
     R -= (quiet ? history_score / 8192 : 0);
     R -= in_check;
     R += cutnode;
-    R -= extensions;
 
     if (depth > 1 && legal_moves > 1) {
       R = clamp(R, 1, new_depth);
