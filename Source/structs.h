@@ -45,6 +45,7 @@ typedef struct position {
   uint32_t seldepth;
   uint32_t fifty;
   int32_t excluded_move;
+  int16_t eval;
   uint8_t mailbox[64];
   uint8_t side;
   uint8_t enpassant;

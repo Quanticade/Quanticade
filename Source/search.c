@@ -654,7 +654,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
                                         : __builtin_ctzll(pos->bitboards[k]),
                                     pos->side ^ 1);
   if (!pos->excluded_move) {
-    static_eval = in_check ? infinity : (tt_hit ? tt_score : evaluate(pos));
+    static_eval = pos->eval = in_check ? infinity : (tt_hit ? tt_score : evaluate(pos));
   }
 
   // Check on time
@@ -803,7 +803,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
     // Futility Pruning
     if (!root_node && score > -mate_value && lmr_depth <= 5 && !in_check &&
-        quiet && static_eval + lmr_depth * 150 + 150 <= alpha) {
+        quiet && pos->eval + lmr_depth * 150 + 150 <= alpha) {
       continue;
     }
 
