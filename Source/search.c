@@ -819,9 +819,9 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     // A rather simple idea that if our TT move is accurate we run a reduced
     // search to see if we can beat this score. If not we extend the TT move
     // search
-    if (!root_node && depth >= 8 && move == tt_move && !pos->excluded_move &&
-        tt_depth >= depth - 3 && tt_flag != hash_flag_alpha) {
-      const int s_beta = tt_score - depth * 2;
+    if (!root_node && depth >= 7 && move == tt_move && !pos->excluded_move &&
+        tt_depth >= depth - 3 && tt_flag != hash_flag_alpha && abs(tt_score) < mate_score) {
+      const int s_beta = tt_score - depth;
       const int s_depth = (depth - 1) / 2;
 
       pos->excluded_move = move;
