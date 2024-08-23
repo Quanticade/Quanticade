@@ -3,7 +3,7 @@
 
 #include "structs.h"
 
-#define version "0.8 Dev"
+#define version "Aurora 0.8"
 
 #define MIN(A, B) ((A) < (B) ? (A) : (B))
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
