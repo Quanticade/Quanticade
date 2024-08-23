@@ -89,18 +89,18 @@ void init_hash_table(uint64_t mb) {
   tt.num_of_entries = hash_size / sizeof(tt_entry_t);
 
   // free hash table if not empty
-  if (tt.mem != NULL) {
+  if (tt.hash_entry != NULL) {
     printf("    Clearing hash memory...\n");
 
     // free hash table dynamic memory
-    free(tt.mem);
+    free(tt.hash_entry);
   }
 
   // allocate memory
-  tt.mem = malloc(tt.num_of_entries * sizeof(tt_t) + 64 - 1);
+  tt.hash_entry = malloc(tt.num_of_entries * sizeof(tt_entry_t));
 
   // if allocation has failed
-  if (tt.mem == NULL) {
+  if (tt.hash_entry == NULL) {
     printf("    Couldn't allocate memory for hash table, trying with half\n");
 
     // try to allocate with half size
@@ -109,7 +109,6 @@ void init_hash_table(uint64_t mb) {
 
   // if allocation succeeded
   else {
-    tt.hash_entry = (tt_entry_t *)(((uintptr_t)tt.mem + 64 - 1) & ~(64 - 1));
     // clear hash table
     clear_hash_table();
   }

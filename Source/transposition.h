@@ -5,7 +5,6 @@
 #include <sched.h>
 
 typedef struct tt {
-  void *mem;
   tt_entry_t *hash_entry;
   size_t num_of_entries;
 } tt_t;

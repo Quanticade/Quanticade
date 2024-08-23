@@ -143,7 +143,7 @@ int main(int argc, char *argv[]) {
   uci_loop(&pos, threads, argc, argv);
 
   // free hash table memory on exit
-  free(tt.mem);
+  free(tt.hash_entry);
 
   return 0;
 }
