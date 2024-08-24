@@ -340,27 +340,16 @@ static inline void score_move(position_t *pos, thread_t *thread,
 
 // sort moves in descending order
 static inline void sort_moves(moves *move_list) {
-  // loop over current move within a move list
-  for (uint32_t current_move = 0; current_move < move_list->count;
-       current_move++) {
-    // loop over next move within a move list
-    for (uint32_t next_move = current_move + 1; next_move < move_list->count;
-         next_move++) {
-      // compare current and next move scores
-      if (move_list->entry[current_move].score <
-          move_list->entry[next_move].score) {
-        // swap scores
-        int temp_score = move_list->entry[current_move].score;
-        move_list->entry[current_move].score =
-            move_list->entry[next_move].score;
-        move_list->entry[next_move].score = temp_score;
+  for (uint32_t i = 1; i < move_list->count; i++) {
+    move_t key = move_list->entry[i];
+    int j = i - 1;
 
-        // swap moves
-        int temp_move = move_list->entry[current_move].move;
-        move_list->entry[current_move].move = move_list->entry[next_move].move;
-        move_list->entry[next_move].move = temp_move;
-      }
+    // Sort in descending order by score
+    while (j >= 0 && move_list->entry[j].score < key.score) {
+      move_list->entry[j + 1] = move_list->entry[j];
+      j--;
     }
+    move_list->entry[j + 1] = key;
   }
 }
 
