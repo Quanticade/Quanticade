@@ -283,19 +283,6 @@ static inline void score_move(position_t *pos, thread_t *thread,
     return;
   }
 
-  // if PV move scoring is allowed
-  if (thread->pv.score_pv) {
-    // make sure we are dealing with PV move
-    if (thread->pv.pv_table[0][pos->ply] == move) {
-      // disable score PV flag
-      thread->pv.score_pv = 0;
-
-      // give PV move the highest score to search it first
-      move_entry->score = 1500000000;
-      return;
-    }
-  }
-
   if (piece) {
     switch (piece) {
     case q:
