@@ -423,20 +423,14 @@ int is_square_attacked(position_t *pos, int square, int side) {
 
   // attacked by bishops
   if (get_bishop_attacks(square, pos->occupancies[both]) &
-      ((side == white) ? pos->bitboards[B]
-                       : pos->bitboards[b]))
+      ((side == white) ? (pos->bitboards[B] | pos->bitboards[Q])
+                       : (pos->bitboards[b] | pos->bitboards[q])))
     return 1;
 
   // attacked by rooks
   if (get_rook_attacks(square, pos->occupancies[both]) &
-      ((side == white) ? pos->bitboards[R]
-                       : pos->bitboards[r]))
-    return 1;
-
-  // attacked by bishops
-  if (get_queen_attacks(square, pos->occupancies[both]) &
-      ((side == white) ? pos->bitboards[Q]
-                       : pos->bitboards[q]))
+      ((side == white) ? (pos->bitboards[R] | pos->bitboards[Q])
+                       : (pos->bitboards[r] | pos->bitboards[q])))
     return 1;
 
   // attacked by kings
