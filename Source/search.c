@@ -276,6 +276,8 @@ int SEE(position_t *pos, int move, int threshold) {
 static inline void score_move(position_t *pos, thread_t *thread,
                               move_t *move_entry, int hash_move) {
   int move = move_entry->move;
+  uint8_t piece = get_move_promoted(move);
+  uint32_t promoted_bonus = 0;
   if (move == hash_move) {
     move_entry->score = 2000000000;
     return;
@@ -291,6 +293,27 @@ static inline void score_move(position_t *pos, thread_t *thread,
       // give PV move the highest score to search it first
       move_entry->score = 1500000000;
       return;
+    }
+  }
+
+  if (piece) {
+    switch (piece) {
+    case q:
+    case Q:
+      promoted_bonus = 100000;
+      break;
+    case n:
+    case N:
+      promoted_bonus = 90000;
+      break;
+    case r:
+    case R:
+      promoted_bonus = -100000;
+      break;
+    case b:
+    case B:
+      promoted_bonus = -90000;
+      break;
     }
   }
 
@@ -310,6 +333,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
     move_entry->score = mvv_lva[get_move_piece(move)][target_piece];
     move_entry->score +=
         SEE(pos, move, -MO_SEE_THRESHOLD) ? 1000000000 : -1000000;
+    move_entry->score += promoted_bonus;
     return;
   }
 
@@ -330,6 +354,8 @@ static inline void score_move(position_t *pos, thread_t *thread,
       move_entry->score =
           thread->history_moves[get_move_piece(move)][get_move_target(move)];
     }
+
+    move_entry->score += promoted_bonus;
 
     return;
   }
