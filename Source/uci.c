@@ -467,7 +467,7 @@ static inline void time_control(position_t *pos, thread_t *threads,
     limits.depth = limits.depth == 0 ? max_ply : limits.depth;
 
     if (limits.time) {
-      int64_t time_this_move = (limits.time / limits.movestogo) + limits.inc;
+      int64_t time_this_move = (limits.time / limits.movestogo) + (limits.inc / 2);
       int64_t max_time = limits.time;
       threads->stoptime =
           threads->starttime + MIN(max_time, time_this_move) - 50;
