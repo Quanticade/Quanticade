@@ -392,11 +392,47 @@ static inline int is_repetition(position_t *pos) {
   return 0;
 }
 
+static inline uint8_t is_material_draw(position_t *pos) {
+  uint8_t piece_count = __builtin_popcountll(pos->occupancies[both]);
+
+  // K v K
+  if (piece_count == 2) {
+    return 1;
+  }
+  // Initialize knight and bishop count only after we check that piece count is
+  // higher then 2 as there cannot be a knight or bishop with 2 pieces on the
+  // board
+  uint8_t knight_count =
+      __builtin_popcountll(pos->bitboards[n] | pos->bitboards[N]);
+  // KN v K || KB v K
+  if (piece_count == 3 &&
+      (knight_count == 1 ||
+       __builtin_popcountll(pos->bitboards[b] | pos->bitboards[B]) == 1)) {
+    return 1;
+  } else if (piece_count == 4) {
+    // KNN v K || KN v KN
+    if (knight_count == 2) {
+      return 1;
+    }
+    // KB v KB
+    else if (__builtin_popcountll(pos->bitboards[b]) == 1 &&
+             __builtin_popcountll(pos->bitboards[B]) == 1) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
 // quiescence search
 static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
                              int beta) {
   // Check on time
   check_time(thread);
+
+  if (is_repetition(pos) || pos->fifty >= 100 || is_material_draw(pos)) {
+    // return draw score
+    return 0;
+  }
 
   // we are too deep, hence there's an overflow of arrays relying on max ply
   // constant
@@ -558,37 +594,6 @@ static inline void update_all_history_moves(thread_t *thread,
       update_history_move(thread, quiet_moves->entry[i].move, depth, 0);
     }
   }
-}
-
-static inline uint8_t is_material_draw(position_t *pos) {
-  uint8_t piece_count = __builtin_popcountll(pos->occupancies[both]);
-
-  // K v K
-  if (piece_count == 2) {
-    return 1;
-  }
-  // Initialize knight and bishop count only after we check that piece count is
-  // higher then 2 as there cannot be a knight or bishop with 2 pieces on the
-  // board
-  uint8_t knight_count =
-      __builtin_popcountll(pos->bitboards[n] | pos->bitboards[N]);
-  // KN v K || KB v K
-  if (piece_count == 3 &&
-      (knight_count == 1 ||
-       __builtin_popcountll(pos->bitboards[b] | pos->bitboards[B]) == 1)) {
-    return 1;
-  } else if (piece_count == 4) {
-    // KNN v K || KN v KN
-    if (knight_count == 2) {
-      return 1;
-    }
-    // KB v KB
-    else if (__builtin_popcountll(pos->bitboards[b]) == 1 &&
-             __builtin_popcountll(pos->bitboards[B]) == 1) {
-      return 1;
-    }
-  }
-  return 0;
 }
 
 // negamax alpha beta search
