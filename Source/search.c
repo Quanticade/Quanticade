@@ -703,7 +703,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     }
 
     // null move pruning
-    if (do_nmp && !root_node && static_eval >= beta - 20 * depth + 200) {
+    if (do_nmp && !root_node && static_eval >= beta && static_eval >= beta - 20 * depth + 200) {
       int R = NMP_BASE_REDUCTION + depth / NMP_DIVISER;
       R = MIN(R, depth);
       // preserve board state
