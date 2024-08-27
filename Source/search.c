@@ -621,7 +621,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     // if position repetition occurs
     if (is_repetition(pos) || pos->fifty >= 100 || is_material_draw(pos)) {
       // return draw score
-      return 0;
+      return 1 - (thread->nodes & 2);
     }
 
     // we are too deep, hence there's an overflow of arrays relying on max ply
