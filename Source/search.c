@@ -758,14 +758,6 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
         // node (position) fails high
         return score;
     }
-
-    if (!pv_node && depth <= RAZOR_DEPTH &&
-        static_eval + RAZOR_MARGIN * depth < alpha) {
-      const int razor_score = quiescence(pos, thread, alpha, beta);
-      if (razor_score <= alpha) {
-        return razor_score;
-      }
-    }
   }
 
   // create move list instance
