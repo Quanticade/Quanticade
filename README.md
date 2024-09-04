@@ -6,9 +6,7 @@ Quanticade is a decent uci command-line chess engine written in C in development
 
 ## Playing Strength
 
-Currently Quanticade isnt rated on any website (Testing in progress).
-
-Estimated elo is currently ~3400.
+Quanticade Aurora is currently 3467 CCRL Blitz.
 
 ## History
 
