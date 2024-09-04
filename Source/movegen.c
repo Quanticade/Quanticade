@@ -49,7 +49,8 @@ int make_move(position_t *pos, int move, int move_flag) {
     // loop over bitboards opposite to the current side to move
     // if there's a piece on the target square
     uint8_t bb_piece = pos->mailbox[target_square];
-    if (bb_piece != NO_PIECE && get_bit(pos->bitboards[bb_piece], target_square)) {
+    if (bb_piece != NO_PIECE &&
+        get_bit(pos->bitboards[bb_piece], target_square)) {
 
       // remove it from corresponding bitboard
       pop_bit(pos->bitboards[bb_piece], target_square);
@@ -91,10 +92,10 @@ int make_move(position_t *pos, int move, int move_flag) {
   // hash piece
   pos->hash_key ^=
       keys.piece_keys[piece][source_square]; // remove piece from source
-                                                  // square in hash key
+                                             // square in hash key
   pos->hash_key ^=
       keys.piece_keys[piece][target_square]; // set piece to the target
-                                                  // square in hash key
+                                             // square in hash key
 
   // handle pawn promotions
   if (promoted_piece) {
@@ -167,8 +168,7 @@ int make_move(position_t *pos, int move, int move_flag) {
       // hash rook
       pos->hash_key ^=
           keys.piece_keys[R][h1]; // remove rook from h1 from hash key
-      pos->hash_key ^=
-          keys.piece_keys[R][f1]; // put rook on f1 into a hash key
+      pos->hash_key ^= keys.piece_keys[R][f1]; // put rook on f1 into a hash key
       break;
 
     // white castles queen side
@@ -182,8 +182,7 @@ int make_move(position_t *pos, int move, int move_flag) {
       // hash rook
       pos->hash_key ^=
           keys.piece_keys[R][a1]; // remove rook from a1 from hash key
-      pos->hash_key ^=
-          keys.piece_keys[R][d1]; // put rook on d1 into a hash key
+      pos->hash_key ^= keys.piece_keys[R][d1]; // put rook on d1 into a hash key
       break;
 
     // black castles king side
@@ -197,8 +196,7 @@ int make_move(position_t *pos, int move, int move_flag) {
       // hash rook
       pos->hash_key ^=
           keys.piece_keys[r][h8]; // remove rook from h8 from hash key
-      pos->hash_key ^=
-          keys.piece_keys[r][f8]; // put rook on f8 into a hash key
+      pos->hash_key ^= keys.piece_keys[r][f8]; // put rook on f8 into a hash key
       break;
 
     // black castles queen side
@@ -212,8 +210,7 @@ int make_move(position_t *pos, int move, int move_flag) {
       // hash rook
       pos->hash_key ^=
           keys.piece_keys[r][a8]; // remove rook from a8 from hash key
-      pos->hash_key ^=
-          keys.piece_keys[r][d8]; // put rook on d8 into a hash key
+      pos->hash_key ^= keys.piece_keys[r][d8]; // put rook on d8 into a hash key
       break;
     }
   }
@@ -311,6 +308,15 @@ void generate_captures(position_t *pos, moves *move_list) {
           // init pawn attacks bitboard
           attacks = pawn_attacks[side][source_square] & pos->occupancies[black];
 
+          if (!(target_square < a8) &&
+              !get_bit(pos->occupancies[both], target_square)) {
+            // pawn promotion
+            if (source_square >= a7 && source_square <= h7) {
+              add_move(move_list, encode_move(source_square, target_square,
+                                              piece, Q, 0, 0, 0, 0));
+            }
+          }
+
           // generate pawn captures
           while (attacks) {
             // init target square
@@ -320,12 +326,6 @@ void generate_captures(position_t *pos, moves *move_list) {
             if (source_square >= a7 && source_square <= h7) {
               add_move(move_list, encode_move(source_square, target_square,
                                               piece, Q, 1, 0, 0, 0));
-              add_move(move_list, encode_move(source_square, target_square,
-                                              piece, R, 1, 0, 0, 0));
-              add_move(move_list, encode_move(source_square, target_square,
-                                              piece, B, 1, 0, 0, 0));
-              add_move(move_list, encode_move(source_square, target_square,
-                                              piece, N, 1, 0, 0, 0));
             }
 
             else
@@ -373,6 +373,15 @@ void generate_captures(position_t *pos, moves *move_list) {
           // init pawn attacks bitboard
           attacks = pawn_attacks[side][source_square] & pos->occupancies[white];
 
+          if (!(target_square > h1) &&
+              !get_bit(pos->occupancies[both], target_square)) {
+            // pawn promotion
+            if (source_square >= a2 && source_square <= h2) {
+              add_move(move_list, encode_move(source_square, target_square,
+                                              piece, q, 0, 0, 0, 0));
+            }
+          }
+
           // generate pawn captures
           while (attacks) {
             // init target square
@@ -382,12 +391,6 @@ void generate_captures(position_t *pos, moves *move_list) {
             if (source_square >= a2 && source_square <= h2) {
               add_move(move_list, encode_move(source_square, target_square,
                                               piece, q, 1, 0, 0, 0));
-              add_move(move_list, encode_move(source_square, target_square,
-                                              piece, r, 1, 0, 0, 0));
-              add_move(move_list, encode_move(source_square, target_square,
-                                              piece, b, 1, 0, 0, 0));
-              add_move(move_list, encode_move(source_square, target_square,
-                                              piece, n, 1, 0, 0, 0));
             }
 
             else
