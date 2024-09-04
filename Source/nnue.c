@@ -62,7 +62,7 @@ void nnue_init(const char *nnue_file_name) {
     size_t read = 0;
     size_t fileSize = sizeof(nnue_t);
     size_t objectsExpected = (fileSize / sizeof(int16_t)) + 20 -
-                             15; // Due to alligment we deduct 15 from it
+                             31; // Due to alligment we deduct 31 from it
     char version_string[21];
     read += fread(version_string, sizeof(char), 20, nn);
     version_string[20] = '\0';

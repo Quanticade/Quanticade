@@ -31,7 +31,7 @@ typedef struct keys {
 } keys_t;
 
 typedef struct accumulator {
-  _Alignas(32) int16_t accumulator[2][2048]; //This is very cursed but for now lets have it this way
+  _Alignas(64) int16_t accumulator[2][2048]; //This is very cursed but for now lets have it this way
 } accumulator_t;
 
 typedef struct position {
