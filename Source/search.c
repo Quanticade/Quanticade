@@ -860,6 +860,13 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       else if (s_beta >= beta) {
         return s_beta;
       }
+
+      // Negative extensions: If we fail high without a TT move and beta isnt
+      // high enough to trigger a cutoff its better to reduce the depth of
+      // search for this move and search other moves
+      else if (tt_score >= beta) {
+        extensions -= 2;
+      }
     }
 
     // preserve board state
