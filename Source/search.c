@@ -669,7 +669,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
                                         : __builtin_ctzll(pos->bitboards[k]),
                                     pos->side ^ 1);
   if (!ss->excluded_move) {
-    static_eval = ss->static_eval = in_check ? infinity : (tt_hit ? tt_score : evaluate(pos));
+    static_eval = ss->static_eval =
+        in_check ? infinity : (tt_hit ? tt_score : evaluate(pos));
   }
 
   // Check on time
@@ -810,8 +811,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     // Late Move Pruning
     if (!pv_node && !in_check && quiet &&
-        legal_moves >
-            LMP_BASE + LMP_MULTIPLIER * depth * depth) {
+        legal_moves > LMP_BASE + LMP_MULTIPLIER * depth * depth) {
       skip_quiets = 1;
     }
 
@@ -836,9 +836,10 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     // A rather simple idea that if our TT move is accurate we run a reduced
     // search to see if we can beat this score. If not we extend the TT move
     // search
-    if (!root_node && depth >= 8 && move == tt_move && !ss->excluded_move &&
-        tt_depth >= depth - 3 && tt_flag != hash_flag_alpha) {
-      const int s_beta = tt_score - depth * 2;
+    if (!root_node && depth >= 7 && move == tt_move && !ss->excluded_move &&
+        tt_depth >= depth - 3 && tt_flag != hash_flag_alpha &&
+        abs(tt_score) < mate_score) {
+      const int s_beta = tt_score - depth;
       const int s_depth = (depth - 1) / 2;
 
       ss->excluded_move = move;
@@ -990,9 +991,6 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
   // we don't have any legal moves to make in the current postion
   if (legal_moves == 0) {
-    if (!ss->excluded_move) {
-      return alpha;
-    }
     // king is in check
     if (in_check)
       // return mating score (assuming closest distance to mating position)
@@ -1004,8 +1002,10 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       return 0;
   }
 
-  // store hash entry with the score equal to alpha
-  write_hash_entry(pos, best_score, depth, best_move, hash_flag);
+  if (!ss->excluded_move) {
+    // store hash entry with the score equal to alpha
+    write_hash_entry(pos, best_score, depth, best_move, hash_flag);
+  }
 
   // node (position) fails low
   return best_score;
