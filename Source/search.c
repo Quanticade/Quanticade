@@ -707,7 +707,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       // get static evaluation score
 
       // define evaluation margin
-      int eval_margin = RFP_MARGIN * (depth + improving);
+      int eval_margin = RFP_MARGIN * depth;
 
       // evaluation margin substracted from static evaluation score fails high
       if (static_eval - eval_margin >= beta)
@@ -818,7 +818,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     // Late Move Pruning
     if (!pv_node && !in_check && quiet &&
-        legal_moves > LMP_BASE + LMP_MULTIPLIER * depth * depth) {
+        legal_moves >
+            LMP_BASE + LMP_MULTIPLIER * depth * depth / (2 - improving)) {
       skip_quiets = 1;
     }
 
