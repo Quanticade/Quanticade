@@ -393,8 +393,8 @@ static inline int is_repetition(position_t *pos) {
 }
 
 // quiescence search
-static inline int quiescence(position_t *pos, thread_t *thread, searchstack_t *ss, int alpha,
-                             int beta) {
+static inline int quiescence(position_t *pos, thread_t *thread,
+                             searchstack_t *ss, int alpha, int beta) {
   // Check on time
   check_time(thread);
 
@@ -592,8 +592,8 @@ static inline uint8_t is_material_draw(position_t *pos) {
 }
 
 // negamax alpha beta search
-static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss, int alpha,
-                          int beta, int depth, uint8_t do_nmp,
+static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
+                          int alpha, int beta, int depth, uint8_t do_nmp,
                           uint8_t cutnode) {
   // init PV length
   thread->pv.pv_length[pos->ply] = pos->ply;
@@ -669,7 +669,20 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss, 
                                         : __builtin_ctzll(pos->bitboards[k]),
                                     pos->side ^ 1);
 
-  int static_eval = ss->static_eval = in_check ? infinity : (tt_hit ? tt_score : evaluate(pos));
+  int static_eval = ss->static_eval =
+      in_check ? infinity : (tt_hit ? tt_score : evaluate(pos));
+
+  uint8_t improving = 0;
+
+  if (in_check) {
+    ss->static_eval = infinity;
+  } else if ((ss - 2)->static_eval != infinity) {
+    improving = ss->static_eval > (ss - 2)->static_eval;
+  } else if ((ss - 4)->static_eval != infinity) {
+    improving = ss->static_eval > (ss - 4)->static_eval;
+  } else {
+    improving = true;
+  }
 
   // Check on time
   check_time(thread);
@@ -694,7 +707,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss, 
       // get static evaluation score
 
       // define evaluation margin
-      int eval_margin = RFP_MARGIN * depth;
+      int eval_margin = RFP_MARGIN * (depth + improving);
 
       // evaluation margin substracted from static evaluation score fails high
       if (static_eval - eval_margin >= beta)
@@ -735,7 +748,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss, 
 
       /* search moves with reduced depth to find beta cutoffs
          depth - 1 - R where R is a reduction limit */
-      score = -negamax(pos, thread, ss + 1, -beta, -beta + 1, depth - R, 0, !cutnode);
+      score = -negamax(pos, thread, ss + 1, -beta, -beta + 1, depth - R, 0,
+                       !cutnode);
 
       // decrement ply
       pos->ply--;
@@ -877,16 +891,18 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss, 
     if (depth > 1 && legal_moves > 1) {
       R = clamp(R, 1, new_depth);
       int lmr_depth = new_depth - R + 1;
-      score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha, lmr_depth, 1, 1);
+      score =
+          -negamax(pos, thread, ss + 1, -alpha - 1, -alpha, lmr_depth, 1, 1);
 
       if (score > alpha && R > 0) {
-        score =
-            -negamax(pos, thread, ss + 1, -alpha - 1, -alpha, new_depth, 1, !cutnode);
+        score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha, new_depth, 1,
+                         !cutnode);
       }
     }
 
     else if (!pv_node || legal_moves > 1) {
-      score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha, new_depth, 1, !cutnode);
+      score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha, new_depth, 1,
+                       !cutnode);
     }
 
     if (pv_node &&
@@ -1033,6 +1049,10 @@ void *iterative_deepening(void *thread_void) {
     }
 
     searchstack_t ss[max_ply + 4];
+    for (int i = 0; i < max_ply + 4; ++i) {
+      ss[i].excluded_move = 0;
+      ss[i].static_eval = infinity;
+    }
 
     pos->seldepth = 0;
 
@@ -1051,7 +1071,8 @@ void *iterative_deepening(void *thread_void) {
     }
 
     // find best move within a given position
-    thread->score = negamax(pos, thread, ss + 4, alpha, beta, thread->depth, 1, 0);
+    thread->score =
+        negamax(pos, thread, ss + 4, alpha, beta, thread->depth, 1, 0);
 
     // Reset aspiration window OK flag back to 1
     window_ok = 1;
