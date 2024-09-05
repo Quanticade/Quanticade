@@ -44,6 +44,7 @@ typedef struct position {
   uint32_t ply;
   uint32_t seldepth;
   uint32_t fifty;
+  int32_t excluded_move;
   uint8_t mailbox[64];
   uint8_t side;
   uint8_t enpassant;
@@ -85,6 +86,11 @@ typedef struct searchthread {
   thread_t *threads;
   char line[10000];
 } searchthreadinfo_t;
+
+typedef struct searchstack {
+  int excluded_move;
+  int static_eval;
+} searchstack_t;
 
 typedef struct nnue_settings {
   uint8_t use_nnue;

@@ -393,8 +393,8 @@ static inline int is_repetition(position_t *pos) {
 }
 
 // quiescence search
-static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
-                             int beta) {
+static inline int quiescence(position_t *pos, thread_t *thread,
+                             searchstack_t *ss, int alpha, int beta) {
   // Check on time
   check_time(thread);
 
@@ -491,7 +491,7 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
     prefetch_hash_entry(pos->hash_key);
 
     // score current move
-    score = -quiescence(pos, thread, -beta, -alpha);
+    score = -quiescence(pos, thread, ss, -beta, -alpha);
 
     // decrement ply
     pos->ply--;
@@ -592,15 +592,15 @@ static inline uint8_t is_material_draw(position_t *pos) {
 }
 
 // negamax alpha beta search
-static inline int negamax(position_t *pos, thread_t *thread, int alpha,
-                          int beta, int depth, uint8_t do_nmp,
+static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
+                          int alpha, int beta, int depth, uint8_t do_nmp,
                           uint8_t cutnode) {
   // init PV length
   thread->pv.pv_length[pos->ply] = pos->ply;
 
   // variable to store current move's score (from the static evaluation
   // perspective)
-  int score = -infinity;
+  int score, static_eval = -infinity;
 
   int tt_move = 0;
   int16_t tt_score = 0;
@@ -644,7 +644,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
   // read hash entry if we're not in a root ply and hash entry is available
   // and current node is not a PV node
-  if (!root_node &&
+  if (!ss->excluded_move && !root_node &&
       (tt_hit =
            read_hash_entry(pos, &tt_move, &tt_score, &tt_depth, &tt_flag)) &&
       pv_node == 0) {
@@ -668,8 +668,10 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
                                         ? __builtin_ctzll(pos->bitboards[K])
                                         : __builtin_ctzll(pos->bitboards[k]),
                                     pos->side ^ 1);
-
-  int static_eval = in_check ? infinity : (tt_hit ? tt_score : evaluate(pos));
+  if (!ss->excluded_move) {
+    static_eval = ss->static_eval =
+        in_check ? infinity : (tt_hit ? tt_score : evaluate(pos));
+  }
 
   // Check on time
   check_time(thread);
@@ -682,13 +684,13 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
   // recursion escape condition
   if (depth == 0) {
     // run quiescence search
-    return quiescence(pos, thread, alpha, beta);
+    return quiescence(pos, thread, ss, alpha, beta);
   }
 
   // legal moves counter
   int legal_moves = 0;
 
-  if (!in_check) {
+  if (!in_check && !ss->excluded_move) {
     // Reverse Futility Pruning
     if (depth <= RFP_DEPTH && !pv_node && abs(beta - 1) > -infinity + 100) {
       // get static evaluation score
@@ -735,7 +737,8 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
       /* search moves with reduced depth to find beta cutoffs
          depth - 1 - R where R is a reduction limit */
-      score = -negamax(pos, thread, -beta, -beta + 1, depth - R, 0, !cutnode);
+      score = -negamax(pos, thread, ss + 1, -beta, -beta + 1, depth - R, 0,
+                       !cutnode);
 
       // decrement ply
       pos->ply--;
@@ -761,7 +764,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
     if (!pv_node && depth <= RAZOR_DEPTH &&
         static_eval + RAZOR_MARGIN * depth < alpha) {
-      const int razor_score = quiescence(pos, thread, alpha, beta);
+      const int razor_score = quiescence(pos, thread, ss, alpha, beta);
       if (razor_score <= alpha) {
         return razor_score;
       }
@@ -795,8 +798,12 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
-    int list_move = move_list->entry[count].move;
-    uint8_t quiet = (get_move_capture(list_move) == 0);
+    int move = move_list->entry[count].move;
+    uint8_t quiet = (get_move_capture(move) == 0);
+
+    if (move == ss->excluded_move) {
+      continue;
+    }
 
     if (skip_quiets && quiet) {
       continue;
@@ -813,19 +820,39 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
     // Futility Pruning
     if (!root_node && score > -mate_value && lmr_depth <= 5 && !in_check &&
-        quiet && static_eval + lmr_depth * 150 + 150 <= alpha) {
+        quiet && ss->static_eval + lmr_depth * 150 + 150 <= alpha) {
       continue;
     }
 
     // SEE PVS Pruning
     const int see_threshold =
         quiet ? -SEE_QUIET * depth : -SEE_CAPTURE * depth * depth;
-    if (depth <= SEE_DEPTH && legal_moves > 0 &&
-        !SEE(pos, list_move, see_threshold))
+    if (depth <= SEE_DEPTH && legal_moves > 0 && !SEE(pos, move, see_threshold))
       continue;
 
-    int move = move_list->entry[count].move;
-    uint8_t is_quiet = get_move_capture(move) == 0;
+    int extensions = 0;
+
+    // Singular Extensions
+    // A rather simple idea that if our TT move is accurate we run a reduced
+    // search to see if we can beat this score. If not we extend the TT move
+    // search
+    if (!root_node && depth >= 7 && move == tt_move && !ss->excluded_move &&
+        tt_depth >= depth - 3 && tt_flag != hash_flag_alpha &&
+        abs(tt_score) < mate_score) {
+      const int s_beta = tt_score - depth;
+      const int s_depth = (depth - 1) / 2;
+
+      ss->excluded_move = move;
+
+      const int16_t s_score =
+          negamax(pos, thread, ss, s_beta - 1, s_beta, s_depth, 1, cutnode);
+
+      ss->excluded_move = 0;
+
+      if (s_score < s_beta) {
+        extensions++;
+      }
+    }
 
     // preserve board state
     copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
@@ -858,7 +885,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     // increment legal moves
     legal_moves++;
 
-    if (is_quiet) {
+    if (quiet) {
       add_move(quiet_list, move);
     }
 
@@ -867,7 +894,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     // PVS & LMR
     const int history_score =
         thread->history_moves[get_move_piece(move)][get_move_target(move)];
-    const int new_depth = depth - 1;
+    const int new_depth = depth + extensions - 1;
 
     int R = lmr[MIN(63, depth)][MIN(63, legal_moves)] + (pv_node ? 0 : 1);
     R -= (quiet ? history_score / 8192 : 0);
@@ -877,21 +904,23 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     if (depth > 1 && legal_moves > 1) {
       R = clamp(R, 1, new_depth);
       int lmr_depth = new_depth - R + 1;
-      score = -negamax(pos, thread, -alpha - 1, -alpha, lmr_depth, 1, 1);
+      score =
+          -negamax(pos, thread, ss + 1, -alpha - 1, -alpha, lmr_depth, 1, 1);
 
       if (score > alpha && R > 0) {
-        score =
-            -negamax(pos, thread, -alpha - 1, -alpha, new_depth, 1, !cutnode);
+        score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha, new_depth, 1,
+                         !cutnode);
       }
     }
 
     else if (!pv_node || legal_moves > 1) {
-      score = -negamax(pos, thread, -alpha - 1, -alpha, new_depth, 1, !cutnode);
+      score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha, new_depth, 1,
+                       !cutnode);
     }
 
     if (pv_node &&
         (legal_moves == 1 || (score > alpha && (root_node || score < beta)))) {
-      score = -negamax(pos, thread, -beta, -alpha, new_depth, 1, 0);
+      score = -negamax(pos, thread, ss + 1, -beta, -alpha, new_depth, 1, 0);
     }
 
     // decrement ply
@@ -939,11 +968,13 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
         // fail-hard beta cutoff
         if (score >= beta) {
-          // store hash entry with the score equal to beta
-          write_hash_entry(pos, best_score, depth, best_move, hash_flag_beta);
+          if (!ss->excluded_move) {
+            // store hash entry with the score equal to beta
+            write_hash_entry(pos, best_score, depth, best_move, hash_flag_beta);
+          }
 
           // on quiet moves
-          if (is_quiet) {
+          if (quiet) {
             update_all_history_moves(thread, quiet_list, best_move, depth);
             // store killer moves
             thread->killer_moves[1][pos->ply] =
@@ -971,8 +1002,10 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
       return 0;
   }
 
-  // store hash entry with the score equal to alpha
-  write_hash_entry(pos, best_score, depth, best_move, hash_flag);
+  if (!ss->excluded_move) {
+    // store hash entry with the score equal to alpha
+    write_hash_entry(pos, best_score, depth, best_move, hash_flag);
+  }
 
   // node (position) fails low
   return best_score;
@@ -1032,6 +1065,12 @@ void *iterative_deepening(void *thread_void) {
       break;
     }
 
+    searchstack_t ss[max_ply + 4];
+    for (int i = 0; i < max_ply + 4; ++i) {
+      ss[i].excluded_move = 0;
+      ss[i].static_eval = infinity;
+    }
+
     pos->seldepth = 0;
 
     // enable follow PV flag
@@ -1049,7 +1088,8 @@ void *iterative_deepening(void *thread_void) {
     }
 
     // find best move within a given position
-    thread->score = negamax(pos, thread, alpha, beta, thread->depth, 1, 0);
+    thread->score =
+        negamax(pos, thread, ss + 4, alpha, beta, thread->depth, 1, 0);
 
     // Reset aspiration window OK flag back to 1
     window_ok = 1;
