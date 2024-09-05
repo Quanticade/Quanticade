@@ -86,6 +86,11 @@ typedef struct searchthread {
   char line[10000];
 } searchthreadinfo_t;
 
+typedef struct searchstack {
+  int excluded_move;
+  int static_eval;
+} searchstack_t;
+
 typedef struct nnue_settings {
   uint8_t use_nnue;
   char *nnue_file;

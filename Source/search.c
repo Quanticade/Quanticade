@@ -393,7 +393,7 @@ static inline int is_repetition(position_t *pos) {
 }
 
 // quiescence search
-static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
+static inline int quiescence(position_t *pos, thread_t *thread, searchstack_t *ss, int alpha,
                              int beta) {
   // Check on time
   check_time(thread);
@@ -491,7 +491,7 @@ static inline int quiescence(position_t *pos, thread_t *thread, int alpha,
     prefetch_hash_entry(pos->hash_key);
 
     // score current move
-    score = -quiescence(pos, thread, -beta, -alpha);
+    score = -quiescence(pos, thread, ss, -beta, -alpha);
 
     // decrement ply
     pos->ply--;
@@ -592,7 +592,7 @@ static inline uint8_t is_material_draw(position_t *pos) {
 }
 
 // negamax alpha beta search
-static inline int negamax(position_t *pos, thread_t *thread, int alpha,
+static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss, int alpha,
                           int beta, int depth, uint8_t do_nmp,
                           uint8_t cutnode) {
   // init PV length
@@ -669,7 +669,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
                                         : __builtin_ctzll(pos->bitboards[k]),
                                     pos->side ^ 1);
 
-  int static_eval = in_check ? infinity : (tt_hit ? tt_score : evaluate(pos));
+  int static_eval = ss->static_eval = in_check ? infinity : (tt_hit ? tt_score : evaluate(pos));
 
   // Check on time
   check_time(thread);
@@ -682,7 +682,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
   // recursion escape condition
   if (depth == 0) {
     // run quiescence search
-    return quiescence(pos, thread, alpha, beta);
+    return quiescence(pos, thread, ss, alpha, beta);
   }
 
   // legal moves counter
@@ -735,7 +735,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
       /* search moves with reduced depth to find beta cutoffs
          depth - 1 - R where R is a reduction limit */
-      score = -negamax(pos, thread, -beta, -beta + 1, depth - R, 0, !cutnode);
+      score = -negamax(pos, thread, ss + 1, -beta, -beta + 1, depth - R, 0, !cutnode);
 
       // decrement ply
       pos->ply--;
@@ -761,7 +761,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
     if (!pv_node && depth <= RAZOR_DEPTH &&
         static_eval + RAZOR_MARGIN * depth < alpha) {
-      const int razor_score = quiescence(pos, thread, alpha, beta);
+      const int razor_score = quiescence(pos, thread, ss, alpha, beta);
       if (razor_score <= alpha) {
         return razor_score;
       }
@@ -813,7 +813,7 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
 
     // Futility Pruning
     if (!root_node && score > -mate_value && lmr_depth <= 5 && !in_check &&
-        quiet && static_eval + lmr_depth * 150 + 150 <= alpha) {
+        quiet && ss->static_eval + lmr_depth * 150 + 150 <= alpha) {
       continue;
     }
 
@@ -877,21 +877,21 @@ static inline int negamax(position_t *pos, thread_t *thread, int alpha,
     if (depth > 1 && legal_moves > 1) {
       R = clamp(R, 1, new_depth);
       int lmr_depth = new_depth - R + 1;
-      score = -negamax(pos, thread, -alpha - 1, -alpha, lmr_depth, 1, 1);
+      score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha, lmr_depth, 1, 1);
 
       if (score > alpha && R > 0) {
         score =
-            -negamax(pos, thread, -alpha - 1, -alpha, new_depth, 1, !cutnode);
+            -negamax(pos, thread, ss + 1, -alpha - 1, -alpha, new_depth, 1, !cutnode);
       }
     }
 
     else if (!pv_node || legal_moves > 1) {
-      score = -negamax(pos, thread, -alpha - 1, -alpha, new_depth, 1, !cutnode);
+      score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha, new_depth, 1, !cutnode);
     }
 
     if (pv_node &&
         (legal_moves == 1 || (score > alpha && (root_node || score < beta)))) {
-      score = -negamax(pos, thread, -beta, -alpha, new_depth, 1, 0);
+      score = -negamax(pos, thread, ss + 1, -beta, -alpha, new_depth, 1, 0);
     }
 
     // decrement ply
@@ -1032,6 +1032,8 @@ void *iterative_deepening(void *thread_void) {
       break;
     }
 
+    searchstack_t ss[max_ply + 4];
+
     pos->seldepth = 0;
 
     // enable follow PV flag
@@ -1049,7 +1051,7 @@ void *iterative_deepening(void *thread_void) {
     }
 
     // find best move within a given position
-    thread->score = negamax(pos, thread, alpha, beta, thread->depth, 1, 0);
+    thread->score = negamax(pos, thread, ss + 4, alpha, beta, thread->depth, 1, 0);
 
     // Reset aspiration window OK flag back to 1
     window_ok = 1;
