@@ -548,7 +548,7 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
         
         parse_position(pos, threads, input);
         init_accumulator(pos);
-        time_control(pos, threads, "go depth 16");
+        time_control(pos, threads, "go depth 15");
         search_position(pos, threads);
         total_nodes += threads->nodes;
       }
