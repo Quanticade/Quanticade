@@ -672,18 +672,6 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   int static_eval = ss->static_eval =
       in_check ? infinity : (tt_hit ? tt_score : evaluate(pos));
 
-  uint8_t improving = 0;
-
-  if (in_check) {
-    ss->static_eval = infinity;
-  } else if ((ss - 2)->static_eval != infinity) {
-    improving = ss->static_eval > (ss - 2)->static_eval;
-  } else if ((ss - 4)->static_eval != infinity) {
-    improving = ss->static_eval > (ss - 4)->static_eval;
-  } else {
-    improving = true;
-  }
-
   // Check on time
   check_time(thread);
 
@@ -819,7 +807,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     // Late Move Pruning
     if (!pv_node && !in_check && quiet &&
         legal_moves >
-            LMP_BASE + LMP_MULTIPLIER * depth * depth / (2 - improving)) {
+            LMP_BASE + LMP_MULTIPLIER * depth * depth) {
       skip_quiets = 1;
     }
 
