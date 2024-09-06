@@ -431,21 +431,14 @@ static inline int quiescence(position_t *pos, thread_t *thread,
   // evaluate position
   score = best_score = tt_hit ? tt_score : evaluate(pos);
 
-  // fail-hard beta cutoff
-  if (score >= beta) {
-    // node (position) fails high
+  alpha = MAX(alpha, score);
+  if (alpha >= beta) {
     return score;
-  }
-
-  // found a better move
-  if (score > alpha) {
-    // PV node (position)
-    alpha = score;
   }
 
   // Delta Pruning
-  if (150 < alpha - score) {
-    return score;
+  if (score + 900 < alpha) {
+    return alpha;
   }
 
   // create move list instance
