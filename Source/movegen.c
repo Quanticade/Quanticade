@@ -21,8 +21,7 @@ int make_move(position_t *pos, int move, int move_flag) {
   }
   // preserve board state
   copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-             pos->castle, pos->fifty, pos->hash_key, pos->mailbox,
-             pos->accumulator.accumulator);
+             pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
 
   // parse move
   int source_square = get_move_source(move);
@@ -259,8 +258,7 @@ int make_move(position_t *pos, int move, int move_flag) {
                          pos->side)) {
     // take move back
     restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                  pos->castle, pos->fifty, pos->hash_key, pos->mailbox,
-                  pos->accumulator.accumulator);
+                  pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
 
     // return illegal move
     return 0;
