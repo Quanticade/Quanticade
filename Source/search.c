@@ -443,6 +443,11 @@ static inline int quiescence(position_t *pos, thread_t *thread,
     alpha = score;
   }
 
+  // Delta Pruning
+  if (150 < alpha - score) {
+    return score;
+  }
+
   // create move list instance
   moves move_list[1];
 
