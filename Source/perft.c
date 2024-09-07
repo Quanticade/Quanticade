@@ -27,7 +27,8 @@ static inline void perft_driver(position_t *pos, thread_t *thread, int depth) {
   for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
     // preserve board state
     copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-               pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+               pos->castle, pos->fifty, pos->hash_key, pos->mailbox,
+               pos->accumulator.accumulator);
 
     // make move
     if (!make_move(pos, move_list->entry[move_count].move, all_moves))
@@ -39,7 +40,8 @@ static inline void perft_driver(position_t *pos, thread_t *thread, int depth) {
 
     // take back
     restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                  pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+                  pos->castle, pos->fifty, pos->hash_key, pos->mailbox,
+                  pos->accumulator.accumulator);
   }
 }
 
@@ -60,7 +62,8 @@ void perft_test(position_t *pos, thread_t *searchinfo, int depth) {
   for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
     // preserve board state
     copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-               pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+               pos->castle, pos->fifty, pos->hash_key, pos->mailbox,
+               pos->accumulator.accumulator);
 
     // make move
     if (!make_move(pos, move_list->entry[move_count].move, all_moves))
@@ -79,7 +82,8 @@ void perft_test(position_t *pos, thread_t *searchinfo, int depth) {
 
     // take back
     restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                  pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+                  pos->castle, pos->fifty, pos->hash_key, pos->mailbox,
+                  pos->accumulator.accumulator);
 
     // print move
     printf("     move: %s%s%c  nodes: %ld\n",

@@ -21,10 +21,9 @@ typedef struct nnue {
 extern nnue_t nnue;
 
 void nnue_init(const char *nnue_file_name);
-void init_accumulator(position_t *pos, accumulator_t *accumulator);
-int nnue_evaluate(accumulator_t *accumulator, uint8_t side);
-int nnue_eval_pos(position_t *pos, accumulator_t *accumulator);
-void accumulator_make_move(accumulator_t *accumulator, uint8_t side, int move,
-                           uint8_t *mailbox);
+void init_accumulator(position_t *pos);
+int nnue_evaluate(position_t *pos);
+int nnue_eval_pos(position_t *pos);
+void accumulator_make_move(position_t *pos, int move, uint8_t *mailbox);
 
 #endif

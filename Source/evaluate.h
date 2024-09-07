@@ -3,7 +3,7 @@
 
 #include "structs.h"
 
-int evaluate(position_t *pos, accumulator_t *accumulator);
+int evaluate(position_t *pos);
 void init_evaluation_masks(void);
 
 #endif

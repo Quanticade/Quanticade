@@ -4,8 +4,6 @@
 #include "bitboards.h"
 #include <stdint.h>
 
-#define max_ply 64
-
 typedef struct tt_entry {
   uint32_t hash_key; // "almost" unique chess position identifier
   int move;
@@ -33,11 +31,11 @@ typedef struct keys {
 } keys_t;
 
 typedef struct accumulator {
-  _Alignas(64) int16_t accumulator[2][2048]; // This is very cursed but for now
-                                             // lets have it this way
+  _Alignas(64) int16_t accumulator[2][2048]; //This is very cursed but for now lets have it this way
 } accumulator_t;
 
 typedef struct position {
+  accumulator_t accumulator;
   uint64_t bitboards[12];
   uint64_t occupancies[3];
   uint64_t hash_key;
@@ -61,7 +59,6 @@ typedef struct PV {
 } PV_t;
 
 typedef struct searchinfo {
-  accumulator_t accumulator[max_ply + 4];
   position_t pos;
   uint64_t nodes;
   uint64_t starttime;

@@ -119,10 +119,10 @@ static inline int16_t get_black_idx(uint8_t piece, uint8_t square) {
   return black_idx;
 }
 
-void init_accumulator(position_t *pos, accumulator_t *accumulator) {
+void init_accumulator(position_t *pos) {
   for (int i = 0; i < HIDDEN_SIZE; ++i) {
-    accumulator->accumulator[0][i] = nnue.feature_bias[i];
-    accumulator->accumulator[1][i] = nnue.feature_bias[i];
+    pos->accumulator.accumulator[0][i] = nnue.feature_bias[i];
+    pos->accumulator.accumulator[1][i] = nnue.feature_bias[i];
   }
 
   for (int piece = P; piece <= k; ++piece) {
@@ -134,11 +134,11 @@ void init_accumulator(position_t *pos, accumulator_t *accumulator) {
 
       // updates all the pieces in the accumulators
       for (int i = 0; i < HIDDEN_SIZE; ++i)
-        accumulator->accumulator[white][i] +=
+        pos->accumulator.accumulator[white][i] +=
             nnue.feature_weights[white_idx][i];
 
       for (int i = 0; i < HIDDEN_SIZE; ++i)
-        accumulator->accumulator[black][i] +=
+        pos->accumulator.accumulator[black][i] +=
             nnue.feature_weights[black_idx][i];
 
       pop_bit(bitboard, square);
@@ -146,10 +146,10 @@ void init_accumulator(position_t *pos, accumulator_t *accumulator) {
   }
 }
 
-int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
+int nnue_eval_pos(position_t *pos) {
   for (int i = 0; i < HIDDEN_SIZE; ++i) {
-    accumulator->accumulator[0][i] = nnue.feature_bias[i];
-    accumulator->accumulator[1][i] = nnue.feature_bias[i];
+    pos->accumulator.accumulator[0][i] = nnue.feature_bias[i];
+    pos->accumulator.accumulator[1][i] = nnue.feature_bias[i];
   }
 
   for (int piece = P; piece <= k; ++piece) {
@@ -161,11 +161,11 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
 
       // updates all the pieces in the accumulators
       for (int i = 0; i < HIDDEN_SIZE; ++i)
-        accumulator->accumulator[white][i] +=
+        pos->accumulator.accumulator[white][i] +=
             nnue.feature_weights[white_idx][i];
 
       for (int i = 0; i < HIDDEN_SIZE; ++i)
-        accumulator->accumulator[black][i] +=
+        pos->accumulator.accumulator[black][i] +=
             nnue.feature_weights[black_idx][i];
 
       pop_bit(bitboard, square);
@@ -175,11 +175,11 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
   int eval = 0;
   // feed everything forward to get the final value
   for (int i = 0; i < HIDDEN_SIZE; ++i)
-    eval += screlu(accumulator->accumulator[pos->side][i]) *
+    eval += screlu(pos->accumulator.accumulator[pos->side][i]) *
             nnue.output_weights[0][i];
 
   for (int i = 0; i < HIDDEN_SIZE; ++i)
-    eval += screlu(accumulator->accumulator[pos->side ^ 1][i]) *
+    eval += screlu(pos->accumulator.accumulator[pos->side ^ 1][i]) *
             nnue.output_weights[1][i];
 
   eval /= L1Q;
@@ -189,7 +189,7 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
   return eval;
 }
 
-int nnue_evaluate(accumulator_t *accumulator, uint8_t side) {
+int nnue_evaluate(position_t *pos) {
   int eval = 0;
 
 #if defined(USE_SIMD)
@@ -198,7 +198,7 @@ int nnue_evaluate(accumulator_t *accumulator, uint8_t side) {
 
   for (int i = 0; i < HIDDEN_SIZE; i += chunk_size) {
     const vepi16 accumulator_data =
-        load_epi16(&accumulator->accumulator[side][i]);
+        load_epi16(&pos->accumulator.accumulator[pos->side][i]);
     const vepi16 weights = load_epi16(&nnue.output_weights[0][i]);
 
     const vepi16 clipped_accumulator = clip(accumulator_data, L1Q);
@@ -212,7 +212,7 @@ int nnue_evaluate(accumulator_t *accumulator, uint8_t side) {
 
   for (int i = 0; i < HIDDEN_SIZE; i += chunk_size) {
     const vepi16 accumulator_data =
-        load_epi16(&accumulator->accumulator[side ^ 1][i]);
+        load_epi16(&pos->accumulator.accumulator[pos->side ^ 1][i]);
     const vepi16 weights = load_epi16(&nnue.output_weights[1][i]);
 
     const vepi16 clipped_accumulator = clip(accumulator_data, L1Q);
@@ -228,11 +228,11 @@ int nnue_evaluate(accumulator_t *accumulator, uint8_t side) {
 #else
   // feed everything forward to get the final value
   for (int i = 0; i < HIDDEN_SIZE; ++i)
-    eval += screlu(accumulator->accumulator[side][i]) *
+    eval += screlu(pos->accumulator.accumulator[pos->side][i]) *
             nnue.output_weights[0][i];
 
   for (int i = 0; i < HIDDEN_SIZE; ++i)
-    eval += screlu(accumulator->accumulator[side ^ 1][i]) *
+    eval += screlu(pos->accumulator.accumulator[pos->side ^ 1][i]) *
             nnue.output_weights[1][i];
 #endif
   eval /= L1Q;
@@ -242,30 +242,30 @@ int nnue_evaluate(accumulator_t *accumulator, uint8_t side) {
   return eval;
 }
 
-static inline void accumulator_addsub(accumulator_t *accumulator,
-                                      uint8_t piece1, uint8_t piece2,
-                                      uint8_t from1, uint8_t to2) {
+static inline void accumulator_addsub(position_t *pos, uint8_t piece1,
+                                      uint8_t piece2, uint8_t from1,
+                                      uint8_t to2) {
   size_t white_idx_from = get_white_idx(piece1, from1);
   size_t black_idx_from = get_black_idx(piece1, from1);
   size_t white_idx_to = get_white_idx(piece2, to2);
   size_t black_idx_to = get_black_idx(piece2, to2);
 
   for (int i = 0; i < HIDDEN_SIZE; ++i) {
-    accumulator->accumulator[white][i] =
-        accumulator->accumulator[white][i] -
+    pos->accumulator.accumulator[white][i] =
+        pos->accumulator.accumulator[white][i] -
         nnue.feature_weights[white_idx_from][i] +
         nnue.feature_weights[white_idx_to][i];
-    accumulator->accumulator[black][i] =
-        accumulator->accumulator[black][i] -
+    pos->accumulator.accumulator[black][i] =
+        pos->accumulator.accumulator[black][i] -
         nnue.feature_weights[black_idx_from][i] +
         nnue.feature_weights[black_idx_to][i];
   }
 }
 
-static inline void accumulator_addsubsub(accumulator_t *accumulator,
-                                         uint8_t piece1, uint8_t piece2,
-                                         uint8_t piece3, uint8_t from1,
-                                         uint8_t from2, uint8_t to3) {
+static inline void accumulator_addsubsub(position_t *pos, uint8_t piece1,
+                                         uint8_t piece2, uint8_t piece3,
+                                         uint8_t from1, uint8_t from2,
+                                         uint8_t to3) {
   size_t white_idx_from1 = get_white_idx(piece1, from1);
   size_t black_idx_from1 = get_black_idx(piece1, from1);
   size_t white_idx_from2 = get_white_idx(piece2, from2);
@@ -274,24 +274,24 @@ static inline void accumulator_addsubsub(accumulator_t *accumulator,
   size_t black_idx_to = get_black_idx(piece3, to3);
 
   for (int i = 0; i < HIDDEN_SIZE; ++i) {
-    accumulator->accumulator[white][i] =
-        accumulator->accumulator[white][i] -
+    pos->accumulator.accumulator[white][i] =
+        pos->accumulator.accumulator[white][i] -
         nnue.feature_weights[white_idx_from1][i] -
         nnue.feature_weights[white_idx_from2][i] +
         nnue.feature_weights[white_idx_to][i];
-    accumulator->accumulator[black][i] =
-        accumulator->accumulator[black][i] -
+    pos->accumulator.accumulator[black][i] =
+        pos->accumulator.accumulator[black][i] -
         nnue.feature_weights[black_idx_from1][i] -
         nnue.feature_weights[black_idx_from2][i] +
         nnue.feature_weights[black_idx_to][i];
   }
 }
 
-static inline void accumulator_addaddsubsub(accumulator_t *accumulator,
-                                            uint8_t piece1, uint8_t piece2,
-                                            uint8_t piece3, uint8_t piece4,
-                                            uint8_t from1, uint8_t from2,
-                                            uint8_t to3, uint8_t to4) {
+static inline void accumulator_addaddsubsub(position_t *pos, uint8_t piece1,
+                                            uint8_t piece2, uint8_t piece3,
+                                            uint8_t piece4, uint8_t from1,
+                                            uint8_t from2, uint8_t to3,
+                                            uint8_t to4) {
   size_t white_idx_from1 = get_white_idx(piece1, from1);
   size_t black_idx_from1 = get_black_idx(piece1, from1);
   size_t white_idx_from2 = get_white_idx(piece2, from2);
@@ -302,14 +302,14 @@ static inline void accumulator_addaddsubsub(accumulator_t *accumulator,
   size_t black_idx_to2 = get_black_idx(piece4, to4);
 
   for (int i = 0; i < HIDDEN_SIZE; ++i) {
-    accumulator->accumulator[white][i] =
-        accumulator->accumulator[white][i] -
+    pos->accumulator.accumulator[white][i] =
+        pos->accumulator.accumulator[white][i] -
         nnue.feature_weights[white_idx_from1][i] -
         nnue.feature_weights[white_idx_from2][i] +
         nnue.feature_weights[white_idx_to1][i] +
         nnue.feature_weights[white_idx_to2][i];
-    accumulator->accumulator[black][i] =
-        accumulator->accumulator[black][i] -
+    pos->accumulator.accumulator[black][i] =
+        pos->accumulator.accumulator[black][i] -
         nnue.feature_weights[black_idx_from1][i] -
         nnue.feature_weights[black_idx_from2][i] +
         nnue.feature_weights[black_idx_to1][i] +
@@ -317,8 +317,7 @@ static inline void accumulator_addaddsubsub(accumulator_t *accumulator,
   }
 }
 
-void accumulator_make_move(accumulator_t *accumulator, uint8_t side, int move,
-                           uint8_t *mailbox) {
+void accumulator_make_move(position_t *pos, int move, uint8_t *mailbox) {
   int from = get_move_source(move);
   int to = get_move_target(move);
   int moving_piece = get_move_piece(move);
@@ -328,27 +327,27 @@ void accumulator_make_move(accumulator_t *accumulator, uint8_t side, int move,
   int castling = get_move_castling(move);
 
   if (promoted_piece) {
-    uint8_t pawn = side == 0 ? p : P;
+    uint8_t pawn = pos->side == 0 ? p : P;
     if (capture) {
       uint8_t captured_piece = mailbox[to];
-      accumulator_addsubsub(accumulator, pawn, captured_piece, promoted_piece,
-                            from, to, to);
+      accumulator_addsubsub(pos, pawn, captured_piece, promoted_piece, from, to,
+                            to);
     } else {
-      accumulator_addsub(accumulator, pawn, promoted_piece, from, to);
+      accumulator_addsub(pos, pawn, promoted_piece, from, to);
     }
   }
 
   else if (enpass) {
-    uint8_t remove_square = to + ((side == white) ? -8 : 8);
+    uint8_t remove_square = to + ((pos->side == white) ? -8 : 8);
     uint8_t captured_piece = mailbox[remove_square];
-    accumulator_addsubsub(accumulator, captured_piece, moving_piece,
-                          moving_piece, remove_square, from, to);
+    accumulator_addsubsub(pos, captured_piece, moving_piece, moving_piece,
+                          remove_square, from, to);
   }
 
   else if (capture) {
     uint8_t captured_piece = mailbox[to];
-    accumulator_addsubsub(accumulator, captured_piece, moving_piece,
-                          moving_piece, to, from, to);
+    accumulator_addsubsub(pos, captured_piece, moving_piece, moving_piece, to,
+                          from, to);
   }
 
   else if (castling) {
@@ -357,32 +356,32 @@ void accumulator_make_move(accumulator_t *accumulator, uint8_t side, int move,
     // white castles king side
     case (g1):
       // move H rook
-      accumulator_addaddsubsub(accumulator, R, moving_piece, R, moving_piece,
-                               h1, from, f1, to);
+      accumulator_addaddsubsub(pos, R, moving_piece, R, moving_piece, h1, from,
+                               f1, to);
       break;
 
     // white castles queen side
     case (c1):
       // move A rook
-      accumulator_addaddsubsub(accumulator, R, moving_piece, R, moving_piece,
-                               a1, from, d1, to);
+      accumulator_addaddsubsub(pos, R, moving_piece, R, moving_piece, a1, from,
+                               d1, to);
       break;
 
     // black castles king side
     case (g8):
       // move H rook
-      accumulator_addaddsubsub(accumulator, r, moving_piece, r, moving_piece,
-                               h8, from, f8, to);
+      accumulator_addaddsubsub(pos, r, moving_piece, r, moving_piece, h8, from,
+                               f8, to);
       break;
 
     // black castles queen side
     case (c8):
       // move A rook
-      accumulator_addaddsubsub(accumulator, r, moving_piece, r, moving_piece,
-                               a8, from, d8, to);
+      accumulator_addaddsubsub(pos, r, moving_piece, r, moving_piece, a8, from,
+                               d8, to);
       break;
     }
   } else {
-    accumulator_addsub(accumulator, moving_piece, moving_piece, from, to);
+    accumulator_addsub(pos, moving_piece, moving_piece, from, to);
   }
 }

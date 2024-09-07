@@ -225,7 +225,7 @@ static inline int get_game_phase_score(position_t *pos) {
   return white_piece_scores + black_piece_scores;
 }
 
-int evaluate(position_t *pos, accumulator_t *accumulator) {
+int evaluate(position_t *pos) {
   // get game phase score
   int game_phase_score = get_game_phase_score(pos);
 
@@ -544,7 +544,7 @@ int evaluate(position_t *pos, accumulator_t *accumulator) {
   }
 
   if (nnue_settings.use_nnue) {
-    int eval = nnue_evaluate(accumulator, pos->side);
+    int eval = nnue_evaluate(pos);
 
     int phase = 3 * popcount(pos->bitboards[n] | pos->bitboards[N]) +
                 3 * popcount(pos->bitboards[b] | pos->bitboards[B]) +
