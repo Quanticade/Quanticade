@@ -340,13 +340,8 @@ static inline void score_move(position_t *pos, thread_t *thread,
   // score quiet move
   else {
     // score 1st killer move
-    if (thread->killer_moves[0][pos->ply] == move) {
+    if (thread->killer_moves[pos->ply] == move) {
       move_entry->score = 900000000;
-    }
-
-    // score 2nd killer move
-    else if (thread->killer_moves[1][pos->ply] == move) {
-      move_entry->score = 800000000;
     }
 
     // score history move
@@ -984,10 +979,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
           // on quiet moves
           if (quiet) {
             update_all_history_moves(thread, quiet_list, best_move, depth);
-            // store killer moves
-            thread->killer_moves[1][pos->ply] =
-                thread->killer_moves[0][pos->ply];
-            thread->killer_moves[0][pos->ply] = move;
+            thread->killer_moves[pos->ply] = move;
           }
 
           // node (position) fails high
