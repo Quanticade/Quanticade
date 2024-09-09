@@ -586,6 +586,13 @@ static inline uint8_t is_material_draw(position_t *pos) {
   return 0;
 }
 
+static inline uint8_t only_pawns(position_t *pos) {
+  return !((pos->bitboards[N] | pos->bitboards[n] | pos->bitboards[B] |
+            pos->bitboards[b] | pos->bitboards[R] | pos->bitboards[r] |
+            pos->bitboards[Q] | pos->bitboards[q]) &
+           pos->occupancies[pos->side]);
+}
+
 // negamax alpha beta search
 static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
                           int alpha, int beta, int depth, uint8_t do_nmp,
@@ -700,8 +707,9 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     }
 
     // null move pruning
-    if (do_nmp && !pv_node && static_eval >= beta) {
-      int R = MIN((static_eval - beta) / 200, 6) + depth / NMP_DIVISER + NMP_BASE_REDUCTION;
+    if (do_nmp && !pv_node && static_eval >= beta && !only_pawns(pos)) {
+      int R = MIN((static_eval - beta) / 200, 6) + depth / NMP_DIVISER +
+              NMP_BASE_REDUCTION;
       R = MIN(R, depth);
       // preserve board state
       copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
