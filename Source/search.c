@@ -701,7 +701,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     // null move pruning
     if (do_nmp && !pv_node && static_eval >= beta) {
-      int R = NMP_BASE_REDUCTION + depth / NMP_DIVISER;
+      int R = MIN((static_eval - beta) / 200, 6) + depth / NMP_DIVISER + NMP_BASE_REDUCTION;
       R = MIN(R, depth);
       // preserve board state
       copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
