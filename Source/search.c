@@ -332,7 +332,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
     // score move by MVV LVA lookup [source piece][target piece]
     move_entry->score = mvv_lva[get_move_piece(move)][target_piece];
     move_entry->score +=
-        SEE(pos, move, -MO_SEE_THRESHOLD) ? 1000000000 : -1000000;
+        SEE(pos, move, MO_SEE_THRESHOLD) ? 1000000000 : -1000000;
     move_entry->score += promoted_bonus;
     return;
   }
