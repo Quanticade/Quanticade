@@ -93,7 +93,6 @@ typedef struct searchstack {
 } searchstack_t;
 
 typedef struct nnue_settings {
-  uint8_t use_nnue;
   char *nnue_file;
 } nnue_settings_t;
 

@@ -14,9 +14,9 @@
 
 #include "attacks.h"
 #include "enums.h"
-#include "transposition.h"
 #include "structs.h"
 #include "threads.h"
+#include "transposition.h"
 #include "uci.h"
 
 position_t pos;
@@ -106,15 +106,10 @@ void init_all(void) {
   // init random keys for hashing purposes
   init_random_keys();
 
-  // init evaluation masks
-  init_evaluation_masks();
-
   // init hash table with default size
   init_hash_table(default_hash_size);
 
-  if (nnue_settings.use_nnue) {
-    nnue_init("nn.nnue");
-  }
+  nnue_init("nn.nnue");
 }
 
 /**********************************\
@@ -130,7 +125,6 @@ int main(int argc, char *argv[]) {
   pos.enpassant = no_sq;
   limits.movestogo = 30;
   limits.time = -1;
-  nnue_settings.use_nnue = 1;
   random_state = 1804289383;
   tt.hash_entry = NULL;
   tt.num_of_entries = 0;

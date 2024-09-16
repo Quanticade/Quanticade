@@ -545,7 +545,7 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
         memset(threads, 0, sizeof(thread_t));
         printf("\nPosition %d/%d (%s)\n", pos_index, 49,
                bench_positions[pos_index]);
-        
+
         parse_position(pos, threads, input);
         init_accumulator(pos);
         time_control(pos, threads, "go depth 15");
@@ -600,10 +600,7 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
     // parse UCI "go" command
     else if (strncmp(input, "go", 2) == 0) {
       // call parse go function
-      if (nnue_settings.use_nnue) {
-        printf("info string NNUE evaluation using %s\n",
-               nnue_settings.nnue_file);
-      }
+      printf("info string NNUE evaluation using %s\n", nnue_settings.nnue_file);
       strncpy(sti.line, input, 10000);
       pthread_create(&search_thread, NULL, &parse_go, &sti);
     }
@@ -626,7 +623,6 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
              default_hash_size, max_hash);
       printf("option name Threads type spin default %d min %d max %d\n", 1, 1,
              256);
-      printf("option name Use NNUE type check default true\n");
       printf("option name EvalFile type string default %s\n",
              nnue_settings.nnue_file);
       printf("option name Clear Hash type button\n");
@@ -730,19 +726,6 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
       // set hash table size in MB
       printf("    Set hash table size to %dMB\n", mb);
       init_hash_table(mb);
-    }
-
-    else if (!strncmp(input, "setoption name Use NNUE value ", 30)) {
-      char *use_nnue;
-      uint16_t length = strlen(input);
-      use_nnue = calloc(length - 30, 1);
-      sscanf(input, "%*s %*s %*s %*s %s", use_nnue);
-
-      if (strncmp(use_nnue, "true", 4) == 0) {
-        nnue_settings.use_nnue = 1;
-      } else {
-        nnue_settings.use_nnue = 0;
-      }
     }
 
     else if (!strncmp(input, "setoption name Threads value ", 29)) {
