@@ -854,7 +854,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
       // No move beat tt score so we extend the search
       if (s_score < s_beta) {
-        extensions += 1 + (!pv_node && s_score < s_beta);
+        extensions += 1 + (!pv_node && s_score < s_beta - 100);
       }
 
       // Multicut: Singular search failed high so if singular beta beats our
