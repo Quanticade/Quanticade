@@ -6,7 +6,9 @@ Quanticade is a decent uci command-line chess engine written in C in development
 
 ## Playing Strength
 
-Quanticade Aurora is currently 3467 CCRL Blitz.
+Quanticade Aurora is currently ~3461 CCRL Blitz.
+
+Development version estimated to be ~3500
 
 ## History
 
@@ -17,7 +19,6 @@ While some of the code still remains, nearly all parts of original engine have b
 
 * **Hash** (int) Sets the size of hash table in MB
 * **Threads** (int) Sets the number of threads to search with
-* **Use NNUE** (bool) Enables or disables the usage of NNUE
 * **EvalFile** (string) Path to the NNUE network
 * **ClearHash** (button) Clears the hash table
 
