@@ -965,6 +965,10 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
         // PV node (position)
         alpha = score;
 
+        for (int i = 0; i < max_ply; ++i) {
+          thread->pv.pv_table[pos->ply][i] = 0;
+        }
+
         // write PV move
         thread->pv.pv_table[pos->ply][pos->ply] = move;
 
