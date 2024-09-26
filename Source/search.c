@@ -1089,6 +1089,10 @@ void *iterative_deepening(void *thread_void) {
     thread->score =
         negamax(pos, thread, ss + 4, alpha, beta, thread->depth, 1, 0);
 
+    if (thread->stopped == 1) {
+      return NULL;
+    }
+
     // We hit an apspiration window cut-off before time ran out and we jumped
     // to another depth with wider search which we didnt finish
     if (thread->score == infinity) {
