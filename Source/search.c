@@ -678,11 +678,6 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   // Check on time
   check_time(thread);
 
-  // increase search depth if the king has been exposed into a check
-  if (in_check) {
-    depth++;
-  }
-
   // recursion escape condition
   if (depth == 0) {
     // run quiescence search
@@ -835,6 +830,10 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       continue;
 
     int extensions = 0;
+
+    if (in_check) {
+      extensions++;
+    }
 
     // Singular Extensions
     // A rather simple idea that if our TT move is accurate we run a reduced
