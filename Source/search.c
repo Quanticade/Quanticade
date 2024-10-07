@@ -1139,6 +1139,7 @@ void search_position(position_t *pos, thread_t *threads) {
     threads[i].pv.score_pv = 0;
     memset(threads[i].killer_moves, 0, sizeof(threads[i].killer_moves));
     memcpy(&threads[i].pos, pos, sizeof(position_t));
+    init_accumulator(pos, threads[i].accumulator);
   }
 
   // clear helper data structures for search
