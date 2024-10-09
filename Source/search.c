@@ -827,7 +827,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     int lmr_depth = MAX(1, depth - 1 - MAX(r, 1));
 
     // Futility Pruning
-    if (!root_node && score > -mate_value && lmr_depth <= 5 && !in_check &&
+    if (!root_node && score > -mate_score && lmr_depth <= 5 && !in_check &&
         quiet && ss->static_eval + lmr_depth * 150 + 150 <= alpha) {
       continue;
     }
