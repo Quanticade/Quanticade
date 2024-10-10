@@ -1065,10 +1065,6 @@ void *iterative_deepening(void *thread_void) {
   int pv_table_copy[max_ply][max_ply];
   int pv_length_copy[max_ply];
 
-  // define initial alpha beta bounds
-  int alpha = -infinity;
-  int beta = infinity;
-
   // iterative deepening
   for (thread->depth = 1; thread->depth <= limits.depth; thread->depth++) {
     // if time is up
@@ -1076,6 +1072,10 @@ void *iterative_deepening(void *thread_void) {
       // stop calculating and return best move so far
       break;
     }
+
+    // define initial alpha beta bounds
+    int alpha = -infinity;
+    int beta = infinity;
 
     searchstack_t ss[max_ply + 4];
     for (int i = 0; i < max_ply + 4; ++i) {
@@ -1087,6 +1087,8 @@ void *iterative_deepening(void *thread_void) {
 
     int window = 9;
 
+    int fail_high_count = 0;
+
     while (true) {
 
       // enable follow PV flag
@@ -1096,8 +1098,8 @@ void *iterative_deepening(void *thread_void) {
              sizeof(thread->pv.pv_length));
 
       // find best move within a given position
-      thread->score =
-          negamax(pos, thread, ss + 4, alpha, beta, thread->depth, 1, 0);
+      thread->score = negamax(pos, thread, ss + 4, alpha, beta,
+                              thread->depth - fail_high_count, 1, 0);
 
       // We hit an apspiration window cut-off before time ran out and we jumped
       // to another depth with wider search which we didnt finish
@@ -1114,15 +1116,24 @@ void *iterative_deepening(void *thread_void) {
         beta = (alpha + beta) / 2;
 
         alpha = MAX(-infinity, alpha - window);
+        fail_high_count = 0;
       }
 
       else if (thread->score >= beta) {
         MIN(infinity, beta + window);
+
+        if (alpha < 2000 && fail_high_count < 2) {
+          ++fail_high_count;
+        }
       } else {
         break;
       }
 
       window *= 1.55f;
+    }
+
+    if (thread->stopped) {
+      return NULL;
     }
 
     if (thread->index == 0) {
