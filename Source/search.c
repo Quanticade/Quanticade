@@ -1091,6 +1091,11 @@ void *iterative_deepening(void *thread_void) {
 
     while (true) {
 
+      if (thread->depth >= 4) {
+        alpha = MAX(-infinity, thread->score - window);
+        beta = MIN(infinity, thread->score + window);
+      }
+
       // enable follow PV flag
       thread->pv.follow_pv = 1;
       memcpy(pv_table_copy, thread->pv.pv_table, sizeof(thread->pv.pv_table));
@@ -1120,7 +1125,7 @@ void *iterative_deepening(void *thread_void) {
       }
 
       else if (thread->score >= beta) {
-        MIN(infinity, beta + window);
+        beta = MIN(infinity, beta + window);
 
         if (alpha < 2000 && fail_high_count < 2) {
           ++fail_high_count;
