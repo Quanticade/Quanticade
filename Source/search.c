@@ -1085,35 +1085,46 @@ void *iterative_deepening(void *thread_void) {
 
     pos->seldepth = 0;
 
-    // enable follow PV flag
-    thread->pv.follow_pv = 1;
-    memcpy(pv_table_copy, thread->pv.pv_table, sizeof(thread->pv.pv_table));
-    memcpy(pv_length_copy, thread->pv.pv_length, sizeof(thread->pv.pv_length));
+    int window = 9;
 
-    // find best move within a given position
-    thread->score =
-        negamax(pos, thread, ss + 4, alpha, beta, thread->depth, 1, 0);
+    while (true) {
 
-    // We hit an apspiration window cut-off before time ran out and we jumped
-    // to another depth with wider search which we didnt finish
-    if (thread->score == infinity) {
-      // Restore the saved best line
-      memcpy(thread->pv.pv_table, pv_table_copy, sizeof(pv_table_copy));
-      memcpy(thread->pv.pv_length, pv_length_copy, sizeof(pv_length_copy));
-      // Break out of the loop without printing info about the unfinished
-      // depth
-      break;
+      // enable follow PV flag
+      thread->pv.follow_pv = 1;
+      memcpy(pv_table_copy, thread->pv.pv_table, sizeof(thread->pv.pv_table));
+      memcpy(pv_length_copy, thread->pv.pv_length,
+             sizeof(thread->pv.pv_length));
+
+      // find best move within a given position
+      thread->score =
+          negamax(pos, thread, ss + 4, alpha, beta, thread->depth, 1, 0);
+
+      // We hit an apspiration window cut-off before time ran out and we jumped
+      // to another depth with wider search which we didnt finish
+      if (thread->score == infinity) {
+        // Restore the saved best line
+        memcpy(thread->pv.pv_table, pv_table_copy, sizeof(pv_table_copy));
+        memcpy(thread->pv.pv_length, pv_length_copy, sizeof(pv_length_copy));
+        // Break out of the loop without printing info about the unfinished
+        // depth
+        return NULL;
+      }
+
+      if (thread->score <= alpha) {
+        beta = (alpha + beta) / 2;
+
+        alpha = MAX(-infinity, alpha - window);
+      }
+
+      else if (thread->score >= beta) {
+        MIN(infinity, beta + window);
+      } else {
+        break;
+      }
+
+      window *= 1.55f;
     }
 
-    // we fell outside the window, so try again with a full-width window (and
-    // the same depth)
-    if ((thread->score <= alpha) || (thread->score >= beta)) {
-      // Do a full window re-search
-      alpha = -infinity;
-      beta = infinity;
-      thread->depth--;
-      continue;
-    }
     if (thread->index == 0) {
       // if PV is available
       if (thread->pv.pv_length[0]) {
@@ -1121,10 +1132,6 @@ void *iterative_deepening(void *thread_void) {
         print_thinking(thread, thread->score, thread->depth);
       }
     }
-
-    // set up the window for the next iteration
-    alpha = thread->score - 50;
-    beta = thread->score + 50;
   }
   return NULL;
 }
