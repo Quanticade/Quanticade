@@ -33,6 +33,9 @@ int RAZOR_DEPTH = 7;
 int RAZOR_MARGIN = 288;
 int RFP_DEPTH = 6;
 int RFP_MARGIN = 101;
+int FP_DEPTH = 5;
+int FP_MULTIPLIER = 150;
+int FP_ADDITION = 150;
 int NMP_BASE_REDUCTION = 4;
 int NMP_DIVISER = 3;
 int NMP_DEPTH = 1;
@@ -40,8 +43,12 @@ int IIR_DEPTH = 4;
 int SEE_QUIET = 66;
 int SEE_CAPTURE = 33;
 int SEE_DEPTH = 10;
+int SE_DEPTH = 7;
+int SE_DEPTH_REDUCTION = 3;
+int ASP_WINDOW = 9;
 int QS_SEE_THRESHOLD = 7;
 int MO_SEE_THRESHOLD = 107;
+double ASP_MULTIPLIER = 1.55;
 double LMR_OFFSET = 0.5137;
 double LMR_DIVISOR = 1.711;
 
@@ -827,8 +834,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     int lmr_depth = MAX(1, depth - 1 - MAX(r, 1));
 
     // Futility Pruning
-    if (!root_node && score > -mate_score && lmr_depth <= 5 && !in_check &&
-        quiet && ss->static_eval + lmr_depth * 150 + 150 <= alpha) {
+    if (!root_node && score > -mate_score && lmr_depth <= FP_DEPTH && !in_check &&
+        quiet && ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION <= alpha) {
       continue;
     }
 
@@ -844,8 +851,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     // A rather simple idea that if our TT move is accurate we run a reduced
     // search to see if we can beat this score. If not we extend the TT move
     // search
-    if (!root_node && depth >= 7 && move == tt_move && !ss->excluded_move &&
-        tt_depth >= depth - 3 && tt_flag != hash_flag_alpha &&
+    if (!root_node && depth >= SE_DEPTH && move == tt_move && !ss->excluded_move &&
+        tt_depth >= depth - SE_DEPTH_REDUCTION && tt_flag != hash_flag_alpha &&
         abs(tt_score) < mate_score) {
       const int s_beta = tt_score - depth;
       const int s_depth = (depth - 1) / 2;
@@ -1085,7 +1092,7 @@ void *iterative_deepening(void *thread_void) {
 
     pos->seldepth = 0;
 
-    int window = 9;
+    int window = ASP_WINDOW;
 
     int fail_high_count = 0;
 
@@ -1134,7 +1141,7 @@ void *iterative_deepening(void *thread_void) {
         break;
       }
 
-      window *= 1.55f;
+      window *= ASP_MULTIPLIER;
     }
 
     if (thread->stopped) {
