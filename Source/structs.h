@@ -4,7 +4,7 @@
 #include "bitboards.h"
 #include <stdint.h>
 
-#define max_ply 64
+#define max_ply 254
 
 typedef struct tt_entry {
   uint32_t hash_key; // "almost" unique chess position identifier
