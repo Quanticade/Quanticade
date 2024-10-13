@@ -47,6 +47,8 @@ int SE_DEPTH_REDUCTION = 3;
 int ASP_WINDOW = 9;
 int QS_SEE_THRESHOLD = 7;
 int MO_SEE_THRESHOLD = 107;
+int HISTORY_BONUS_MAX = 1200;
+int HISTORY_MAX = 8192;
 double ASP_MULTIPLIER = 1.55;
 double LMR_OFFSET = 0.5137;
 double LMR_DIVISOR = 1.711;
@@ -546,10 +548,11 @@ static inline void update_history_move(thread_t *thread, int move,
   int piece = get_move_piece(move);
   int target = get_move_target(move);
   int bonus = 16 * depth * depth + 32 * depth + 16;
-  int clamped_bonus = clamp(is_best_move ? bonus : -bonus, -1200, 1200);
+  int clamped_bonus = clamp(is_best_move ? bonus : -bonus, -HISTORY_BONUS_MAX,
+                            HISTORY_BONUS_MAX);
   thread->history_moves[piece][target] +=
       clamped_bonus -
-      thread->history_moves[piece][target] * abs(clamped_bonus) / 8192;
+      thread->history_moves[piece][target] * abs(clamped_bonus) / HISTORY_MAX;
 }
 
 static inline void update_all_history_moves(thread_t *thread,
@@ -833,8 +836,9 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     int lmr_depth = MAX(1, depth - 1 - MAX(r, 1));
 
     // Futility Pruning
-    if (!root_node && score > -mate_score && lmr_depth <= FP_DEPTH && !in_check &&
-        quiet && ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION <= alpha) {
+    if (!root_node && score > -mate_score && lmr_depth <= FP_DEPTH &&
+        !in_check && quiet &&
+        ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION <= alpha) {
       continue;
     }
 
@@ -850,9 +854,9 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     // A rather simple idea that if our TT move is accurate we run a reduced
     // search to see if we can beat this score. If not we extend the TT move
     // search
-    if (!root_node && depth >= SE_DEPTH && move == tt_move && !ss->excluded_move &&
-        tt_depth >= depth - SE_DEPTH_REDUCTION && tt_flag != hash_flag_alpha &&
-        abs(tt_score) < mate_score) {
+    if (!root_node && depth >= SE_DEPTH && move == tt_move &&
+        !ss->excluded_move && tt_depth >= depth - SE_DEPTH_REDUCTION &&
+        tt_flag != hash_flag_alpha && abs(tt_score) < mate_score) {
       const int s_beta = tt_score - depth;
       const int s_depth = (depth - 1) / 2;
 
@@ -921,7 +925,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     const int new_depth = depth + extensions - 1;
 
     int R = lmr[MIN(63, depth)][MIN(63, legal_moves)] + (pv_node ? 0 : 1);
-    R -= (quiet ? history_score / 8192 : 0);
+    R -= (quiet ? history_score / HISTORY_MAX : 0);
     R -= in_check;
     R += cutnode;
 
