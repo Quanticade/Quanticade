@@ -48,7 +48,11 @@ extern int SE_DEPTH_REDUCTION;
 extern int ASP_WINDOW;
 extern int QS_SEE_THRESHOLD;
 extern int MO_SEE_THRESHOLD;
+extern int HISTORY_BONUS_MAX;
+extern int HISTORY_MAX;
 extern double ASP_MULTIPLIER;
+extern double LMR_OFFSET;
+extern double LMR_DIVISOR;
 
 extern int SEEPieceValues[];
 
@@ -632,7 +636,7 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
       printf("option name EvalFile type string default %s\n",
              nnue_settings.nnue_file);
       printf("option name Clear Hash type button\n");
-      //SPSA
+      // SPSA
       printf("option name LMP_BASE type spin default 6 min 1 max 12\n");
       printf("option name LMP_MULTIPLIER type spin default 1 min 1 max 4\n");
       printf("option name RAZOR_DEPTH type spin default 7 min 1 max 14\n");
@@ -650,18 +654,23 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
       printf("option name SEE_CAPTURE type spin default 33 min 1 max 64\n");
       printf("option name SEE_DEPTH type spin default 10 min 1 max 20\n");
       printf("option name SE_DEPTH type spin default 7 min 1 max 14\n");
-      printf("option name SE_DEPTH_REDUCTION type spin default 3 min 1 max 6\n");
+      printf(
+          "option name SE_DEPTH_REDUCTION type spin default 3 min 1 max 6\n");
+      printf("option name HISTORY_BONUS_MAX type spin default 1200 min 1 max "
+             "2400\n");
       printf("option name ASP_WINDOW type spin default 9 min 1 max 18\n");
-      printf("option name ASP_MULTIPLIER type spin default 1.55 min 1 max 3.1\n");
+      printf("option name ASP_MULTIPLIER type string default 1.55\n");
+      printf("option name LMR_OFFSET type string default 0.5137\n");
+      printf("option name LMR_DIVISOR type string default 1.711\n");
       printf("option name QS_SEE_THRESHOLD type spin default 7 min 1 max 14\n");
       printf(
           "option name MO_SEE_THRESHOLD type spin default 107 min 1 max 214\n");
       printf("option name SEE_PAWN type spin default 100 min 1 max 200\n");
-      printf("option name SEE_KNIGHT type spin default 300 min 1 max 600\n");
-      printf("option name SEE_BISHOP type spin default 300 min 1 max 600\n");
-      printf("option name SEE_ROOK type spin default 500 min 1 max 1000\n");
-      printf("option name SEE_QUEEN type spin default 1200 min 1 max 2400\n");
-      //uciok
+      printf("option name SEE_KNIGHT type spin default 292 min 1 max 600\n");
+      printf("option name SEE_BISHOP type spin default 290 min 1 max 600\n");
+      printf("option name SEE_ROOK type spin default 504 min 1 max 1000\n");
+      printf("option name SEE_QUEEN type spin default 1176 min 1 max 2400\n");
+      // uciok
       printf("uciok\n");
     } else if (strncmp(input, "spsa", 4) == 0) {
       printf("LMP_BASE, int, %.3f, 1.000, %.3f, %.3f, 0.002\n", (float)LMP_BASE,
@@ -721,12 +730,20 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
       printf("SE_DEPTH_REDUCTION, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
              (float)SE_DEPTH_REDUCTION, (float)SE_DEPTH_REDUCTION * 2,
              MAX(0.5, MAX(1, (((float)SE_DEPTH_REDUCTION * 2) - 1)) / 20));
+      printf("HISTORY_BONUS_MAX, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
+             (float)HISTORY_BONUS_MAX, (float)HISTORY_BONUS_MAX * 2,
+             MAX(0.5, MAX(1, (((float)HISTORY_BONUS_MAX * 2) - 1)) / 20));
       printf("ASP_WINDOW, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
              (float)ASP_WINDOW, (float)ASP_WINDOW * 2,
              MAX(0.5, MAX(1, (((float)ASP_WINDOW * 2) - 1)) / 20));
       printf("ASP_MULTIPLIER, float, %.3f, 1.000, %.3f, %.3f, 0.002\n",
              ASP_MULTIPLIER, ASP_MULTIPLIER * 2,
              MAX(0.5, MAX(1, ((ASP_MULTIPLIER * 2) - 1)) / 20));
+      printf("LMR_OFFSET, float, %.3f, 1.000, %.3f, %.3f, 0.002\n", LMR_OFFSET,
+             LMR_OFFSET * 2, MAX(0.5, MAX(1, ((LMR_OFFSET * 2) - 1)) / 20));
+      printf("LMR_DIVISOR, float, %.3f, 1.000, %.3f, %.3f, 0.002\n",
+             LMR_DIVISOR, LMR_DIVISOR * 2,
+             MAX(0.5, MAX(1, ((LMR_DIVISOR * 2) - 1)) / 20));
       printf("SEE_PAWN, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
              (float)SEEPieceValues[0], (float)SEEPieceValues[0] * 1.5,
              MAX(0.5, MAX(1, (((float)SEEPieceValues[0] * 2) - 1)) / 20));
@@ -823,8 +840,16 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
       sscanf(input, "%*s %*s %*s %*s %d", &SE_DEPTH_REDUCTION);
     } else if (!strncmp(input, "setoption name ASP_WINDOW value ", 32)) {
       sscanf(input, "%*s %*s %*s %*s %d", &ASP_WINDOW);
+    } else if (!strncmp(input, "setoption name HISTORY_BONUS_MAX value ", 39)) {
+      sscanf(input, "%*s %*s %*s %*s %d", &HISTORY_BONUS_MAX);
     } else if (!strncmp(input, "setoption name ASP_MULTIPLIER value ", 36)) {
       sscanf(input, "%*s %*s %*s %*s %lf", &ASP_MULTIPLIER);
+    } else if (!strncmp(input, "setoption name LMR_OFFSET value ", 32)) {
+      sscanf(input, "%*s %*s %*s %*s %lf", &LMR_OFFSET);
+      init_reductions();
+    } else if (!strncmp(input, "setoption name LMR_DIVISOR value ", 33)) {
+      sscanf(input, "%*s %*s %*s %*s %lf", &LMR_DIVISOR);
+      init_reductions();
     } else if (!strncmp(input, "setoption name SEE_PAWN value ", 30)) {
       sscanf(input, "%*s %*s %*s %*s %d", &SEEPieceValues[0]);
     } else if (!strncmp(input, "setoption name SEE_KNIGHT value ", 32)) {

@@ -53,9 +53,6 @@ double ASP_MULTIPLIER = 1.55;
 double LMR_OFFSET = 0.5137;
 double LMR_DIVISOR = 1.711;
 
-const int full_depth_moves = 4;
-const int reduction_limit = 3;
-
 const int mvv_lva[12][12] = {
     {105, 205, 305, 405, 505, 605, 105, 205, 305, 405, 505, 605},
     {104, 204, 304, 404, 504, 604, 104, 204, 304, 404, 504, 604},
@@ -88,8 +85,7 @@ int SEEPieceValues[] = {100, 292, 290, 504, 1176, 0, 0};
 int lmr[max_ply][64];
 
 // Initializes the late move reduction array
-static void init_reductions(void) __attribute__((constructor));
-static void init_reductions(void) {
+void init_reductions(void) {
   for (int depth = 0; depth < max_ply; depth++) {
     for (int move = 0; move < 64; move++) {
       if (move == 0 || depth == 0) {

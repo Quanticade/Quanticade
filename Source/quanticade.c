@@ -1,6 +1,7 @@
 // system headers
 #include "evaluate.h"
 #include "nnue.h"
+#include "search.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -105,6 +106,8 @@ void init_all(void) {
 
   // init random keys for hashing purposes
   init_random_keys();
+
+  init_reductions();
 
   // init hash table with default size
   init_hash_table(default_hash_size);
