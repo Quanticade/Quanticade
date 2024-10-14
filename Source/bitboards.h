@@ -4,9 +4,9 @@
 #include <assert.h>
 #include <stdint.h>
 
-#define infinity 32000
-#define mate_value 31000
-#define mate_score 30000
+#define INF 32000
+#define MATE_VALUE 31000
+#define MATE_SCORE 30000
 
 // Population count/Hamming weight
 static inline int popcount(const uint64_t bb) {

@@ -16,7 +16,7 @@ int hash_full(void) {
   int samples = 1000;
 
   for (int i = 0; i < samples; ++i)
-    if (tt.hash_entry[i].move != 0)
+    if (tt.hash_entry[i].flag != HASH_FLAG_NONE)
       used++;
 
   return used / (samples / 1000);
@@ -122,9 +122,9 @@ int read_hash_entry(position_t *pos, int *move, int16_t *tt_score,
   // make sure we're dealing with the exact position we need
   if (hash_entry->hash_key == get_hash_low_bits(pos->hash_key)) {
     int score = hash_entry->score;
-    if (score < -mate_score)
+    if (score < -MATE_SCORE)
       score += pos->ply;
-    if (score > mate_score)
+    if (score > MATE_SCORE)
       score -= pos->ply;
 
     *move = hash_entry->move;
@@ -147,7 +147,7 @@ void write_hash_entry(position_t *pos, int score, int depth, int move,
 
   uint8_t replace = hash_entry->hash_key != get_hash_low_bits(pos->hash_key) ||
                     depth + 4 > hash_entry->depth ||
-                    hash_flag == hash_flag_exact;
+                    hash_flag == HASH_FLAG_EXACT;
 
   if (!replace) {
     return;
@@ -155,9 +155,9 @@ void write_hash_entry(position_t *pos, int score, int depth, int move,
 
   // store score independent from the actual path
   // from root node (position) to current node (position)
-  if (score < -mate_score)
+  if (score < -MATE_SCORE)
     score -= pos->ply;
-  if (score > mate_score)
+  if (score > MATE_SCORE)
     score += pos->ply;
 
   // write hash entry data

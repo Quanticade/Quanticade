@@ -474,7 +474,7 @@ static inline void time_control(position_t *pos, thread_t *threads,
     // parse search depth
     limits.depth = atoi(argument + 6);
   } else {
-    limits.depth = limits.depth == 0 ? max_ply : limits.depth;
+    limits.depth = limits.depth == 0 ? MAX_PLY : limits.depth;
 
     if (limits.time) {
       int64_t time_this_move = (limits.time / limits.movestogo) + limits.inc;

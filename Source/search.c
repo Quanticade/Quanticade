@@ -82,11 +82,11 @@ int SEEPieceValues[] = {100, 292, 290, 504, 1176, 0, 0};
     6. Unsorted moves
 */
 
-int lmr[max_ply][64];
+int lmr[MAX_PLY][64];
 
 // Initializes the late move reduction array
 void init_reductions(void) {
-  for (int depth = 0; depth < max_ply; depth++) {
+  for (int depth = 0; depth < MAX_PLY; depth++) {
     for (int move = 0; move < 64; move++) {
       if (move == 0 || depth == 0) {
         lmr[depth][move] = 0;
@@ -399,7 +399,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
   // we are too deep, hence there's an overflow of arrays relying on max ply
   // constant
-  if (pos->ply > max_ply - 1)
+  if (pos->ply > MAX_PLY - 1)
     // evaluate position
     return evaluate(pos, &thread->accumulator[pos->ply]);
   ;
@@ -411,19 +411,19 @@ static inline int quiescence(position_t *pos, thread_t *thread,
   int32_t best_move = 0;
   int score, best_score = 0;
   int pv_node = beta - alpha > 1;
-  int hash_flag = hash_flag_alpha;
+  int hash_flag = HASH_FLAG_ALPHA;
   int16_t tt_score = 0;
   uint8_t tt_hit = 0;
   uint8_t tt_depth = 0;
-  uint8_t tt_flag = hash_flag_exact;
+  uint8_t tt_flag = HASH_FLAG_EXACT;
 
   if (pos->ply &&
       (tt_hit =
            read_hash_entry(pos, &best_move, &tt_score, &tt_depth, &tt_flag)) &&
       pv_node == 0) {
-    if ((tt_flag == hash_flag_exact) ||
-        ((tt_flag == hash_flag_alpha) && (tt_score <= alpha)) ||
-        ((tt_flag == hash_flag_beta) && (tt_score >= beta))) {
+    if ((tt_flag == HASH_FLAG_EXACT) ||
+        ((tt_flag == HASH_FLAG_ALPHA) && (tt_score <= alpha)) ||
+        ((tt_flag == HASH_FLAG_BETA) && (tt_score >= beta))) {
       return tt_score;
     }
   }
@@ -518,10 +518,10 @@ static inline int quiescence(position_t *pos, thread_t *thread,
     // found a better move
     if (score > alpha) {
       // fail-hard beta cutoff
-      hash_flag = hash_flag_exact;
+      hash_flag = HASH_FLAG_EXACT;
       best_move = move_list->entry[count].move;
       if (score >= beta) {
-        write_hash_entry(pos, best_score, 0, best_move, hash_flag_beta);
+        write_hash_entry(pos, best_score, 0, best_move, HASH_FLAG_BETA);
         // node (position) fails high
         return best_score;
       }
@@ -610,18 +610,18 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
   // variable to store current move's score (from the static evaluation
   // perspective)
-  int score, static_eval = -infinity;
+  int score, static_eval = -INF;
 
   int tt_move = 0;
   int16_t tt_score = 0;
   uint8_t tt_hit = 0;
   uint8_t tt_depth = 0;
-  uint8_t tt_flag = hash_flag_exact;
+  uint8_t tt_flag = HASH_FLAG_EXACT;
 
   uint8_t root_node = pos->ply == 0;
 
   // define hash flag
-  int hash_flag = hash_flag_alpha;
+  int hash_flag = HASH_FLAG_ALPHA;
 
   if (depth == 0 && pos->ply > pos->seldepth) {
     pos->seldepth = pos->ply;
@@ -636,14 +636,14 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     // we are too deep, hence there's an overflow of arrays relying on max ply
     // constant
-    if (pos->ply > max_ply - 1) {
+    if (pos->ply > MAX_PLY - 1) {
       // evaluate position
       return evaluate(pos, &thread->accumulator[pos->ply]);
     }
 
     // Mate distance pruning
-    alpha = MAX(alpha, -mate_value + (int)pos->ply);
-    beta = MIN(beta, mate_value - (int)pos->ply - 1);
+    alpha = MAX(alpha, -MATE_VALUE + (int)pos->ply);
+    beta = MIN(beta, MATE_VALUE - (int)pos->ply - 1);
     if (alpha >= beta)
       return alpha;
   }
@@ -659,9 +659,9 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
            read_hash_entry(pos, &tt_move, &tt_score, &tt_depth, &tt_flag)) &&
       pv_node == 0) {
     if (tt_depth >= depth) {
-      if ((tt_flag == hash_flag_exact) ||
-          ((tt_flag == hash_flag_alpha) && (tt_score <= alpha)) ||
-          ((tt_flag == hash_flag_beta) && (tt_score >= beta))) {
+      if ((tt_flag == HASH_FLAG_EXACT) ||
+          ((tt_flag == HASH_FLAG_ALPHA) && (tt_score <= alpha)) ||
+          ((tt_flag == HASH_FLAG_BETA) && (tt_score >= beta))) {
         return tt_score;
       }
     }
@@ -680,7 +680,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
                                     pos->side ^ 1);
   if (!ss->excluded_move) {
     static_eval = ss->static_eval =
-        in_check ? infinity
+        in_check ? INF
                  : (tt_hit ? tt_score
                            : evaluate(pos, &thread->accumulator[pos->ply]));
   }
@@ -704,7 +704,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
   if (!in_check && !ss->excluded_move) {
     // Reverse Futility Pruning
-    if (depth <= RFP_DEPTH && !pv_node && abs(beta - 1) > -infinity + 100) {
+    if (depth <= RFP_DEPTH && !pv_node && abs(beta - 1) > -INF + 100) {
       // get static evaluation score
 
       // define evaluation margin
@@ -791,8 +791,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   // generate moves
   generate_moves(pos, move_list);
 
-  int best_score = -infinity;
-  score = -infinity;
+  int best_score = -INF;
+  score = -INF;
 
   // if we are now following PV line
   if (thread->pv.follow_pv)
@@ -832,7 +832,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     int lmr_depth = MAX(1, depth - 1 - MAX(r, 1));
 
     // Futility Pruning
-    if (!root_node && score > -mate_score && lmr_depth <= FP_DEPTH &&
+    if (!root_node && score > -MATE_SCORE && lmr_depth <= FP_DEPTH &&
         !in_check && quiet &&
         ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION <= alpha) {
       continue;
@@ -852,7 +852,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     // search
     if (!root_node && depth >= SE_DEPTH && move == tt_move &&
         !ss->excluded_move && tt_depth >= depth - SE_DEPTH_REDUCTION &&
-        tt_flag != hash_flag_alpha && abs(tt_score) < mate_score) {
+        tt_flag != HASH_FLAG_ALPHA && abs(tt_score) < MATE_SCORE) {
       const int s_beta = tt_score - depth;
       const int s_depth = (depth - 1) / 2;
 
@@ -957,10 +957,10 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
                   pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
 
-    // return infinity so we can deal with timeout in case we are doing
+    // return INF so we can deal with timeout in case we are doing
     // re-search
     if (thread->stopped == 1) {
-      return infinity;
+      return INF;
     }
 
     // found a better move
@@ -969,7 +969,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       if (score > alpha) {
         // switch hash flag from storing score for fail-low node
         // to the one storing score for PV node
-        hash_flag = hash_flag_exact;
+        hash_flag = HASH_FLAG_EXACT;
 
         best_move = move;
 
@@ -993,7 +993,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
         if (score >= beta) {
           if (!ss->excluded_move) {
             // store hash entry with the score equal to beta
-            write_hash_entry(pos, best_score, depth, best_move, hash_flag_beta);
+            write_hash_entry(pos, best_score, depth, best_move, HASH_FLAG_BETA);
           }
 
           // on quiet moves
@@ -1014,7 +1014,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     // king is in check
     if (in_check)
       // return mating score (assuming closest distance to mating position)
-      return -mate_value + pos->ply;
+      return -MATE_VALUE + pos->ply;
 
     // king is not in check
     else
@@ -1040,10 +1040,10 @@ static void print_thinking(thread_t *thread, int score, int current_depth) {
   printf("info depth %d seldepth %d score ", current_depth,
          thread->pos.seldepth);
 
-  if (score > -mate_value && score < -mate_score) {
-    printf("mate %d ", -(score + mate_value) / 2 - 1);
-  } else if (score > mate_score && score < mate_value) {
-    printf("mate %d ", (mate_value - score) / 2 + 1);
+  if (score > -MATE_VALUE && score < -MATE_SCORE) {
+    printf("mate %d ", -(score + MATE_VALUE) / 2 - 1);
+  } else if (score > MATE_SCORE && score < MATE_VALUE) {
+    printf("mate %d ", (MATE_VALUE - score) / 2 + 1);
   } else {
     printf("cp %d ", 100 * score / 244);
   }
@@ -1068,8 +1068,8 @@ void *iterative_deepening(void *thread_void) {
   thread_t *thread = (thread_t *)thread_void;
   position_t *pos = &thread->pos;
 
-  int pv_table_copy[max_ply][max_ply];
-  int pv_length_copy[max_ply];
+  int pv_table_copy[MAX_PLY][MAX_PLY];
+  int pv_length_copy[MAX_PLY];
 
   // iterative deepening
   for (thread->depth = 1; thread->depth <= limits.depth; thread->depth++) {
@@ -1080,13 +1080,13 @@ void *iterative_deepening(void *thread_void) {
     }
 
     // define initial alpha beta bounds
-    int alpha = -infinity;
-    int beta = infinity;
+    int alpha = -INF;
+    int beta = INF;
 
-    searchstack_t ss[max_ply + 4];
-    for (int i = 0; i < max_ply + 4; ++i) {
+    searchstack_t ss[MAX_PLY + 4];
+    for (int i = 0; i < MAX_PLY + 4; ++i) {
       ss[i].excluded_move = 0;
-      ss[i].static_eval = infinity;
+      ss[i].static_eval = INF;
     }
 
     pos->seldepth = 0;
@@ -1098,8 +1098,8 @@ void *iterative_deepening(void *thread_void) {
     while (true) {
 
       if (thread->depth >= 4) {
-        alpha = MAX(-infinity, thread->score - window);
-        beta = MIN(infinity, thread->score + window);
+        alpha = MAX(-INF, thread->score - window);
+        beta = MIN(INF, thread->score + window);
       }
 
       // enable follow PV flag
@@ -1114,7 +1114,7 @@ void *iterative_deepening(void *thread_void) {
 
       // We hit an apspiration window cut-off before time ran out and we jumped
       // to another depth with wider search which we didnt finish
-      if (thread->score == infinity) {
+      if (thread->score == INF) {
         // Restore the saved best line
         memcpy(thread->pv.pv_table, pv_table_copy, sizeof(pv_table_copy));
         memcpy(thread->pv.pv_length, pv_length_copy, sizeof(pv_length_copy));
@@ -1126,12 +1126,12 @@ void *iterative_deepening(void *thread_void) {
       if (thread->score <= alpha) {
         beta = (alpha + beta) / 2;
 
-        alpha = MAX(-infinity, alpha - window);
+        alpha = MAX(-INF, alpha - window);
         fail_high_count = 0;
       }
 
       else if (thread->score >= beta) {
-        beta = MIN(infinity, beta + window);
+        beta = MIN(INF, beta + window);
 
         if (alpha < 2000 && fail_high_count < 2) {
           ++fail_high_count;

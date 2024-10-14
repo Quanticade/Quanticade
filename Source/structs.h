@@ -4,7 +4,7 @@
 #include "bitboards.h"
 #include <stdint.h>
 
-#define max_ply 254
+#define MAX_PLY 254
 
 typedef struct tt_entry {
   uint32_t hash_key; // "almost" unique chess position identifier
@@ -54,20 +54,20 @@ typedef struct position {
 } position_t;
 
 typedef struct PV {
-  int32_t pv_length[max_ply];
-  int32_t pv_table[max_ply][max_ply];
+  int32_t pv_length[MAX_PLY];
+  int32_t pv_table[MAX_PLY][MAX_PLY];
   uint8_t follow_pv;
   uint8_t score_pv;
 } PV_t;
 
 typedef struct searchinfo {
-  accumulator_t accumulator[max_ply + 4];
+  accumulator_t accumulator[MAX_PLY + 4];
   position_t pos;
   uint64_t nodes;
   uint64_t starttime;
   uint64_t stoptime;
   int score;
-  int killer_moves[max_ply];
+  int killer_moves[MAX_PLY];
   int history_moves[12][64];
   PV_t pv;
   uint8_t depth;

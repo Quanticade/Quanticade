@@ -11,12 +11,11 @@ typedef struct tt {
 
 extern tt_t tt;
 
-#define no_hash_entry 100000
-
 // transposition table hash flags
-#define hash_flag_exact 0
-#define hash_flag_alpha 1
-#define hash_flag_beta 2
+#define HASH_FLAG_NONE 0
+#define HASH_FLAG_EXACT 1
+#define HASH_FLAG_ALPHA 2
+#define HASH_FLAG_BETA 3
 
 void clear_hash_table(void);
 void prefetch_hash_entry(uint64_t hash_key);
