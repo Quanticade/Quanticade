@@ -100,7 +100,7 @@ void init_reductions(void) {
 
 void check_time(thread_t *thread) {
   // if time is up break here
-  if (thread->timeset == 1 && get_time_ms() > thread->stoptime) {
+  if (thread->index == 0 && thread->timeset == 1 && get_time_ms() > thread->stoptime) {
     // tell engine to stop calculating
     thread->stopped = 1;
   }
