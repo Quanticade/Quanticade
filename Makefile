@@ -184,10 +184,10 @@ clean:
 	@rm -rf $(TMPDIR) *.o *.d $(TARGET)
 
 $(TARGET): $(OBJECTS)
-	clang $(CFLAGS) $(NATIVE) -MMD -MP -o $(EXE) $^ $(FLAGS)
+	$(CC) $(CFLAGS) $(NATIVE) -MMD -MP -o $(EXE) $^ $(FLAGS)
 
 $(TMPDIR)/%.o: %.c | $(TMPDIR)
-	clang $(CFLAGS) $(NATIVE) -MMD -MP -c $< -o $@ $(FLAGS)
+	$(CC) $(CFLAGS) $(NATIVE) -MMD -MP -c $< -o $@ $(FLAGS)
 
 $(TMPDIR):
 	$(MKDIR) "$(TMPDIR)" "$(TMPDIR)/Source" "$(TMPDIR)/Source/nnue"
@@ -195,8 +195,8 @@ $(TMPDIR):
 
 # Usual disservin yoink for makefile related stuff
 pgo:
-	clang $(CFLAGS) $(PGO_GEN) $(NATIVE) $(INSTRUCTIONS) -MMD -MP -o $(EXE) $(SOURCES) -lm $(LDFLAGS)
+	$(CC) $(CFLAGS) $(PGO_GEN) $(NATIVE) $(INSTRUCTIONS) -MMD -MP -o $(EXE) $(SOURCES) -lm $(LDFLAGS)
 	./$(EXE) bench
 	$(PGO_MERGE)
-	clang $(CFLAGS) $(NATIVE) $(INSTRUCTIONS) $(PGO_USE) -MMD -MP -o $(EXE) $(SOURCES) -lm $(LDFLAGS)
+	$(CC) $(CFLAGS) $(NATIVE) $(INSTRUCTIONS) $(PGO_USE) -MMD -MP -o $(EXE) $(SOURCES) -lm $(LDFLAGS)
 	@rm -f *.gcda *.profraw *.o *.d  profdata
