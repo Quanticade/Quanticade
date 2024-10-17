@@ -27,31 +27,31 @@ extern int thread_count;
 
 extern keys_t keys;
 
-int LMP_BASE = 6;
+int LMP_BASE = 5;
 int LMP_MULTIPLIER = 1;
 int RAZOR_DEPTH = 7;
-int RAZOR_MARGIN = 288;
+int RAZOR_MARGIN = 298;
 int RFP_DEPTH = 6;
-int RFP_MARGIN = 101;
+int RFP_MARGIN = 66;
 int FP_DEPTH = 5;
-int FP_MULTIPLIER = 150;
-int FP_ADDITION = 150;
+int FP_MULTIPLIER = 162;
+int FP_ADDITION = 143;
 int NMP_BASE_REDUCTION = 4;
 int NMP_DIVISER = 3;
 int IIR_DEPTH = 4;
-int SEE_QUIET = 66;
-int SEE_CAPTURE = 33;
+int SEE_QUIET = 62;
+int SEE_CAPTURE = 36;
 int SEE_DEPTH = 10;
-int SE_DEPTH = 7;
-int SE_DEPTH_REDUCTION = 3;
-int ASP_WINDOW = 9;
+int SE_DEPTH = 6;
+int SE_DEPTH_REDUCTION = 4;
+int ASP_WINDOW = 10;
 int QS_SEE_THRESHOLD = 7;
-int MO_SEE_THRESHOLD = 107;
+int MO_SEE_THRESHOLD = 117;
 int HISTORY_BONUS_MAX = 1200;
 int HISTORY_MAX = 8192;
-double ASP_MULTIPLIER = 1.55;
-double LMR_OFFSET = 0.5137;
-double LMR_DIVISOR = 1.711;
+double ASP_MULTIPLIER = 1.4951063634743518;
+double LMR_OFFSET = 0.5141172417056085;
+double LMR_DIVISOR = 1.514402330678514;
 
 const int mvv_lva[12][12] = {
     {105, 205, 305, 405, 505, 605, 105, 205, 305, 405, 505, 605},
@@ -68,7 +68,7 @@ const int mvv_lva[12][12] = {
     {101, 201, 301, 401, 501, 601, 101, 201, 301, 401, 501, 601},
     {100, 200, 300, 400, 500, 600, 100, 200, 300, 400, 500, 600}};
 
-int SEEPieceValues[] = {100, 292, 290, 504, 1176, 0, 0};
+int SEEPieceValues[] = {104, 301, 287, 475, 1121, 0, 0};
 
 /*  =======================
          Move ordering
