@@ -937,7 +937,9 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     R -= (quiet ? history_score / HISTORY_MAX : 0);
     R -= in_check;
     R += cutnode;
-    R += improving;
+    if (!improving) {
+      R++;
+    }
 
     if (depth > 1 && legal_moves > 1) {
       R = clamp(R, 1, new_depth);
