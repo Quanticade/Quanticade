@@ -721,7 +721,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       // get static evaluation score
 
       // define evaluation margin
-      int eval_margin = RFP_MARGIN * (depth - improving);
+      int eval_margin = RFP_MARGIN * depth;
 
       // evaluation margin substracted from static evaluation score fails high
       if (static_eval - eval_margin >= beta)
@@ -937,6 +937,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     R -= (quiet ? history_score / HISTORY_MAX : 0);
     R -= in_check;
     R += cutnode;
+    R += improving;
 
     if (depth > 1 && legal_moves > 1) {
       R = clamp(R, 1, new_depth);
