@@ -100,7 +100,8 @@ void init_reductions(void) {
 
 void check_time(thread_t *thread) {
   // if time is up break here
-  if (thread->index == 0 && thread->timeset == 1 && get_time_ms() > thread->stoptime) {
+  if (thread->index == 0 && thread->timeset == 1 &&
+      get_time_ms() > thread->stoptime) {
     // tell engine to stop calculating
     thread->stopped = 1;
   }
@@ -699,6 +700,18 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     return quiescence(pos, thread, ss, alpha, beta);
   }
 
+  uint8_t improving = 0;
+
+  if (in_check) {
+    ss->static_eval = SCORE_NONE;
+  } else if ((ss - 2)->static_eval != SCORE_NONE) {
+    improving = ss->static_eval > (ss - 2)->static_eval;
+  } else if ((ss - 4)->static_eval != SCORE_NONE) {
+    improving = ss->static_eval > (ss - 4)->static_eval;
+  } else {
+    improving = 1;
+  }
+
   // legal moves counter
   int legal_moves = 0;
 
@@ -708,7 +721,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       // get static evaluation score
 
       // define evaluation margin
-      int eval_margin = RFP_MARGIN * depth;
+      int eval_margin = RFP_MARGIN * (depth - improving);
 
       // evaluation margin substracted from static evaluation score fails high
       if (static_eval - eval_margin >= beta)
@@ -1086,7 +1099,7 @@ void *iterative_deepening(void *thread_void) {
     searchstack_t ss[MAX_PLY + 4];
     for (int i = 0; i < MAX_PLY + 4; ++i) {
       ss[i].excluded_move = 0;
-      ss[i].static_eval = INF;
+      ss[i].static_eval = SCORE_NONE;
     }
 
     pos->seldepth = 0;
