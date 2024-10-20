@@ -604,7 +604,8 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
       // clear hash table
       clear_hash_table();
       for (int i = 0; i < thread_count; ++i) {
-        memset(threads[i].history_moves, 0, sizeof(threads[i].history_moves));
+        memset(threads[i].quiet_history, 0, sizeof(threads[i].quiet_history));
+        memset(threads[i].capture_history, 0, sizeof(threads[i].capture_history));
       }
     }
     // parse UCI "go" command
