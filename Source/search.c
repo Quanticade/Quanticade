@@ -351,7 +351,8 @@ static inline void score_move(position_t *pos, thread_t *thread,
     // score history move
     else {
       move_entry->score =
-          thread->history_moves[get_move_piece(move)][get_move_target(move)];
+          thread->history_moves[get_move_piece(move)][get_move_source(move)]
+                               [get_move_target(move)];
     }
 
     move_entry->score += promoted_bonus;
@@ -543,12 +544,13 @@ static inline void update_history_move(thread_t *thread, int move,
                                        uint8_t depth, uint8_t is_best_move) {
   int piece = get_move_piece(move);
   int target = get_move_target(move);
+  int source = get_move_source(move);
   int bonus = 16 * depth * depth + 32 * depth + 16;
   int clamped_bonus = clamp(is_best_move ? bonus : -bonus, -HISTORY_BONUS_MAX,
                             HISTORY_BONUS_MAX);
-  thread->history_moves[piece][target] +=
-      clamped_bonus -
-      thread->history_moves[piece][target] * abs(clamped_bonus) / HISTORY_MAX;
+  thread->history_moves[piece][source][target] +=
+      clamped_bonus - thread->history_moves[piece][source][target] *
+                          abs(clamped_bonus) / HISTORY_MAX;
 }
 
 static inline void update_all_history_moves(thread_t *thread,
@@ -917,7 +919,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     // PVS & LMR
     const int history_score =
-        thread->history_moves[get_move_piece(move)][get_move_target(move)];
+        thread->history_moves[get_move_piece(move)][get_move_source(move)]
+                             [get_move_target(move)];
     const int new_depth = depth + extensions - 1;
 
     int R = lmr[MIN(63, depth)][MIN(63, legal_moves)] + (pv_node ? 0 : 1);
