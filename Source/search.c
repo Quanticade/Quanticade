@@ -44,6 +44,7 @@ int SEE_CAPTURE = 36;
 int SEE_DEPTH = 10;
 int SE_DEPTH = 6;
 int SE_DEPTH_REDUCTION = 4;
+int SE_DOUBLE_MARGIN = 15;
 int ASP_WINDOW = 10;
 int QS_SEE_THRESHOLD = 7;
 int MO_SEE_THRESHOLD = 117;
@@ -867,7 +868,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
       // No move beat tt score so we extend the search
       if (s_score < s_beta) {
-        extensions += 1 + (!pv_node && s_score < s_beta);
+        extensions += 1 + (!pv_node && s_score < s_beta - SE_DOUBLE_MARGIN);
       }
 
       // Multicut: Singular search failed high so if singular beta beats our
