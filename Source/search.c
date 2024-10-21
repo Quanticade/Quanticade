@@ -876,6 +876,11 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       else if (s_beta >= beta) {
         return s_beta;
       }
+
+      // Negative Extensions
+      else if (tt_score >= beta) {
+        extensions -= 2;
+      }
     }
 
     // preserve board state
