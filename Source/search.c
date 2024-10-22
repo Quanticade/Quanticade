@@ -100,7 +100,8 @@ void init_reductions(void) {
 
 void check_time(thread_t *thread) {
   // if time is up break here
-  if (thread->index == 0 && thread->timeset == 1 && get_time_ms() > thread->stoptime) {
+  if (thread->index == 0 && thread->timeset == 1 &&
+      get_time_ms() > thread->stoptime) {
     // tell engine to stop calculating
     thread->stopped = 1;
   }
@@ -224,7 +225,6 @@ int SEE(position_t *pos, int move, int threshold) {
     // If we have no more attackers left we lose
     myAttackers = attackers & pos->occupancies[colour];
     if (myAttackers == 0ull) {
-      // printf("WELL FUCK\n");
       break;
     }
 
@@ -232,7 +232,6 @@ int SEE(position_t *pos, int move, int threshold) {
     for (nextVictim = PAWN; nextVictim <= QUEEN; nextVictim++) {
       if (myAttackers &
           (pos->bitboards[nextVictim] | pos->bitboards[nextVictim + 6])) {
-        // printf("Taking with %d\n", nextVictim);
         break;
       }
     }
@@ -336,6 +335,8 @@ static inline void score_move(position_t *pos, thread_t *thread,
     // score move by MVV LVA lookup [source piece][target piece]
     move_entry->score = mvv_lva[get_move_piece(move)][target_piece];
     move_entry->score +=
+        thread->capture_history[pos->side][get_move_source(move)][get_move_target(move)];
+    move_entry->score +=
         SEE(pos, move, -MO_SEE_THRESHOLD) ? 1000000000 : -1000000;
     move_entry->score += promoted_bonus;
     return;
@@ -351,7 +352,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
     // score history move
     else {
       move_entry->score =
-          thread->history_moves[get_move_piece(move)][get_move_source(move)]
+          thread->quiet_history[get_move_piece(move)][get_move_source(move)]
                                [get_move_target(move)];
     }
 
@@ -540,27 +541,52 @@ double clamp(double d, double min, double max) {
   return t > max ? max : t;
 }
 
-static inline void update_history_move(thread_t *thread, int move,
-                                       uint8_t depth, uint8_t is_best_move) {
+static inline void update_quiet_history(thread_t *thread, int move,
+                                        uint8_t depth, uint8_t is_best_move) {
   int piece = get_move_piece(move);
   int target = get_move_target(move);
   int source = get_move_source(move);
   int bonus = 16 * depth * depth + 32 * depth + 16;
   int clamped_bonus = clamp(is_best_move ? bonus : -bonus, -HISTORY_BONUS_MAX,
                             HISTORY_BONUS_MAX);
-  thread->history_moves[piece][source][target] +=
-      clamped_bonus - thread->history_moves[piece][source][target] *
+  thread->quiet_history[piece][source][target] +=
+      clamped_bonus - thread->quiet_history[piece][source][target] *
                           abs(clamped_bonus) / HISTORY_MAX;
 }
 
-static inline void update_all_history_moves(thread_t *thread,
-                                            moves *quiet_moves, int best_move,
-                                            uint8_t depth) {
+static inline void update_capture_history(thread_t *thread, int move,
+                                          uint8_t depth, uint8_t is_best_move) {
+  int from = get_move_source(move);
+  int target = get_move_target(move);
+  int bonus = 16 * depth * depth + 32 * depth + 16;
+  int clamped_bonus = clamp(is_best_move ? bonus : -bonus, -HISTORY_BONUS_MAX,
+                            HISTORY_BONUS_MAX);
+  thread->capture_history[thread->pos.side][from][target] +=
+      clamped_bonus -
+      thread->capture_history[thread->pos.side][from][target] *
+          abs(clamped_bonus) / HISTORY_MAX;
+}
+
+static inline void update_quiet_history_moves(thread_t *thread,
+                                              moves *quiet_moves, int best_move,
+                                              uint8_t depth) {
   for (uint32_t i = 0; i < quiet_moves->count; ++i) {
     if (quiet_moves->entry[i].move == best_move) {
-      update_history_move(thread, best_move, depth, 1);
+      update_quiet_history(thread, best_move, depth, 1);
     } else {
-      update_history_move(thread, quiet_moves->entry[i].move, depth, 0);
+      update_quiet_history(thread, quiet_moves->entry[i].move, depth, 0);
+    }
+  }
+}
+
+static inline void update_capture_history_moves(thread_t *thread,
+                                                moves *capture_moves,
+                                                int best_move, uint8_t depth) {
+  for (uint32_t i = 0; i < capture_moves->count; ++i) {
+    if (capture_moves->entry[i].move == best_move) {
+      update_capture_history(thread, best_move, depth, 1);
+    } else {
+      update_capture_history(thread, capture_moves->entry[i].move, depth, 0);
     }
   }
 }
@@ -788,7 +814,9 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   // create move list instance
   moves move_list[1];
   moves quiet_list[1];
+  moves capture_list[1];
   quiet_list->count = 0;
+  capture_list->count = 0;
 
   // generate moves
   generate_moves(pos, move_list);
@@ -918,15 +946,18 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     if (quiet) {
       add_move(quiet_list, move);
+
+    } else if (get_move_promoted(move) == 0) {
+      add_move(capture_list, move);
     }
 
     prefetch_hash_entry(pos->hash_key);
 
     // PVS & LMR
-    const int history_score =
-        thread->history_moves[get_move_piece(move)][get_move_source(move)]
-                             [get_move_target(move)];
     const int new_depth = depth + extensions - 1;
+    const int history_score =
+        thread->quiet_history[get_move_piece(move)][get_move_source(move)]
+                             [get_move_target(move)];
 
     int R = lmr[MIN(63, depth)][MIN(63, legal_moves)] + (pv_node ? 0 : 1);
     R -= (quiet ? history_score / HISTORY_MAX : 0);
@@ -1006,9 +1037,11 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
           // on quiet moves
           if (quiet) {
-            update_all_history_moves(thread, quiet_list, best_move, depth);
+            update_quiet_history_moves(thread, quiet_list, best_move, depth);
             thread->killer_moves[pos->ply] = move;
           }
+
+          update_capture_history_moves(thread, capture_list, best_move, depth);
 
           // node (position) fails high
           return best_score;
