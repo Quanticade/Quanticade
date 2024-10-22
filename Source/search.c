@@ -909,6 +909,10 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       else if (tt_score >= beta) {
         extensions -= 2;
       }
+
+      else if (cutnode) {
+        extensions -= 2;
+      }
     }
 
     // preserve board state
