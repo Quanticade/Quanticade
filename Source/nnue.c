@@ -19,6 +19,10 @@ const unsigned char *const gEVALEnd = &gEVALData[1];
 const unsigned int gEVALSize = 1;
 #endif
 
+int16_t raw_weights[2][HIDDEN_SIZE][OUTPUT_BUCKETS];
+
+const uint8_t BUCKET_DIVISOR = (32 + OUTPUT_BUCKETS - 1) / OUTPUT_BUCKETS;
+
 static int32_t clamp_int32(int32_t d, int32_t min, int32_t max) {
   const int32_t t = d < min ? min : d;
   return t > max ? max : t;
@@ -29,12 +33,17 @@ static inline int32_t screlu(int16_t value) {
   return clipped * clipped;
 }
 
+static inline uint8_t calculate_output_bucket(position_t *pos) {
+  uint8_t pieces = popcount(pos->occupancies[2]);
+  return (pieces - 2) / 4;
+}
+
 int nnue_init_incbin(void) {
   uint64_t memoryIndex = 0;
   char version_string[21];
   memcpy(version_string, &gEVALData[memoryIndex], 20 * sizeof(char));
   version_string[20] = '\0';
-  if (strcmp(version_string, "4D617374657231353336") != 0) {
+  if (strcmp(version_string, "4275636B657432303438") != 0) {
     return 0;
   }
   memoryIndex += 20 * sizeof(char);
@@ -45,10 +54,10 @@ int nnue_init_incbin(void) {
          HIDDEN_SIZE * sizeof(int16_t));
   memoryIndex += HIDDEN_SIZE * sizeof(int16_t);
 
-  memcpy(nnue.output_weights, &gEVALData[memoryIndex],
-         HIDDEN_SIZE * sizeof(int16_t) * 2);
-  memoryIndex += HIDDEN_SIZE * sizeof(int16_t) * 2;
-  memcpy(&nnue.output_bias, &gEVALData[memoryIndex], 1 * sizeof(int16_t));
+  memcpy(raw_weights, &gEVALData[memoryIndex],
+         HIDDEN_SIZE * sizeof(int16_t) * 2 * OUTPUT_BUCKETS);
+  memoryIndex += HIDDEN_SIZE * sizeof(int16_t) * 2 * OUTPUT_BUCKETS;
+  memcpy(&nnue.output_bias, &gEVALData[memoryIndex], OUTPUT_BUCKETS * sizeof(int16_t));
   return 1;
 }
 
@@ -61,13 +70,13 @@ void nnue_init(const char *nnue_file_name) {
     // initialize an accumulator for every input of the second layer
     size_t read = 0;
     size_t fileSize = sizeof(nnue_t);
-    size_t objectsExpected = (fileSize / sizeof(int16_t)) + 20 -
-                             31; // Due to alligment we deduct 31 from it
+    size_t objectsExpected = (fileSize / sizeof(int16_t)) + 20 - 24; // Due to alligment we deduct 24 from it
     char version_string[21];
     read += fread(version_string, sizeof(char), 20, nn);
     version_string[20] = '\0';
+    (void)version_string;
 
-    if (strcmp(version_string, "4D617374657231353336") != 0) {
+    if (0 && strcmp(version_string, "4275636B657432303438") != 0) {
       printf("Imcompatible NNUE file. Trying to load NNUE from binary\n");
       fclose(nn);
       if (nnue_init_incbin() == 0) {
@@ -79,8 +88,8 @@ void nnue_init(const char *nnue_file_name) {
       read += fread(nnue.feature_weights, sizeof(int16_t),
                     INPUT_WEIGHTS * HIDDEN_SIZE, nn);
       read += fread(nnue.feature_bias, sizeof(int16_t), HIDDEN_SIZE, nn);
-      read += fread(nnue.output_weights, sizeof(int16_t), HIDDEN_SIZE * 2, nn);
-      read += fread(&nnue.output_bias, sizeof(int16_t), 1, nn);
+      read += fread(raw_weights, sizeof(int16_t), HIDDEN_SIZE * 2 * OUTPUT_BUCKETS, nn);
+      read += fread(&nnue.output_bias, sizeof(int16_t), OUTPUT_BUCKETS, nn);
 
       if (read != objectsExpected) {
         printf("We read: %zu but the expected is %zu\n", read, objectsExpected);
@@ -97,6 +106,14 @@ void nnue_init(const char *nnue_file_name) {
       exit(1);
     }
   }
+
+      for (int stm = 0; stm < 2; ++stm) {
+        for (int weight = 0; weight < HIDDEN_SIZE; ++weight) {
+            for (int bucket = 0; bucket < OUTPUT_BUCKETS; ++bucket) {
+                nnue.output_weights[bucket][stm][weight] = raw_weights[stm][weight][bucket];
+            }
+}
+}
 }
 
 static inline int16_t get_white_idx(uint8_t piece, uint8_t square) {
@@ -173,24 +190,27 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
   }
 
   int eval = 0;
+  uint8_t bucket = calculate_output_bucket(pos);
   // feed everything forward to get the final value
   for (int i = 0; i < HIDDEN_SIZE; ++i)
     eval += screlu(accumulator->accumulator[pos->side][i]) *
-            nnue.output_weights[0][i];
+            nnue.output_weights[bucket][0][i];
 
   for (int i = 0; i < HIDDEN_SIZE; ++i)
     eval += screlu(accumulator->accumulator[pos->side ^ 1][i]) *
-            nnue.output_weights[1][i];
+            nnue.output_weights[bucket][1][i];
 
   eval /= L1Q;
-  eval += nnue.output_bias;
+  eval += nnue.output_bias[bucket];
   eval = (eval * SCALE) / (L1Q * OutputQ);
 
   return eval;
 }
 
-int nnue_evaluate(accumulator_t *accumulator, uint8_t side) {
+int nnue_evaluate(position_t *pos, accumulator_t *accumulator) {
   int eval = 0;
+  uint8_t side = pos->side;
+  uint8_t bucket = calculate_output_bucket(pos);
 
 #if defined(USE_SIMD)
   vepi32 sum = zero_epi32();
@@ -199,7 +219,7 @@ int nnue_evaluate(accumulator_t *accumulator, uint8_t side) {
   for (int i = 0; i < HIDDEN_SIZE; i += chunk_size) {
     const vepi16 accumulator_data =
         load_epi16(&accumulator->accumulator[side][i]);
-    const vepi16 weights = load_epi16(&nnue.output_weights[0][i]);
+    const vepi16 weights = load_epi16(&nnue.output_weights[bucket][0][i]);
 
     const vepi16 clipped_accumulator = clip(accumulator_data, L1Q);
 
@@ -213,7 +233,7 @@ int nnue_evaluate(accumulator_t *accumulator, uint8_t side) {
   for (int i = 0; i < HIDDEN_SIZE; i += chunk_size) {
     const vepi16 accumulator_data =
         load_epi16(&accumulator->accumulator[side ^ 1][i]);
-    const vepi16 weights = load_epi16(&nnue.output_weights[1][i]);
+    const vepi16 weights = load_epi16(&nnue.output_weights[bucket][1][i]);
 
     const vepi16 clipped_accumulator = clip(accumulator_data, L1Q);
 
@@ -229,14 +249,14 @@ int nnue_evaluate(accumulator_t *accumulator, uint8_t side) {
   // feed everything forward to get the final value
   for (int i = 0; i < HIDDEN_SIZE; ++i)
     eval += screlu(accumulator->accumulator[side][i]) *
-            nnue.output_weights[0][i];
+            nnue.output_weights[bucket][0][i];
 
   for (int i = 0; i < HIDDEN_SIZE; ++i)
     eval += screlu(accumulator->accumulator[side ^ 1][i]) *
-            nnue.output_weights[1][i];
+            nnue.output_weights[bucket][1][i];
 #endif
   eval /= L1Q;
-  eval += nnue.output_bias;
+  eval += nnue.output_bias[bucket];
   eval = (eval * SCALE) / (L1Q * OutputQ);
 
   return eval;
