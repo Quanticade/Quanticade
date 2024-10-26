@@ -15,6 +15,6 @@ int evaluate(position_t *pos, accumulator_t *accumulator) {
               5 * popcount(pos->bitboards[r] | pos->bitboards[R]) +
               10 * popcount(pos->bitboards[q] | pos->bitboards[Q]);
 
-  eval = eval * (206 + phase) / 256;
+  eval = eval * (200 + phase) / 256;
   return (int)(eval * (float)((100 - (float)pos->fifty) / 100));
 }
