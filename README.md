@@ -2,13 +2,13 @@
 
 ## Overview
 
-Quanticade is a decent uci command-line chess engine written in C in development since late 2023.
+Quanticade is a strong uci command-line chess engine written in C in development since late 2023.
 
 ## Playing Strength
 
 Quanticade Aurora is currently ~3461 CCRL Blitz.
 
-Development version estimated to be ~3500
+Electra version estimated to be ~3500-3550
 
 ## History
 
