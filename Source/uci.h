@@ -3,7 +3,7 @@
 
 #include "structs.h"
 
-#define version "Electra 0.9"
+#define version "Dev"
 
 #define MIN(A, B) ((A) < (B) ? (A) : (B))
 #define MAX(A, B) ((A) > (B) ? (A) : (B))

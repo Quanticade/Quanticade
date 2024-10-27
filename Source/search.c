@@ -335,7 +335,8 @@ static inline void score_move(position_t *pos, thread_t *thread,
     // score move by MVV LVA lookup [source piece][target piece]
     move_entry->score = mvv_lva[get_move_piece(move)][target_piece];
     move_entry->score +=
-        thread->capture_history[pos->side][get_move_source(move)][get_move_target(move)];
+        thread->capture_history[pos->side][get_move_source(move)]
+                               [get_move_target(move)];
     move_entry->score +=
         SEE(pos, move, -MO_SEE_THRESHOLD) ? 1000000000 : -1000000;
     move_entry->score += promoted_bonus;
@@ -562,9 +563,8 @@ static inline void update_capture_history(thread_t *thread, int move,
   int clamped_bonus = clamp(is_best_move ? bonus : -bonus, -HISTORY_BONUS_MAX,
                             HISTORY_BONUS_MAX);
   thread->capture_history[thread->pos.side][from][target] +=
-      clamped_bonus -
-      thread->capture_history[thread->pos.side][from][target] *
-          abs(clamped_bonus) / HISTORY_MAX;
+      clamped_bonus - thread->capture_history[thread->pos.side][from][target] *
+                          abs(clamped_bonus) / HISTORY_MAX;
 }
 
 static inline void update_quiet_history_moves(thread_t *thread,
@@ -951,7 +951,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     if (quiet) {
       add_move(quiet_list, move);
 
-    } else if (get_move_promoted(move) == 0) {
+    } else {
       add_move(capture_list, move);
     }
 
