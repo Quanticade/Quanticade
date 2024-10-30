@@ -1,4 +1,4 @@
-# Quanticade
+## <p align="center"><img src=Quanticade.png alt="Quanticade Chess Engine" width="25%" height="25%"/></p>
 
 ## Overview
 
@@ -30,3 +30,4 @@ While some of the code still remains, nearly all parts of original engine have b
 - Stockfish for creating a clearly and easily readable codebase with many great ideas
 - All of the people on fury bench for putting up with me
 - SF Discord for helping me and giving me good ideas
+- NotBaltic for creating the Quanticade logo
