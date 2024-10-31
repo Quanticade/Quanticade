@@ -841,7 +841,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
     int move = move_list->entry[count].move;
-    uint8_t quiet = (get_move_capture(move) == 0);
+    uint8_t quiet = (get_move_capture(move) == 0 && get_move_promoted(move) == 0);
 
     if (move == ss->excluded_move) {
       continue;
