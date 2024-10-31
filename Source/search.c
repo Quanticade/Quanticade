@@ -367,17 +367,21 @@ static inline void score_move(position_t *pos, thread_t *thread,
 }
 
 // sort moves in descending order
-static inline void sort_moves(moves *move_list) {
-  for (uint32_t i = 1; i < move_list->count; i++) {
-    move_t key = move_list->entry[i];
-    int j = i - 1;
+static inline void partial_sort(moves *move_list, uint32_t index) {
+  uint32_t best_move_index = index;
 
-    // Sort in descending order by score
-    while (j >= 0 && move_list->entry[j].score < key.score) {
-      move_list->entry[j + 1] = move_list->entry[j];
-      j--;
+  // Find the move with the highest score from index onwards
+  for (uint32_t i = index + 1; i < move_list->count; i++) {
+    if (move_list->entry[i].score > move_list->entry[best_move_index].score) {
+      best_move_index = i;
     }
-    move_list->entry[j + 1] = key;
+  }
+
+  // Swap the best move found with the move at the given index
+  if (best_move_index != index) {
+    move_t temp = move_list->entry[best_move_index];
+    move_list->entry[best_move_index] = move_list->entry[index];
+    move_list->entry[index] = temp;
   }
 }
 
@@ -458,10 +462,10 @@ static inline int quiescence(position_t *pos, thread_t *thread,
     score_move(pos, thread, &move_list->entry[count], best_move);
   }
 
-  sort_moves(move_list);
-
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
+
+    partial_sort(move_list, count);
 
     if (!SEE(pos, move_list->entry[count].move, -QS_SEE_THRESHOLD))
       continue;
@@ -834,14 +838,14 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     score_move(pos, thread, &move_list->entry[count], tt_move);
   }
 
-  sort_moves(move_list);
-
   uint8_t skip_quiets = 0;
 
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
+    partial_sort(move_list, count);
     int move = move_list->entry[count].move;
-    uint8_t quiet = (get_move_capture(move) == 0 && get_move_promoted(move) == 0);
+    uint8_t quiet =
+        (get_move_capture(move) == 0 && get_move_promoted(move) == 0);
 
     if (move == ss->excluded_move) {
       continue;
