@@ -317,8 +317,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
       move_entry->score = -90000;
       break;
     }
-  }
-  else {
+  } else {
     move_entry->score = 0;
   }
 
@@ -840,7 +839,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
     int move = move_list->entry[count].move;
-    uint8_t quiet = (get_move_capture(move) == 0 && get_move_promoted(move) == 0);
+    uint8_t quiet =
+        (get_move_capture(move) == 0 && get_move_promoted(move) == 0);
 
     if (move == ss->excluded_move) {
       continue;
@@ -966,6 +966,9 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     R -= (quiet ? history_score / HISTORY_MAX : 0);
     R -= in_check;
     R += cutnode;
+    if (get_move_capture(move)) {
+      R--;
+    }
 
     if (depth > 1 && legal_moves > 1) {
       R = clamp(R, 1, new_depth);
