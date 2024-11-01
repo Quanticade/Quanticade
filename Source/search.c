@@ -317,8 +317,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
       move_entry->score = -90000;
       break;
     }
-  }
-  else {
+  } else {
     move_entry->score = 0;
   }
 
@@ -433,7 +432,12 @@ static inline int quiescence(position_t *pos, thread_t *thread,
   // evaluate position
   score = best_score =
       tt_hit ? tt_score : evaluate(pos, &thread->accumulator[pos->ply]);
-  ;
+
+  int in_check = is_square_attacked(pos,
+                                    (pos->side == white)
+                                        ? __builtin_ctzll(pos->bitboards[K])
+                                        : __builtin_ctzll(pos->bitboards[k]),
+                                    pos->side ^ 1);
 
   // fail-hard beta cutoff
   if (score >= beta) {
@@ -446,6 +450,8 @@ static inline int quiescence(position_t *pos, thread_t *thread,
     // PV node (position)
     alpha = score;
   }
+
+  int futility_score = best_score + 100;
 
   // create move list instance
   moves move_list[1];
@@ -462,8 +468,11 @@ static inline int quiescence(position_t *pos, thread_t *thread,
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
 
-    if (!SEE(pos, move_list->entry[count].move, -QS_SEE_THRESHOLD))
+    if (!in_check && futility_score <= alpha &&
+        !SEE(pos, move_list->entry[count].move, -QS_SEE_THRESHOLD)) {
+      best_score = MAX(best_score, futility_score);
       continue;
+    }
 
     // preserve board state
     copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
@@ -840,7 +849,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
     int move = move_list->entry[count].move;
-    uint8_t quiet = (get_move_capture(move) == 0 && get_move_promoted(move) == 0);
+    uint8_t quiet =
+        (get_move_capture(move) == 0 && get_move_promoted(move) == 0);
 
     if (move == ss->excluded_move) {
       continue;
