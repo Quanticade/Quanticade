@@ -469,8 +469,12 @@ static inline int quiescence(position_t *pos, thread_t *thread,
   for (uint32_t count = 0; count < move_list->count; count++) {
 
     if (!in_check && futility_score <= alpha &&
-        !SEE(pos, move_list->entry[count].move, -QS_SEE_THRESHOLD)) {
+        !SEE(pos, move_list->entry[count].move, 1)) {
       best_score = MAX(best_score, futility_score);
+      continue;
+    }
+
+    if (!SEE(pos, move_list->entry[count].move, -QS_SEE_THRESHOLD)) {
       continue;
     }
 
