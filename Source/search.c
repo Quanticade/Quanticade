@@ -82,18 +82,17 @@ int SEEPieceValues[] = {104, 301, 287, 475, 1121, 0, 0};
     6. Unsorted moves
 */
 
-int lmr[MAX_PLY][64];
+int lmr[MAX_PLY + 1][256];
 
 // Initializes the late move reduction array
 void init_reductions(void) {
-  for (int depth = 0; depth < MAX_PLY; depth++) {
-    for (int move = 0; move < 64; move++) {
+  for (int depth = 0; depth <= MAX_PLY; depth++) {
+    for (int move = 0; move < 256; move++) {
       if (move == 0 || depth == 0) {
         lmr[depth][move] = 0;
         continue;
       }
-      lmr[depth][move] =
-          MAX(1.0, LMR_OFFSET + log(depth) * log(move) / LMR_DIVISOR);
+      lmr[depth][move] = LMR_OFFSET + log(depth) * log(move) / LMR_DIVISOR;
     }
   }
 }
@@ -962,7 +961,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
         thread->quiet_history[get_move_piece(move)][get_move_source(move)]
                              [get_move_target(move)];
 
-    int R = lmr[MIN(63, depth)][MIN(63, legal_moves)] + (pv_node ? 0 : 1);
+    int R = lmr[depth][MIN(255, legal_moves)] + (pv_node ? 0 : 1);
     R -= (quiet ? history_score / HISTORY_MAX : 0);
     R -= in_check;
     R += cutnode;
