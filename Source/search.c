@@ -52,6 +52,8 @@ int QS_SEE_THRESHOLD = 7;
 int MO_SEE_THRESHOLD = 117;
 int CAPTURE_HISTORY_BONUS_MAX = 1200;
 int QUIET_HISTORY_BONUS_MAX = 1200;
+int CAPTURE_HISTORY_MALUS_MAX = 1200;
+int QUIET_HISTORY_MALUS_MAX = 1200;
 int HISTORY_MAX = 8192;
 double ASP_MULTIPLIER = 1.4951063634743518;
 int LMR_HIST_DIV = 8192;
@@ -544,11 +546,14 @@ static inline void update_quiet_history(thread_t *thread, int move,
   int target = get_move_target(move);
   int source = get_move_source(move);
   int bonus = 16 * depth * depth + 32 * depth + 16;
-  int clamped_bonus = clamp(is_best_move ? bonus : -bonus,
-                            -QUIET_HISTORY_BONUS_MAX, QUIET_HISTORY_BONUS_MAX);
+  int clamped_bonus =
+      clamp(bonus, -QUIET_HISTORY_BONUS_MAX, QUIET_HISTORY_BONUS_MAX);
+  int clamped_malus =
+      clamp(bonus, -QUIET_HISTORY_MALUS_MAX, QUIET_HISTORY_MALUS_MAX);
+  int adjust = is_best_move ? clamped_bonus : -clamped_malus;
   thread->quiet_history[piece][source][target] +=
-      clamped_bonus - thread->quiet_history[piece][source][target] *
-                          abs(clamped_bonus) / HISTORY_MAX;
+      adjust -
+      thread->quiet_history[piece][source][target] * abs(adjust) / HISTORY_MAX;
 }
 
 static inline void update_capture_history(thread_t *thread, int move,
@@ -557,11 +562,13 @@ static inline void update_capture_history(thread_t *thread, int move,
   int target = get_move_target(move);
   int bonus = 16 * depth * depth + 32 * depth + 16;
   int clamped_bonus =
-      clamp(is_best_move ? bonus : -bonus, -CAPTURE_HISTORY_BONUS_MAX,
-            CAPTURE_HISTORY_BONUS_MAX);
+      clamp(bonus, -CAPTURE_HISTORY_BONUS_MAX, CAPTURE_HISTORY_BONUS_MAX);
+  int clamped_malus =
+      clamp(bonus, -CAPTURE_HISTORY_MALUS_MAX, CAPTURE_HISTORY_MALUS_MAX);
+  int adjust = is_best_move ? clamped_bonus : -clamped_malus;
   thread->capture_history[thread->pos.side][from][target] +=
-      clamped_bonus - thread->capture_history[thread->pos.side][from][target] *
-                          abs(clamped_bonus) / HISTORY_MAX;
+      adjust - thread->capture_history[thread->pos.side][from][target] *
+                   abs(adjust) / HISTORY_MAX;
 }
 
 static inline void update_quiet_history_moves(thread_t *thread,
