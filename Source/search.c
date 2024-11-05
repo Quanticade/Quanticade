@@ -54,6 +54,7 @@ int CAPTURE_HISTORY_BONUS_MAX = 1200;
 int QUIET_HISTORY_BONUS_MAX = 1200;
 int HISTORY_MAX = 8192;
 double ASP_MULTIPLIER = 1.4951063634743518;
+int LMR_HIST_DIV = 8192;
 double LMR_OFFSET_QUIET = 0.8088864806576277;
 double LMR_DIVISOR_QUIET = 2.0868634514798017;
 double LMR_OFFSET_NOISY = -0.2466717373843328;
@@ -87,8 +88,10 @@ void init_reductions(void) {
         lmr[1][depth][move] = 0;
         continue;
       }
-      lmr[0][depth][move] = LMR_OFFSET_NOISY + log(depth) * log(move) / LMR_DIVISOR_NOISY;
-      lmr[1][depth][move] = LMR_OFFSET_QUIET + log(depth) * log(move) / LMR_DIVISOR_QUIET;
+      lmr[0][depth][move] =
+          LMR_OFFSET_NOISY + log(depth) * log(move) / LMR_DIVISOR_NOISY;
+      lmr[1][depth][move] =
+          LMR_OFFSET_QUIET + log(depth) * log(move) / LMR_DIVISOR_QUIET;
     }
   }
 }
@@ -541,8 +544,8 @@ static inline void update_quiet_history(thread_t *thread, int move,
   int target = get_move_target(move);
   int source = get_move_source(move);
   int bonus = 16 * depth * depth + 32 * depth + 16;
-  int clamped_bonus = clamp(is_best_move ? bonus : -bonus, -QUIET_HISTORY_BONUS_MAX,
-                            QUIET_HISTORY_BONUS_MAX);
+  int clamped_bonus = clamp(is_best_move ? bonus : -bonus,
+                            -QUIET_HISTORY_BONUS_MAX, QUIET_HISTORY_BONUS_MAX);
   thread->quiet_history[piece][source][target] +=
       clamped_bonus - thread->quiet_history[piece][source][target] *
                           abs(clamped_bonus) / HISTORY_MAX;
@@ -553,8 +556,9 @@ static inline void update_capture_history(thread_t *thread, int move,
   int from = get_move_source(move);
   int target = get_move_target(move);
   int bonus = 16 * depth * depth + 32 * depth + 16;
-  int clamped_bonus = clamp(is_best_move ? bonus : -bonus, -CAPTURE_HISTORY_BONUS_MAX,
-                            CAPTURE_HISTORY_BONUS_MAX);
+  int clamped_bonus =
+      clamp(is_best_move ? bonus : -bonus, -CAPTURE_HISTORY_BONUS_MAX,
+            CAPTURE_HISTORY_BONUS_MAX);
   thread->capture_history[thread->pos.side][from][target] +=
       clamped_bonus - thread->capture_history[thread->pos.side][from][target] *
                           abs(clamped_bonus) / HISTORY_MAX;
@@ -739,8 +743,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     // null move pruning
     if (do_nmp && !pv_node && static_eval >= beta && !only_pawns(pos)) {
-      int R = MIN((static_eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) + depth / NMP_DIVISER +
-              NMP_BASE_REDUCTION;
+      int R = MIN((static_eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) +
+              depth / NMP_DIVISER + NMP_BASE_REDUCTION;
       R = MIN(R, depth);
       // preserve board state
       copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
@@ -958,7 +962,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
                              [get_move_target(move)];
 
     int R = lmr[quiet][depth][MIN(255, legal_moves)] + (pv_node ? 0 : 1);
-    R -= (quiet ? history_score / HISTORY_MAX : 0);
+    R -= (quiet ? history_score / LMR_HIST_DIV : 0);
     R -= in_check;
     R += cutnode;
 

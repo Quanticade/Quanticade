@@ -38,6 +38,7 @@ extern int CAPTURE_HISTORY_BONUS_MAX;
 extern int QUIET_HISTORY_BONUS_MAX;
 extern int HISTORY_MAX;
 extern double ASP_MULTIPLIER;
+extern int LMR_HIST_DIV;
 extern double LMR_OFFSET_NOISY;
 extern double LMR_DIVISOR_NOISY;
 extern double LMR_OFFSET_QUIET;
@@ -114,6 +115,7 @@ void init_spsa_table(void) {
   SPSA_INT_NAME("SEE_QUEEN", SEEPieceValues[QUEEN]);
   add_double_spsa(STRINGIFY(ASP_MULTIPLIER), &ASP_MULTIPLIER, 1,
                   SPSA_MAX(ASP_MULTIPLIER), RATE_DOUBLE(ASP_MULTIPLIER), NULL);
+  SPSA_INT(LMR_HIST_DIV);
   add_double_spsa(STRINGIFY(LMR_OFFSET_QUIET), &LMR_OFFSET_QUIET, 0.1,
                   SPSA_MAX(LMR_OFFSET_QUIET), RATE_DOUBLE(LMR_OFFSET_QUIET),
                   init_reductions);
