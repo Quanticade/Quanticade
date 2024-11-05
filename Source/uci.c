@@ -16,6 +16,7 @@
 #include "perft.h"
 #include "pyrrhic/tbprobe.h"
 #include "search.h"
+#include "spsa.h"
 #include "structs.h"
 #include "threads.h"
 #include "transposition.h"
@@ -641,137 +642,11 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
              nnue_settings.nnue_file);
       printf("option name Clear Hash type button\n");
       // SPSA
-      printf("option name LMP_BASE type spin default 6 min 1 max 12\n");
-      printf("option name LMP_MULTIPLIER type spin default 1 min 1 max 4\n");
-      printf("option name RAZOR_DEPTH type spin default 7 min 1 max 14\n");
-      printf("option name RAZOR_MARGIN type spin default 288 min 1 max 400\n");
-      printf("option name RFP_DEPTH type spin default 6 min 1 max 12\n");
-      printf("option name RFP_MARGIN type spin default 101 min 1 max 200\n");
-      printf("option name FP_DEPTH type spin default 5 min 1 max 10\n");
-      printf("option name FP_MULTIPLIER type spin default 150 min 1 max 300\n");
-      printf("option name FP_ADDITION type spin default 150 min 1 max 300\n");
-      printf(
-          "option name NMP_BASE_REDUCTION type spin default 4 min 1 max 8\n");
-      printf("option name NMP_DIVISOR type spin default 3 min 1 max 6\n");
-      printf("option name IIR_DEPTH type spin default 4 min 1 max 8\n");
-      printf("option name SEE_QUIET type spin default 66 min 1 max 134\n");
-      printf("option name SEE_CAPTURE type spin default 33 min 1 max 64\n");
-      printf("option name SEE_DEPTH type spin default 10 min 1 max 20\n");
-      printf("option name SE_DEPTH type spin default 7 min 1 max 14\n");
-      printf(
-          "option name SE_DEPTH_REDUCTION type spin default 3 min 1 max 6\n");
-      printf("option name HISTORY_BONUS_MAX type spin default 1200 min 1 max "
-             "2400\n");
-      printf("option name ASP_WINDOW type spin default 9 min 1 max 18\n");
-      printf("option name ASP_MULTIPLIER type string default 1.55\n");
-      printf("option name LMR_OFFSET_NOISY type string default -0.2\n");
-      printf("option name LMR_DIVISOR_NOISY type string default 2.0\n");
-      printf("option name LMR_OFFSET_QUIET type string default 0.5\n");
-      printf("option name LMR_DIVISOR_QUIET type string default 1.5\n");
-      printf("option name QS_SEE_THRESHOLD type spin default 7 min 1 max 14\n");
-      printf(
-          "option name MO_SEE_THRESHOLD type spin default 107 min 1 max 214\n");
-      printf("option name SEE_PAWN type spin default 100 min 1 max 200\n");
-      printf("option name SEE_KNIGHT type spin default 292 min 1 max 600\n");
-      printf("option name SEE_BISHOP type spin default 290 min 1 max 600\n");
-      printf("option name SEE_ROOK type spin default 504 min 1 max 1000\n");
-      printf("option name SEE_QUEEN type spin default 1176 min 1 max 2400\n");
+      print_spsa_table_uci();
       // uciok
       printf("uciok\n");
     } else if (strncmp(input, "spsa", 4) == 0) {
-      printf("LMP_BASE, int, %.3f, 1.000, %.3f, %.3f, 0.002\n", (float)LMP_BASE,
-             (float)LMP_BASE * 2,
-             MAX(0.5, MAX(1, (((float)LMP_BASE * 2) - 1)) / 20));
-      printf("LMP_MULTIPLIER, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
-             (float)LMP_MULTIPLIER, (float)LMP_MULTIPLIER * 2,
-             MAX(0.5, MAX(1, (((float)LMP_MULTIPLIER * 2) - 1)) / 20));
-      printf("RAZOR_DEPTH, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
-             (float)RAZOR_DEPTH, (float)RAZOR_DEPTH * 2,
-             MAX(0.5, MAX(1, (((float)RAZOR_DEPTH * 2) - 1)) / 20));
-      printf("RAZOR_MARGIN, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
-             (float)RAZOR_MARGIN, (float)RAZOR_MARGIN * 2,
-             MAX(0.5, MAX(1, (((float)RAZOR_MARGIN * 2) - 1)) / 20));
-      printf("RFP_DEPTH, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
-             (float)RFP_DEPTH, (float)RFP_DEPTH * 2,
-             MAX(0.5, MAX(1, (((float)RFP_DEPTH * 2) - 1)) / 20));
-      printf("RFP_MARGIN, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
-             (float)RFP_MARGIN, (float)RFP_MARGIN * 2,
-             MAX(0.5, MAX(1, (((float)RFP_MARGIN * 2) - 1)) / 20));
-      printf("NMP_BASE_REDUCTION, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
-             (float)NMP_BASE_REDUCTION, (float)NMP_BASE_REDUCTION * 2,
-             MAX(0.5, MAX(1, (((float)NMP_BASE_REDUCTION * 2) - 1)) / 20));
-      printf("NMP_DIVISOR, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
-             (float)NMP_DIVISER, (float)NMP_DIVISER * 2,
-             MAX(0.5, MAX(1, (((float)NMP_DIVISER * 2) - 1)) / 20));
-      printf("IIR_DEPTH, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
-             (float)IIR_DEPTH, (float)IIR_DEPTH * 2,
-             MAX(0.5, MAX(1, (((float)IIR_DEPTH * 2) - 1)) / 20));
-      printf("SEE_QUIET, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
-             (float)SEE_QUIET, (float)SEE_QUIET * 2,
-             MAX(0.5, MAX(1, (((float)SEE_QUIET * 2) - 1)) / 20));
-      printf("SEE_CAPTURE, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
-             (float)SEE_CAPTURE, (float)SEE_CAPTURE * 2,
-             MAX(0.5, MAX(1, (((float)SEE_CAPTURE * 2) - 1)) / 20));
-      printf("SEE_DEPTH, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
-             (float)SEE_DEPTH, (float)SEE_DEPTH * 2,
-             MAX(0.5, MAX(1, (((float)SEE_DEPTH * 2) - 1)) / 20));
-      printf("QS_SEE_THRESHOLD, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
-             (float)QS_SEE_THRESHOLD, (float)QS_SEE_THRESHOLD * 2,
-             MAX(0.5, MAX(1, (((float)QS_SEE_THRESHOLD * 2) - 1)) / 20));
-      printf("MO_SEE_THRESHOLD, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
-             (float)MO_SEE_THRESHOLD, (float)MO_SEE_THRESHOLD * 2,
-             MAX(0.5, MAX(1, (((float)MO_SEE_THRESHOLD * 2) - 1)) / 20));
-      printf("FP_DEPTH, int, %.3f, 1.000, %.3f, %.3f, 0.002\n", (float)FP_DEPTH,
-             (float)FP_DEPTH * 2,
-             MAX(0.5, MAX(1, (((float)FP_DEPTH * 2) - 1)) / 20));
-      printf("FP_MULTIPLIER, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
-             (float)FP_MULTIPLIER, (float)FP_MULTIPLIER * 2,
-             MAX(0.5, MAX(1, (((float)FP_MULTIPLIER * 2) - 1)) / 20));
-      printf("FP_ADDITION, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
-             (float)FP_ADDITION, (float)FP_ADDITION * 2,
-             MAX(0.5, MAX(1, (((float)FP_ADDITION * 2) - 1)) / 20));
-      printf("SE_DEPTH, int, %.3f, 1.000, %.3f, %.3f, 0.002\n", (float)SE_DEPTH,
-             (float)SE_DEPTH * 2,
-             MAX(0.5, MAX(1, (((float)SE_DEPTH * 2) - 1)) / 20));
-      printf("SE_DEPTH_REDUCTION, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
-             (float)SE_DEPTH_REDUCTION, (float)SE_DEPTH_REDUCTION * 2,
-             MAX(0.5, MAX(1, (((float)SE_DEPTH_REDUCTION * 2) - 1)) / 20));
-      printf("HISTORY_BONUS_MAX, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
-             (float)HISTORY_BONUS_MAX, (float)HISTORY_BONUS_MAX * 2,
-             MAX(0.5, MAX(1, (((float)HISTORY_BONUS_MAX * 2) - 1)) / 20));
-      printf("ASP_WINDOW, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
-             (float)ASP_WINDOW, (float)ASP_WINDOW * 2,
-             MAX(0.5, MAX(1, (((float)ASP_WINDOW * 2) - 1)) / 20));
-      printf("ASP_MULTIPLIER, float, %.3f, 1.000, %.3f, %.3f, 0.002\n",
-             ASP_MULTIPLIER, ASP_MULTIPLIER * 2,
-             MAX(0.5, MAX(1, ((ASP_MULTIPLIER * 2) - 1)) / 20));
-      printf("LMR_OFFSET_NOISY, float, %f, 1.000, %.3f, %.3f, 0.002\n",
-             LMR_OFFSET_NOISY, LMR_OFFSET_NOISY * 2,
-             MAX(0.01, MAX(1, ((LMR_OFFSET_NOISY * 2) - 1)) / 20));
-      printf("LMR_DIVISOR_NOISY, float, %f, 1.000, %.3f, %.3f, 0.002\n",
-             LMR_DIVISOR_NOISY, LMR_DIVISOR_NOISY * 2,
-             MAX(0.01, MAX(1, ((LMR_DIVISOR_NOISY * 2) - 1)) / 20));
-      printf("LMR_OFFSET_QUIET, float, %f, 1.000, %.3f, %.3f, 0.002\n",
-             LMR_OFFSET_QUIET, LMR_OFFSET_QUIET * 2,
-             MAX(0.01, MAX(1, ((LMR_OFFSET_QUIET * 2) - 1)) / 20));
-      printf("LMR_DIVISOR_QUIET, float, %f, 1.000, %.3f, %.3f, 0.002\n",
-             LMR_DIVISOR_QUIET, LMR_DIVISOR_QUIET * 2,
-             MAX(0.01, MAX(1, ((LMR_DIVISOR_QUIET * 2) - 1)) / 20));
-      printf("SEE_PAWN, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
-             (float)SEEPieceValues[0], (float)SEEPieceValues[0] * 1.5,
-             MAX(0.5, MAX(1, (((float)SEEPieceValues[0] * 2) - 1)) / 20));
-      printf("SEE_KNIGHT, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
-             (float)SEEPieceValues[1], (float)SEEPieceValues[1] * 1.5,
-             MAX(0.5, MAX(1, (((float)SEEPieceValues[1] * 2) - 1)) / 20));
-      printf("SEE_BISHOP, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
-             (float)SEEPieceValues[2], (float)SEEPieceValues[2] * 1.5,
-             MAX(0.5, MAX(1, (((float)SEEPieceValues[2] * 2) - 1)) / 20));
-      printf("SEE_ROOK, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
-             (float)SEEPieceValues[3], (float)SEEPieceValues[3] * 1.5,
-             MAX(0.5, MAX(1, (((float)SEEPieceValues[3] * 2) - 1)) / 20));
-      printf("SEE_QUEEN, int, %.3f, 1.000, %.3f, %.3f, 0.002\n",
-             (float)SEEPieceValues[4], (float)SEEPieceValues[4] * 1.5,
-             MAX(0.5, MAX(1, (((float)SEEPieceValues[4] * 2) - 1)) / 20));
+      print_spsa_table();
     }
 
     else if (!strncmp(input, "setoption name Hash value ", 26)) {
@@ -811,74 +686,8 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
       char *ptr = input + 32;
       // tb_init(ptr);
       printf("info string set SyzygyPath to %s\n", ptr);
-    } else if (!strncmp(input, "setoption name LMP_BASE value ", 30)) {
-      sscanf(input, "%*s %*s %*s %*s %d", &LMP_BASE);
-    } else if (!strncmp(input, "setoption name LMP_MULTIPLIER value ", 36)) {
-      sscanf(input, "%*s %*s %*s %*s %d", &LMP_MULTIPLIER);
-    } else if (!strncmp(input, "setoption name RAZOR_DEPTH value ", 33)) {
-      sscanf(input, "%*s %*s %*s %*s %d", &RAZOR_DEPTH);
-    } else if (!strncmp(input, "setoption name RAZOR_MARGIN value ", 34)) {
-      sscanf(input, "%*s %*s %*s %*s %d", &RAZOR_MARGIN);
-    } else if (!strncmp(input, "setoption name RFP_DEPTH value ", 31)) {
-      sscanf(input, "%*s %*s %*s %*s %d", &RFP_DEPTH);
-    } else if (!strncmp(input, "setoption name RFP_MARGIN value ", 32)) {
-      sscanf(input, "%*s %*s %*s %*s %d", &RFP_MARGIN);
-    } else if (!strncmp(input, "setoption name NMP_BASE_REDUCTION value ",
-                        40)) {
-      sscanf(input, "%*s %*s %*s %*s %d", &NMP_BASE_REDUCTION);
-    } else if (!strncmp(input, "setoption name NMP_DIVISOR value ", 33)) {
-      sscanf(input, "%*s %*s %*s %*s %d", &NMP_DIVISER);
-    } else if (!strncmp(input, "setoption name IIR_DEPTH value ", 31)) {
-      sscanf(input, "%*s %*s %*s %*s %d", &IIR_DEPTH);
-    } else if (!strncmp(input, "setoption name SEE_QUIET value ", 31)) {
-      sscanf(input, "%*s %*s %*s %*s %d", &SEE_QUIET);
-    } else if (!strncmp(input, "setoption name SEE_CAPTURE value ", 33)) {
-      sscanf(input, "%*s %*s %*s %*s %d", &SEE_CAPTURE);
-    } else if (!strncmp(input, "setoption name SEE_DEPTH value ", 31)) {
-      sscanf(input, "%*s %*s %*s %*s %d", &SEE_DEPTH);
-    } else if (!strncmp(input, "setoption name QS_SEE_THRESHOLD value ", 38)) {
-      sscanf(input, "%*s %*s %*s %*s %d", &QS_SEE_THRESHOLD);
-    } else if (!strncmp(input, "setoption name MO_SEE_THRESHOLD value ", 38)) {
-      sscanf(input, "%*s %*s %*s %*s %d", &MO_SEE_THRESHOLD);
-    } else if (!strncmp(input, "setoption name FP_DEPTH value ", 30)) {
-      sscanf(input, "%*s %*s %*s %*s %d", &FP_DEPTH);
-    } else if (!strncmp(input, "setoption name FP_MULTIPLIER value ", 35)) {
-      sscanf(input, "%*s %*s %*s %*s %d", &FP_MULTIPLIER);
-    } else if (!strncmp(input, "setoption name FP_ADDITION value ", 33)) {
-      sscanf(input, "%*s %*s %*s %*s %d", &FP_ADDITION);
-    } else if (!strncmp(input, "setoption name SE_DEPTH value ", 30)) {
-      sscanf(input, "%*s %*s %*s %*s %d", &SE_DEPTH);
-    } else if (!strncmp(input, "setoption name SE_DEPTH_REDUCTION value ",
-                        40)) {
-      sscanf(input, "%*s %*s %*s %*s %d", &SE_DEPTH_REDUCTION);
-    } else if (!strncmp(input, "setoption name ASP_WINDOW value ", 32)) {
-      sscanf(input, "%*s %*s %*s %*s %d", &ASP_WINDOW);
-    } else if (!strncmp(input, "setoption name HISTORY_BONUS_MAX value ", 39)) {
-      sscanf(input, "%*s %*s %*s %*s %d", &HISTORY_BONUS_MAX);
-    } else if (!strncmp(input, "setoption name ASP_MULTIPLIER value ", 36)) {
-      sscanf(input, "%*s %*s %*s %*s %lf", &ASP_MULTIPLIER);
-    } else if (!strncmp(input, "setoption name LMR_OFFSET_NOISY value ", 38)) {
-      sscanf(input, "%*s %*s %*s %*s %lf", &LMR_OFFSET_NOISY);
-      init_reductions();
-    } else if (!strncmp(input, "setoption name LMR_DIVISOR_NOISY value ", 39)) {
-      sscanf(input, "%*s %*s %*s %*s %lf", &LMR_DIVISOR_NOISY);
-      init_reductions();
-    } else if (!strncmp(input, "setoption name LMR_OFFSET_QUIET value ", 38)) {
-      sscanf(input, "%*s %*s %*s %*s %lf", &LMR_OFFSET_QUIET);
-      init_reductions();
-    } else if (!strncmp(input, "setoption name LMR_DIVISOR_QUIET value ", 39)) {
-      sscanf(input, "%*s %*s %*s %*s %lf", &LMR_DIVISOR_QUIET);
-      init_reductions();
-    } else if (!strncmp(input, "setoption name SEE_PAWN value ", 30)) {
-      sscanf(input, "%*s %*s %*s %*s %d", &SEEPieceValues[0]);
-    } else if (!strncmp(input, "setoption name SEE_KNIGHT value ", 32)) {
-      sscanf(input, "%*s %*s %*s %*s %d", &SEEPieceValues[1]);
-    } else if (!strncmp(input, "setoption name SEE_BISHOP value ", 32)) {
-      sscanf(input, "%*s %*s %*s %*s %d", &SEEPieceValues[2]);
-    } else if (!strncmp(input, "setoption name SEE_ROOK value ", 30)) {
-      sscanf(input, "%*s %*s %*s %*s %d", &SEEPieceValues[3]);
-    } else if (!strncmp(input, "setoption name SEE_QUEEN value ", 31)) {
-      sscanf(input, "%*s %*s %*s %*s %d", &SEEPieceValues[4]);
+    } else {
+      handle_spsa_change(input);
     }
   }
 }
