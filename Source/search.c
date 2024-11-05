@@ -33,11 +33,14 @@ int RAZOR_DEPTH = 7;
 int RAZOR_MARGIN = 298;
 int RFP_DEPTH = 6;
 int RFP_MARGIN = 66;
+int RFP_BONUS = 100;
 int FP_DEPTH = 5;
 int FP_MULTIPLIER = 162;
 int FP_ADDITION = 143;
 int NMP_BASE_REDUCTION = 4;
 int NMP_DIVISER = 3;
+int NMP_RED_DIVISER = 200;
+int NMP_RED_MIN = 6;
 int IIR_DEPTH = 4;
 int SEE_QUIET = 62;
 int SEE_CAPTURE = 36;
@@ -47,7 +50,8 @@ int SE_DEPTH_REDUCTION = 4;
 int ASP_WINDOW = 10;
 int QS_SEE_THRESHOLD = 7;
 int MO_SEE_THRESHOLD = 117;
-int HISTORY_BONUS_MAX = 1200;
+int CAPTURE_HISTORY_BONUS_MAX = 1200;
+int QUIET_HISTORY_BONUS_MAX = 1200;
 int HISTORY_MAX = 8192;
 double ASP_MULTIPLIER = 1.4951063634743518;
 double LMR_OFFSET_QUIET = 0.8088864806576277;
@@ -71,18 +75,6 @@ const int mvv_lva[12][12] = {
     {100, 200, 300, 400, 500, 600, 100, 200, 300, 400, 500, 600}};
 
 int SEEPieceValues[] = {104, 301, 287, 475, 1121, 0, 0};
-
-/*  =======================
-         Move ordering
-    =======================
-
-    1. PV move
-    2. Captures in MVV/LVA
-    3. 1st killer move
-    4. 2nd killer move
-    5. History moves
-    6. Unsorted moves
-*/
 
 int lmr[2][MAX_PLY + 1][256];
 
@@ -549,8 +541,8 @@ static inline void update_quiet_history(thread_t *thread, int move,
   int target = get_move_target(move);
   int source = get_move_source(move);
   int bonus = 16 * depth * depth + 32 * depth + 16;
-  int clamped_bonus = clamp(is_best_move ? bonus : -bonus, -HISTORY_BONUS_MAX,
-                            HISTORY_BONUS_MAX);
+  int clamped_bonus = clamp(is_best_move ? bonus : -bonus, -QUIET_HISTORY_BONUS_MAX,
+                            QUIET_HISTORY_BONUS_MAX);
   thread->quiet_history[piece][source][target] +=
       clamped_bonus - thread->quiet_history[piece][source][target] *
                           abs(clamped_bonus) / HISTORY_MAX;
@@ -561,8 +553,8 @@ static inline void update_capture_history(thread_t *thread, int move,
   int from = get_move_source(move);
   int target = get_move_target(move);
   int bonus = 16 * depth * depth + 32 * depth + 16;
-  int clamped_bonus = clamp(is_best_move ? bonus : -bonus, -HISTORY_BONUS_MAX,
-                            HISTORY_BONUS_MAX);
+  int clamped_bonus = clamp(is_best_move ? bonus : -bonus, -CAPTURE_HISTORY_BONUS_MAX,
+                            CAPTURE_HISTORY_BONUS_MAX);
   thread->capture_history[thread->pos.side][from][target] +=
       clamped_bonus - thread->capture_history[thread->pos.side][from][target] *
                           abs(clamped_bonus) / HISTORY_MAX;
@@ -733,7 +725,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
   if (!in_check && !ss->excluded_move) {
     // Reverse Futility Pruning
-    if (depth <= RFP_DEPTH && !pv_node && abs(beta - 1) > -INF + 100) {
+    if (depth <= RFP_DEPTH && !pv_node && abs(beta - 1) > -INF + RFP_BONUS) {
       // get static evaluation score
 
       // define evaluation margin
@@ -747,7 +739,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     // null move pruning
     if (do_nmp && !pv_node && static_eval >= beta && !only_pawns(pos)) {
-      int R = MIN((static_eval - beta) / 200, 6) + depth / NMP_DIVISER +
+      int R = MIN((static_eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) + depth / NMP_DIVISER +
               NMP_BASE_REDUCTION;
       R = MIN(R, depth);
       // preserve board state
