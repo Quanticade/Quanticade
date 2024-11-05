@@ -852,7 +852,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       skip_quiets = 1;
     }
 
-    int r = lmr[quiet][MIN(63, depth)][MIN(63, legal_moves)];
+    int r = lmr[quiet][depth][MIN(255, legal_moves)];
     int lmr_depth = MAX(1, depth - 1 - MAX(r, 1));
 
     // Futility Pruning
