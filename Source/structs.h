@@ -6,6 +6,22 @@
 
 #define MAX_PLY 254
 
+typedef struct spsa {
+  void* value;
+  union {
+    uint64_t min_int;
+    double min_float;
+  } min;
+  union {
+    uint64_t max_int;
+    double max_float;
+  } max;
+  double rate;
+  void (*func)(void);
+  char name[50];
+  uint8_t is_float;
+} spsa_t;
+
 typedef struct tt_entry {
   uint32_t hash_key; // "almost" unique chess position identifier
   int move;
