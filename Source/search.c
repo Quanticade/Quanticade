@@ -856,6 +856,13 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       continue;
     }
 
+    ss->history_score =
+        quiet
+            ? thread->quiet_history[get_move_piece(move)][get_move_source(move)]
+                                   [get_move_target(move)]
+            : thread->capture_history[pos->side][get_move_source(move)]
+                                     [get_move_target(move)];
+
     // Late Move Pruning
     if (!pv_node && !in_check && quiet &&
         legal_moves > LMP_BASE + LMP_MULTIPLIER * depth * depth &&
@@ -964,12 +971,9 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     // PVS & LMR
     const int new_depth = depth + extensions - 1;
-    const int history_score =
-        thread->quiet_history[get_move_piece(move)][get_move_source(move)]
-                             [get_move_target(move)];
 
     int R = lmr[quiet][depth][MIN(255, legal_moves)] + (pv_node ? 0 : 1);
-    R -= (quiet ? history_score / LMR_HIST_DIV : 0);
+    R -= ss->history_score / LMR_HIST_DIV;
     R -= in_check;
     R += cutnode;
 
