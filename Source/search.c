@@ -884,8 +884,18 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     // SEE PVS Pruning
     const int see_threshold =
         quiet ? -SEE_QUIET * depth : -SEE_CAPTURE * depth * depth;
-    if (depth <= SEE_DEPTH && legal_moves > 0 && !SEE(pos, move, see_threshold))
+    if (depth <= SEE_DEPTH && legal_moves > 0 &&
+        !SEE(pos, move, see_threshold)) {
+
       continue;
+    }
+
+    const int history_margin =
+        quiet ? -481 + -1897 * depth : -438 + -1802 * depth;
+    if (!root_node && depth <= 5 && ss->history_score <= history_margin) {
+      skip_quiets = 1;
+      continue;
+    }
 
     int extensions = 0;
 
