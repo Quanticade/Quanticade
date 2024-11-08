@@ -1141,6 +1141,7 @@ void *iterative_deepening(void *thread_void) {
     for (int i = 0; i < MAX_PLY + 4; ++i) {
       ss[i].excluded_move = 0;
       ss[i].static_eval = INF;
+      ss[i].history_score = 0;
     }
 
     pos->seldepth = 0;
