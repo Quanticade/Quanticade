@@ -890,9 +890,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       continue;
     }
 
-    const int history_margin =
-        quiet ? -481 + -1897 * depth : -438 + -1802 * depth;
-    if (!root_node && depth <= 5 && ss->history_score <= history_margin) {
+    const int history_margin = -500 + -1500 * depth;
+    if (quiet && !root_node && depth <= 5 && ss->history_score <= history_margin) {
       skip_quiets = 1;
       continue;
     }
