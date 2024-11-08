@@ -48,6 +48,7 @@ int SEE_DEPTH = 10;
 int SE_DEPTH = 6;
 int SE_DEPTH_REDUCTION = 4;
 int ASP_WINDOW = 11;
+int ASP_DEPTH = 4;
 int QS_SEE_THRESHOLD = 7;
 int MO_SEE_THRESHOLD = 122;
 int CAPTURE_HISTORY_BONUS_MAX = 1237;
@@ -1152,7 +1153,7 @@ void *iterative_deepening(void *thread_void) {
 
     while (true) {
 
-      if (thread->depth >= 4) {
+      if (thread->depth >= ASP_DEPTH) {
         alpha = MAX(-INF, thread->score - window);
         beta = MIN(INF, thread->score + window);
       }
