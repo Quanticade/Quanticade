@@ -56,6 +56,9 @@ int QUIET_HISTORY_BONUS_MAX = 1284;
 int CAPTURE_HISTORY_MALUS_MAX = 1280;
 int QUIET_HISTORY_MALUS_MAX = 1255;
 int HISTORY_MAX = 8192;
+int HP_ADDITION = 1000;
+int HP_MULTIPLIER = 3000;
+int HP_DEPTH = 5;
 double ASP_MULTIPLIER = 1.523752944059298;
 int LMR_HIST_DIV = 7410;
 double LMR_OFFSET_QUIET = 0.8664204388454546;
@@ -890,8 +893,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       continue;
     }
 
-    const int history_margin = -500 + -1500 * depth;
-    if (quiet && !root_node && depth <= 5 && ss->history_score <= history_margin) {
+    const int history_margin = -HP_ADDITION + -HP_MULTIPLIER * depth;
+    if (quiet && !root_node && depth <= HP_DEPTH && ss->history_score <= history_margin) {
       skip_quiets = 1;
       continue;
     }
