@@ -85,7 +85,7 @@ typedef struct searchinfo {
   int score;
   int killer_moves[MAX_PLY];
   int16_t quiet_history[12][64][64];
-  int16_t capture_history[2][64][64];
+  int16_t capture_history[12][13][64][64];
   PV_t pv;
   uint8_t depth;
   uint8_t timeset;
