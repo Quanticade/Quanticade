@@ -57,7 +57,8 @@ int CAPTURE_HISTORY_MALUS_MAX = 1280;
 int QUIET_HISTORY_MALUS_MAX = 1255;
 int HISTORY_MAX = 8192;
 double ASP_MULTIPLIER = 1.523752944059298;
-int LMR_HIST_DIV = 7410;
+int LMR_QUIET_HIST_DIV = 7410;
+int LMR_CAPT_HIST_DIV = 7410;
 double LMR_OFFSET_QUIET = 0.8664204388454546;
 double LMR_DIVISOR_QUIET = 1.6343306598084584;
 double LMR_OFFSET_NOISY = -0.28109910924097326;
@@ -978,7 +979,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     const int new_depth = depth + extensions - 1;
 
     int R = lmr[quiet][depth][MIN(255, legal_moves)] + (pv_node ? 0 : 1);
-    R -= ss->history_score / LMR_HIST_DIV;
+    R -= ss->history_score / (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
     R -= in_check;
     R += cutnode;
 
