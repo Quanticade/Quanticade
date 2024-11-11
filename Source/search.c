@@ -337,8 +337,8 @@ static inline void score_move(position_t *pos, thread_t *thread,
     // score move by MVV LVA lookup [source piece][target piece]
     move_entry->score += mvv_lva[get_move_piece(move)][target_piece];
     move_entry->score +=
-        thread->capture_history[pos->side][get_move_source(move)]
-                               [get_move_target(move)];
+        thread->capture_history[get_move_piece(move)][target_piece]
+                               [get_move_source(move)][get_move_target(move)];
     move_entry->score +=
         SEE(pos, move, -MO_SEE_THRESHOLD) ? 1000000000 : -1000000;
     return;
@@ -567,8 +567,10 @@ static inline void update_capture_history(thread_t *thread, int move,
   int clamped_malus =
       clamp(bonus, -CAPTURE_HISTORY_MALUS_MAX, CAPTURE_HISTORY_MALUS_MAX);
   int adjust = is_best_move ? clamped_bonus : -clamped_malus;
-  thread->capture_history[thread->pos.side][from][target] +=
-      adjust - thread->capture_history[thread->pos.side][from][target] *
+  thread->capture_history[get_move_piece(move)][thread->pos.mailbox[target]]
+                         [from][target] +=
+      adjust - thread->capture_history[get_move_piece(
+                   move)][thread->pos.mailbox[target]][from][target] *
                    abs(adjust) / HISTORY_MAX;
 }
 
@@ -861,7 +863,9 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
         quiet
             ? thread->quiet_history[get_move_piece(move)][get_move_source(move)]
                                    [get_move_target(move)]
-            : thread->capture_history[pos->side][get_move_source(move)]
+            : thread->capture_history[get_move_piece(move)]
+                                     [pos->mailbox[get_move_target(move)]]
+                                     [get_move_source(move)]
                                      [get_move_target(move)];
 
     // Late Move Pruning
