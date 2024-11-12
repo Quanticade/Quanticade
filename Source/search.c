@@ -877,6 +877,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     }
 
     int r = lmr[quiet][MIN(63, depth)][MIN(63, legal_moves)];
+    r += cutnode;
     int lmr_depth = MAX(1, depth - 1 - MAX(r, 1));
 
     // Futility Pruning
