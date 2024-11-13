@@ -877,7 +877,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     }
 
     int r = lmr[quiet][MIN(63, depth)][MIN(63, legal_moves)];
-    int lmr_depth = MAX(1, depth - 1 - MAX(r, 1));
+    int lmr_depth = clamp(r, 1, depth - 1);
 
     // Futility Pruning
     if (!root_node && score > -MATE_SCORE && lmr_depth <= FP_DEPTH &&
@@ -978,7 +978,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     // PVS & LMR
     const int new_depth = depth + extensions - 1;
 
-    int R = lmr[quiet][depth][MIN(255, legal_moves)] + (pv_node ? 0 : 1);
+    int R = lmr[quiet][depth][MIN(255, legal_moves)];
+    R += !pv_node;
     R -= ss->history_score / (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
     R -= in_check;
     R += cutnode;
