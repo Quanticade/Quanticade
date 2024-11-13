@@ -62,6 +62,7 @@ int ASP_WINDOW = 11;
 int ASP_DEPTH = 4;
 int QS_SEE_THRESHOLD = 6;
 int MO_SEE_THRESHOLD = 130;
+int PROBCUT_ADDITION = 350;
 double ASP_MULTIPLIER = 1.6541989293231878;
 int LMR_QUIET_HIST_DIV = 7323;
 int LMR_CAPT_HIST_DIV = 7534;
@@ -660,6 +661,99 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       const int razor_score = quiescence(pos, thread, ss, alpha, beta, NON_PV);
       if (razor_score <= alpha) {
         return razor_score;
+      }
+    }
+  }
+
+  int probcut_beta = beta + PROBCUT_ADDITION;
+  if (!pv_node && !in_check && depth >= 5 &&
+      !(tt_hit && tt_depth >= depth - 3 && tt_score >= probcut_beta)) {
+    moves capture_promos[1];
+    int score = -NO_SCORE;
+
+    int16_t pc_see = probcut_beta - ss->static_eval;
+    uint16_t pc_tt_move = SEE(pos, tt_move, pc_see) ? tt_move : 0;
+
+    generate_captures(pos, capture_promos);
+    for (uint32_t count = 0; count < capture_promos->count; count++) {
+      score_move(pos, thread, ss, &capture_promos->entry[count], pc_tt_move);
+    }
+
+    for (uint32_t count = 0; count < capture_promos->count; count++) {
+      int move = capture_promos->entry[count].move;
+      if (move == ss->excluded_move) {
+        continue;
+      }
+      copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
+                 pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+      thread->accumulator[pos->ply + 1] = thread->accumulator[pos->ply];
+
+      // increment ply
+      pos->ply++;
+
+      // increment repetition index & store hash key
+      pos->repetition_index++;
+      pos->repetition_table[pos->repetition_index] = pos->hash_key;
+
+      // make sure to make only legal moves
+      if (make_move(pos, move, all_moves) == 0) {
+        // decrement ply
+        pos->ply--;
+
+        // decrement repetition index
+        pos->repetition_index--;
+
+        // skip to next move
+        continue;
+      }
+
+      uint8_t white_king_square = get_lsb(pos->bitboards[K]);
+      uint8_t black_king_square = get_lsb(pos->bitboards[k]);
+      uint8_t white_bucket = get_king_bucket(white, white_king_square);
+      uint8_t black_bucket = get_king_bucket(black, black_king_square);
+      if (need_refresh(mailbox_copy, move)) {
+        if (pos->side == black) {
+          refresh_white_accumulator(pos, &thread->accumulator[pos->ply]);
+          accumulator_make_move(
+              &thread->accumulator[pos->ply],
+              &thread->accumulator[pos->ply - 1], white_king_square,
+              black_king_square, white_bucket, black_bucket, pos->side,
+              move, mailbox_copy, black);
+        } else if (pos->side == white) {
+          refresh_black_accumulator(pos, &thread->accumulator[pos->ply]);
+          accumulator_make_move(
+              &thread->accumulator[pos->ply],
+              &thread->accumulator[pos->ply - 1], white_king_square,
+              black_king_square, white_bucket, black_bucket, pos->side,
+              move, mailbox_copy, white);
+        }
+      } else {
+        accumulator_make_move(
+            &thread->accumulator[pos->ply], &thread->accumulator[pos->ply - 1],
+            white_king_square, black_king_square, white_bucket, black_bucket,
+            pos->side, move, mailbox_copy, both);
+      }
+
+      score =
+          -quiescence(pos, thread, ss + 1, -probcut_beta, -probcut_beta + 1, pv_node);
+
+      if (score >= probcut_beta) {
+        score = -negamax(pos, thread, ss + 1, -probcut_beta, -probcut_beta + 1,
+                         depth - 4, !cutnode, pv_node);
+      }
+
+      pos->ply--;
+
+      // decrement repetition index
+      pos->repetition_index--;
+
+      restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
+                    pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+
+      if (score >= probcut_beta) {
+        write_hash_entry(pos, score, depth - 3, 0, HASH_FLAG_LOWER_BOUND, tt_was_pv);
+
+        return score;
       }
     }
   }
