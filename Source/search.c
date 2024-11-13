@@ -51,6 +51,7 @@ int ASP_WINDOW = 11;
 int ASP_DEPTH = 4;
 int QS_SEE_THRESHOLD = 7;
 int MO_SEE_THRESHOLD = 122;
+int PROBCUT_ADDITION = 350;
 int CAPTURE_HISTORY_BONUS_MAX = 1237;
 int QUIET_HISTORY_BONUS_MAX = 1284;
 int CAPTURE_HISTORY_MALUS_MAX = 1280;
@@ -816,6 +817,67 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       if (razor_score <= alpha) {
         return razor_score;
       }
+    }
+  }
+
+  int probcut_beta = beta + PROBCUT_ADDITION;
+  if (!pv_node && !in_check && depth > 3 && !(tt_hit && tt_depth >= depth - 3 && tt_score < probcut_beta)) {
+    moves capture_promos[1];
+    int score = -INFINITY - 1;
+
+    generate_captures(pos, capture_promos);
+    for (uint32_t count = 0; count < capture_promos->count; count++) {
+    score_move(pos, thread, &capture_promos->entry[count], tt_move);
+  }
+
+    for (uint32_t count = 0; count < capture_promos->count; count++) {
+      int move = capture_promos->entry[count].move;
+      copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
+               pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+      thread->accumulator[pos->ply + 1] = thread->accumulator[pos->ply];
+
+      // increment ply
+    pos->ply++;
+
+    // increment repetition index & store hash key
+    pos->repetition_index++;
+    pos->repetition_table[pos->repetition_index] = pos->hash_key;
+
+    // make sure to make only legal moves
+    if (make_move(pos, move, all_moves) == 0) {
+      // decrement ply
+      pos->ply--;
+
+      // decrement repetition index
+      pos->repetition_index--;
+
+      // skip to next move
+      continue;
+    }
+
+    accumulator_make_move(&thread->accumulator[pos->ply], pos->side, move,
+                          mailbox_copy);
+    
+    score = -quiescence(pos, thread, ss + 1, -probcut_beta, -probcut_beta + 1);
+
+
+    if (score >= probcut_beta) {
+      score = -negamax(pos, thread, ss + 1, -probcut_beta, -probcut_beta + 1, depth - 4, 1, !cutnode);
+    }
+    
+    pos->ply--;
+
+      // decrement repetition index
+      pos->repetition_index--;
+
+    restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
+                    pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+    
+    if (score >= probcut_beta) {
+      write_hash_entry(pos, score, depth - 3, move, HASH_FLAG_BETA);
+
+      return score;
+    }
     }
   }
 
