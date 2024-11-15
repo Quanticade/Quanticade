@@ -26,12 +26,12 @@ static inline uint64_t get_hash_index(uint64_t hash) {
   return ((uint128_t)hash * (uint128_t)tt.num_of_entries) >> 64;
 }
 
-static inline uint32_t get_hash_low_bits(uint64_t hash) {
-  return (uint32_t)hash;
+static inline uint16_t get_hash_low_bits(uint64_t hash) {
+  return (uint16_t)hash;
 }
 
 void prefetch_hash_entry(uint64_t hash_key) {
-  const uint32_t index = get_hash_index(hash_key);
+  const uint16_t index = get_hash_index(hash_key);
   __builtin_prefetch(&tt.hash_entry[index]);
 }
 
