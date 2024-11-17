@@ -1156,8 +1156,6 @@ void *iterative_deepening(void *thread_void) {
 
     int fail_high_count = 0;
 
-    uint64_t starttime_iteration = get_time_ms();
-
     while (true) {
 
       if (thread->depth >= ASP_DEPTH) {
@@ -1210,9 +1208,7 @@ void *iterative_deepening(void *thread_void) {
       return NULL;
     }
 
-    uint64_t time_spent_iteration = get_time_ms() - starttime_iteration;
-
-    if (thread->index == 0 && thread->timeset && time_spent_iteration >= limits.soft_limit) {
+    if (thread->index == 0 && thread->timeset && get_time_ms() >= limits.soft_limit) {
       thread->stopped = 1;
     }
 
