@@ -452,7 +452,7 @@ static inline void time_control(position_t *pos, thread_t *threads,
       int64_t max_time = limits.time;
       limits.hard_limit =
           threads->starttime + (max_time * 0.6) - 50;
-      limits.soft_limit = threads->starttime + (time_this_move * 0.6) - 50;
+      limits.soft_limit = threads->starttime + (time_this_move) - 50;
       threads->timeset = 1;
     } else {
       threads->timeset = 0;
