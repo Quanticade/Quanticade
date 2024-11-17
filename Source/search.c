@@ -103,7 +103,7 @@ void init_reductions(void) {
 void check_time(thread_t *thread) {
   // if time is up break here
   if (thread->index == 0 && thread->timeset == 1 &&
-      get_time_ms() > thread->stoptime) {
+      get_time_ms() > limits.hard_limit) {
     // tell engine to stop calculating
     thread->stopped = 1;
   }
@@ -1156,6 +1156,8 @@ void *iterative_deepening(void *thread_void) {
 
     int fail_high_count = 0;
 
+    uint64_t starttime_iteration = get_time_ms();
+
     while (true) {
 
       if (thread->depth >= ASP_DEPTH) {
@@ -1206,6 +1208,12 @@ void *iterative_deepening(void *thread_void) {
 
     if (thread->stopped) {
       return NULL;
+    }
+
+    uint64_t time_spent_iteration = get_time_ms() - starttime_iteration;
+
+    if (thread->index == 0 && thread->timeset && time_spent_iteration >= limits.soft_limit) {
+      thread->stopped = 1;
     }
 
     if (thread->index == 0) {

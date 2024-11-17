@@ -29,36 +29,6 @@
 
 extern nnue_settings_t nnue_settings;
 
-extern int LMP_BASE;
-extern int LMP_MULTIPLIER;
-extern int RAZOR_DEPTH;
-extern int RAZOR_MARGIN;
-extern int RFP_DEPTH;
-extern int RFP_MARGIN;
-extern int FP_DEPTH;
-extern int FP_MULTIPLIER;
-extern int FP_ADDITION;
-extern int NMP_BASE_REDUCTION;
-extern int NMP_DIVISER;
-extern int IIR_DEPTH;
-extern int SEE_QUIET;
-extern int SEE_CAPTURE;
-extern int SEE_DEPTH;
-extern int SE_DEPTH;
-extern int SE_DEPTH_REDUCTION;
-extern int ASP_WINDOW;
-extern int QS_SEE_THRESHOLD;
-extern int MO_SEE_THRESHOLD;
-extern int HISTORY_BONUS_MAX;
-extern int HISTORY_MAX;
-extern double ASP_MULTIPLIER;
-extern double LMR_OFFSET_NOISY;
-extern double LMR_DIVISOR_NOISY;
-extern double LMR_OFFSET_QUIET;
-extern double LMR_DIVISOR_QUIET;
-
-extern int SEEPieceValues[];
-
 const int default_hash_size = 16;
 
 int thread_count = 1;
@@ -144,7 +114,6 @@ static inline int parse_move(position_t *pos, thread_t *thread,
   // parse source square
   int source_square = (move_string[0] - 'a') + (8 - (move_string[1] - '0')) * 8;
   thread->starttime = 0;
-  thread->stoptime = 0;
   thread->timeset = 0;
   // parse target square
   int target_square = (move_string[2] - 'a') + (8 - (move_string[3] - '0')) * 8;
@@ -430,7 +399,6 @@ static inline void time_control(position_t *pos, thread_t *threads,
   threads->stopped = 0;
   threads->quit = 0;
   threads->starttime = 0;
-  threads->stoptime = 0;
   threads->timeset = 0;
   memset(&limits, 0, sizeof(limits_t));
 
@@ -482,8 +450,9 @@ static inline void time_control(position_t *pos, thread_t *threads,
     if (limits.time) {
       int64_t time_this_move = (limits.time / limits.movestogo) + limits.inc;
       int64_t max_time = limits.time;
-      threads->stoptime =
-          threads->starttime + MIN(max_time, time_this_move) - 50;
+      limits.hard_limit =
+          threads->starttime + (max_time * 0.6) - 50;
+      limits.soft_limit = (time_this_move * 0.6);
       threads->timeset = 1;
     } else {
       threads->timeset = 0;
