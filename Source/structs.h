@@ -7,7 +7,7 @@
 #define MAX_PLY 254
 
 typedef struct spsa {
-  void* value;
+  void *value;
   union {
     uint64_t min_int;
     double min_float;
@@ -81,7 +81,6 @@ typedef struct searchinfo {
   position_t pos;
   uint64_t nodes;
   uint64_t starttime;
-  uint64_t stoptime;
   int score;
   int killer_moves[MAX_PLY];
   int16_t quiet_history[12][64][64];
@@ -95,8 +94,10 @@ typedef struct searchinfo {
 } thread_t;
 
 typedef struct limits {
-  int64_t time;
-  int32_t inc;
+  uint64_t soft_limit;
+  uint64_t hard_limit;
+  uint64_t time;
+  uint32_t inc;
   uint8_t depth;
   uint16_t movestogo;
 } limits_t;
