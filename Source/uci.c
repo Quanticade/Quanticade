@@ -402,9 +402,6 @@ static inline void time_control(position_t *pos, thread_t *threads,
   threads->timeset = 0;
   memset(&limits, 0, sizeof(limits_t));
 
-  // Default to 1/20 of the time to spend
-  limits.movestogo = 20;
-
   threads[0].starttime = get_time_ms();
 
   // init argument
@@ -448,11 +445,23 @@ static inline void time_control(position_t *pos, thread_t *threads,
     limits.depth = limits.depth == 0 ? MAX_PLY : limits.depth;
 
     if (limits.time) {
-      int64_t time_this_move = (limits.time / limits.movestogo) + limits.inc;
-      int64_t max_time = limits.time;
+      if (limits.time < 0) {
+        // Some GUI apps can send us negative time. Fix this by assuming we have time
+        limits.time = 1000;
+      }
+      // Engine <--> GUI communication safety margin
+      limits.time -= 50;
+      int64_t base_time = 0;
+      if (limits.movestogo != 0) {
+        base_time = (limits.time / limits.movestogo) + limits.inc;
+      } else {
+        base_time = limits.time * 0.054 + limits.inc * 0.85;
+      }
+      
+      int64_t max_time = limits.time * 0.76;
       limits.hard_limit =
-          threads->starttime + (max_time * 0.6) - 50;
-      limits.soft_limit = threads->starttime + (time_this_move) - 50;
+          threads->starttime + MIN(base_time * 3.04, max_time);
+      limits.soft_limit = threads->starttime + MIN(base_time * 0.76, max_time);
       threads->timeset = 1;
     } else {
       threads->timeset = 0;
