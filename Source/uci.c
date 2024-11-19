@@ -33,6 +33,12 @@ const int default_hash_size = 16;
 
 int thread_count = 1;
 
+double DEF_TIME_MULTIPLIER = 0.054;
+double DEF_INC_MULTIPLIER = 0.85;
+double MAX_TIME_MULTIPLIER = 0.76;
+double HARD_LIMIT_MULTIPLIER = 3.04;
+double SOFT_LIMIT_MULTIPLIER = 0.76;
+
 char *bench_positions[] = {
     "r3k2r/2pb1ppp/2pp1q2/p7/1nP1B3/1P2P3/P2N1PPP/R2QK2R w KQkq a6 0 14",
     "4rrk1/2p1b1p1/p1p3q1/4p3/2P2n1p/1P1NR2P/PB3PP1/3R1QK1 b - - 2 24",
@@ -455,13 +461,13 @@ static inline void time_control(position_t *pos, thread_t *threads,
       if (limits.movestogo != 0) {
         base_time = (limits.time / limits.movestogo) + limits.inc;
       } else {
-        base_time = limits.time * 0.054 + limits.inc * 0.85;
+        base_time = limits.time * DEF_TIME_MULTIPLIER + limits.inc * DEF_INC_MULTIPLIER;
       }
       
-      int64_t max_time = limits.time * 0.76;
+      int64_t max_time = limits.time * MAX_TIME_MULTIPLIER;
       limits.hard_limit =
-          threads->starttime + MIN(base_time * 3.04, max_time);
-      limits.soft_limit = threads->starttime + MIN(base_time * 0.76, max_time);
+          threads->starttime + MIN(base_time * HARD_LIMIT_MULTIPLIER, max_time);
+      limits.soft_limit = threads->starttime + MIN(base_time * SOFT_LIMIT_MULTIPLIER, max_time);
       threads->timeset = 1;
     } else {
       threads->timeset = 0;

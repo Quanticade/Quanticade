@@ -48,6 +48,13 @@ extern double LMR_DIVISOR_NOISY;
 extern double LMR_OFFSET_QUIET;
 extern double LMR_DIVISOR_QUIET;
 
+// TM
+extern double DEF_TIME_MULTIPLIER;
+extern double DEF_INC_MULTIPLIER;
+extern double MAX_TIME_MULTIPLIER;
+extern double HARD_LIMIT_MULTIPLIER;
+extern double SOFT_LIMIT_MULTIPLIER;
+
 extern int SEEPieceValues[];
 
 #define RATE(VALUE) MAX(0.5, MAX(1, (((float)VALUE * 2) - 1)) / 20)
@@ -135,6 +142,21 @@ void init_spsa_table(void) {
   add_double_spsa(STRINGIFY(LMR_DIVISOR_NOISY), &LMR_DIVISOR_NOISY, 1,
                   SPSA_MAX(LMR_DIVISOR_NOISY), RATE_DOUBLE(LMR_DIVISOR_NOISY),
                   init_reductions);
+  add_double_spsa(STRINGIFY(DEF_TIME_MULTIPLIER), &DEF_TIME_MULTIPLIER, 0,
+                  SPSA_MAX(DEF_TIME_MULTIPLIER), RATE_DOUBLE(DEF_TIME_MULTIPLIER),
+                  NULL);
+  add_double_spsa(STRINGIFY(DEF_INC_MULTIPLIER), &DEF_INC_MULTIPLIER, 0,
+                  SPSA_MAX(DEF_INC_MULTIPLIER), RATE_DOUBLE(DEF_INC_MULTIPLIER),
+                  NULL);
+  add_double_spsa(STRINGIFY(MAX_TIME_MULTIPLIER), &MAX_TIME_MULTIPLIER, 0,
+                  SPSA_MAX(MAX_TIME_MULTIPLIER), RATE_DOUBLE(MAX_TIME_MULTIPLIER),
+                  NULL);
+  add_double_spsa(STRINGIFY(HARD_LIMIT_MULTIPLIER), &HARD_LIMIT_MULTIPLIER, 1,
+                  SPSA_MAX(HARD_LIMIT_MULTIPLIER), RATE_DOUBLE(HARD_LIMIT_MULTIPLIER),
+                  NULL);
+  add_double_spsa(STRINGIFY(SOFT_LIMIT_MULTIPLIER), &SOFT_LIMIT_MULTIPLIER, 0,
+                  SPSA_MAX(SOFT_LIMIT_MULTIPLIER), RATE_DOUBLE(SOFT_LIMIT_MULTIPLIER),
+                  NULL);
 }
 
 void print_spsa_table_uci(void) {
