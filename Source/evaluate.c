@@ -3,6 +3,7 @@
 #include "enums.h"
 #include "nnue.h"
 #include "structs.h"
+#include "uci.h"
 
 nnue_t nnue_data;
 extern nnue_settings_t nnue_settings;
@@ -16,5 +17,5 @@ int evaluate(position_t *pos, accumulator_t *accumulator) {
               10 * popcount(pos->bitboards[q] | pos->bitboards[Q]);
 
   eval = eval * (200 + phase) / 256;
-  return (int)(eval * (float)((100 - (float)pos->fifty) / 100));
+  return (int)(eval * MAX((float)((100 - (float)pos->fifty) / 100), 0.5));
 }
