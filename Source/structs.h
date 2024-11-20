@@ -87,7 +87,6 @@ typedef struct searchinfo {
   int16_t capture_history[12][13][64][64];
   PV_t pv;
   uint8_t depth;
-  uint8_t timeset;
   uint8_t stopped;
   uint8_t quit;
   uint8_t index;
@@ -99,6 +98,7 @@ typedef struct limits {
   uint64_t time;
   uint32_t inc;
   uint8_t depth;
+  uint8_t timeset;
   uint16_t movestogo;
 } limits_t;
 
