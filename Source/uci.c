@@ -120,7 +120,6 @@ static inline int parse_move(position_t *pos, thread_t *thread,
   // parse source square
   int source_square = (move_string[0] - 'a') + (8 - (move_string[1] - '0')) * 8;
   thread->starttime = 0;
-  thread->timeset = 0;
   // parse target square
   int target_square = (move_string[2] - 'a') + (8 - (move_string[3] - '0')) * 8;
 
@@ -405,7 +404,6 @@ static inline void time_control(position_t *pos, thread_t *threads,
   threads->stopped = 0;
   threads->quit = 0;
   threads->starttime = 0;
-  threads->timeset = 0;
   memset(&limits, 0, sizeof(limits_t));
 
   threads[0].starttime = get_time_ms();
@@ -423,6 +421,7 @@ static inline void time_control(position_t *pos, thread_t *threads,
     }
     if ((argument = strstr(line, "wtime"))) {
       limits.time = atoi(argument + 6);
+      limits.timeset = 1;
     }
   } else {
     if ((argument = strstr(line, "binc"))) {
@@ -430,6 +429,7 @@ static inline void time_control(position_t *pos, thread_t *threads,
     }
     if ((argument = strstr(line, "btime"))) {
       limits.time = atoi(argument + 6);
+      limits.timeset = 1;
     }
   }
   // match UCI "movestogo" command
@@ -450,7 +450,7 @@ static inline void time_control(position_t *pos, thread_t *threads,
   } else {
     limits.depth = limits.depth == 0 ? MAX_PLY : limits.depth;
 
-    if (limits.time) {
+    if (limits.timeset) {
       if (limits.time < 0) {
         // Some GUI apps can send us negative time. Fix this by assuming we have time
         limits.time = 1000;
@@ -458,7 +458,7 @@ static inline void time_control(position_t *pos, thread_t *threads,
       // Engine <--> GUI communication safety margin
       limits.time -= MIN(limits.time / 2, 50);
       int64_t base_time = 0;
-      if (limits.movestogo != 0) {
+      if (limits.movestogo > 0) {
         base_time = (limits.time / limits.movestogo) + limits.inc;
       } else {
         base_time = limits.time * DEF_TIME_MULTIPLIER + limits.inc * DEF_INC_MULTIPLIER;
@@ -468,9 +468,6 @@ static inline void time_control(position_t *pos, thread_t *threads,
       limits.hard_limit =
           threads->starttime + MIN(base_time * HARD_LIMIT_MULTIPLIER, max_time);
       limits.soft_limit = threads->starttime + MIN(base_time * SOFT_LIMIT_MULTIPLIER, max_time);
-      threads->timeset = 1;
-    } else {
-      threads->timeset = 0;
     }
   }
 }
