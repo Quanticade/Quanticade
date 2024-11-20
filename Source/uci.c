@@ -456,7 +456,7 @@ static inline void time_control(position_t *pos, thread_t *threads,
         limits.time = 1000;
       }
       // Engine <--> GUI communication safety margin
-      limits.time -= MIN(limits.time / 2, 50);
+      limits.time -= MIN(limits.time / 2, 300);
       int64_t base_time = 0;
       if (limits.movestogo != 0) {
         base_time = (limits.time / limits.movestogo) + limits.inc;
