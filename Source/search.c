@@ -936,7 +936,6 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     // preserve board state
     copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
                pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
-    thread->accumulator[pos->ply + 1] = thread->accumulator[pos->ply];
 
     // increment ply
     pos->ply++;
