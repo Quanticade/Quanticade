@@ -469,7 +469,6 @@ static inline int quiescence(position_t *pos, thread_t *thread,
     // preserve board state
     copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
                pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
-    thread->accumulator[pos->ply + 1] = thread->accumulator[pos->ply];
 
     // increment ply
     pos->ply++;
@@ -489,8 +488,9 @@ static inline int quiescence(position_t *pos, thread_t *thread,
       // skip to next move
       continue;
     }
-    accumulator_make_move(&thread->accumulator[pos->ply], pos->side,
-                          move_list->entry[count].move, mailbox_copy);
+
+    accumulator_make_move(&thread->accumulator[pos->ply], &thread->accumulator[pos->ply - 1],
+                          pos->side, move_list->entry[count].move, mailbox_copy);
 
     thread->nodes++;
 
@@ -957,8 +957,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       continue;
     }
 
-    accumulator_make_move(&thread->accumulator[pos->ply], pos->side, move,
-                          mailbox_copy);
+    accumulator_make_move(&thread->accumulator[pos->ply], &thread->accumulator[pos->ply - 1],
+                          pos->side, move_list->entry[count].move, mailbox_copy);
 
     // increment nodes count
     thread->nodes++;
