@@ -145,11 +145,7 @@ void write_hash_entry(position_t *pos, int score, int depth, int move,
   // the scoring data for the current board position if available
   tt_entry_t *hash_entry = &tt.hash_entry[get_hash_index(pos->hash_key)];
 
-  uint8_t replace = hash_entry->hash_key != get_hash_low_bits(pos->hash_key) ||
-                    depth + 4 > hash_entry->depth ||
-                    hash_flag == HASH_FLAG_EXACT;
-
-  if (!replace) {
+  if (hash_entry->hash_key != get_hash_low_bits(pos->hash_key) && hash_flag != HASH_FLAG_EXACT && depth <= hash_entry->depth - 4) {
     return;
   }
 
