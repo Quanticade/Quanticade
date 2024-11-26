@@ -121,14 +121,9 @@ int read_hash_entry(position_t *pos, int *move, int16_t *tt_score,
 
   // make sure we're dealing with the exact position we need
   if (hash_entry->hash_key == get_hash_low_bits(pos->hash_key)) {
-    int score = hash_entry->score;
-    if (score < -MATE_SCORE)
-      score += pos->ply;
-    if (score > MATE_SCORE)
-      score -= pos->ply;
 
     *move = hash_entry->move;
-    *tt_score = score;
+    *tt_score = hash_entry->score;
     *tt_depth = hash_entry->depth;
     *tt_flag = hash_entry->flag;
     return 1;
@@ -152,13 +147,6 @@ void write_hash_entry(position_t *pos, int score, int depth, int move,
   if (!replace) {
     return;
   }
-
-  // store score independent from the actual path
-  // from root node (position) to current node (position)
-  if (score < -MATE_SCORE)
-    score -= pos->ply;
-  if (score > MATE_SCORE)
-    score += pos->ply;
 
   // write hash entry data
   hash_entry->hash_key = get_hash_low_bits(pos->hash_key);
