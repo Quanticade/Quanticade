@@ -116,7 +116,7 @@ void init_hash_table(uint64_t mb) {
 
 // read hash entry data
 int read_hash_entry(position_t *pos, int *move, int16_t *tt_score,
-                    uint8_t *tt_depth, uint8_t *tt_flag) {
+                    int16_t *tt_static_eval, uint8_t *tt_depth, uint8_t *tt_flag) {
   tt_entry_t *hash_entry = &tt.hash_entry[get_hash_index(pos->hash_key)];
 
   // make sure we're dealing with the exact position we need
@@ -129,6 +129,7 @@ int read_hash_entry(position_t *pos, int *move, int16_t *tt_score,
 
     *move = hash_entry->move;
     *tt_score = score;
+    *tt_static_eval = hash_entry->static_eval;
     *tt_depth = hash_entry->depth;
     *tt_flag = hash_entry->flag;
     return 1;
@@ -139,7 +140,7 @@ int read_hash_entry(position_t *pos, int *move, int16_t *tt_score,
 }
 
 // write hash entry data
-void write_hash_entry(position_t *pos, int score, int depth, int move,
+void write_hash_entry(position_t *pos, int16_t score, int16_t static_eval, uint8_t depth, int move,
                       int hash_flag) {
   // create a TT instance pointer to particular hash entry storing
   // the scoring data for the current board position if available
@@ -163,6 +164,7 @@ void write_hash_entry(position_t *pos, int score, int depth, int move,
   // write hash entry data
   hash_entry->hash_key = get_hash_low_bits(pos->hash_key);
   hash_entry->score = score;
+  hash_entry->static_eval = static_eval;
   hash_entry->flag = hash_flag;
   hash_entry->depth = depth;
   hash_entry->move = move;
