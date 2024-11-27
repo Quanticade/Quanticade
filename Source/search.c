@@ -723,8 +723,17 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
   uint8_t improving = 0;
 
-  if (pos->ply >= 2) {
-    improving = static_eval > (ss - 2)->static_eval;
+  if (in_check) {
+    ss->static_eval = SCORE_NONE;
+  }
+  else if ((ss - 2)->static_eval != SCORE_NONE) {
+    improving = ss->static_eval > (ss - 2)->static_eval;
+  }
+  else if ((ss - 4)->static_eval != SCORE_NONE) {
+    improving = ss->static_eval > (ss - 4)->static_eval;
+  }
+  else {
+    improving = 1;
   }
 
   // Check on time
@@ -753,14 +762,14 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       int eval_margin = RFP_MARGIN * depth;
 
       // evaluation margin substracted from static evaluation score fails high
-      if (static_eval - eval_margin >= beta)
+      if (ss->static_eval - eval_margin >= beta)
         // evaluation margin substracted from static evaluation score
-        return static_eval - eval_margin;
+        return ss->static_eval - eval_margin;
     }
 
     // null move pruning
     if (do_nmp && !pv_node && static_eval >= beta && !only_pawns(pos)) {
-      int R = MIN((static_eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) +
+      int R = MIN((ss->static_eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) +
               depth / NMP_DIVISER + NMP_BASE_REDUCTION;
       R = MIN(R, depth);
       // preserve board state

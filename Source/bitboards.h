@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #define INF 32000
+#define SCORE_NONE INF + 1
 #define MATE_VALUE 31000
 #define MATE_SCORE 30000
 
