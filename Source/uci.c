@@ -33,11 +33,11 @@ const int default_hash_size = 16;
 
 int thread_count = 1;
 
-double DEF_TIME_MULTIPLIER = 0.054;
-double DEF_INC_MULTIPLIER = 0.85;
-double MAX_TIME_MULTIPLIER = 0.76;
-double HARD_LIMIT_MULTIPLIER = 3.04;
-double SOFT_LIMIT_MULTIPLIER = 0.76;
+double DEF_TIME_MULTIPLIER = 0.1;
+double DEF_INC_MULTIPLIER = 0.84;
+double MAX_TIME_MULTIPLIER = 0.73;
+double HARD_LIMIT_MULTIPLIER = 3.21;
+double SOFT_LIMIT_MULTIPLIER = 0.74;
 
 char *bench_positions[] = {
     "r3k2r/2pb1ppp/2pp1q2/p7/1nP1B3/1P2P3/P2N1PPP/R2QK2R w KQkq a6 0 14",
