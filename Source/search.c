@@ -845,6 +845,10 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
   int best_move = 0;
   for (uint32_t count = 0; count < move_list->count; count++) {
+    if (get_move_source(move_list->entry[count].move) == get_move_source(tt_move) && get_move_target(move_list->entry[count].move) == get_move_target(tt_move)) {
+      //This is not what i would call a good solution but its a solution....
+      tt_move = move_list->entry[count].move;
+    }
     score_move(pos, thread, &move_list->entry[count], tt_move);
   }
 
