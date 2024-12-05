@@ -268,7 +268,8 @@ int SEE(position_t *pos, int move, int threshold) {
 static inline void score_move(position_t *pos, thread_t *thread,
                               move_t *move_entry, int hash_move) {
   int move = move_entry->move;
-  uint8_t piece = get_move_promoted(move);
+  uint8_t promo = get_move_promoted(move);
+  int capture = get_move_capture(move);
   if (move == hash_move) {
     move_entry->score = 2000000000;
     return;
@@ -287,8 +288,8 @@ static inline void score_move(position_t *pos, thread_t *thread,
     }
   }
 
-  if (piece) {
-    switch (piece) {
+  if (promo) {
+    switch (promo) {
     case q:
     case Q:
       move_entry->score = 100000;
@@ -310,8 +311,8 @@ static inline void score_move(position_t *pos, thread_t *thread,
     move_entry->score = 0;
   }
 
-  // score capture move
-  if (get_move_capture(move)) {
+  // score noisy move
+  if (capture || promo) {
     // init target piece
     int target_piece = P;
 
@@ -322,8 +323,10 @@ static inline void score_move(position_t *pos, thread_t *thread,
       target_piece = bb_piece;
     }
 
-    // score move by MVV LVA lookup [source piece][target piece]
-    move_entry->score += mvv[target_piece];
+    // score move by MVV if capture
+    if (capture) {
+      move_entry->score += mvv[target_piece];
+    }
     move_entry->score +=
         thread->capture_history[get_move_piece(move)][target_piece]
                                [get_move_source(move)][get_move_target(move)];
