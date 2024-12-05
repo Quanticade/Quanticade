@@ -713,9 +713,6 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   if (!in_check && (ss - 2)->static_eval != NO_SCORE) {
     improving = static_eval > (ss - 2)->static_eval;
   }
-  else if (!in_check && (ss - 4)->static_eval != NO_SCORE) {
-    improving = static_eval > (ss - 4)->static_eval;
-  }
 
   // Check on time
   check_time(thread);
