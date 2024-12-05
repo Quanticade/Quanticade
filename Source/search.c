@@ -710,7 +710,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
   uint8_t improving = 0;
 
-  if (pos->ply >= 2) {
+  if (!in_check && (ss - 2)->static_eval != NO_SCORE) {
     improving = static_eval > (ss - 2)->static_eval;
   }
 
@@ -1138,7 +1138,7 @@ void *iterative_deepening(void *thread_void) {
     searchstack_t ss[MAX_PLY + 4];
     for (int i = 0; i < MAX_PLY + 4; ++i) {
       ss[i].excluded_move = 0;
-      ss[i].static_eval = INF;
+      ss[i].static_eval = NO_SCORE;
       ss[i].history_score = 0;
     }
 

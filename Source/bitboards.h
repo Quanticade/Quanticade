@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdint.h>
 
+#define NO_SCORE 32001
 #define INF 32000
 #define MATE_VALUE 31000
 #define MATE_SCORE 30000
