@@ -509,7 +509,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
     if (score > alpha) {
       // fail-hard beta cutoff
       hash_flag = HASH_FLAG_EXACT;
-      best_move = move_list->entry[count].move;
+      //best_move = move_list->entry[count].move;
       if (score >= beta) {
         write_hash_entry(pos, best_score, 0, best_move, HASH_FLAG_BETA);
         // node (position) fails high
