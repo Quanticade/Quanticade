@@ -476,8 +476,9 @@ static inline int quiescence(position_t *pos, thread_t *thread,
       continue;
     }
 
-    accumulator_make_move(&thread->accumulator[pos->ply], &thread->accumulator[pos->ply - 1],
-                          pos->side, move_list->entry[count].move, mailbox_copy);
+    accumulator_make_move(&thread->accumulator[pos->ply],
+                          &thread->accumulator[pos->ply - 1], pos->side,
+                          move_list->entry[count].move, mailbox_copy);
 
     thread->nodes++;
 
@@ -864,7 +865,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     // Late Move Pruning
     if (!pv_node && !in_check && quiet &&
-        legal_moves > LMP_BASE + LMP_MULTIPLIER * depth * depth / (2 - improving) &&
+        legal_moves >
+            LMP_BASE + LMP_MULTIPLIER * depth * depth / (2 - improving) &&
         !only_pawns(pos)) {
       skip_quiets = 1;
     }
@@ -906,7 +908,13 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
       // No move beat tt score so we extend the search
       if (s_score < s_beta) {
-        extensions += 1 + (!pv_node && s_score < s_beta) + (!get_move_capture(move) && s_score + 40 < s_beta);
+        extensions++;
+        if (!pv_node && s_score < s_beta) {
+          extensions++;
+          if (!get_move_capture(move) && s_score + 40 < s_beta) {
+            extensions++;
+          }
+        }
       }
 
       // Multicut: Singular search failed high so if singular beta beats our
@@ -949,8 +957,9 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       continue;
     }
 
-    accumulator_make_move(&thread->accumulator[pos->ply], &thread->accumulator[pos->ply - 1],
-                          pos->side, move_list->entry[count].move, mailbox_copy);
+    accumulator_make_move(&thread->accumulator[pos->ply],
+                          &thread->accumulator[pos->ply - 1], pos->side,
+                          move_list->entry[count].move, mailbox_copy);
 
     // increment nodes count
     thread->nodes++;
@@ -1200,7 +1209,8 @@ void *iterative_deepening(void *thread_void) {
       return NULL;
     }
 
-    if (thread->index == 0 && limits.timeset && get_time_ms() >= limits.soft_limit) {
+    if (thread->index == 0 && limits.timeset &&
+        get_time_ms() >= limits.soft_limit) {
       thread->stopped = 1;
     }
 
