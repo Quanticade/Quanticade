@@ -749,7 +749,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     if (do_nmp && !pv_node && static_eval >= beta && !only_pawns(pos)) {
       int R = MIN((static_eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) +
               depth / NMP_DIVISER + NMP_BASE_REDUCTION;
-      R += !improving;
+      R += improving;
       R = MIN(R, depth);
       // preserve board state
       copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
