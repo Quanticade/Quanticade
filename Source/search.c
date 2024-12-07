@@ -876,6 +876,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     if (!root_node && score > -MATE_SCORE && lmr_depth <= FP_DEPTH &&
         !in_check && quiet &&
         ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION <= alpha) {
+      skip_quiets = 1;
       continue;
     }
 
