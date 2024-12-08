@@ -980,7 +980,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     int R = lmr[quiet][depth][MIN(255, legal_moves)] + (pv_node ? 0 : 1);
     R -= ss->history_score / (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
     R -= in_check;
-    R += cutnode;
+    R += 2 * cutnode;
 
     if (depth > 1 && legal_moves > 1) {
       R = clamp(R, 1, new_depth);
