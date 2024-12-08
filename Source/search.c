@@ -691,7 +691,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   }
 
   // Internal Iterative Reductions
-  if ((pv_node || cutnode) && depth >= IIR_DEPTH && !tt_move) {
+  if (depth >= IIR_DEPTH && (!tt_move || tt_depth + 4 < depth)) {
     depth--;
   }
 
@@ -810,6 +810,10 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
         return razor_score;
       }
     }
+  }
+
+  if ((pv_node || cutnode) && depth >= IIR_DEPTH && !tt_move) {
+    depth--;
   }
 
   // create move list instance
