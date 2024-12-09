@@ -824,6 +824,9 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
       prefetch_hash_entry(pos->hash_key);
 
+      ss->move = 0;
+      ss->continuation_entry = &thread->continuation_history[0][0];
+
       /* search moves with reduced depth to find beta cutoffs
          depth - 1 - R where R is a reduction limit */
       score = -negamax(pos, thread, ss + 1, -beta, -beta + 1, depth - R, 0,
