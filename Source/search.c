@@ -352,7 +352,8 @@ static inline void score_move(position_t *pos, thread_t *thread,
           thread->quiet_history[get_move_piece(move)][get_move_source(move)]
                                [get_move_target(move)] +
           get_conthist_score(thread, ss - 1, move) +
-          get_conthist_score(thread, ss - 2, move);
+          get_conthist_score(thread, ss - 2, move) +
+          get_conthist_score(thread, ss - 4, move);
     }
 
     return;
@@ -628,10 +629,13 @@ static inline void update_continuation_history_moves(thread_t *thread,
     if (quiet_moves->entry[i].move == best_move) {
       update_continuation_history(thread, ss - 1, best_move, depth, 1);
       update_continuation_history(thread, ss - 2, best_move, depth, 1);
+      update_continuation_history(thread, ss - 4, best_move, depth, 1);
     } else {
       update_continuation_history(thread, ss - 1, quiet_moves->entry[i].move,
                                   depth, 0);
       update_continuation_history(thread, ss - 2, quiet_moves->entry[i].move,
+                                  depth, 0);
+      update_continuation_history(thread, ss - 4, quiet_moves->entry[i].move,
                                   depth, 0);
     }
   }
