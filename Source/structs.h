@@ -85,6 +85,7 @@ typedef struct searchinfo {
   int killer_moves[MAX_PLY];
   int16_t quiet_history[12][64][64];
   int16_t capture_history[12][13][64][64];
+  int16_t continuation_history[12][64][12][64];
   PV_t pv;
   uint8_t depth;
   uint8_t stopped;
@@ -109,6 +110,8 @@ typedef struct searchthread {
 } searchthreadinfo_t;
 
 typedef struct searchstack {
+  int16_t (*continuation_entry)[12][64];
+  int move;
   int excluded_move;
   int static_eval;
   int history_score;

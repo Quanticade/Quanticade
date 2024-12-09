@@ -264,9 +264,17 @@ int SEE(position_t *pos, int move, int threshold) {
   return pos->side != colour;
 }
 
+int16_t get_conthist_score(searchstack_t *ss, int move) {
+  if (!ss->continuation_entry) {
+    return 0;
+  }
+  return *ss->continuation_entry[get_move_piece(move)][get_move_target(move)];
+}
+
 // score moves
 static inline void score_move(position_t *pos, thread_t *thread,
-                              move_t *move_entry, int hash_move) {
+                              searchstack_t *ss, move_t *move_entry,
+                              int hash_move) {
   int move = move_entry->move;
   uint8_t piece = get_move_promoted(move);
   if (move == hash_move) {
@@ -343,7 +351,8 @@ static inline void score_move(position_t *pos, thread_t *thread,
     else {
       move_entry->score =
           thread->quiet_history[get_move_piece(move)][get_move_source(move)]
-                               [get_move_target(move)];
+                               [get_move_target(move)] +
+          get_conthist_score(ss - 1, move) + get_conthist_score(ss - 2, move);
     }
 
     return;
@@ -442,7 +451,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
   generate_captures(pos, move_list);
 
   for (uint32_t count = 0; count < move_list->count; count++) {
-    score_move(pos, thread, &move_list->entry[count], best_move);
+    score_move(pos, thread, ss, &move_list->entry[count], best_move);
   }
 
   sort_moves(move_list);
@@ -476,8 +485,9 @@ static inline int quiescence(position_t *pos, thread_t *thread,
       continue;
     }
 
-    accumulator_make_move(&thread->accumulator[pos->ply], &thread->accumulator[pos->ply - 1],
-                          pos->side, move_list->entry[count].move, mailbox_copy);
+    accumulator_make_move(&thread->accumulator[pos->ply],
+                          &thread->accumulator[pos->ply - 1], pos->side,
+                          move_list->entry[count].move, mailbox_copy);
 
     thread->nodes++;
 
@@ -562,6 +572,25 @@ static inline void update_capture_history(thread_t *thread, int move,
                    abs(adjust) / HISTORY_MAX;
 }
 
+static inline void update_continuation_history(searchstack_t *ss, int move,
+                                               uint8_t depth,
+                                               uint8_t is_best_move) {
+  if (!ss->continuation_entry) {
+    return;
+  }
+  int piece = get_move_piece(move);
+  int target = get_move_target(move);
+  int bonus = 16 * depth * depth + 32 * depth + 16;
+  int clamped_bonus =
+      clamp(bonus, -QUIET_HISTORY_BONUS_MAX, QUIET_HISTORY_BONUS_MAX);
+  int clamped_malus =
+      clamp(bonus, -QUIET_HISTORY_MALUS_MAX, QUIET_HISTORY_MALUS_MAX);
+  int adjust = is_best_move ? clamped_bonus : -clamped_malus;
+  *ss->continuation_entry[piece][target] +=
+      adjust -
+      *ss->continuation_entry[piece][target] * abs(adjust) / HISTORY_MAX;
+}
+
 static inline void update_quiet_history_moves(thread_t *thread,
                                               moves *quiet_moves, int best_move,
                                               uint8_t depth) {
@@ -582,6 +611,21 @@ static inline void update_capture_history_moves(thread_t *thread,
       update_capture_history(thread, best_move, depth, 1);
     } else {
       update_capture_history(thread, capture_moves->entry[i].move, depth, 0);
+    }
+  }
+}
+
+static inline void update_continuation_history_moves(searchstack_t *ss,
+                                                     moves *quiet_moves,
+                                                     int best_move,
+                                                     uint8_t depth) {
+  for (uint32_t i = 0; i < quiet_moves->count; ++i) {
+    if (quiet_moves->entry[i].move == best_move) {
+      update_continuation_history(ss - 1, best_move, depth, 1);
+      update_continuation_history(ss - 2, best_move, depth, 1);
+    } else {
+      update_continuation_history(ss - 1, quiet_moves->entry[i].move, depth, 0);
+      update_continuation_history(ss - 2, quiet_moves->entry[i].move, depth, 0);
     }
   }
 }
@@ -832,7 +876,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
   int best_move = 0;
   for (uint32_t count = 0; count < move_list->count; count++) {
-    score_move(pos, thread, &move_list->entry[count], tt_move);
+    score_move(pos, thread, ss, &move_list->entry[count], tt_move);
   }
 
   sort_moves(move_list);
@@ -864,7 +908,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     // Late Move Pruning
     if (!pv_node && !in_check && quiet &&
-        legal_moves > LMP_BASE + LMP_MULTIPLIER * depth * depth / (2 - improving) &&
+        legal_moves >
+            LMP_BASE + LMP_MULTIPLIER * depth * depth / (2 - improving) &&
         !only_pawns(pos)) {
       skip_quiets = 1;
     }
@@ -912,8 +957,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
           extensions++;
         }
         if (!get_move_capture(move) && s_score + 40 < s_beta) {
-            extensions++;
-          }
+          extensions++;
+        }
       }
 
       // Multicut: Singular search failed high so if singular beta beats our
@@ -956,8 +1001,14 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       continue;
     }
 
-    accumulator_make_move(&thread->accumulator[pos->ply], &thread->accumulator[pos->ply - 1],
-                          pos->side, move_list->entry[count].move, mailbox_copy);
+    accumulator_make_move(&thread->accumulator[pos->ply],
+                          &thread->accumulator[pos->ply - 1], pos->side,
+                          move_list->entry[count].move, mailbox_copy);
+
+    ss->continuation_entry =
+        &thread->continuation_history[get_move_piece(move)]
+                                     [get_move_target(move)];
+    ss->move = move;
 
     // increment nodes count
     thread->nodes++;
@@ -1056,6 +1107,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
           // on quiet moves
           if (quiet) {
             update_quiet_history_moves(thread, quiet_list, best_move, depth);
+            update_continuation_history_moves(ss, quiet_list, best_move, depth);
             thread->killer_moves[pos->ply] = move;
           }
 
@@ -1207,7 +1259,8 @@ void *iterative_deepening(void *thread_void) {
       return NULL;
     }
 
-    if (thread->index == 0 && limits.timeset && get_time_ms() >= limits.soft_limit) {
+    if (thread->index == 0 && limits.timeset &&
+        get_time_ms() >= limits.soft_limit) {
       thread->stopped = 1;
     }
 
