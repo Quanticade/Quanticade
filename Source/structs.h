@@ -110,11 +110,11 @@ typedef struct searchthread {
 } searchthreadinfo_t;
 
 typedef struct searchstack {
-  int16_t (*continuation_entry)[12][64];
   int move;
   int excluded_move;
   int static_eval;
   int history_score;
+  uint8_t piece;
 } searchstack_t;
 
 typedef struct nnue_settings {

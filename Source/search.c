@@ -264,11 +264,10 @@ int SEE(position_t *pos, int move, int threshold) {
   return pos->side != colour;
 }
 
-int16_t get_conthist_score(searchstack_t *ss, int move) {
-  if (!ss->continuation_entry) {
-    return 0;
-  }
-  return *ss->continuation_entry[get_move_piece(move)][get_move_target(move)];
+int16_t get_conthist_score(thread_t *thread, searchstack_t *ss, int move) {
+  return thread->continuation_history[ss->piece][get_move_target(
+      ss->move)][thread->pos.mailbox[get_move_source(move)]]
+                                     [get_move_target(move)];
 }
 
 // score moves
@@ -352,7 +351,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
       move_entry->score =
           thread->quiet_history[get_move_piece(move)][get_move_source(move)]
                                [get_move_target(move)] +
-          get_conthist_score(ss - 1, move);
+          get_conthist_score(thread, ss - 1, move);
     }
 
     return;
@@ -489,10 +488,8 @@ static inline int quiescence(position_t *pos, thread_t *thread,
                           &thread->accumulator[pos->ply - 1], pos->side,
                           move_list->entry[count].move, mailbox_copy);
 
-    ss->continuation_entry = &thread->continuation_history[get_move_piece(
-        move_list->entry[count].move)][get_move_target(move_list->entry[count]
-                                                           .move)];
     ss->move = move_list->entry[count].move;
+    ss->piece = mailbox_copy[get_move_source(move_list->entry[count].move)];
 
     thread->nodes++;
 
@@ -577,13 +574,13 @@ static inline void update_capture_history(thread_t *thread, int move,
                    abs(adjust) / HISTORY_MAX;
 }
 
-static inline void update_continuation_history(searchstack_t *ss, int move,
+static inline void update_continuation_history(thread_t *thread,
+                                               searchstack_t *ss, int move,
                                                uint8_t depth,
                                                uint8_t is_best_move) {
-  if (!ss->continuation_entry) {
-    return;
-  }
-  int piece = get_move_piece(move);
+  int prev_piece = ss->piece;
+  int prev_target = get_move_target(ss->move);
+  int piece = thread->pos.mailbox[get_move_source(move)];
   int target = get_move_target(move);
   int bonus = 16 * depth * depth + 32 * depth + 16;
   int clamped_bonus =
@@ -591,9 +588,10 @@ static inline void update_continuation_history(searchstack_t *ss, int move,
   int clamped_malus =
       clamp(bonus, -QUIET_HISTORY_MALUS_MAX, QUIET_HISTORY_MALUS_MAX);
   int adjust = is_best_move ? clamped_bonus : -clamped_malus;
-  *ss->continuation_entry[piece][target] +=
+  thread->continuation_history[prev_piece][prev_target][piece][target] +=
       adjust -
-      *ss->continuation_entry[piece][target] * abs(adjust) / HISTORY_MAX;
+      thread->continuation_history[prev_piece][prev_target][piece][target] *
+          abs(adjust) / HISTORY_MAX;
 }
 
 static inline void update_quiet_history_moves(thread_t *thread,
@@ -620,15 +618,17 @@ static inline void update_capture_history_moves(thread_t *thread,
   }
 }
 
-static inline void update_continuation_history_moves(searchstack_t *ss,
+static inline void update_continuation_history_moves(thread_t *thread,
+                                                     searchstack_t *ss,
                                                      moves *quiet_moves,
                                                      int best_move,
                                                      uint8_t depth) {
   for (uint32_t i = 0; i < quiet_moves->count; ++i) {
     if (quiet_moves->entry[i].move == best_move) {
-      update_continuation_history(ss - 1, best_move, depth, 1);
+      update_continuation_history(thread, ss - 1, best_move, depth, 1);
     } else {
-      update_continuation_history(ss - 1, quiet_moves->entry[i].move, depth, 0);
+      update_continuation_history(thread, ss - 1, quiet_moves->entry[i].move,
+                                  depth, 0);
     }
   }
 }
@@ -825,7 +825,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       prefetch_hash_entry(pos->hash_key);
 
       ss->move = 0;
-      ss->continuation_entry = &thread->continuation_history[0][0];
+      ss->piece = 0;
 
       /* search moves with reduced depth to find beta cutoffs
          depth - 1 - R where R is a reduction limit */
@@ -1011,10 +1011,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
                           &thread->accumulator[pos->ply - 1], pos->side,
                           move_list->entry[count].move, mailbox_copy);
 
-    ss->continuation_entry =
-        &thread->continuation_history[get_move_piece(move)]
-                                     [get_move_target(move)];
     ss->move = move;
+    ss->piece = mailbox_copy[get_move_source(move)];
 
     // increment nodes count
     thread->nodes++;
@@ -1113,7 +1111,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
           // on quiet moves
           if (quiet) {
             update_quiet_history_moves(thread, quiet_list, best_move, depth);
-            update_continuation_history_moves(ss, quiet_list, best_move, depth);
+            update_continuation_history_moves(thread, ss, quiet_list, best_move,
+                                              depth);
             thread->killer_moves[pos->ply] = move;
           }
 
@@ -1205,6 +1204,8 @@ void *iterative_deepening(void *thread_void) {
       ss[i].excluded_move = 0;
       ss[i].static_eval = NO_SCORE;
       ss[i].history_score = 0;
+      ss[i].move = 0;
+      ss[i].piece = 0;
     }
 
     pos->seldepth = 0;
