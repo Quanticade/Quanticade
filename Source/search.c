@@ -489,6 +489,11 @@ static inline int quiescence(position_t *pos, thread_t *thread,
                           &thread->accumulator[pos->ply - 1], pos->side,
                           move_list->entry[count].move, mailbox_copy);
 
+    ss->continuation_entry = &thread->continuation_history[get_move_piece(
+        move_list->entry[count].move)][get_move_target(move_list->entry[count]
+                                                           .move)];
+    ss->move = move_list->entry[count].move;
+
     thread->nodes++;
 
     prefetch_hash_entry(pos->hash_key);
