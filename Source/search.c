@@ -47,14 +47,23 @@ int SEE_CAPTURE = 36;
 int SEE_DEPTH = 10;
 int SE_DEPTH = 6;
 int SE_DEPTH_REDUCTION = 4;
+int SE_TRIPLE_MARGIN = 40;
 int ASP_WINDOW = 11;
 int ASP_DEPTH = 4;
 int QS_SEE_THRESHOLD = 7;
 int MO_SEE_THRESHOLD = 122;
 int CAPTURE_HISTORY_BONUS_MAX = 1237;
 int QUIET_HISTORY_BONUS_MAX = 1284;
+int CONT_HISTORY_BONUS_MAX = 1284;
 int CAPTURE_HISTORY_MALUS_MAX = 1280;
 int QUIET_HISTORY_MALUS_MAX = 1255;
+int CONT_HISTORY_MALUS_MAX = 1255;
+int CAPTURE_HISTORY_BONUS_MIN = 1237;
+int QUIET_HISTORY_BONUS_MIN = 1284;
+int CONT_HISTORY_BONUS_MIN = 1284;
+int CAPTURE_HISTORY_MALUS_MIN = 1280;
+int QUIET_HISTORY_MALUS_MIN = 1255;
+int CONT_HISTORY_MALUS_MIN = 1255;
 int HISTORY_MAX = 8192;
 double ASP_MULTIPLIER = 1.523752944059298;
 int LMR_QUIET_HIST_DIV = 7410;
@@ -549,9 +558,9 @@ static inline void update_quiet_history(thread_t *thread, int move,
   int source = get_move_source(move);
   int bonus = 16 * depth * depth + 32 * depth + 16;
   int clamped_bonus =
-      clamp(bonus, -QUIET_HISTORY_BONUS_MAX, QUIET_HISTORY_BONUS_MAX);
+      clamp(bonus, -QUIET_HISTORY_BONUS_MIN, QUIET_HISTORY_BONUS_MAX);
   int clamped_malus =
-      clamp(bonus, -QUIET_HISTORY_MALUS_MAX, QUIET_HISTORY_MALUS_MAX);
+      clamp(bonus, -QUIET_HISTORY_MALUS_MIN, QUIET_HISTORY_MALUS_MAX);
   int adjust = is_best_move ? clamped_bonus : -clamped_malus;
   thread->quiet_history[piece][source][target] +=
       adjust -
@@ -564,9 +573,9 @@ static inline void update_capture_history(thread_t *thread, int move,
   int target = get_move_target(move);
   int bonus = 16 * depth * depth + 32 * depth + 16;
   int clamped_bonus =
-      clamp(bonus, -CAPTURE_HISTORY_BONUS_MAX, CAPTURE_HISTORY_BONUS_MAX);
+      clamp(bonus, -CAPTURE_HISTORY_BONUS_MIN, CAPTURE_HISTORY_BONUS_MAX);
   int clamped_malus =
-      clamp(bonus, -CAPTURE_HISTORY_MALUS_MAX, CAPTURE_HISTORY_MALUS_MAX);
+      clamp(bonus, -CAPTURE_HISTORY_MALUS_MIN, CAPTURE_HISTORY_MALUS_MAX);
   int adjust = is_best_move ? clamped_bonus : -clamped_malus;
   thread->capture_history[get_move_piece(move)][thread->pos.mailbox[target]]
                          [from][target] +=
@@ -585,9 +594,9 @@ static inline void update_continuation_history(thread_t *thread,
   int target = get_move_target(move);
   int bonus = 16 * depth * depth + 32 * depth + 16;
   int clamped_bonus =
-      clamp(bonus, -QUIET_HISTORY_BONUS_MAX, QUIET_HISTORY_BONUS_MAX);
+      clamp(bonus, -CONT_HISTORY_BONUS_MIN, CONT_HISTORY_BONUS_MAX);
   int clamped_malus =
-      clamp(bonus, -QUIET_HISTORY_MALUS_MAX, QUIET_HISTORY_MALUS_MAX);
+      clamp(bonus, -CONT_HISTORY_MALUS_MIN, CONT_HISTORY_MALUS_MAX);
   int adjust = is_best_move ? clamped_bonus : -clamped_malus;
   thread->continuation_history[prev_piece][prev_target][piece][target] +=
       adjust -
@@ -966,7 +975,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
         if (!pv_node && s_score < s_beta) {
           extensions++;
         }
-        if (!get_move_capture(move) && s_score + 40 < s_beta) {
+        if (!get_move_capture(move) && s_score + SE_TRIPLE_MARGIN < s_beta) {
           extensions++;
         }
       }
