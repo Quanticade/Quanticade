@@ -73,7 +73,7 @@ double LMR_DIVISOR_QUIET = 1.6343306598084584;
 double LMR_OFFSET_NOISY = -0.28109910924097326;
 double LMR_DIVISOR_NOISY = 3.1371431261234832;
 
-const int mvv[12] = {100, 300, 300, 500, 1200, 0, 100, 300, 300, 500, 1200, 0};
+const int mvv[12] = {100, 300, 300, 500, 1200, 0};
 
 int SEEPieceValues[] = {98, 280, 295, 479, 1064, 0, 0};
 
@@ -339,7 +339,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
     }
 
     // score move by MVV LVA lookup [source piece][target piece]
-    move_entry->score += mvv[target_piece];
+    move_entry->score += mvv[target_piece > 5 ? target_piece - 6 : target_piece];
     move_entry->score +=
         thread->capture_history[get_move_piece(move)][target_piece]
                                [get_move_source(move)][get_move_target(move)];
