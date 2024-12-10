@@ -319,7 +319,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
       move_entry->score = -1000000;
       break;
     }
-    if (SEE(pos, move, -MO_SEE_THRESHOLD)) {
+    if (get_move_capture(move) && SEE(pos, move, -MO_SEE_THRESHOLD)) {
       return;
     } else {
       move_entry->score = -1000000;
