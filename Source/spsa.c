@@ -192,6 +192,9 @@ void init_spsa_table(void) {
 
 void print_spsa_table_uci(void) {
   for (int i = 0; i < spsa_index; i++) {
+    if (!spsa[i].tunable) {
+      continue;
+    }
     if (spsa[i].is_float) {
       printf("option name %s type string default %lf\n", spsa[i].name,
              *(double *)spsa[i].value);
@@ -205,6 +208,9 @@ void print_spsa_table_uci(void) {
 
 void print_spsa_table(void) {
   for (int i = 0; i < spsa_index; i++) {
+    if (!spsa[i].tunable) {
+      continue;
+    }
     if (spsa[i].is_float) {
       printf("%s, float, %lf, %lf, %lf, %lf, 0.002\n", spsa[i].name,
              *(double *)spsa[i].value, spsa[i].min.min_float,
