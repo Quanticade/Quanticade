@@ -13,8 +13,8 @@
 
 // Misc functions. Some of them from VICE by Richard Allbert
 
-double clamp(double d, double min, double max) {
-  const double t = d < min ? min : d;
+uint64_t clamp(uint64_t d, uint64_t min, uint64_t max) {
+  const uint64_t t = d < min ? min : d;
   return t > max ? max : t;
 }
 
