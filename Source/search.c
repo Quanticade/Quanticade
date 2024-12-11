@@ -34,7 +34,6 @@ int RAZOR_DEPTH = 7;
 int RAZOR_MARGIN = 292;
 int RFP_DEPTH = 7;
 int RFP_MARGIN = 57;
-int RFP_BONUS = 97;
 int FP_DEPTH = 5;
 int FP_MULTIPLIER = 177;
 int FP_ADDITION = 133;
@@ -684,7 +683,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
   if (!in_check && !ss->excluded_move) {
     // Reverse Futility Pruning
-    if (depth <= RFP_DEPTH && !pv_node && abs(beta - 1) > -INF + RFP_BONUS) {
+    if (depth <= RFP_DEPTH && !pv_node) {
       // get static evaluation score
 
       // define evaluation margin
