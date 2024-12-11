@@ -20,6 +20,7 @@ typedef struct spsa {
   void (*func)(void);
   char name[50];
   uint8_t is_float;
+  uint8_t tunable;
 } spsa_t;
 
 typedef struct tt_entry {
