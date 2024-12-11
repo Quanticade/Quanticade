@@ -13,6 +13,11 @@
 
 // Misc functions. Some of them from VICE by Richard Allbert
 
+double clamp(double d, double min, double max) {
+  const double t = d < min ? min : d;
+  return t > max ? max : t;
+}
+
 uint64_t get_time_ms(void) {
 #ifdef WIN64
   return GetTickCount();
