@@ -13,8 +13,8 @@
 
 // Misc functions. Some of them from VICE by Richard Allbert
 
-double clamp(double d, double min, double max) {
-  const double t = d < min ? min : d;
+int clamp(int d, int min, int max) {
+  const int t = d < min ? min : d;
   return t > max ? max : t;
 }
 
