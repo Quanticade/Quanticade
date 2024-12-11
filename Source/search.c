@@ -303,28 +303,31 @@ static inline void score_move(position_t *pos, thread_t *thread,
     }
   }
 
+
+
   if (piece) {
     switch (piece) {
     case q:
     case Q:
-      move_entry->score = 100000;
+      move_entry->score = 1400000001;
       break;
     case n:
     case N:
-      move_entry->score = 90000;
+      move_entry->score = 1400000000;
       break;
-    case r:
-    case R:
-      move_entry->score = -100000;
-      break;
-    case b:
-    case B:
-      move_entry->score = -90000;
+    default:
+      move_entry->score = -1000000;
       break;
     }
-  } else {
-    move_entry->score = 0;
+    if (get_move_capture(move) && SEE(pos, move, -MO_SEE_THRESHOLD)) {
+      return;
+    } else {
+      move_entry->score = -1000000;
+      return;
+    }
   }
+
+  move_entry->score = 0;
 
   // score capture move
   if (get_move_capture(move)) {
