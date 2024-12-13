@@ -692,7 +692,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       // evaluation margin substracted from static evaluation score fails high
       if (static_eval - eval_margin >= beta)
         // evaluation margin substracted from static evaluation score
-        return static_eval - eval_margin;
+        return (static_eval + beta) / 2;
     }
 
     // null move pruning
