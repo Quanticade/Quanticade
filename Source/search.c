@@ -34,6 +34,7 @@ int RAZOR_DEPTH = 7;
 int RAZOR_MARGIN = 292;
 int RFP_DEPTH = 7;
 int RFP_MARGIN = 57;
+int RFP_ADDITION = 60;
 int FP_DEPTH = 5;
 int FP_MULTIPLIER = 177;
 int FP_ADDITION = 133;
@@ -687,7 +688,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       // get static evaluation score
 
       // define evaluation margin
-      int eval_margin = RFP_MARGIN * depth;
+      int eval_margin = RFP_MARGIN * depth + RFP_ADDITION * improving;
 
       // evaluation margin substracted from static evaluation score fails high
       if (static_eval - eval_margin >= beta)

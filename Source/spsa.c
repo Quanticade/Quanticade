@@ -18,6 +18,7 @@ extern int RAZOR_DEPTH;
 extern int RAZOR_MARGIN;
 extern int RFP_DEPTH;
 extern int RFP_MARGIN;
+extern int RFP_ADDITION;
 extern int FP_DEPTH;
 extern int FP_MULTIPLIER;
 extern int FP_ADDITION;
@@ -113,6 +114,7 @@ void init_spsa_table(void) {
   SPSA_INT(RAZOR_MARGIN, 1);
   SPSA_INT(RFP_DEPTH, 0);
   SPSA_INT(RFP_MARGIN, 1);
+  SPSA_INT(RFP_ADDITION, 1);
   SPSA_INT(FP_DEPTH, 0);
   SPSA_INT(FP_MULTIPLIER, 1);
   SPSA_INT(FP_ADDITION, 1);
