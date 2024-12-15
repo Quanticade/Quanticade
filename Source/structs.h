@@ -25,15 +25,15 @@ typedef struct spsa {
 
 typedef struct tt_entry {
   uint32_t hash_key; // "almost" unique chess position identifier
-  int move;
+  uint16_t move;
   int16_t score; // score (alpha/beta/PV)
   uint8_t depth; // current search depth
   uint8_t flag;  // flag the type of node (fail-low/fail-high/PV)
 } tt_entry_t;
 
 typedef struct move {
-  int move;
   int score;
+  uint16_t move;
 } move_t;
 
 // move list structure
@@ -111,7 +111,7 @@ typedef struct searchthread {
 } searchthreadinfo_t;
 
 typedef struct searchstack {
-  int move;
+  uint16_t move;
   int excluded_move;
   int static_eval;
   int history_score;

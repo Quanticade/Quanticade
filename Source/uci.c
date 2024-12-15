@@ -11,6 +11,7 @@
 #include "uci.h"
 #include "bitboards.h"
 #include "enums.h"
+#include "move.h"
 #include "movegen.h"
 #include "nnue.h"
 #include "perft.h"
@@ -132,7 +133,7 @@ static inline int parse_move(position_t *pos, thread_t *thread,
     if (source_square == get_move_source(move) &&
         target_square == get_move_target(move)) {
       // init promoted piece
-      int promoted_piece = get_move_promoted(move);
+      int promoted_piece = get_move_promoted(pos->side, move);
 
       // promoted piece is available
       if (promoted_piece) {
@@ -494,10 +495,10 @@ static inline void *parse_go(void *searchthread_info) {
 
 // print move (for UCI purposes)
 void print_move(int move) {
-  if (get_move_promoted(move))
+  if (is_move_promotion(move))
     printf("%s%s%c", square_to_coordinates[get_move_source(move)],
            square_to_coordinates[get_move_target(move)],
-           promoted_pieces[get_move_promoted(move)]);
+           promoted_pieces[get_move_promoted(white, move)]);
   else
     printf("%s%s", square_to_coordinates[get_move_source(move)],
            square_to_coordinates[get_move_target(move)]);

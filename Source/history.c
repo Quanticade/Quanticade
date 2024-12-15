@@ -1,4 +1,5 @@
 #include "utils.h"
+#include "move.h"
 #include <stdlib.h>
 
 int CAPTURE_HISTORY_BONUS_MAX = 1237;
@@ -17,7 +18,7 @@ int HISTORY_MAX = 8192;
 
 static inline void update_quiet_history(thread_t *thread, int move,
                                         uint8_t depth, uint8_t is_best_move) {
-  int piece = get_move_piece(move);
+  int piece = get_move_piece(thread->pos.side, thread->pos.mailbox, move);
   int target = get_move_target(move);
   int source = get_move_source(move);
   int bonus = 16 * depth * depth + 32 * depth + 16;
@@ -41,9 +42,9 @@ static inline void update_capture_history(thread_t *thread, int move,
   int clamped_malus =
       clamp(bonus, -CAPTURE_HISTORY_MALUS_MIN, CAPTURE_HISTORY_MALUS_MAX);
   int adjust = is_best_move ? clamped_bonus : -clamped_malus;
-  thread->capture_history[get_move_piece(move)][thread->pos.mailbox[target]]
+  thread->capture_history[get_move_piece(thread->pos.side, thread->pos.mailbox, move)][thread->pos.mailbox[target]]
                          [from][target] +=
-      adjust - thread->capture_history[get_move_piece(
+      adjust - thread->capture_history[get_move_piece(thread->pos.side, thread->pos.mailbox, 
                    move)][thread->pos.mailbox[target]][from][target] *
                    abs(adjust) / HISTORY_MAX;
 }
