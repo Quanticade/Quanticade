@@ -1,5 +1,5 @@
-#include "utils.h"
 #include "move.h"
+#include "utils.h"
 #include <stdlib.h>
 
 int CAPTURE_HISTORY_BONUS_MAX = 1237;
@@ -16,11 +16,12 @@ int QUIET_HISTORY_MALUS_MIN = 1255;
 int CONT_HISTORY_MALUS_MIN = 1255;
 int HISTORY_MAX = 8192;
 
-static inline void update_quiet_history(thread_t *thread, int move,
-                                        uint8_t depth, uint8_t is_best_move) {
-  int piece = get_move_piece(thread->pos.side, thread->pos.mailbox, move);
+static inline void update_quiet_history(thread_t *thread, uint8_t mailbox[64],
+                                        int move, uint8_t depth,
+                                        uint8_t is_best_move) {
   int target = get_move_target(move);
   int source = get_move_source(move);
+  uint8_t piece = mailbox[source];
   int bonus = 16 * depth * depth + 32 * depth + 16;
   int clamped_bonus =
       clamp(bonus, -QUIET_HISTORY_BONUS_MIN, QUIET_HISTORY_BONUS_MAX);
@@ -32,20 +33,21 @@ static inline void update_quiet_history(thread_t *thread, int move,
       thread->quiet_history[piece][source][target] * abs(adjust) / HISTORY_MAX;
 }
 
-static inline void update_capture_history(thread_t *thread, int move,
-                                          uint8_t depth, uint8_t is_best_move) {
+static inline void update_capture_history(thread_t *thread, uint8_t mailbox[64],
+                                          int move, uint8_t depth,
+                                          uint8_t is_best_move) {
   int from = get_move_source(move);
   int target = get_move_target(move);
+  uint8_t piece = mailbox[from];
   int bonus = 16 * depth * depth + 32 * depth + 16;
   int clamped_bonus =
       clamp(bonus, -CAPTURE_HISTORY_BONUS_MIN, CAPTURE_HISTORY_BONUS_MAX);
   int clamped_malus =
       clamp(bonus, -CAPTURE_HISTORY_MALUS_MIN, CAPTURE_HISTORY_MALUS_MAX);
   int adjust = is_best_move ? clamped_bonus : -clamped_malus;
-  thread->capture_history[get_move_piece(thread->pos.side, thread->pos.mailbox, move)][thread->pos.mailbox[target]]
-                         [from][target] +=
-      adjust - thread->capture_history[get_move_piece(thread->pos.side, thread->pos.mailbox, 
-                   move)][thread->pos.mailbox[target]][from][target] *
+  thread->capture_history[piece][thread->pos.mailbox[target]][from][target] +=
+      adjust - thread->capture_history[piece][thread->pos.mailbox[target]][from]
+                                      [target] *
                    abs(adjust) / HISTORY_MAX;
 }
 
@@ -69,35 +71,35 @@ static inline void update_continuation_history(thread_t *thread,
           abs(adjust) / HISTORY_MAX;
 }
 
-void update_quiet_history_moves(thread_t *thread,
-                                              moves *quiet_moves, int best_move,
-                                              uint8_t depth) {
+void update_quiet_history_moves(thread_t *thread, uint8_t mailbox[64],
+                                moves *quiet_moves, int best_move,
+                                uint8_t depth) {
   for (uint32_t i = 0; i < quiet_moves->count; ++i) {
     if (quiet_moves->entry[i].move == best_move) {
-      update_quiet_history(thread, best_move, depth, 1);
+      update_quiet_history(thread, mailbox, best_move, depth, 1);
     } else {
-      update_quiet_history(thread, quiet_moves->entry[i].move, depth, 0);
+      update_quiet_history(thread, mailbox, quiet_moves->entry[i].move, depth,
+                           0);
     }
   }
 }
 
-void update_capture_history_moves(thread_t *thread,
-                                                moves *capture_moves,
-                                                int best_move, uint8_t depth) {
+void update_capture_history_moves(thread_t *thread, uint8_t mailbox[64],
+                                  moves *capture_moves, int best_move,
+                                  uint8_t depth) {
   for (uint32_t i = 0; i < capture_moves->count; ++i) {
     if (capture_moves->entry[i].move == best_move) {
-      update_capture_history(thread, best_move, depth, 1);
+      update_capture_history(thread, mailbox, best_move, depth, 1);
     } else {
-      update_capture_history(thread, capture_moves->entry[i].move, depth, 0);
+      update_capture_history(thread, mailbox, capture_moves->entry[i].move,
+                             depth, 0);
     }
   }
 }
 
-void update_continuation_history_moves(thread_t *thread,
-                                                     searchstack_t *ss,
-                                                     moves *quiet_moves,
-                                                     int best_move,
-                                                     uint8_t depth) {
+void update_continuation_history_moves(thread_t *thread, searchstack_t *ss,
+                                       moves *quiet_moves, int best_move,
+                                       uint8_t depth) {
   for (uint32_t i = 0; i < quiet_moves->count; ++i) {
     if (quiet_moves->entry[i].move == best_move) {
       update_continuation_history(thread, ss - 1, best_move, depth, 1);

@@ -35,11 +35,8 @@ uint8_t get_move_double(uint16_t move) {
     return (move & 15) == 1;
 }
 
-uint8_t get_move_piece(uint8_t side, uint8_t mailbox[64], uint16_t move) {
-    uint8_t piece = mailbox[get_move_target(move)];
-    if (get_move_enpassant(move)) {
-        piece = side == white ? P : p;
-    }
+uint8_t get_move_piece(uint8_t mailbox[64], uint16_t move) {
+    uint8_t piece = mailbox[get_move_source(move)];
     return piece;
 }
 
@@ -49,5 +46,5 @@ uint8_t get_move_enpassant(uint16_t move) {
 
 uint8_t get_move_castling(uint16_t move) {
     uint8_t castling = move & 15;
-    return (castling && castling < 4) ? castling : 0;
+    return (castling > 1 && castling < 4) ? castling : 0;
 }

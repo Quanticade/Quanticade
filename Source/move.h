@@ -23,7 +23,7 @@ uint16_t encode_move(uint16_t source, uint16_t target, uint16_t move_type);
 uint8_t is_move_promotion(uint16_t move);
 uint8_t get_move_source(uint16_t move);
 uint8_t get_move_target(uint16_t move);
-uint8_t get_move_piece(uint8_t side, uint8_t mailbox[64], uint16_t move);
+uint8_t get_move_piece(uint8_t mailbox[64], uint16_t move);
 uint8_t get_move_promoted(uint8_t side, uint16_t move);
 uint8_t get_move_capture(uint16_t move);
 uint8_t get_move_double(uint16_t move);

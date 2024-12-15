@@ -118,8 +118,9 @@ int move_estimated_value(position_t *pos, int move) {
   int target_piece = pos->mailbox[get_move_target(move)] > 5
                          ? pos->mailbox[get_move_target(move)] - 6
                          : pos->mailbox[get_move_target(move)];
-  int promoted_piece = get_move_promoted(pos->side, move) > 5 ? get_move_promoted(pos->side, move) - 6
-                                                   : get_move_promoted(pos->side, move);
+  int promoted_piece = get_move_promoted(pos->side, move) > 5
+                           ? get_move_promoted(pos->side, move) - 6
+                           : get_move_promoted(pos->side, move);
   int value = SEEPieceValues[target_piece];
 
   // Factor in the new piece's value and remove our promoted pawn
@@ -270,9 +271,15 @@ int16_t get_conthist_score(thread_t *thread, searchstack_t *ss, int move) {
 // score moves
 static inline void score_move(position_t *pos, thread_t *thread,
                               searchstack_t *ss, move_t *move_entry,
-                              int hash_move) {
-  int move = move_entry->move;
+                              uint16_t hash_move) {
+  uint16_t move = move_entry->move;
   uint8_t piece = get_move_promoted(pos->side, move);
+  /*printf("move: %d, from %d, to: %d, piece: %d, pro_piece: %d, capture: %d, "
+         "enpass: %d, "
+         "castling: %d\n",
+         move, get_move_source(move), get_move_target(move),
+         pos->mailbox[get_move_source(move)], piece, get_move_capture(move),
+         get_move_enpassant(move), get_move_castling(move));*/
   if (move == hash_move) {
     move_entry->score = 2000000000;
     return;
@@ -290,8 +297,6 @@ static inline void score_move(position_t *pos, thread_t *thread,
       return;
     }
   }
-
-
 
   if (piece) {
     switch (piece) {
@@ -330,10 +335,12 @@ static inline void score_move(position_t *pos, thread_t *thread,
     }
 
     // score move by MVV LVA lookup [source piece][target piece]
-    move_entry->score += mvv[target_piece > 5 ? target_piece - 6 : target_piece];
     move_entry->score +=
-        thread->capture_history[get_move_piece(pos->side, pos->mailbox, move)][target_piece]
-                               [get_move_source(move)][get_move_target(move)];
+        mvv[target_piece > 5 ? target_piece - 6 : target_piece];
+    move_entry->score +=
+        thread
+            ->capture_history[pos->mailbox[get_move_source(move)]][target_piece]
+                             [get_move_source(move)][get_move_target(move)];
     move_entry->score +=
         SEE(pos, move, -MO_SEE_THRESHOLD) ? 1000000000 : -1000000;
     return;
@@ -349,8 +356,8 @@ static inline void score_move(position_t *pos, thread_t *thread,
     // score history move
     else {
       move_entry->score =
-          thread->quiet_history[get_move_piece(pos->side, pos->mailbox, move)][get_move_source(move)]
-                               [get_move_target(move)] +
+          thread->quiet_history[pos->mailbox[get_move_source(move)]]
+                               [get_move_source(move)][get_move_target(move)] +
           get_conthist_score(thread, ss - 1, move) +
           get_conthist_score(thread, ss - 2, move);
     }
@@ -646,6 +653,9 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     depth--;
   }
 
+  uint8_t mailbox_temp[64];
+  memcpy(mailbox_temp, pos->mailbox, 64);
+
   // is king in check
   int in_check = is_square_attacked(pos,
                                     (pos->side == white)
@@ -809,9 +819,10 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     ss->history_score =
         quiet
-            ? thread->quiet_history[get_move_piece(pos->side, pos->mailbox, move)][get_move_source(move)]
-                                   [get_move_target(move)]
-            : thread->capture_history[get_move_piece(pos->side, pos->mailbox, move)]
+            ? thread
+                  ->quiet_history[mailbox_temp[get_move_source(move)]]
+                                 [get_move_source(move)][get_move_target(move)]
+            : thread->capture_history[mailbox_temp[get_move_source(move)]]
                                      [pos->mailbox[get_move_target(move)]]
                                      [get_move_source(move)]
                                      [get_move_target(move)];
@@ -1014,13 +1025,15 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
           // on quiet moves
           if (quiet) {
-            update_quiet_history_moves(thread, quiet_list, best_move, depth);
+            update_quiet_history_moves(thread, mailbox_temp, quiet_list,
+                                       best_move, depth);
             update_continuation_history_moves(thread, ss, quiet_list, best_move,
                                               depth);
             thread->killer_moves[pos->ply] = move;
           }
 
-          update_capture_history_moves(thread, capture_list, best_move, depth);
+          update_capture_history_moves(thread, mailbox_temp, capture_list,
+                                       best_move, depth);
 
           // node (position) fails high
           return best_score;
