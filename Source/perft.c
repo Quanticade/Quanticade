@@ -88,7 +88,7 @@ void perft_test(position_t *pos, thread_t *searchinfo, int depth) {
                move_list->entry[move_count].move)],
            square_to_coordinates[get_move_target(
                move_list->entry[move_count].move)],
-           get_move_promoted(pos->side, move_list->entry[move_count].move)
+           is_move_promotion(move_list->entry[move_count].move)
                ? promoted_pieces[get_move_promoted(
                      pos->side, move_list->entry[move_count].move)]
                : ' ',

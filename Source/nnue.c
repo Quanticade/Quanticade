@@ -351,7 +351,7 @@ void accumulator_make_move(accumulator_t *accumulator,
   int from = get_move_source(move);
   int to = get_move_target(move);
   int moving_piece = mailbox[from];
-  int promoted_piece = get_move_promoted(side, move);
+  int promoted_piece = get_move_promoted(!side, move);
   int capture = get_move_capture(move);
   int enpass = get_move_enpassant(move);
   int castling = get_move_castling(move);

@@ -24,7 +24,7 @@ uint8_t get_move_promoted(uint8_t side, uint16_t move) {
         return 0;
     }
     uint8_t piece = (move & 3) + 1;
-    return side == black ? piece : piece + 6;
+    return side == white ? piece : piece + 6;
 }
 
 uint8_t get_move_capture(uint16_t move) {

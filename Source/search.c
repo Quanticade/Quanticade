@@ -118,9 +118,8 @@ int move_estimated_value(position_t *pos, int move) {
   int target_piece = pos->mailbox[get_move_target(move)] > 5
                          ? pos->mailbox[get_move_target(move)] - 6
                          : pos->mailbox[get_move_target(move)];
-  int promoted_piece = get_move_promoted(pos->side, move) > 5
-                           ? get_move_promoted(pos->side, move) - 6
-                           : get_move_promoted(pos->side, move);
+  int promoted_piece = get_move_promoted(pos->side, move);
+
   int value = SEEPieceValues[target_piece];
 
   // Factor in the new piece's value and remove our promoted pawn
@@ -274,12 +273,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
                               uint16_t hash_move) {
   uint16_t move = move_entry->move;
   uint8_t piece = get_move_promoted(pos->side, move);
-  /*printf("move: %d, from %d, to: %d, piece: %d, pro_piece: %d, capture: %d, "
-         "enpass: %d, "
-         "castling: %d\n",
-         move, get_move_source(move), get_move_target(move),
-         pos->mailbox[get_move_source(move)], piece, get_move_capture(move),
-         get_move_enpassant(move), get_move_castling(move));*/
+
   if (move == hash_move) {
     move_entry->score = 2000000000;
     return;
