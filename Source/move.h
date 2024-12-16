@@ -2,7 +2,6 @@
 #define MOVE_H
 
 #include "structs.h"
-#include <stdint.h>
 
 #define QUIET 0
 #define DOUBLE_PUSH 1
