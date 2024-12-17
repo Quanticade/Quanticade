@@ -282,7 +282,7 @@ void generate_captures(position_t *pos, moves *move_list) {
   move_list->count = 0;
 
   // define source & target squares
-  uint16_t source_square, target_square;
+  int source_square, target_square;
 
   // define current piece's bitboard copy & its attacks
   uint64_t bitboard, attacks;
@@ -591,7 +591,7 @@ void generate_moves(position_t *pos, moves *move_list) {
   move_list->count = 0;
 
   // define source & target squares
-  uint16_t source_square, target_square;
+  int source_square, target_square;
 
   // define current piece's bitboard copy & its attacks
   uint64_t bitboard, attacks;

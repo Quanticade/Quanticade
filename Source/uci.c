@@ -453,7 +453,7 @@ static inline void time_control(position_t *pos, thread_t *threads,
     limits.depth = limits.depth == 0 ? MAX_PLY : limits.depth;
 
     if (limits.timeset) {
-      if (limits.time < 0) {
+      if (limits.time <= 0) {
         // Some GUI apps can send us negative time. Fix this by assuming we have time
         limits.time = 1000;
       }
