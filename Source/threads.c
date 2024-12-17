@@ -2,7 +2,7 @@
 #include "structs.h"
 
 thread_t *init_threads(int thread_count) {
-	thread_t *threads = calloc(thread_count, sizeof(thread_t));
+	thread_t *threads = aligned_alloc(64, thread_count * sizeof(thread_t));
 
 	for (int thread = 0; thread < thread_count; ++thread) {
 		threads[thread].index = thread;
