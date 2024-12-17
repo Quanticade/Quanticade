@@ -119,6 +119,7 @@ int move_estimated_value(position_t *pos, int move) {
                          ? pos->mailbox[get_move_target(move)] - 6
                          : pos->mailbox[get_move_target(move)];
   int promoted_piece = get_move_promoted(pos->side, move);
+  promoted_piece = promoted_piece > 5 ? promoted_piece - 6 : promoted_piece;
 
   int value = SEEPieceValues[target_piece];
 
