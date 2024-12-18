@@ -410,10 +410,10 @@ static inline int quiescence(position_t *pos, thread_t *thread,
   }
 
   int32_t best_move = 0;
-  int score, best_score = 0;
-  int pv_node = beta - alpha > 1;
-  int hash_flag = HASH_FLAG_ALPHA;
-  int16_t tt_score = 0;
+  int16_t raw_static_eval, best_score = NO_SCORE;
+  uint8_t pv_node = beta - alpha > 1;
+  uint8_t hash_flag = HASH_FLAG_ALPHA;
+  int16_t tt_score = NO_SCORE;
   uint8_t tt_hit = 0;
   uint8_t tt_depth = 0;
   uint8_t tt_flag = HASH_FLAG_EXACT;
@@ -429,21 +429,29 @@ static inline int quiescence(position_t *pos, thread_t *thread,
     }
   }
 
-  // evaluate position
-  score = best_score =
-      tt_hit ? tt_score : evaluate(pos, &thread->accumulator[pos->ply]);
-  ;
+  uint8_t in_check = is_square_attacked(
+      pos,
+      (pos->side == white) ? __builtin_ctzll(pos->bitboards[K])
+                           : __builtin_ctzll(pos->bitboards[k]),
+      pos->side ^ 1);
 
-  // fail-hard beta cutoff
-  if (score >= beta) {
-    // node (position) fails high
-    return score;
-  }
+  if (!in_check) {
+    // Evaluate the position and save the static eval into stack
+    raw_static_eval = evaluate(pos, &thread->accumulator[pos->ply]);
+    ss->static_eval = raw_static_eval;
 
-  // found a better move
-  if (score > alpha) {
-    // PV node (position)
-    alpha = score;
+    // Set the best score either to TT score or static eval
+    best_score =
+        tt_hit ? tt_score : ss->static_eval;
+
+    // Early beta cutoff
+    if (best_score >= beta) {
+      // node (position) fails high
+      return best_score;
+    }
+
+    // Update alpha if no cutoff occured
+    alpha = best_score;
   }
 
   // create move list instance
@@ -499,7 +507,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
     prefetch_hash_entry(pos->hash_key);
 
     // score current move
-    score = -quiescence(pos, thread, ss, -beta, -alpha);
+    const int16_t score = -quiescence(pos, thread, ss, -beta, -alpha);
 
     // decrement ply
     pos->ply--;
@@ -1017,15 +1025,13 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
           // on quiet moves
           if (quiet) {
-            update_quiet_history_moves(thread, quiet_list,
-                                       best_move, depth);
+            update_quiet_history_moves(thread, quiet_list, best_move, depth);
             update_continuation_history_moves(thread, ss, quiet_list, best_move,
                                               depth);
             thread->killer_moves[pos->ply] = move;
           }
 
-          update_capture_history_moves(thread, capture_list,
-                                       best_move, depth);
+          update_capture_history_moves(thread, capture_list, best_move, depth);
 
           // node (position) fails high
           return best_score;
