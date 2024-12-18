@@ -429,28 +429,20 @@ static inline int quiescence(position_t *pos, thread_t *thread,
     }
   }
 
-  uint8_t in_check = is_square_attacked(
-      pos,
-      (pos->side == white) ? __builtin_ctzll(pos->bitboards[K])
-                           : __builtin_ctzll(pos->bitboards[k]),
-      pos->side ^ 1);
+  // Evaluate the position and save the static eval into stack
+  raw_static_eval = evaluate(pos, &thread->accumulator[pos->ply]);
+  ss->static_eval = raw_static_eval;
 
-  if (!in_check) {
-    // Evaluate the position and save the static eval into stack
-    raw_static_eval = evaluate(pos, &thread->accumulator[pos->ply]);
-    ss->static_eval = raw_static_eval;
+  // Set the best score either to TT score or static eval
+  best_score = tt_hit ? tt_score : ss->static_eval;
 
-    // Set the best score either to TT score or static eval
-    best_score =
-        tt_hit ? tt_score : ss->static_eval;
+  // Early beta cutoff
+  if (best_score >= beta) {
+    // node (position) fails high
+    return best_score;
+  }
 
-    // Early beta cutoff
-    if (best_score >= beta) {
-      // node (position) fails high
-      return best_score;
-    }
-
-    // Update alpha if no cutoff occured
+  if (best_score > alpha) {
     alpha = best_score;
   }
 
