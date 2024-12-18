@@ -4,6 +4,7 @@
 #include "enums.h"
 #include "evaluate.h"
 #include "history.h"
+#include "move.h"
 #include "movegen.h"
 #include "nnue.h"
 #include "pyrrhic/tbprobe.h"
@@ -117,12 +118,13 @@ int move_estimated_value(position_t *pos, int move) {
   int target_piece = pos->mailbox[get_move_target(move)] > 5
                          ? pos->mailbox[get_move_target(move)] - 6
                          : pos->mailbox[get_move_target(move)];
-  int promoted_piece = get_move_promoted(move) > 5 ? get_move_promoted(move) - 6
-                                                   : get_move_promoted(move);
+  int promoted_piece = get_move_promoted(pos->side, move);
+  promoted_piece = promoted_piece > 5 ? promoted_piece - 6 : promoted_piece;
+
   int value = SEEPieceValues[target_piece];
 
   // Factor in the new piece's value and remove our promoted pawn
-  if (get_move_promoted(move))
+  if (is_move_promotion(move))
     value += SEEPieceValues[promoted_piece] - SEEPieceValues[PAWN];
 
   // Target square is encoded as empty for enpass moves
@@ -164,7 +166,7 @@ int SEE(position_t *pos, int move, int threshold) {
   from = get_move_source(move);
   to = get_move_target(move);
   enpassant = get_move_enpassant(move);
-  promotion = get_move_promoted(move);
+  promotion = get_move_promoted(pos->side, move);
 
   // Next victim is moved piece or promotion type
   nextVictim = promotion ? promotion : pos->mailbox[from];
@@ -269,9 +271,10 @@ int16_t get_conthist_score(thread_t *thread, searchstack_t *ss, int move) {
 // score moves
 static inline void score_move(position_t *pos, thread_t *thread,
                               searchstack_t *ss, move_t *move_entry,
-                              int hash_move) {
-  int move = move_entry->move;
-  uint8_t piece = get_move_promoted(move);
+                              uint16_t hash_move) {
+  uint16_t move = move_entry->move;
+  uint8_t piece = get_move_promoted(pos->side, move);
+
   if (move == hash_move) {
     move_entry->score = 2000000000;
     return;
@@ -289,8 +292,6 @@ static inline void score_move(position_t *pos, thread_t *thread,
       return;
     }
   }
-
-
 
   if (piece) {
     switch (piece) {
@@ -329,10 +330,12 @@ static inline void score_move(position_t *pos, thread_t *thread,
     }
 
     // score move by MVV LVA lookup [source piece][target piece]
-    move_entry->score += mvv[target_piece > 5 ? target_piece - 6 : target_piece];
     move_entry->score +=
-        thread->capture_history[get_move_piece(move)][target_piece]
-                               [get_move_source(move)][get_move_target(move)];
+        mvv[target_piece > 5 ? target_piece - 6 : target_piece];
+    move_entry->score +=
+        thread
+            ->capture_history[pos->mailbox[get_move_source(move)]][target_piece]
+                             [get_move_source(move)][get_move_target(move)];
     move_entry->score +=
         SEE(pos, move, -MO_SEE_THRESHOLD) ? 1000000000 : -1000000;
     return;
@@ -348,8 +351,8 @@ static inline void score_move(position_t *pos, thread_t *thread,
     // score history move
     else {
       move_entry->score =
-          thread->quiet_history[get_move_piece(move)][get_move_source(move)]
-                               [get_move_target(move)] +
+          thread->quiet_history[pos->mailbox[get_move_source(move)]]
+                               [get_move_source(move)][get_move_target(move)] +
           get_conthist_score(thread, ss - 1, move) +
           get_conthist_score(thread, ss - 2, move);
     }
@@ -796,7 +799,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   for (uint32_t count = 0; count < move_list->count; count++) {
     int move = move_list->entry[count].move;
     uint8_t quiet =
-        (get_move_capture(move) == 0 && get_move_promoted(move) == 0);
+        (get_move_capture(move) == 0 && is_move_promotion(move) == 0);
 
     if (move == ss->excluded_move) {
       continue;
@@ -808,9 +811,10 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     ss->history_score =
         quiet
-            ? thread->quiet_history[get_move_piece(move)][get_move_source(move)]
-                                   [get_move_target(move)]
-            : thread->capture_history[get_move_piece(move)]
+            ? thread
+                  ->quiet_history[pos->mailbox[get_move_source(move)]]
+                                 [get_move_source(move)][get_move_target(move)]
+            : thread->capture_history[pos->mailbox[get_move_source(move)]]
                                      [pos->mailbox[get_move_target(move)]]
                                      [get_move_source(move)]
                                      [get_move_target(move)];
@@ -1013,13 +1017,15 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
           // on quiet moves
           if (quiet) {
-            update_quiet_history_moves(thread, quiet_list, best_move, depth);
+            update_quiet_history_moves(thread, quiet_list,
+                                       best_move, depth);
             update_continuation_history_moves(thread, ss, quiet_list, best_move,
                                               depth);
             thread->killer_moves[pos->ply] = move;
           }
 
-          update_capture_history_moves(thread, capture_list, best_move, depth);
+          update_capture_history_moves(thread, capture_list,
+                                       best_move, depth);
 
           // node (position) fails high
           return best_score;

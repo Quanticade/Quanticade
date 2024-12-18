@@ -2,6 +2,7 @@
 #include "bitboards.h"
 #include "enums.h"
 #include "incbin/incbin.h"
+#include "move.h"
 #include "simd.h"
 #include "structs.h"
 #include <stdint.h>
@@ -57,7 +58,8 @@ int nnue_init_incbin(void) {
   memcpy(raw_weights, &gEVALData[memoryIndex],
          HIDDEN_SIZE * sizeof(int16_t) * 2 * OUTPUT_BUCKETS);
   memoryIndex += HIDDEN_SIZE * sizeof(int16_t) * 2 * OUTPUT_BUCKETS;
-  memcpy(&nnue.output_bias, &gEVALData[memoryIndex], OUTPUT_BUCKETS * sizeof(int16_t));
+  memcpy(&nnue.output_bias, &gEVALData[memoryIndex],
+         OUTPUT_BUCKETS * sizeof(int16_t));
   return 1;
 }
 
@@ -70,7 +72,8 @@ void nnue_init(const char *nnue_file_name) {
     // initialize an accumulator for every input of the second layer
     size_t read = 0;
     size_t fileSize = sizeof(nnue_t);
-    size_t objectsExpected = (fileSize / sizeof(int16_t)) + 20 - 24; // Due to alligment we deduct 24 from it
+    size_t objectsExpected = (fileSize / sizeof(int16_t)) + 20 -
+                             24; // Due to alligment we deduct 24 from it
     char version_string[21];
     read += fread(version_string, sizeof(char), 20, nn);
     version_string[20] = '\0';
@@ -88,7 +91,8 @@ void nnue_init(const char *nnue_file_name) {
       read += fread(nnue.feature_weights, sizeof(int16_t),
                     INPUT_WEIGHTS * HIDDEN_SIZE, nn);
       read += fread(nnue.feature_bias, sizeof(int16_t), HIDDEN_SIZE, nn);
-      read += fread(raw_weights, sizeof(int16_t), HIDDEN_SIZE * 2 * OUTPUT_BUCKETS, nn);
+      read += fread(raw_weights, sizeof(int16_t),
+                    HIDDEN_SIZE * 2 * OUTPUT_BUCKETS, nn);
       read += fread(&nnue.output_bias, sizeof(int16_t), OUTPUT_BUCKETS, nn);
 
       if (read != objectsExpected) {
@@ -107,13 +111,14 @@ void nnue_init(const char *nnue_file_name) {
     }
   }
 
-      for (int stm = 0; stm < 2; ++stm) {
-        for (int weight = 0; weight < HIDDEN_SIZE; ++weight) {
-            for (int bucket = 0; bucket < OUTPUT_BUCKETS; ++bucket) {
-                nnue.output_weights[bucket][stm][weight] = raw_weights[stm][weight][bucket];
-            }
-}
-}
+  for (int stm = 0; stm < 2; ++stm) {
+    for (int weight = 0; weight < HIDDEN_SIZE; ++weight) {
+      for (int bucket = 0; bucket < OUTPUT_BUCKETS; ++bucket) {
+        nnue.output_weights[bucket][stm][weight] =
+            raw_weights[stm][weight][bucket];
+      }
+    }
+  }
 }
 
 static inline int16_t get_white_idx(uint8_t piece, uint8_t square) {
@@ -340,12 +345,13 @@ static inline void accumulator_addaddsubsub(accumulator_t *accumulator,
   }
 }
 
-void accumulator_make_move(accumulator_t *accumulator, accumulator_t *prev_accumulator,
-                           uint8_t side, int move, uint8_t *mailbox) {
+void accumulator_make_move(accumulator_t *accumulator,
+                           accumulator_t *prev_accumulator, uint8_t side,
+                           int move, uint8_t *mailbox) {
   int from = get_move_source(move);
   int to = get_move_target(move);
-  int moving_piece = get_move_piece(move);
-  int promoted_piece = get_move_promoted(move);
+  int moving_piece = mailbox[from];
+  int promoted_piece = get_move_promoted(!side, move);
   int capture = get_move_capture(move);
   int enpass = get_move_enpassant(move);
   int castling = get_move_castling(move);
@@ -354,24 +360,25 @@ void accumulator_make_move(accumulator_t *accumulator, accumulator_t *prev_accum
     uint8_t pawn = side == 0 ? p : P;
     if (capture) {
       uint8_t captured_piece = mailbox[to];
-      accumulator_addsubsub(accumulator, prev_accumulator, pawn,
-                            captured_piece, promoted_piece, from, to, to);
+      accumulator_addsubsub(accumulator, prev_accumulator, pawn, captured_piece,
+                            promoted_piece, from, to, to);
     } else {
-      accumulator_addsub(accumulator, prev_accumulator, pawn, promoted_piece, from, to);
+      accumulator_addsub(accumulator, prev_accumulator, pawn, promoted_piece,
+                         from, to);
     }
   }
 
   else if (enpass) {
     uint8_t remove_square = to + ((side == white) ? -8 : 8);
     uint8_t captured_piece = mailbox[remove_square];
-    accumulator_addsubsub(accumulator, prev_accumulator, captured_piece, moving_piece,
-                          moving_piece, remove_square, from, to);
+    accumulator_addsubsub(accumulator, prev_accumulator, captured_piece,
+                          moving_piece, moving_piece, remove_square, from, to);
   }
 
   else if (capture) {
     uint8_t captured_piece = mailbox[to];
-    accumulator_addsubsub(accumulator, prev_accumulator, captured_piece, moving_piece,
-                          moving_piece, to, from, to);
+    accumulator_addsubsub(accumulator, prev_accumulator, captured_piece,
+                          moving_piece, moving_piece, to, from, to);
   }
 
   else if (castling) {
@@ -380,32 +387,33 @@ void accumulator_make_move(accumulator_t *accumulator, accumulator_t *prev_accum
     // white castles king side
     case (g1):
       // move H rook
-      accumulator_addaddsubsub(accumulator, prev_accumulator, R, moving_piece, R, moving_piece,
-                               h1, from, f1, to);
+      accumulator_addaddsubsub(accumulator, prev_accumulator, R, moving_piece,
+                               R, moving_piece, h1, from, f1, to);
       break;
 
     // white castles queen side
     case (c1):
       // move A rook
-      accumulator_addaddsubsub(accumulator, prev_accumulator, R, moving_piece, R, moving_piece,
-                               a1, from, d1, to);
+      accumulator_addaddsubsub(accumulator, prev_accumulator, R, moving_piece,
+                               R, moving_piece, a1, from, d1, to);
       break;
 
     // black castles king side
     case (g8):
       // move H rook
-      accumulator_addaddsubsub(accumulator, prev_accumulator, r, moving_piece, r, moving_piece,
-                               h8, from, f8, to);
+      accumulator_addaddsubsub(accumulator, prev_accumulator, r, moving_piece,
+                               r, moving_piece, h8, from, f8, to);
       break;
 
     // black castles queen side
     case (c8):
       // move A rook
-      accumulator_addaddsubsub(accumulator, prev_accumulator, r, moving_piece, r, moving_piece,
-                               a8, from, d8, to);
+      accumulator_addaddsubsub(accumulator, prev_accumulator, r, moving_piece,
+                               r, moving_piece, a8, from, d8, to);
       break;
     }
   } else {
-    accumulator_addsub(accumulator, prev_accumulator, moving_piece, moving_piece, from, to);
+    accumulator_addsub(accumulator, prev_accumulator, moving_piece,
+                       moving_piece, from, to);
   }
 }
