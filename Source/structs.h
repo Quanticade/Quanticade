@@ -24,7 +24,7 @@ typedef struct spsa {
 } spsa_t;
 
 typedef struct tt_entry {
-  uint32_t hash_key; // "almost" unique chess position identifier
+  uint16_t hash_key; // "almost" unique chess position identifier
   uint16_t move;
   int16_t score; // score (alpha/beta/PV)
   uint8_t depth; // current search depth
