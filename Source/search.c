@@ -92,25 +92,6 @@ void check_time(thread_t *thread) {
   }
 }
 
-// enable PV move scoring
-static inline void enable_pv_scoring(position_t *pos, thread_t *thread,
-                                     moves *move_list) {
-  // disable following PV
-  thread->pv.follow_pv = 0;
-
-  // loop over the moves within a move list
-  for (uint32_t count = 0; count < move_list->count; count++) {
-    // make sure we hit PV move
-    if (thread->pv.pv_table[0][pos->ply] == move_list->entry[count].move) {
-      // enable move scoring
-      thread->pv.score_pv = 1;
-
-      // enable following PV
-      thread->pv.follow_pv = 1;
-    }
-  }
-}
-
 int move_estimated_value(position_t *pos, int move) {
 
   // Start with the value of the piece on the target square
@@ -276,21 +257,6 @@ static inline void score_move(position_t *pos, thread_t *thread,
     move_entry->score = 2000000000;
     return;
   }
-
-  // if PV move scoring is allowed
-  if (thread->pv.score_pv) {
-    // make sure we are dealing with PV move
-    if (thread->pv.pv_table[0][pos->ply] == move) {
-      // disable score PV flag
-      thread->pv.score_pv = 0;
-
-      // give PV move the highest score to search it first
-      move_entry->score = 1500000000;
-      return;
-    }
-  }
-
-
 
   if (piece) {
     switch (piece) {
@@ -778,11 +744,6 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   int best_score = -INF;
   score = -INF;
 
-  // if we are now following PV line
-  if (thread->pv.follow_pv)
-    // enable PV move scoring
-    enable_pv_scoring(pos, thread, move_list);
-
   int best_move = 0;
   for (uint32_t count = 0; count < move_list->count; count++) {
     score_move(pos, thread, ss, &move_list->entry[count], tt_move);
@@ -1124,8 +1085,6 @@ void *iterative_deepening(void *thread_void) {
         beta = MIN(INF, thread->score + window);
       }
 
-      // enable follow PV flag
-      thread->pv.follow_pv = 1;
       memcpy(pv_table_copy, thread->pv.pv_table, sizeof(thread->pv.pv_table));
       memcpy(pv_length_copy, thread->pv.pv_length,
              sizeof(thread->pv.pv_length));
@@ -1191,8 +1150,6 @@ void search_position(position_t *pos, thread_t *threads) {
   for (int i = 0; i < thread_count; ++i) {
     threads[i].nodes = 0;
     threads[i].stopped = 0;
-    threads[i].pv.follow_pv = 0;
-    threads[i].pv.score_pv = 0;
     memset(threads[i].killer_moves, 0, sizeof(threads[i].killer_moves));
     memcpy(&threads[i].pos, pos, sizeof(position_t));
     init_accumulator(pos, threads[i].accumulator);

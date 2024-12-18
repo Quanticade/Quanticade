@@ -73,8 +73,6 @@ typedef struct position {
 typedef struct PV {
   int32_t pv_length[MAX_PLY];
   int32_t pv_table[MAX_PLY][MAX_PLY];
-  uint8_t follow_pv;
-  uint8_t score_pv;
 } PV_t;
 
 typedef struct searchinfo {
