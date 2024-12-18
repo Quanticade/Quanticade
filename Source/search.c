@@ -648,9 +648,6 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     depth--;
   }
 
-  uint8_t mailbox_temp[64];
-  memcpy(mailbox_temp, pos->mailbox, 64);
-
   // is king in check
   int in_check = is_square_attacked(pos,
                                     (pos->side == white)
@@ -815,9 +812,9 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     ss->history_score =
         quiet
             ? thread
-                  ->quiet_history[mailbox_temp[get_move_source(move)]]
+                  ->quiet_history[pos->mailbox[get_move_source(move)]]
                                  [get_move_source(move)][get_move_target(move)]
-            : thread->capture_history[mailbox_temp[get_move_source(move)]]
+            : thread->capture_history[pos->mailbox[get_move_source(move)]]
                                      [pos->mailbox[get_move_target(move)]]
                                      [get_move_source(move)]
                                      [get_move_target(move)];
@@ -1020,14 +1017,14 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
           // on quiet moves
           if (quiet) {
-            update_quiet_history_moves(thread, mailbox_temp, quiet_list,
+            update_quiet_history_moves(thread, quiet_list,
                                        best_move, depth);
             update_continuation_history_moves(thread, ss, quiet_list, best_move,
                                               depth);
             thread->killer_moves[pos->ply] = move;
           }
 
-          update_capture_history_moves(thread, mailbox_temp, capture_list,
+          update_capture_history_moves(thread, capture_list,
                                        best_move, depth);
 
           // node (position) fails high
