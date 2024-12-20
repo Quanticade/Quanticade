@@ -6,7 +6,12 @@ Quanticade is a strong uci command-line chess engine written in C in development
 
 ## Playing Strength
 
-Quanticade Electra is currently ~3548CCRL Blitz
+|         | CCRL Blitz | CCRL 40/15 | CEGT 40/20 |
+|---------|------------|------------|------------|
+| Dev     | Est. 3600  | Est 3530   | Untested   |
+| Electra | 3552       | 3487       | 3410       |
+| Aurora  | 3465       | 3406       | Untested   |
+| 0.7     | Untested   | Untested   | Untested   |
 
 ## History
 
