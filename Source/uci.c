@@ -453,10 +453,6 @@ static inline void time_control(position_t *pos, thread_t *threads,
     limits.depth = limits.depth == 0 ? MAX_PLY : limits.depth;
 
     if (limits.timeset) {
-      if (limits.time <= 0) {
-        // Some GUI apps can send us negative time. Fix this by assuming we have time
-        limits.time = 1000;
-      }
       // Engine <--> GUI communication safety margin
       limits.time -= MIN(limits.time / 2, 50);
       int64_t base_time = 0;
@@ -466,7 +462,7 @@ static inline void time_control(position_t *pos, thread_t *threads,
         base_time = limits.time * DEF_TIME_MULTIPLIER + limits.inc * DEF_INC_MULTIPLIER;
       }
       
-      int64_t max_time = limits.time * MAX_TIME_MULTIPLIER;
+      int64_t max_time = MAX(1, limits.time * MAX_TIME_MULTIPLIER);
       limits.hard_limit =
           threads->starttime + MIN(base_time * HARD_LIMIT_MULTIPLIER, max_time);
       limits.soft_limit = threads->starttime + MIN(base_time * SOFT_LIMIT_MULTIPLIER, max_time);
