@@ -31,7 +31,7 @@ static inline uint32_t get_hash_low_bits(uint64_t hash) {
 }
 
 void prefetch_hash_entry(uint64_t hash_key) {
-  const uint32_t index = get_hash_index(hash_key);
+  const uint64_t index = get_hash_index(hash_key);
   __builtin_prefetch(&tt.hash_entry[index]);
 }
 
