@@ -21,6 +21,6 @@ uint64_t total_nodes(thread_t *threads, int thread_count) {
 
 void stop_threads(thread_t *threads, int thread_count) {
 	for (int i = 0; i < thread_count; ++i) {
-		threads->stopped = 1;
+		threads[i].stopped = 1;
 	}
 }
