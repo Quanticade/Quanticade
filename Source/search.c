@@ -84,13 +84,15 @@ void init_reductions(void) {
   }
 }
 
-void check_time(thread_t *thread) {
+uint8_t check_time(thread_t *thread) {
   // if time is up break here
   if (thread->index == 0 && limits.timeset &&
       get_time_ms() > limits.hard_limit) {
     // tell engine to stop calculating
     thread->stopped = 1;
+    return 1;
   }
+  return 0;
 }
 
 // enable PV move scoring
@@ -396,7 +398,10 @@ static inline int is_repetition(position_t *pos) {
 static inline int quiescence(position_t *pos, thread_t *thread,
                              searchstack_t *ss, int alpha, int beta) {
   // Check on time
-  check_time(thread);
+  if (check_time(thread)) {
+    stop_threads(thread, thread_count);
+    return 0;
+  }
 
   // we are too deep, hence there's an overflow of arrays relying on max ply
   // constant
@@ -668,7 +673,10 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   }
 
   // Check on time
-  check_time(thread);
+  if (check_time(thread)) {
+    stop_threads(thread, thread_count);
+    return 0;
+  }
 
   // increase search depth if the king has been exposed into a check
   if (in_check) {
@@ -1017,15 +1025,13 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
           // on quiet moves
           if (quiet) {
-            update_quiet_history_moves(thread, quiet_list,
-                                       best_move, depth);
+            update_quiet_history_moves(thread, quiet_list, best_move, depth);
             update_continuation_history_moves(thread, ss, quiet_list, best_move,
                                               depth);
             thread->killer_moves[pos->ply] = move;
           }
 
-          update_capture_history_moves(thread, capture_list,
-                                       best_move, depth);
+          update_capture_history_moves(thread, capture_list, best_move, depth);
 
           // node (position) fails high
           return best_score;
@@ -1125,6 +1131,15 @@ void *iterative_deepening(void *thread_void) {
 
     while (true) {
 
+      if (check_time(thread)) {
+        stop_threads(thread, thread_count);
+        break;
+      }
+
+      if (thread->stopped) {
+        break;
+      }
+
       if (thread->depth >= ASP_DEPTH) {
         alpha = MAX(-INF, thread->score - window);
         beta = MIN(INF, thread->score + window);
@@ -1171,10 +1186,6 @@ void *iterative_deepening(void *thread_void) {
       window *= ASP_MULTIPLIER;
     }
 
-    if (thread->stopped) {
-      return NULL;
-    }
-
     if (thread->index == 0 && limits.timeset &&
         get_time_ms() >= limits.soft_limit) {
       thread->stopped = 1;
@@ -1186,6 +1197,10 @@ void *iterative_deepening(void *thread_void) {
         // print search info
         print_thinking(thread, thread->score, thread->depth);
       }
+    }
+
+    if (thread->stopped) {
+      return NULL;
     }
   }
   return NULL;
@@ -1216,7 +1231,6 @@ void search_position(position_t *pos, thread_t *threads) {
   iterative_deepening(&threads[0]);
 
   for (int i = 1; i < thread_count; ++i) {
-    threads[i].stopped = 1;
     pthread_join(pthreads[i], NULL);
   }
 

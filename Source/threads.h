@@ -5,5 +5,6 @@
 
 thread_t *init_threads(int thread_count);
 uint64_t total_nodes(thread_t *threads, int thread_count);
+void stop_threads(thread_t *threads, int thread_count);
 
 #endif
