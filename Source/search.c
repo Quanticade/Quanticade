@@ -1101,6 +1101,8 @@ void *iterative_deepening(void *thread_void) {
 
   int pv_table_copy[MAX_PLY][MAX_PLY];
   int pv_length_copy[MAX_PLY];
+  uint16_t prev_best_move = 0;
+  uint8_t best_move_stability = 0;
 
   // iterative deepening
   for (thread->depth = 1; thread->depth <= limits.depth; thread->depth++) {
@@ -1184,6 +1186,18 @@ void *iterative_deepening(void *thread_void) {
       }
 
       window *= ASP_MULTIPLIER;
+    }
+
+    if (thread->index == 0) {
+      if (thread->pv.pv_table[0][0] == prev_best_move) {
+        best_move_stability = MIN(best_move_stability + 1, 4);
+      } else {
+        prev_best_move = thread->pv.pv_table[0][0];
+        best_move_stability = 0;
+      }
+      if (limits.timeset && thread->depth > 7) {
+        scale_time(thread, best_move_stability);
+      }
     }
 
     if (thread->index == 0 && limits.timeset &&

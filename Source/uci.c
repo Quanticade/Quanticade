@@ -399,6 +399,11 @@ static inline void parse_position(position_t *pos, thread_t *thread,
   }
 }
 
+void scale_time(thread_t *thread, uint8_t best_move_stability) {
+  double bestmove_scale[5] = {2.43, 1.35, 1.09, 0.88, 0.68};
+  limits.soft_limit = MIN(thread->starttime + limits.base_soft * bestmove_scale[best_move_stability], limits.max_time + thread->starttime);
+}
+
 static inline void time_control(position_t *pos, thread_t *threads,
                                 char *line) {
   // reset time control
@@ -462,10 +467,11 @@ static inline void time_control(position_t *pos, thread_t *threads,
         base_time = limits.time * DEF_TIME_MULTIPLIER + limits.inc * DEF_INC_MULTIPLIER;
       }
       
-      int64_t max_time = MAX(1, limits.time * MAX_TIME_MULTIPLIER);
+      limits.max_time = MAX(1, limits.time * MAX_TIME_MULTIPLIER);
+      limits.base_soft = MIN(base_time * SOFT_LIMIT_MULTIPLIER, limits.max_time);
       limits.hard_limit =
-          threads->starttime + MIN(base_time * HARD_LIMIT_MULTIPLIER, max_time);
-      limits.soft_limit = threads->starttime + MIN(base_time * SOFT_LIMIT_MULTIPLIER, max_time);
+          threads->starttime + MIN(base_time * HARD_LIMIT_MULTIPLIER, limits.max_time);
+      limits.soft_limit = threads->starttime + MIN(base_time * SOFT_LIMIT_MULTIPLIER, limits.max_time);
     }
   }
 }

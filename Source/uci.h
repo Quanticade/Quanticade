@@ -15,5 +15,6 @@ extern char promoted_pieces[];
 
 void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]);
 void print_move(int move);
+void scale_time(thread_t *thread, uint8_t best_move_stability);
 
 #endif

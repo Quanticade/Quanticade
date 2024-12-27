@@ -97,8 +97,11 @@ typedef struct searchinfo {
 typedef struct limits {
   uint64_t soft_limit;
   uint64_t hard_limit;
+  uint64_t start_time;
   uint64_t time;
   uint32_t inc;
+  uint32_t base_soft;
+  uint32_t max_time;
   uint8_t depth;
   uint8_t timeset;
   uint16_t movestogo;
