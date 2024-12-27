@@ -1102,7 +1102,9 @@ void *iterative_deepening(void *thread_void) {
   int pv_table_copy[MAX_PLY][MAX_PLY];
   int pv_length_copy[MAX_PLY];
   uint16_t prev_best_move = 0;
+  int16_t average_score = NO_SCORE;
   uint8_t best_move_stability = 0;
+  uint8_t eval_stability = 0;
 
   // iterative deepening
   for (thread->depth = 1; thread->depth <= limits.depth; thread->depth++) {
@@ -1189,14 +1191,23 @@ void *iterative_deepening(void *thread_void) {
     }
 
     if (thread->index == 0) {
+      average_score = average_score == NO_SCORE ? thread->score : (average_score + thread->score) / 2;
+
       if (thread->pv.pv_table[0][0] == prev_best_move) {
         best_move_stability = MIN(best_move_stability + 1, 4);
       } else {
         prev_best_move = thread->pv.pv_table[0][0];
         best_move_stability = 0;
       }
+
+      if (thread->score > average_score - 10 && thread->score < average_score + 10) {
+          eval_stability = MIN(eval_stability + 1, 4);
+      } else {
+        eval_stability = 0;
+      }
+
       if (limits.timeset && thread->depth > 7) {
-        scale_time(thread, best_move_stability);
+        scale_time(thread, best_move_stability, eval_stability);
       }
     }
 
