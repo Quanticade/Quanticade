@@ -650,7 +650,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
   // Internal Iterative Reductions
   if ((pv_node || cutnode) && depth >= IIR_DEPTH && !tt_move) {
-    depth--;
+    depth -= 2;
   }
 
   // is king in check
