@@ -61,7 +61,7 @@ double LMR_DIVISOR_QUIET = 1.6343306598084584;
 double LMR_OFFSET_NOISY = -0.28109910924097326;
 double LMR_DIVISOR_NOISY = 3.1371431261234832;
 
-const int mvv[12] = {100, 300, 300, 500, 1200, 0};
+int mvv[] = {100, 300, 300, 500, 1200, 0};
 
 int SEEPieceValues[] = {98, 280, 295, 479, 1064, 0, 0};
 
