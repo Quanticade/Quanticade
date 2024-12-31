@@ -629,6 +629,12 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       return alpha;
   }
 
+  // recursion escape condition
+  if (depth <= 0) {
+    // run quiescence search
+    return quiescence(pos, thread, ss, alpha, beta);
+  }
+
   // a hack by Pedro Castro to figure out whether the current node is PV node
   // or not
   int pv_node = beta - alpha > 1;
@@ -681,12 +687,6 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   // increase search depth if the king has been exposed into a check
   if (in_check) {
     depth++;
-  }
-
-  // recursion escape condition
-  if (depth == 0) {
-    // run quiescence search
-    return quiescence(pos, thread, ss, alpha, beta);
   }
 
   // legal moves counter
