@@ -1,4 +1,4 @@
-NETWORK_NAME = nn.nnue
+NETWORK_NAME = mimir.nnue
 _THIS       := $(realpath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 _ROOT       := $(_THIS)
 EVALFILE     = $(NETWORK_NAME)
