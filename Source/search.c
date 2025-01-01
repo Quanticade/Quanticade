@@ -771,7 +771,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
         static_eval + RAZOR_MARGIN * depth < alpha) {
       const int razor_score = quiescence(pos, thread, ss, alpha, beta);
       if (razor_score <= alpha) {
-        return razor_score;
+        return (razor_score + alpha) / 2;
       }
     }
   }
