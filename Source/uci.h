@@ -3,7 +3,7 @@
 
 #include "structs.h"
 
-#define version "Dev"
+#define version "Chimera 1.0"
 
 #define MIN(A, B) ((A) < (B) ? (A) : (B))
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
