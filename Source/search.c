@@ -1076,7 +1076,7 @@ static void print_thinking(thread_t *thread, int score, int current_depth) {
   } else if (score > MATE_SCORE && score < MATE_VALUE) {
     printf("mate %d ", (MATE_VALUE - score) / 2 + 1);
   } else {
-    printf("cp %d ", 100 * score / 244);
+    printf("cp %d ", 100 * score / 212);
   }
   printf("nodes %" PRIu64 " ", nodes);
   printf("nps %" PRIu64 " ", nps);
