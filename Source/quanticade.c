@@ -136,7 +136,7 @@ int main(int argc, char *argv[]) {
   tt.hash_entry = NULL;
   tt.num_of_entries = 0;
   nnue_settings.nnue_file = calloc(21, 1);
-  strcpy(nnue_settings.nnue_file, "nn.nnue");
+  strcpy(nnue_settings.nnue_file, "mimir.nnue");
   // init all
   init_all();
 
