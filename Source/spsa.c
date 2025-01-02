@@ -6,6 +6,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
+#include <inttypes.h>
 
 spsa_t spsa[100];
 
@@ -197,7 +198,7 @@ void print_spsa_table_uci(void) {
       printf("option name %s type string default %lf\n", spsa[i].name,
              *(double *)spsa[i].value);
     } else {
-      printf("option name %s type spin default %d min %lu max %lu\n",
+      printf("option name %s type spin default %d min %" PRIu64 " " "max %" PRIu64 "\n",
              spsa[i].name, *(int *)spsa[i].value, spsa[i].min.min_int,
              spsa[i].max.max_int);
     }
