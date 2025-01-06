@@ -116,7 +116,7 @@ void init_all(void) {
   // init hash table with default size
   init_hash_table(default_hash_size);
 
-  nnue_init("nn.nnue");
+  nnue_init("mimir.nnue");
 }
 
 /**********************************\

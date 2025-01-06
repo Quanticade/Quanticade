@@ -628,7 +628,7 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
              nnue_settings.nnue_file);
       printf("option name Clear Hash type button\n");
       // SPSA
-      print_spsa_table_uci();
+      // print_spsa_table_uci();
       // uciok
       printf("uciok\n");
     } else if (strncmp(input, "spsa", 4) == 0) {
@@ -653,7 +653,11 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
 
     else if (!strncmp(input, "setoption name Threads value ", 29)) {
       sscanf(input, "%*s %*s %*s %*s %d", &thread_count);
+      #ifndef _WIN32
       free(threads);
+      #else
+      _aligned_free(threads);
+      #endif
       threads = init_threads(thread_count);
       sti.threads = threads;
     }

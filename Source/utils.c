@@ -29,7 +29,7 @@ uint64_t get_time_ms(void) {
 }
 
 int input_waiting(void) {
-#ifndef WIN32
+#ifndef _WIN32
   fd_set readfds;
   struct timeval tv;
   FD_ZERO(&readfds);
