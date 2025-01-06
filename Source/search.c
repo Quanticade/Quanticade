@@ -1213,7 +1213,7 @@ void *iterative_deepening(void *thread_void) {
 
     if (thread->index == 0 && limits.timeset &&
         get_time_ms() >= limits.soft_limit) {
-      thread->stopped = 1;
+      stop_threads(thread, thread_count);
     }
 
     if (thread->index == 0) {
