@@ -607,7 +607,7 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
     }
 
     else if (strncmp(input, "stop", 4) == 0) {
-      threads->stopped = 1;
+      stop_threads(threads, thread_count);
       pthread_join(search_thread, NULL);
     }
     // parse UCI "quit" command
