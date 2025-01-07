@@ -308,8 +308,18 @@ static inline int quiescence(position_t *pos, thread_t *thread,
   moves capture_list[1];
   capture_list->count = 0;
 
+  // is king in check
+  int in_check = is_square_attacked(pos,
+                                    (pos->side == white)
+                                        ? __builtin_ctzll(pos->bitboards[K])
+                                        : __builtin_ctzll(pos->bitboards[k]),
+                                    pos->side ^ 1);
+  if (in_check) {
+    generate_moves(pos, move_list);
+  } else {
   // generate moves
-  generate_captures(pos, move_list);
+    generate_captures(pos, move_list);
+  }
 
   for (uint32_t count = 0; count < move_list->count; count++) {
     score_move(pos, thread, ss, &move_list->entry[count], best_move);
