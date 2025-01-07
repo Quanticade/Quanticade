@@ -678,15 +678,15 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     return 0;
   }
 
+  // recursion escape condition
+  if (depth <= 0) {
+    // run quiescence search
+    return quiescence(pos, thread, ss, alpha, beta);
+  }
+
   // increase search depth if the king has been exposed into a check
   if (in_check) {
     depth++;
-  }
-
-  // recursion escape condition
-  if (depth == 0) {
-    // run quiescence search
-    return quiescence(pos, thread, ss, alpha, beta);
   }
 
   // legal moves counter
