@@ -633,6 +633,24 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   // or not
   int pv_node = beta - alpha > 1;
 
+  // is king in check
+  int in_check = is_square_attacked(pos,
+                                    (pos->side == white)
+                                        ? __builtin_ctzll(pos->bitboards[K])
+                                        : __builtin_ctzll(pos->bitboards[k]),
+                                    pos->side ^ 1);
+
+  // increase search depth if the king has been exposed into a check
+  if (in_check) {
+    depth++;
+  }
+
+  // recursion escape condition
+  if (depth <= 0) {
+    // run quiescence search
+    return quiescence(pos, thread, ss, alpha, beta);
+  }
+
   // read hash entry if we're not in a root ply and hash entry is available
   // and current node is not a PV node
   if (!ss->excluded_move && !root_node &&
@@ -653,12 +671,6 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     depth--;
   }
 
-  // is king in check
-  int in_check = is_square_attacked(pos,
-                                    (pos->side == white)
-                                        ? __builtin_ctzll(pos->bitboards[K])
-                                        : __builtin_ctzll(pos->bitboards[k]),
-                                    pos->side ^ 1);
   if (!ss->excluded_move) {
     static_eval = ss->static_eval =
         in_check ? INF
@@ -676,17 +688,6 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   if (check_time(thread)) {
     stop_threads(thread, thread_count);
     return 0;
-  }
-
-  // increase search depth if the king has been exposed into a check
-  if (in_check) {
-    depth++;
-  }
-
-  // recursion escape condition
-  if (depth == 0) {
-    // run quiescence search
-    return quiescence(pos, thread, ss, alpha, beta);
   }
 
   // legal moves counter
