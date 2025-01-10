@@ -596,6 +596,7 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
         memset(threads[i].quiet_history, 0, sizeof(threads[i].quiet_history));
         memset(threads[i].capture_history, 0,
                sizeof(threads[i].capture_history));
+        memset(threads[i].continuation_history, 0, sizeof(threads[i].continuation_history));
       }
     }
     // parse UCI "go" command
