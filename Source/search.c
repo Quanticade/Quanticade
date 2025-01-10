@@ -988,7 +988,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     // return INF so we can deal with timeout in case we are doing
     // re-search
     if (thread->stopped == 1) {
-      return INF;
+      return 0;
     }
 
     // found a better move
@@ -1100,8 +1100,6 @@ void *iterative_deepening(void *thread_void) {
   thread_t *thread = (thread_t *)thread_void;
   position_t *pos = &thread->pos;
 
-  int pv_table_copy[MAX_PLY][MAX_PLY];
-  int pv_length_copy[MAX_PLY];
   uint16_t prev_best_move = 0;
   int16_t average_score = NO_SCORE;
   uint8_t best_move_stability = 0;
@@ -1152,9 +1150,6 @@ void *iterative_deepening(void *thread_void) {
 
       // enable follow PV flag
       thread->pv.follow_pv = 1;
-      memcpy(pv_table_copy, thread->pv.pv_table, sizeof(thread->pv.pv_table));
-      memcpy(pv_length_copy, thread->pv.pv_length,
-             sizeof(thread->pv.pv_length));
 
       // find best move within a given position
       thread->score = negamax(pos, thread, ss + 4, alpha, beta,
@@ -1162,13 +1157,8 @@ void *iterative_deepening(void *thread_void) {
 
       // We hit an apspiration window cut-off before time ran out and we jumped
       // to another depth with wider search which we didnt finish
-      if (thread->score == INF) {
-        // Restore the saved best line
-        memcpy(thread->pv.pv_table, pv_table_copy, sizeof(pv_table_copy));
-        memcpy(thread->pv.pv_length, pv_length_copy, sizeof(pv_length_copy));
-        // Break out of the loop without printing info about the unfinished
-        // depth
-        return NULL;
+      if (thread->stopped) {
+        break;
       }
 
       if (thread->score <= alpha) {
