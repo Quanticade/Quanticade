@@ -99,12 +99,14 @@ typedef struct limits {
   uint64_t hard_limit;
   uint64_t start_time;
   uint64_t time;
+  uint64_t node_limit;
   uint32_t inc;
   uint32_t base_soft;
   uint32_t max_time;
+  uint16_t movestogo;
   uint8_t depth;
   uint8_t timeset;
-  uint16_t movestogo;
+  uint8_t nodes_set;
 } limits_t;
 
 typedef struct searchthread {

@@ -451,6 +451,12 @@ static inline void time_control(position_t *pos, thread_t *threads,
     limits.movestogo = 1;
     limits.timeset = 1;
   }
+  if ((argument = strstr(line, "nodes"))) {
+    // parse amount of time allowed to spend to make a move
+    limits.node_limit = atoi(argument + 6);
+    limits.depth = MAX_PLY;
+    limits.nodes_set = 1;
+  }
   // match UCI "depth" command
   if ((argument = strstr(line, "depth"))) {
     // parse search depth
