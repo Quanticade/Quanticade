@@ -1156,7 +1156,7 @@ void *iterative_deepening(void *thread_void) {
       // We hit an apspiration window cut-off before time ran out and we jumped
       // to another depth with wider search which we didnt finish
       if (thread->stopped) {
-        break;
+        return NULL;
       }
 
       if (thread->score <= alpha) {
