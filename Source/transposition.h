@@ -14,8 +14,8 @@ extern tt_t tt;
 // transposition table hash flags
 #define HASH_FLAG_NONE 0
 #define HASH_FLAG_EXACT 1
-#define HASH_FLAG_ALPHA 2
-#define HASH_FLAG_BETA 3
+#define HASH_FLAG_LOWER_BOUND 2
+#define HASH_FLAG_UPPER_BOUND 3
 
 void clear_hash_table(void);
 void prefetch_hash_entry(uint64_t hash_key);

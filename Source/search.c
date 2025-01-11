@@ -417,7 +417,6 @@ static inline int quiescence(position_t *pos, thread_t *thread,
   int32_t best_move = 0;
   int score, best_score = 0;
   int pv_node = beta - alpha > 1;
-  int hash_flag = HASH_FLAG_ALPHA;
   int16_t tt_score = 0;
   uint8_t tt_hit = 0;
   uint8_t tt_depth = 0;
@@ -428,8 +427,8 @@ static inline int quiescence(position_t *pos, thread_t *thread,
            read_hash_entry(pos, &best_move, &tt_score, &tt_depth, &tt_flag)) &&
       pv_node == 0) {
     if ((tt_flag == HASH_FLAG_EXACT) ||
-        ((tt_flag == HASH_FLAG_ALPHA) && (tt_score <= alpha)) ||
-        ((tt_flag == HASH_FLAG_BETA) && (tt_score >= beta))) {
+        ((tt_flag == HASH_FLAG_UPPER_BOUND) && (tt_score <= alpha)) ||
+        ((tt_flag == HASH_FLAG_LOWER_BOUND) && (tt_score >= beta))) {
       return tt_score;
     }
   }
@@ -523,24 +522,28 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
     if (score > best_score) {
       best_score = score;
-    }
-
-    // found a better move
-    if (score > alpha) {
-      // fail-hard beta cutoff
-      hash_flag = HASH_FLAG_EXACT;
       best_move = move_list->entry[count].move;
-      if (score >= beta) {
-        write_hash_entry(pos, best_score, 0, best_move, HASH_FLAG_BETA);
-        // node (position) fails high
-        return best_score;
+      // found a better move
+      if (score > alpha) {
+        alpha = score;
+        // fail-hard beta cutoff
+        if (alpha >= beta) {
+          break;
+        }
       }
-      // PV node (position)
-      alpha = score;
     }
   }
+
+  uint8_t hash_flag = HASH_FLAG_NONE;
+  if (alpha >= beta) {
+    hash_flag = HASH_FLAG_LOWER_BOUND;
+  }
+  else {
+    hash_flag = HASH_FLAG_UPPER_BOUND;
+  }
+
   write_hash_entry(pos, best_score, 0, best_move, hash_flag);
-  // node (position) fails low
+
   return best_score;
 }
 
@@ -591,7 +594,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
   // variable to store current move's score (from the static evaluation
   // perspective)
-  int score, static_eval = -INF;
+  int current_score, static_eval = -INF;
 
   int tt_move = 0;
   int16_t tt_score = 0;
@@ -600,9 +603,6 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   uint8_t tt_flag = HASH_FLAG_EXACT;
 
   uint8_t root_node = pos->ply == 0;
-
-  // define hash flag
-  int hash_flag = HASH_FLAG_ALPHA;
 
   if (depth == 0 && pos->ply > pos->seldepth) {
     pos->seldepth = pos->ply;
@@ -659,8 +659,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       pv_node == 0) {
     if (tt_depth >= depth) {
       if ((tt_flag == HASH_FLAG_EXACT) ||
-          ((tt_flag == HASH_FLAG_ALPHA) && (tt_score <= alpha)) ||
-          ((tt_flag == HASH_FLAG_BETA) && (tt_score >= beta))) {
+          ((tt_flag == HASH_FLAG_UPPER_BOUND) && (tt_score <= alpha)) ||
+          ((tt_flag == HASH_FLAG_LOWER_BOUND) && (tt_score >= beta))) {
         return tt_score;
       }
     }
@@ -744,7 +744,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
       /* search moves with reduced depth to find beta cutoffs
          depth - 1 - R where R is a reduction limit */
-      score = -negamax(pos, thread, ss + 1, -beta, -beta + 1, depth - R, 0,
+      current_score = -negamax(pos, thread, ss + 1, -beta, -beta + 1, depth - R, 0,
                        !cutnode);
 
       // decrement ply
@@ -763,9 +763,9 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       }
 
       // fail-hard beta cutoff
-      if (score >= beta)
+      if (current_score >= beta)
         // node (position) fails high
-        return score;
+        return current_score;
     }
 
     if (!pv_node && depth <= RAZOR_DEPTH &&
@@ -788,7 +788,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   generate_moves(pos, move_list);
 
   int best_score = -INF;
-  score = -INF;
+  current_score = -INF;
 
   // if we are now following PV line
   if (thread->pv.follow_pv)
@@ -803,6 +803,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   sort_moves(move_list);
 
   uint8_t skip_quiets = 0;
+
+  const int original_alpha = alpha;
 
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
@@ -840,7 +842,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     int lmr_depth = MAX(1, depth - 1 - MAX(r, 1));
 
     // Futility Pruning
-    if (!root_node && score > -MATE_SCORE && lmr_depth <= FP_DEPTH &&
+    if (!root_node && current_score > -MATE_SCORE && lmr_depth <= FP_DEPTH &&
         !in_check && quiet &&
         ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION <= alpha) {
       skip_quiets = 1;
@@ -861,7 +863,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     // search
     if (!root_node && depth >= SE_DEPTH && move == tt_move &&
         !ss->excluded_move && tt_depth >= depth - SE_DEPTH_REDUCTION &&
-        tt_flag != HASH_FLAG_ALPHA && abs(tt_score) < MATE_SCORE) {
+        tt_flag != HASH_FLAG_UPPER_BOUND && abs(tt_score) < MATE_SCORE) {
       const int s_beta = tt_score - depth;
       const int s_depth = (depth - 1) / 2;
 
@@ -956,23 +958,23 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     if (depth > 1 && legal_moves > 1) {
       R = clamp(R, 1, new_depth);
       int lmr_depth = new_depth - R + 1;
-      score =
+      current_score =
           -negamax(pos, thread, ss + 1, -alpha - 1, -alpha, lmr_depth, 1, 1);
 
-      if (score > alpha && R > 0) {
-        score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha, new_depth, 1,
+      if (current_score > alpha && R > 0) {
+        current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha, new_depth, 1,
                          !cutnode);
       }
     }
 
     else if (!pv_node || legal_moves > 1) {
-      score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha, new_depth, 1,
+      current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha, new_depth, 1,
                        !cutnode);
     }
 
     if (pv_node &&
-        (legal_moves == 1 || (score > alpha && (root_node || score < beta)))) {
-      score = -negamax(pos, thread, ss + 1, -beta, -alpha, new_depth, 1, 0);
+        (legal_moves == 1 || (current_score > alpha && (root_node || current_score < beta)))) {
+      current_score = -negamax(pos, thread, ss + 1, -beta, -alpha, new_depth, 1, 0);
     }
 
     // decrement ply
@@ -992,17 +994,13 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     }
 
     // found a better move
-    if (score > best_score) {
-      best_score = score;
-      if (score > alpha) {
-        // switch hash flag from storing score for fail-low node
-        // to the one storing score for PV node
-        hash_flag = HASH_FLAG_EXACT;
-
+    if (current_score > best_score) {
+      best_score = current_score;
+      if (current_score > alpha) {
         best_move = move;
 
         // PV node (position)
-        alpha = score;
+        alpha = current_score;
 
         // write PV move
         thread->pv.pv_table[pos->ply][pos->ply] = move;
@@ -1018,12 +1016,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
         thread->pv.pv_length[pos->ply] = thread->pv.pv_length[pos->ply + 1];
 
         // fail-hard beta cutoff
-        if (score >= beta) {
-          if (!ss->excluded_move) {
-            // store hash entry with the score equal to beta
-            write_hash_entry(pos, best_score, depth, best_move, HASH_FLAG_BETA);
-          }
-
+        if (alpha >= beta) {
           // on quiet moves
           if (quiet) {
             update_quiet_history_moves(thread, quiet_list, best_move, depth);
@@ -1033,9 +1026,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
           }
 
           update_capture_history_moves(thread, capture_list, best_move, depth);
-
-          // node (position) fails high
-          return best_score;
+          break;
         }
       }
     }
@@ -1055,6 +1046,13 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   }
 
   if (!ss->excluded_move) {
+    uint8_t hash_flag = HASH_FLAG_EXACT;
+    if (alpha >= beta) {
+      hash_flag = HASH_FLAG_LOWER_BOUND;
+    }
+    else if (alpha <= original_alpha) {
+      hash_flag = HASH_FLAG_UPPER_BOUND;
+    }
     // store hash entry with the score equal to alpha
     write_hash_entry(pos, best_score, depth, best_move, hash_flag);
   }
