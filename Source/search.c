@@ -1168,10 +1168,7 @@ void *iterative_deepening(void *thread_void) {
 
       else if (thread->score >= beta) {
         beta = MIN(INF, beta + window);
-
-        if (alpha < 2000 && fail_high_count < 2) {
-          ++fail_high_count;
-        }
+        fail_high_count = MIN(fail_high_count + 1, 3);
       } else {
         break;
       }
