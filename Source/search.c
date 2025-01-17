@@ -948,14 +948,14 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     prefetch_hash_entry(pos->hash_key);
 
     // PVS & LMR
-    const int new_depth = depth + extensions - 1;
+    int new_depth = depth + extensions - 1;
 
     int R = lmr[quiet][depth][MIN(255, legal_moves)] + (pv_node ? 0 : 1);
     R -= ss->history_score / (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
     R -= in_check;
     R += cutnode;
 
-    if (depth > 1 && legal_moves > 1) {
+    if (depth > 1 && legal_moves >= 1) {
       R = clamp(R, 1, new_depth);
       int lmr_depth = new_depth - R + 1;
       current_score =
@@ -967,7 +967,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       }
     }
 
-    else if (!pv_node || legal_moves > 1) {
+    else if (!pv_node || legal_moves >= 1) {
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha, new_depth, 1,
                        !cutnode);
     }
