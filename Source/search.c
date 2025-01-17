@@ -948,7 +948,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     prefetch_hash_entry(pos->hash_key);
 
     // PVS & LMR
-    const int new_depth = depth + extensions - 1;
+    int new_depth = depth + extensions - 1;
 
     int R = lmr[quiet][depth][MIN(255, legal_moves)] + (pv_node ? 0 : 1);
     R -= ss->history_score / (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
@@ -962,6 +962,10 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
           -negamax(pos, thread, ss + 1, -alpha - 1, -alpha, lmr_depth, 1, 1);
 
       if (current_score > alpha && R > 0) {
+        const uint8_t do_deeper_search =
+            current_score > (best_score + 35 + 2 * new_depth);
+        const uint8_t do_shallower_search = current_score < best_score + 4;
+        new_depth += do_deeper_search - do_shallower_search;
         current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha, new_depth, 1,
                          !cutnode);
       }
