@@ -86,8 +86,9 @@ void init_reductions(void) {
 
 uint8_t check_time(thread_t *thread) {
   // if time is up break here
-  if (thread->index == 0 && ((limits.timeset &&
-      get_time_ms() > limits.hard_limit) || (limits.nodes_set && thread->nodes >= limits.node_limit))) {
+  if (thread->index == 0 &&
+      ((limits.timeset && get_time_ms() > limits.hard_limit) ||
+       (limits.nodes_set && thread->nodes >= limits.node_limit))) {
     // tell engine to stop calculating
     thread->stopped = 1;
     return 1;
@@ -537,8 +538,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
   uint8_t hash_flag = HASH_FLAG_NONE;
   if (alpha >= beta) {
     hash_flag = HASH_FLAG_LOWER_BOUND;
-  }
-  else {
+  } else {
     hash_flag = HASH_FLAG_UPPER_BOUND;
   }
 
@@ -667,7 +667,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   }
 
   // Internal Iterative Reductions
-  if ((pv_node || cutnode) && !ss->excluded_move && depth >= IIR_DEPTH && !tt_move) {
+  if ((pv_node || cutnode) && !ss->excluded_move && depth >= IIR_DEPTH &&
+      !tt_move) {
     depth--;
   }
 
@@ -744,8 +745,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
       /* search moves with reduced depth to find beta cutoffs
          depth - 1 - R where R is a reduction limit */
-      current_score = -negamax(pos, thread, ss + 1, -beta, -beta + 1, depth - R, 0,
-                       !cutnode);
+      current_score = -negamax(pos, thread, ss + 1, -beta, -beta + 1, depth - R,
+                               0, !cutnode);
 
       // decrement ply
       pos->ply--;
@@ -948,33 +949,46 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     prefetch_hash_entry(pos->hash_key);
 
     // PVS & LMR
-    const int new_depth = depth + extensions - 1;
+    int new_depth = depth + extensions - 1;
 
-    int R = lmr[quiet][depth][MIN(255, legal_moves)] + (pv_node ? 0 : 1);
-    R -= ss->history_score / (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
-    R -= in_check;
-    R += cutnode;
+    uint8_t needs_full_research = 0;
 
-    if (depth > 1 && legal_moves > 1) {
-      R = clamp(R, 1, new_depth);
-      int lmr_depth = new_depth - R + 1;
-      current_score =
-          -negamax(pos, thread, ss + 1, -alpha - 1, -alpha, lmr_depth, 1, 1);
+    if (depth > 2 && legal_moves >= 1 + root_node * 2 &&
+        !(pv_node && get_move_capture(move))) {
 
-      if (current_score > alpha && R > 0) {
-        current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha, new_depth, 1,
-                         !cutnode);
+      int R = lmr[quiet][depth][MIN(255, legal_moves)] + (pv_node ? 0 : 1);
+      R -= ss->history_score / (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
+      R -= in_check;
+      R += cutnode;
+      R = clamp(R, -(!pv_node && !cutnode), new_depth - 1);
+
+      // Null window search at reduced depth
+      current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
+                               new_depth - R, 1, 1);
+
+      // Search deeper or shallower based on the reduced depth search results
+      if ((needs_full_research = current_score > alpha && R != 0)) {
+        const uint8_t do_deeper_search =
+            current_score > (best_score + 30 + 2 * new_depth);
+        const uint8_t do_shallower_search = current_score < best_score + 4;
+        new_depth += do_deeper_search - do_shallower_search;
       }
+    } else {
+      // Didnt do LMR so search the move at full depth with null window search
+      needs_full_research = !pv_node || legal_moves >= 1;
     }
 
-    else if (!pv_node || legal_moves > 1) {
-      current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha, new_depth, 1,
-                       !cutnode);
+    // Null window search if we expect it not to be PV node or it has potential
+    // from reduced depth search
+    if (needs_full_research) {
+      current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
+                               new_depth, 1, !cutnode);
     }
 
-    if (pv_node &&
-        (legal_moves == 1 || (current_score > alpha && (root_node || current_score < beta)))) {
-      current_score = -negamax(pos, thread, ss + 1, -beta, -alpha, new_depth, 1, 0);
+    // Perform a full window search if its known to be good
+    if (pv_node && (current_score > alpha || legal_moves == 0)) {
+      current_score =
+          -negamax(pos, thread, ss + 1, -beta, -alpha, new_depth, 1, 0);
     }
 
     // decrement ply
@@ -1049,8 +1063,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     uint8_t hash_flag = HASH_FLAG_EXACT;
     if (alpha >= beta) {
       hash_flag = HASH_FLAG_LOWER_BOUND;
-    }
-    else if (alpha <= original_alpha) {
+    } else if (alpha <= original_alpha) {
       hash_flag = HASH_FLAG_UPPER_BOUND;
     }
     // store hash entry with the score equal to alpha
@@ -1180,7 +1193,9 @@ void *iterative_deepening(void *thread_void) {
     }
 
     if (thread->index == 0) {
-      average_score = average_score == NO_SCORE ? thread->score : (average_score + thread->score) / 2;
+      average_score = average_score == NO_SCORE
+                          ? thread->score
+                          : (average_score + thread->score) / 2;
 
       if (thread->pv.pv_table[0][0] == prev_best_move) {
         best_move_stability = MIN(best_move_stability + 1, 4);
@@ -1189,8 +1204,9 @@ void *iterative_deepening(void *thread_void) {
         best_move_stability = 0;
       }
 
-      if (thread->score > average_score - 10 && thread->score < average_score + 10) {
-          eval_stability = MIN(eval_stability + 1, 4);
+      if (thread->score > average_score - 10 &&
+          thread->score < average_score + 10) {
+        eval_stability = MIN(eval_stability + 1, 4);
       } else {
         eval_stability = 0;
       }
@@ -1200,8 +1216,9 @@ void *iterative_deepening(void *thread_void) {
       }
     }
 
-    if (thread->index == 0 && ((limits.timeset &&
-        get_time_ms() >= limits.soft_limit) || (limits.nodes_set && thread->nodes >= limits.node_limit))) {
+    if (thread->index == 0 &&
+        ((limits.timeset && get_time_ms() >= limits.soft_limit) ||
+         (limits.nodes_set && thread->nodes >= limits.node_limit))) {
       stop_threads(thread, thread_count);
     }
 
