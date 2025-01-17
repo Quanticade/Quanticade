@@ -953,7 +953,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     uint8_t needs_full_research = 0;
 
-    if (depth > 2 && legal_moves >= 1 + root_node * 2 &&
+    if (depth > 2 && legal_moves > 1 + root_node * 2 &&
         !(pv_node && get_move_capture(move))) {
 
       int R = lmr[quiet][depth][MIN(255, legal_moves)] + (pv_node ? 0 : 1);
@@ -975,7 +975,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       }
     } else {
       // Didnt do LMR so search the move at full depth with null window search
-      needs_full_research = !pv_node || legal_moves >= 1;
+      needs_full_research = !pv_node || legal_moves > 1;
     }
 
     // Null window search if we expect it not to be PV node or it has potential
@@ -986,7 +986,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     }
 
     // Perform a full window search if its known to be good
-    if (pv_node && (current_score > alpha || legal_moves == 0)) {
+    if (pv_node && (current_score > alpha || legal_moves == 1)) {
       current_score =
           -negamax(pos, thread, ss + 1, -beta, -alpha, new_depth, 1, 0);
     }
