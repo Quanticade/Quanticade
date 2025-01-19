@@ -656,7 +656,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   if (!ss->excluded_move &&
       (tt_hit =
            read_hash_entry(pos, &tt_move, &tt_score, &tt_depth, &tt_flag)) &&
-      pv_node == 0) {
+      pv_node == 0 && !root_node) {
     if (tt_depth >= depth) {
       if ((tt_flag == HASH_FLAG_EXACT) ||
           ((tt_flag == HASH_FLAG_UPPER_BOUND) && (tt_score <= alpha)) ||
