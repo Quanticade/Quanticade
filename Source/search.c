@@ -953,7 +953,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     // PVS & LMR
     int new_depth = depth + extensions - 1;
 
-    if (depth > 1 && legal_moves > 2 + 2 * pv_node) {
+    if (depth > 2 && legal_moves > 2 + 2 * pv_node) {
       int R = lmr[quiet][depth][MIN(255, legal_moves)];
       R += !pv_node;
       R -= ss->history_score / (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
