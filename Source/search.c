@@ -640,11 +640,6 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
                                         : __builtin_ctzll(pos->bitboards[k]),
                                     pos->side ^ 1);
 
-  // increase search depth if the king has been exposed into a check
-  if (in_check) {
-    depth++;
-  }
-
   // recursion escape condition
   if (depth <= 0) {
     // run quiescence search
