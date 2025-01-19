@@ -653,7 +653,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
   // read hash entry if we're not in a root ply and hash entry is available
   // and current node is not a PV node
-  if (!ss->excluded_move && !root_node &&
+  if (!ss->excluded_move &&
       (tt_hit =
            read_hash_entry(pos, &tt_move, &tt_score, &tt_depth, &tt_flag)) &&
       pv_node == 0) {
