@@ -960,8 +960,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       R -= in_check;
       R += cutnode;
       R = clamp(R, 1, new_depth);
-      current_score =
-          -negamax(pos, thread, ss + 1, -alpha - 1, -alpha, new_depth - R + 1, 1, 1);
+      current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
+                               new_depth - R + 1, 1, 1);
 
       needs_full_search = current_score > alpha && R > 0;
     } else {
@@ -973,9 +973,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
                                new_depth, 1, !cutnode);
     }
 
-    if (pv_node &&
-        (legal_moves == 1 ||
-         (current_score > alpha && (root_node || current_score < beta)))) {
+    if (pv_node && (legal_moves == 1 || current_score > alpha)) {
       current_score =
           -negamax(pos, thread, ss + 1, -beta, -alpha, new_depth, 1, 0);
     }
