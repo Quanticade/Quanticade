@@ -955,7 +955,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     R -= in_check;
     R += cutnode;
 
-    if (depth > 1 && legal_moves > 1) {
+    if (depth > 1 && legal_moves > 2 + 2 * pv_node) {
       R = clamp(R, 1, new_depth);
       int lmr_depth = new_depth - R + 1;
       current_score =
