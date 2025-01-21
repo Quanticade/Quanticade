@@ -7,8 +7,8 @@
 #include "move.h"
 #include "movegen.h"
 #include "nnue.h"
-#include "see.h"
 #include "pyrrhic/tbprobe.h"
+#include "see.h"
 #include "structs.h"
 #include "syzygy.h"
 #include "threads.h"
@@ -207,7 +207,6 @@ static inline int is_repetition(position_t *pos) {
   // if no repetition found
   return 0;
 }
-
 
 static inline uint8_t is_material_draw(position_t *pos) {
   uint8_t piece_count = __builtin_popcountll(pos->occupancies[both]);
@@ -768,7 +767,11 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       R -= ss->history_score / (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
       R -= in_check;
       R += cutnode;
+<<<<<<< HEAD
       R -= tt_depth >= depth;
+=======
+      R += (get_move_capture(tt_move) || is_move_promotion(tt_move));
+>>>>>>> 1b2a270 (search.c: Reduce more if TT move is noisy)
       R = clamp(R, 1, new_depth);
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                new_depth - R + 1, 1, 1);
