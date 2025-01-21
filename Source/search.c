@@ -305,6 +305,8 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
   // create move list instance
   moves move_list[1];
+  moves capture_list[1];
+  capture_list->count = 0;
 
   // generate moves
   generate_captures(pos, move_list);
@@ -353,6 +355,10 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
     thread->nodes++;
 
+    if (!is_move_promotion(move_list->entry[count].move) || !get_move_capture(move_list->entry[count].move)) {
+      add_move(capture_list, move_list->entry[count].move);
+    }
+
     prefetch_hash_entry(pos->hash_key);
 
     // score current move
@@ -381,6 +387,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
         alpha = score;
         // fail-hard beta cutoff
         if (alpha >= beta) {
+          update_capture_history_moves(thread, capture_list, best_move, 1);
           break;
         }
       }
