@@ -7,6 +7,7 @@
 #include "move.h"
 #include "movegen.h"
 #include "nnue.h"
+#include "see.h"
 #include "pyrrhic/tbprobe.h"
 #include "structs.h"
 #include "syzygy.h"
@@ -94,162 +95,6 @@ uint8_t check_time(thread_t *thread) {
     return 1;
   }
   return 0;
-}
-
-int move_estimated_value(position_t *pos, int move) {
-
-  // Start with the value of the piece on the target square
-  int target_piece = pos->mailbox[get_move_target(move)] > 5
-                         ? pos->mailbox[get_move_target(move)] - 6
-                         : pos->mailbox[get_move_target(move)];
-  int promoted_piece = get_move_promoted(pos->side, move);
-  promoted_piece = promoted_piece > 5 ? promoted_piece - 6 : promoted_piece;
-
-  int value = SEEPieceValues[target_piece];
-
-  // Factor in the new piece's value and remove our promoted pawn
-  if (is_move_promotion(move))
-    value += SEEPieceValues[promoted_piece] - SEEPieceValues[PAWN];
-
-  // Target square is encoded as empty for enpass moves
-  else if (get_move_enpassant(move))
-    value = SEEPieceValues[PAWN];
-
-  // We encode Castle moves as KxR, so the initial step is wrong
-  else if (get_move_castling(move))
-    value = 0;
-
-  return value;
-}
-
-uint64_t all_attackers_to_square(position_t *pos, uint64_t occupied, int sq) {
-
-  // When performing a static exchange evaluation we need to find all
-  // attacks to a given square, but we also are given an updated occupied
-  // bitboard, which will likely not match the actual board, as pieces are
-  // removed during the iterations in the static exchange evaluation
-
-  return (get_pawn_attacks(white, sq) & pos->bitboards[p]) |
-         (get_pawn_attacks(black, sq) & pos->bitboards[P]) |
-         (get_knight_attacks(sq) & (pos->bitboards[n] | pos->bitboards[N])) |
-         (get_bishop_attacks(sq, occupied) &
-          ((pos->bitboards[b] | pos->bitboards[B]) |
-           (pos->bitboards[q] | pos->bitboards[Q]))) |
-         (get_rook_attacks(sq, occupied) &
-          ((pos->bitboards[r] | pos->bitboards[R]) |
-           (pos->bitboards[q] | pos->bitboards[Q]))) |
-         (get_king_attacks(sq) & (pos->bitboards[k] | pos->bitboards[K]));
-}
-
-int SEE(position_t *pos, int move, int threshold) {
-
-  int from, to, enpassant, promotion, colour, balance, nextVictim;
-  uint64_t bishops, rooks, occupied, attackers, myAttackers;
-
-  // Unpack move information
-  from = get_move_source(move);
-  to = get_move_target(move);
-  enpassant = get_move_enpassant(move);
-  promotion = get_move_promoted(pos->side, move);
-
-  // Next victim is moved piece or promotion type
-  nextVictim = promotion ? promotion : pos->mailbox[from];
-  nextVictim = nextVictim > 5 ? nextVictim - 6 : nextVictim;
-
-  // Balance is the value of the move minus threshold. Function
-  // call takes care for Enpass, Promotion and Castling moves.
-  balance = move_estimated_value(pos, move) - threshold;
-
-  // Best case still fails to beat the threshold
-  if (balance < 0)
-    return 0;
-
-  // Worst case is losing the moved piece
-  balance -= SEEPieceValues[nextVictim];
-
-  // If the balance is positive even if losing the moved piece,
-  // the exchange is guaranteed to beat the threshold.
-  if (balance >= 0)
-    return 1;
-
-  // Grab sliders for updating revealed attackers
-  bishops = pos->bitboards[b] | pos->bitboards[B] | pos->bitboards[q] |
-            pos->bitboards[Q];
-  rooks = pos->bitboards[r] | pos->bitboards[R] | pos->bitboards[q] |
-          pos->bitboards[Q];
-
-  // Let occupied suppose that the move was actually made
-  occupied = pos->occupancies[both];
-  occupied = (occupied ^ (1ull << from)) | (1ull << to);
-  if (enpassant)
-    occupied ^= (1ull << pos->enpassant);
-
-  // Get all pieces which attack the target square. And with occupied
-  // so that we do not let the same piece attack twice
-  attackers = all_attackers_to_square(pos, occupied, to) & occupied;
-
-  // Now our opponents turn to recapture
-  colour = pos->side ^ 1;
-
-  while (1) {
-
-    // If we have no more attackers left we lose
-    myAttackers = attackers & pos->occupancies[colour];
-    if (myAttackers == 0ull) {
-      break;
-    }
-
-    // Find our weakest piece to attack with
-    for (nextVictim = PAWN; nextVictim <= QUEEN; nextVictim++) {
-      if (myAttackers &
-          (pos->bitboards[nextVictim] | pos->bitboards[nextVictim + 6])) {
-        break;
-      }
-    }
-
-    // Remove this attacker from the occupied
-    occupied ^=
-        (1ull << get_lsb(myAttackers & (pos->bitboards[nextVictim] |
-                                        pos->bitboards[nextVictim + 6])));
-
-    // A diagonal move may reveal bishop or queen attackers
-    if (nextVictim == PAWN || nextVictim == BISHOP || nextVictim == QUEEN)
-      attackers |= get_bishop_attacks(to, occupied) & bishops;
-
-    // A vertical or horizontal move may reveal rook or queen attackers
-    if (nextVictim == ROOK || nextVictim == QUEEN)
-      attackers |= get_rook_attacks(to, occupied) & rooks;
-
-    // Make sure we did not add any already used attacks
-    attackers &= occupied;
-
-    // Swap the turn
-    colour = !colour;
-
-    // Negamax the balance and add the value of the next victim
-    balance = -balance - 1 - SEEPieceValues[nextVictim];
-
-    // If the balance is non negative after giving away our piece then we win
-    if (balance >= 0) {
-
-      // As a slide speed up for move legality checking, if our last attacking
-      // piece is a king, and our opponent still has attackers, then we've
-      // lost as the move we followed would be illegal
-      if (nextVictim == KING && (attackers & pos->occupancies[colour]))
-        colour = colour ^ 1;
-
-      break;
-    }
-  }
-
-  // Side to move after the loop loses
-  return pos->side != colour;
-}
-
-int16_t get_conthist_score(thread_t *thread, searchstack_t *ss, int move) {
-  return thread->continuation_history[ss->piece][get_move_target(
-      ss->move)][thread->pos.mailbox[get_move_source(move)]]
-                                     [get_move_target(move)];
 }
 
 // score moves
@@ -361,6 +206,45 @@ static inline int is_repetition(position_t *pos) {
 
   // if no repetition found
   return 0;
+}
+
+
+static inline uint8_t is_material_draw(position_t *pos) {
+  uint8_t piece_count = __builtin_popcountll(pos->occupancies[both]);
+
+  // K v K
+  if (piece_count == 2) {
+    return 1;
+  }
+  // Initialize knight and bishop count only after we check that piece count is
+  // higher then 2 as there cannot be a knight or bishop with 2 pieces on the
+  // board
+  uint8_t knight_count =
+      __builtin_popcountll(pos->bitboards[n] | pos->bitboards[N]);
+  // KN v K || KB v K
+  if (piece_count == 3 &&
+      (knight_count == 1 ||
+       __builtin_popcountll(pos->bitboards[b] | pos->bitboards[B]) == 1)) {
+    return 1;
+  } else if (piece_count == 4) {
+    // KNN v K || KN v KN
+    if (knight_count == 2) {
+      return 1;
+    }
+    // KB v KB
+    else if (__builtin_popcountll(pos->bitboards[b]) == 1 &&
+             __builtin_popcountll(pos->bitboards[B]) == 1) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+static inline uint8_t only_pawns(position_t *pos) {
+  return !((pos->bitboards[N] | pos->bitboards[n] | pos->bitboards[B] |
+            pos->bitboards[b] | pos->bitboards[R] | pos->bitboards[r] |
+            pos->bitboards[Q] | pos->bitboards[q]) &
+           pos->occupancies[pos->side]);
 }
 
 // quiescence search
@@ -513,44 +397,6 @@ static inline int quiescence(position_t *pos, thread_t *thread,
   write_hash_entry(pos, best_score, 0, best_move, hash_flag);
 
   return best_score;
-}
-
-static inline uint8_t is_material_draw(position_t *pos) {
-  uint8_t piece_count = __builtin_popcountll(pos->occupancies[both]);
-
-  // K v K
-  if (piece_count == 2) {
-    return 1;
-  }
-  // Initialize knight and bishop count only after we check that piece count is
-  // higher then 2 as there cannot be a knight or bishop with 2 pieces on the
-  // board
-  uint8_t knight_count =
-      __builtin_popcountll(pos->bitboards[n] | pos->bitboards[N]);
-  // KN v K || KB v K
-  if (piece_count == 3 &&
-      (knight_count == 1 ||
-       __builtin_popcountll(pos->bitboards[b] | pos->bitboards[B]) == 1)) {
-    return 1;
-  } else if (piece_count == 4) {
-    // KNN v K || KN v KN
-    if (knight_count == 2) {
-      return 1;
-    }
-    // KB v KB
-    else if (__builtin_popcountll(pos->bitboards[b]) == 1 &&
-             __builtin_popcountll(pos->bitboards[B]) == 1) {
-      return 1;
-    }
-  }
-  return 0;
-}
-
-static inline uint8_t only_pawns(position_t *pos) {
-  return !((pos->bitboards[N] | pos->bitboards[n] | pos->bitboards[B] |
-            pos->bitboards[b] | pos->bitboards[R] | pos->bitboards[r] |
-            pos->bitboards[Q] | pos->bitboards[q]) &
-           pos->occupancies[pos->side]);
 }
 
 // negamax alpha beta search
