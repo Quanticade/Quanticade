@@ -110,3 +110,9 @@ void update_continuation_history_moves(thread_t *thread, searchstack_t *ss,
     }
   }
 }
+
+int16_t get_conthist_score(thread_t *thread, searchstack_t *ss, int move) {
+  return thread->continuation_history[ss->piece][get_move_target(
+      ss->move)][thread->pos.mailbox[get_move_source(move)]]
+                                     [get_move_target(move)];
+}
