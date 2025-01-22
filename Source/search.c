@@ -767,11 +767,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       R -= ss->history_score / (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
       R -= in_check;
       R += cutnode;
-<<<<<<< HEAD
       R -= tt_depth >= depth;
-=======
       R += (get_move_capture(tt_move) || is_move_promotion(tt_move));
->>>>>>> 1b2a270 (search.c: Reduce more if TT move is noisy)
       R = clamp(R, 1, new_depth);
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                new_depth - R + 1, 1, 1);
