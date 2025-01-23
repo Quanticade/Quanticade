@@ -495,7 +495,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
   if (!ss->excluded_move) {
     static_eval = ss->static_eval =
-        in_check ? INF
+        in_check ? NO_SCORE
                  : (tt_hit ? tt_score
                            : evaluate(pos, &thread->accumulator[pos->ply]));
   }
@@ -504,6 +504,9 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
   if (!in_check && (ss - 2)->static_eval != NO_SCORE) {
     improving = static_eval > (ss - 2)->static_eval;
+  }
+  else if (!in_check && (ss - 4)->static_eval != NO_SCORE) {
+    improving = static_eval > (ss - 4)->static_eval;
   }
 
   // Check on time
