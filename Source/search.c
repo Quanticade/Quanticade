@@ -683,7 +683,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     if (!root_node && depth >= SE_DEPTH && move == tt_move &&
         !ss->excluded_move && tt_depth >= depth - SE_DEPTH_REDUCTION &&
         tt_flag != HASH_FLAG_UPPER_BOUND && abs(tt_score) < MATE_SCORE) {
-      const int s_beta = tt_score - depth;
+      const int s_beta = tt_score - (1 + (tt_pv && !pv_node)) * depth;
       const int s_depth = (depth - 1) / 2;
 
       ss->excluded_move = move;
@@ -774,7 +774,6 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     if (depth > 1 && legal_moves > 2 + 2 * pv_node) {
       int R = lmr[quiet][depth][MIN(255, legal_moves)];
       R += !pv_node;
-      R -= tt_pv;
       R -= ss->history_score / (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
       R -= in_check;
       R += cutnode;
