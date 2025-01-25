@@ -521,7 +521,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       // get static evaluation score
 
       // define evaluation margin
-      int eval_margin = RFP_MARGIN * depth;
+      int eval_margin = RFP_MARGIN * (depth - improving);
 
       // evaluation margin substracted from static evaluation score fails high
       if (ss->static_eval - eval_margin >= beta)
