@@ -524,14 +524,14 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       int eval_margin = RFP_MARGIN * depth;
 
       // evaluation margin substracted from static evaluation score fails high
-      if (static_eval - eval_margin >= beta)
+      if (ss->static_eval - eval_margin >= beta)
         // evaluation margin substracted from static evaluation score
-        return beta + (static_eval - beta) / 3;
+        return beta + (ss->static_eval - beta) / 3;
     }
 
     // null move pruning
-    if (do_nmp && !pv_node && static_eval >= beta && !only_pawns(pos)) {
-      int R = MIN((static_eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) +
+    if (do_nmp && !pv_node && ss->static_eval >= beta && depth >= 3 && !only_pawns(pos)) {
+      int R = MIN((ss->static_eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) +
               depth / NMP_DIVISER + NMP_BASE_REDUCTION;
       R = MIN(R, depth);
       // preserve board state
@@ -591,7 +591,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     }
 
     if (!pv_node && depth <= RAZOR_DEPTH &&
-        static_eval + RAZOR_MARGIN * depth < alpha) {
+        ss->static_eval + RAZOR_MARGIN * depth < alpha) {
       const int razor_score = quiescence(pos, thread, ss, alpha, beta);
       if (razor_score <= alpha) {
         return razor_score;
