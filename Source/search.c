@@ -461,13 +461,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
                                         : __builtin_ctzll(pos->bitboards[k]),
                                     pos->side ^ 1);
 
-  // increase search depth if the king has been exposed into a check
-  if (in_check) {
-    depth++;
-  }
-
   // recursion escape condition
-  if (depth <= 0) {
+  if (!in_check && depth <= 0) {
     // run quiescence search
     return quiescence(pos, thread, ss, alpha, beta);
   }
@@ -765,6 +760,10 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     prefetch_hash_entry(pos->hash_key);
 
     uint8_t needs_full_search = 0;
+
+    if (in_check) {
+      extensions++;
+    }
 
     // PVS & LMR
     int new_depth = depth + extensions - 1;
