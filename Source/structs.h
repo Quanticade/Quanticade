@@ -40,6 +40,7 @@ typedef struct move {
 typedef struct moves {
   move_t entry[280];
   uint32_t count;
+  uint32_t index;
 } moves;
 
 typedef struct keys {

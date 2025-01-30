@@ -195,6 +195,30 @@ static inline void sort_moves(moves *move_list) {
   }
 }
 
+static inline uint16_t pick_next_move(moves *move_list) {
+    if (move_list->index >= move_list->count) {
+        return 0; // No more moves to pick
+    }
+    
+    // Find the move with the highest score from index to count
+    uint32_t best_index = move_list->index;
+    for (uint32_t i = move_list->index + 1; i < move_list->count; i++) {
+        if (move_list->entry[i].score > move_list->entry[best_index].score) {
+            best_index = i;
+        }
+    }
+    
+    // Swap the best move with the current index move
+    if (best_index != move_list->index) {
+        move_t temp = move_list->entry[move_list->index];
+        move_list->entry[move_list->index] = move_list->entry[best_index];
+        move_list->entry[best_index] = temp;
+    }
+    
+    // Return the selected move
+    return move_list->entry[move_list->index++].move;
+}
+
 // position repetition detection
 static inline int is_repetition(position_t *pos) {
   // loop over repetition indices range
@@ -315,12 +339,11 @@ static inline int quiescence(position_t *pos, thread_t *thread,
     score_move(pos, thread, ss, &move_list->entry[count], best_move);
   }
 
-  sort_moves(move_list);
-
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
+    uint16_t move = pick_next_move(move_list);
 
-    if (!SEE(pos, move_list->entry[count].move, -QS_SEE_THRESHOLD))
+    if (!SEE(pos, move, -QS_SEE_THRESHOLD))
       continue;
 
     // preserve board state
@@ -335,7 +358,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
     pos->repetition_table[pos->repetition_index] = pos->hash_key;
 
     // make sure to make only legal moves
-    if (make_move(pos, move_list->entry[count].move, only_captures) == 0) {
+    if (make_move(pos, move, only_captures) == 0) {
       // decrement ply
       pos->ply--;
 
@@ -348,15 +371,15 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
     accumulator_make_move(&thread->accumulator[pos->ply],
                           &thread->accumulator[pos->ply - 1], pos->side,
-                          move_list->entry[count].move, mailbox_copy);
+                          move, mailbox_copy);
 
-    ss->move = move_list->entry[count].move;
-    ss->piece = mailbox_copy[get_move_source(move_list->entry[count].move)];
+    ss->move = move;
+    ss->piece = mailbox_copy[get_move_source(move)];
 
     thread->nodes++;
 
-    if (!is_move_promotion(move_list->entry[count].move) || !get_move_capture(move_list->entry[count].move)) {
-      add_move(capture_list, move_list->entry[count].move);
+    if (!is_move_promotion(move) || !get_move_capture(move)) {
+      add_move(capture_list, move);
     }
 
     prefetch_hash_entry(pos->hash_key);
@@ -381,7 +404,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
     if (score > best_score) {
       best_score = score;
-      best_move = move_list->entry[count].move;
+      best_move = move;
       // found a better move
       if (score > alpha) {
         alpha = score;
@@ -598,6 +621,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   moves move_list[1];
   moves quiet_list[1];
   moves capture_list[1];
+  move_list->index = 0;
   quiet_list->count = 0;
   capture_list->count = 0;
 
@@ -612,15 +636,13 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     score_move(pos, thread, ss, &move_list->entry[count], tt_move);
   }
 
-  sort_moves(move_list);
-
   uint8_t skip_quiets = 0;
 
   const int original_alpha = alpha;
 
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
-    int move = move_list->entry[count].move;
+    int move = pick_next_move(move_list);
     uint8_t quiet =
         (get_move_capture(move) == 0 && is_move_promotion(move) == 0);
 
