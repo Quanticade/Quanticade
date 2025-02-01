@@ -102,10 +102,13 @@ void update_continuation_history_moves(thread_t *thread, searchstack_t *ss,
     if (quiet_moves->entry[i].move == best_move) {
       update_continuation_history(thread, ss - 1, best_move, depth, 1);
       update_continuation_history(thread, ss - 2, best_move, depth, 1);
+      update_continuation_history(thread, ss - 4, best_move, depth, 1);
     } else {
       update_continuation_history(thread, ss - 1, quiet_moves->entry[i].move,
                                   depth, 0);
       update_continuation_history(thread, ss - 2, quiet_moves->entry[i].move,
+                                  depth, 0);
+      update_continuation_history(thread, ss - 4, quiet_moves->entry[i].move,
                                   depth, 0);
     }
   }
