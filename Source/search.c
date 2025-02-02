@@ -50,6 +50,11 @@ int SEE_DEPTH = 10;
 int SE_DEPTH = 6;
 int SE_DEPTH_REDUCTION = 4;
 int SE_TRIPLE_MARGIN = 40;
+int LMR_PV_NODE = 1024;
+int LMR_HISTORY = 1024;
+int LMR_IN_CHECK = 1024;
+int LMR_CUTNODE = 1024;
+int LMR_TT_DEPTH = 1024;
 int ASP_WINDOW = 11;
 int ASP_DEPTH = 4;
 int QS_SEE_THRESHOLD = 7;
@@ -770,13 +775,13 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     int new_depth = depth + extensions - 1;
 
     if (depth > 1 && legal_moves > 2 + 2 * pv_node) {
-      int R = lmr[quiet][depth][MIN(255, legal_moves)];
-      R += !pv_node;
-      R -= ss->history_score / (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
-      R -= in_check;
-      R += cutnode;
-      R -= tt_depth >= depth;
-      R = clamp(R, 1, new_depth);
+      int R = lmr[quiet][depth][MIN(255, legal_moves)] * 1024;
+      R += !pv_node * LMR_PV_NODE;
+      R -= ss->history_score * LMR_HISTORY / (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
+      R -= in_check * LMR_IN_CHECK;
+      R += cutnode * LMR_CUTNODE;
+      R -= tt_depth >= depth * LMR_TT_DEPTH;
+      R = clamp(R / 1024, 1, new_depth);
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                new_depth - R + 1, 1, 1);
 
