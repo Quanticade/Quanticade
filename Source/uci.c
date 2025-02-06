@@ -34,11 +34,11 @@ const int default_hash_size = 16;
 
 int thread_count = 1;
 
-double DEF_TIME_MULTIPLIER =  0.07154628353493005;
-double DEF_INC_MULTIPLIER = 0.8536463325493332;
-double MAX_TIME_MULTIPLIER = 0.7682540108486431;
-double HARD_LIMIT_MULTIPLIER = 3.019199353843147;
-double SOFT_LIMIT_MULTIPLIER = 0.773668241686434;
+double DEF_TIME_MULTIPLIER =  0.07261225544941069;
+double DEF_INC_MULTIPLIER = 0.8484297111945868;
+double MAX_TIME_MULTIPLIER = 0.7569425324273278;
+double HARD_LIMIT_MULTIPLIER = 3.0874339392141033;
+double SOFT_LIMIT_MULTIPLIER = 0.7698234902238437;
 
 char *bench_positions[] = {
     "r3k2r/2pb1ppp/2pp1q2/p7/1nP1B3/1P2P3/P2N1PPP/R2QK2R w KQkq a6 0 14",
@@ -635,7 +635,7 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
              nnue_settings.nnue_file);
       printf("option name Clear Hash type button\n");
       // SPSA
-      // print_spsa_table_uci();
+      print_spsa_table_uci();
       // uciok
       printf("uciok\n");
     } else if (strncmp(input, "spsa", 4) == 0) {

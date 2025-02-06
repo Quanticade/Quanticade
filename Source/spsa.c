@@ -3,10 +3,10 @@
 #include "search.h"
 #include "structs.h"
 #include "uci.h"
+#include <inttypes.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
-#include <inttypes.h>
 
 spsa_t spsa[100];
 
@@ -33,6 +33,11 @@ extern int SEE_DEPTH;
 extern int SE_DEPTH;
 extern int SE_DEPTH_REDUCTION;
 extern int SE_TRIPLE_MARGIN;
+extern int LMR_PV_NODE;
+extern int LMR_HISTORY;
+extern int LMR_IN_CHECK;
+extern int LMR_CUTNODE;
+extern int LMR_TT_DEPTH;
 extern int ASP_WINDOW;
 extern int ASP_DEPTH;
 extern int QS_SEE_THRESHOLD;
@@ -101,11 +106,12 @@ void add_int_spsa(char name[], int *value, int min, int max, double rate,
   spsa_index++;
 }
 
-#define SPSA_INT(VARIABLE, TUNABLE)                                                     \
+#define SPSA_INT(VARIABLE, TUNABLE)                                            \
   add_int_spsa(STRINGIFY(VARIABLE), &VARIABLE, 1, SPSA_MAX(VARIABLE),          \
                RATE(VARIABLE), NULL, TUNABLE)
-#define SPSA_INT_NAME(NAME, VARIABLE, TUNABLE)                                          \
-  add_int_spsa(NAME, &VARIABLE, 1, SPSA_MAX(VARIABLE), RATE(VARIABLE), NULL, TUNABLE)
+#define SPSA_INT_NAME(NAME, VARIABLE, TUNABLE)                                 \
+  add_int_spsa(NAME, &VARIABLE, 1, SPSA_MAX(VARIABLE), RATE(VARIABLE), NULL,   \
+               TUNABLE)
 
 void init_spsa_table(void) {
   SPSA_INT(LMP_BASE, 1);
@@ -117,10 +123,10 @@ void init_spsa_table(void) {
   SPSA_INT(FP_DEPTH, 0);
   SPSA_INT(FP_MULTIPLIER, 1);
   SPSA_INT(FP_ADDITION, 1);
-  SPSA_INT(NMP_BASE_REDUCTION, 1);
-  SPSA_INT(NMP_DIVISER, 1);
-  SPSA_INT(NMP_RED_DIVISER, 1);
-  SPSA_INT(NMP_RED_MIN, 1);
+  SPSA_INT(NMP_BASE_REDUCTION, 0);
+  SPSA_INT(NMP_DIVISER, 0);
+  SPSA_INT(NMP_RED_DIVISER, 0);
+  SPSA_INT(NMP_RED_MIN, 0);
   SPSA_INT(IIR_DEPTH, 0);
   SPSA_INT(SEE_QUIET, 1);
   SPSA_INT(SEE_CAPTURE, 1);
@@ -128,6 +134,11 @@ void init_spsa_table(void) {
   SPSA_INT(SE_DEPTH, 0);
   SPSA_INT(SE_DEPTH_REDUCTION, 1);
   SPSA_INT(SE_TRIPLE_MARGIN, 1);
+  SPSA_INT(LMR_PV_NODE, 1);
+  SPSA_INT(LMR_HISTORY, 1);
+  SPSA_INT(LMR_IN_CHECK, 1);
+  SPSA_INT(LMR_CUTNODE, 1);
+  SPSA_INT(LMR_TT_DEPTH, 1);
   SPSA_INT(ASP_WINDOW, 1);
   SPSA_INT(ASP_DEPTH, 0);
   SPSA_INT(QS_SEE_THRESHOLD, 1);
@@ -158,7 +169,8 @@ void init_spsa_table(void) {
   SPSA_INT_NAME("MVV_ROOK", mvv[ROOK], 1);
   SPSA_INT_NAME("MVV_QUEEN", mvv[QUEEN], 1);
   add_double_spsa(STRINGIFY(ASP_MULTIPLIER), &ASP_MULTIPLIER, 1,
-                  SPSA_MAX(ASP_MULTIPLIER), RATE_DOUBLE(ASP_MULTIPLIER), NULL, 1);
+                  SPSA_MAX(ASP_MULTIPLIER), RATE_DOUBLE(ASP_MULTIPLIER), NULL,
+                  1);
   add_double_spsa(STRINGIFY(LMR_OFFSET_QUIET), &LMR_OFFSET_QUIET, 0.1,
                   SPSA_MAX(LMR_OFFSET_QUIET), RATE_DOUBLE(LMR_OFFSET_QUIET),
                   init_reductions, 1);
@@ -173,20 +185,20 @@ void init_spsa_table(void) {
                   init_reductions, 1);
   // TM
   add_double_spsa(STRINGIFY(DEF_TIME_MULTIPLIER), &DEF_TIME_MULTIPLIER, 0,
-                  SPSA_MAX(DEF_TIME_MULTIPLIER), RATE_DOUBLE(DEF_TIME_MULTIPLIER),
-                  NULL, 1);
+                  SPSA_MAX(DEF_TIME_MULTIPLIER),
+                  RATE_DOUBLE(DEF_TIME_MULTIPLIER), NULL, 1);
   add_double_spsa(STRINGIFY(DEF_INC_MULTIPLIER), &DEF_INC_MULTIPLIER, 0,
                   SPSA_MAX(DEF_INC_MULTIPLIER), RATE_DOUBLE(DEF_INC_MULTIPLIER),
                   NULL, 1);
   add_double_spsa(STRINGIFY(MAX_TIME_MULTIPLIER), &MAX_TIME_MULTIPLIER, 0,
-                  SPSA_MAX(MAX_TIME_MULTIPLIER), RATE_DOUBLE(MAX_TIME_MULTIPLIER),
-                  NULL, 1);
+                  SPSA_MAX(MAX_TIME_MULTIPLIER),
+                  RATE_DOUBLE(MAX_TIME_MULTIPLIER), NULL, 1);
   add_double_spsa(STRINGIFY(HARD_LIMIT_MULTIPLIER), &HARD_LIMIT_MULTIPLIER, 1,
-                  SPSA_MAX(HARD_LIMIT_MULTIPLIER), RATE_DOUBLE(HARD_LIMIT_MULTIPLIER),
-                  NULL, 1);
+                  SPSA_MAX(HARD_LIMIT_MULTIPLIER),
+                  RATE_DOUBLE(HARD_LIMIT_MULTIPLIER), NULL, 1);
   add_double_spsa(STRINGIFY(SOFT_LIMIT_MULTIPLIER), &SOFT_LIMIT_MULTIPLIER, 0,
-                  SPSA_MAX(SOFT_LIMIT_MULTIPLIER), RATE_DOUBLE(SOFT_LIMIT_MULTIPLIER),
-                  NULL, 1);
+                  SPSA_MAX(SOFT_LIMIT_MULTIPLIER),
+                  RATE_DOUBLE(SOFT_LIMIT_MULTIPLIER), NULL, 1);
 }
 
 void print_spsa_table_uci(void) {
@@ -198,7 +210,8 @@ void print_spsa_table_uci(void) {
       printf("option name %s type string default %lf\n", spsa[i].name,
              *(double *)spsa[i].value);
     } else {
-      printf("option name %s type spin default %d min %" PRIu64 " " "max %" PRIu64 "\n",
+      printf("option name %s type spin default %d min %" PRIu64 " "
+             "max %" PRIu64 "\n",
              spsa[i].name, *(int *)spsa[i].value, spsa[i].min.min_int,
              spsa[i].max.max_int);
     }

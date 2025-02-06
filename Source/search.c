@@ -33,38 +33,43 @@ extern keys_t keys;
 int LMP_BASE = 3;
 int LMP_MULTIPLIER = 1;
 int RAZOR_DEPTH = 7;
-int RAZOR_MARGIN = 323;
+int RAZOR_MARGIN = 324;
 int RFP_DEPTH = 7;
-int RFP_MARGIN = 56;
+int RFP_MARGIN = 53;
 int FP_DEPTH = 5;
-int FP_MULTIPLIER = 173;
-int FP_ADDITION = 140;
+int FP_MULTIPLIER = 178;
+int FP_ADDITION = 159;
 int NMP_BASE_REDUCTION = 4;
 int NMP_DIVISER = 3;
 int NMP_RED_DIVISER = 205;
 int NMP_RED_MIN = 6;
 int IIR_DEPTH = 4;
-int SEE_QUIET = 57;
-int SEE_CAPTURE = 37;
+int SEE_QUIET = 63;
+int SEE_CAPTURE = 34;
 int SEE_DEPTH = 10;
 int SE_DEPTH = 6;
 int SE_DEPTH_REDUCTION = 4;
-int SE_TRIPLE_MARGIN = 40;
+int SE_TRIPLE_MARGIN = 35;
+int LMR_PV_NODE = 1192;
+int LMR_HISTORY = 1170;
+int LMR_IN_CHECK = 902;
+int LMR_CUTNODE = 877;
+int LMR_TT_DEPTH = 991;
 int ASP_WINDOW = 11;
 int ASP_DEPTH = 4;
-int QS_SEE_THRESHOLD = 7;
-int MO_SEE_THRESHOLD = 117;
-double ASP_MULTIPLIER = 1.5471358327261011;
-int LMR_QUIET_HIST_DIV = 6767;
-int LMR_CAPT_HIST_DIV = 6435;
-double LMR_OFFSET_QUIET = 0.9132023029449319;
-double LMR_DIVISOR_QUIET = 1.6134711951475131;
-double LMR_OFFSET_NOISY = -0.2884594907169076;
-double LMR_DIVISOR_NOISY = 3.3312041589210506;
+int QS_SEE_THRESHOLD = 6;
+int MO_SEE_THRESHOLD = 130;
+double ASP_MULTIPLIER = 1.6541989293231878;
+int LMR_QUIET_HIST_DIV = 7323;
+int LMR_CAPT_HIST_DIV = 7534;
+double LMR_OFFSET_QUIET = 0.8500446673974761;
+double LMR_DIVISOR_QUIET = 1.4141416976120227;
+double LMR_OFFSET_NOISY = -0.23601909184212566;
+double LMR_DIVISOR_NOISY = 2.8963234699203277;
 
-int mvv[] = {103, 312, 306, 510, 1291, 0};
+int mvv[] = {122, 387, 314, 569, 1464, 0};
 
-int SEEPieceValues[] = {90, 300, 278, 508, 1060, 0, 0};
+int SEEPieceValues[] = {98, 285, 304, 518, 925, 0, 0};
 
 int lmr[2][MAX_PLY + 1][256];
 
@@ -770,13 +775,13 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     int new_depth = depth + extensions - 1;
 
     if (depth > 1 && legal_moves > 2 + 2 * pv_node) {
-      int R = lmr[quiet][depth][MIN(255, legal_moves)];
-      R += !pv_node;
-      R -= ss->history_score / (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
-      R -= in_check;
-      R += cutnode;
-      R -= tt_depth >= depth;
-      R = clamp(R, 1, new_depth);
+      int R = lmr[quiet][depth][MIN(255, legal_moves)] * 1024;
+      R += !pv_node * LMR_PV_NODE;
+      R -= ss->history_score * LMR_HISTORY / (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
+      R -= in_check * LMR_IN_CHECK;
+      R += cutnode * LMR_CUTNODE;
+      R -= (tt_depth >= depth) * LMR_TT_DEPTH;
+      R = clamp(R / 1024, 1, new_depth);
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                new_depth - R + 1, 1, 1);
 
