@@ -781,6 +781,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       R -= in_check * LMR_IN_CHECK;
       R += cutnode * LMR_CUTNODE;
       R -= (tt_depth >= depth) * LMR_TT_DEPTH;
+      R -= (move == thread->killer_moves[pos->ply]) * 1024;
       R = clamp(R / 1024, 1, new_depth);
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                new_depth - R + 1, 1, 1);
