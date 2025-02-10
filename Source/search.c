@@ -970,7 +970,7 @@ void *iterative_deepening(void *thread_void) {
       }
 
       // find best move within a given position
-      thread->score = negamax(pos, thread, ss + 4, alpha, beta,
+      thread->score = negamax(pos, thread, ss + 6, alpha, beta,
                               thread->depth - fail_high_count, 1, 0);
 
       // We hit an apspiration window cut-off before time ran out and we jumped
