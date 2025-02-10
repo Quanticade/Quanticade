@@ -176,7 +176,8 @@ static inline void score_move(position_t *pos, thread_t *thread,
                                [get_move_source(move)][get_move_target(move)] +
           get_conthist_score(thread, ss - 1, move) +
           get_conthist_score(thread, ss - 2, move) +
-          get_conthist_score(thread, ss - 4, move);
+          get_conthist_score(thread, ss - 4, move) +
+          get_conthist_score(thread, ss - 6, move);
     }
 
     return;
@@ -937,8 +938,8 @@ void *iterative_deepening(void *thread_void) {
     int alpha = -INF;
     int beta = INF;
 
-    searchstack_t ss[MAX_PLY + 4];
-    for (int i = 0; i < MAX_PLY + 4; ++i) {
+    searchstack_t ss[MAX_PLY + 6];
+    for (int i = 0; i < MAX_PLY + 6; ++i) {
       ss[i].excluded_move = 0;
       ss[i].static_eval = NO_SCORE;
       ss[i].history_score = 0;
