@@ -701,6 +701,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
         if (!get_move_capture(move) && s_score + SE_TRIPLE_MARGIN < s_beta) {
           extensions++;
         }
+        depth += depth < 10;
       }
 
       // Multicut: Singular search failed high so if singular beta beats our
