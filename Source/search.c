@@ -685,6 +685,16 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       const int s_beta = tt_score - depth;
       const int s_depth = (depth - 1) / 2;
 
+      copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
+               pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+      
+      if (make_move(pos, move, all_moves) == 0) {
+        continue;
+      }
+
+      restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
+                  pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+
       ss->excluded_move = move;
 
       const int16_t s_score =
