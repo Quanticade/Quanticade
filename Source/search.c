@@ -7,8 +7,8 @@
 #include "move.h"
 #include "movegen.h"
 #include "nnue.h"
-#include "see.h"
 #include "pyrrhic/tbprobe.h"
+#include "see.h"
 #include "structs.h"
 #include "syzygy.h"
 #include "threads.h"
@@ -214,7 +214,6 @@ static inline int is_repetition(position_t *pos) {
   return 0;
 }
 
-
 static inline uint8_t is_material_draw(position_t *pos) {
   uint8_t piece_count = __builtin_popcountll(pos->occupancies[both]);
 
@@ -361,7 +360,8 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
     thread->nodes++;
 
-    if (!is_move_promotion(move_list->entry[count].move) || !get_move_capture(move_list->entry[count].move)) {
+    if (!is_move_promotion(move_list->entry[count].move) ||
+        !get_move_capture(move_list->entry[count].move)) {
       add_move(capture_list, move_list->entry[count].move);
     }
 
@@ -489,8 +489,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   }
 
   // Internal Iterative Reductions
-  if ((pv_node || cutnode) && !ss->excluded_move && depth >= IIR_DEPTH &&
-      !tt_move) {
+  if ((pv_node || cutnode) && depth >= IIR_DEPTH && !tt_move) {
     depth--;
   }
 
@@ -531,7 +530,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     }
 
     // null move pruning
-    if (do_nmp && !pv_node && ss->static_eval >= beta && depth >= 3 && !only_pawns(pos)) {
+    if (do_nmp && !pv_node && ss->static_eval >= beta && depth >= 3 &&
+        !only_pawns(pos)) {
       int R = MIN((ss->static_eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) +
               depth / NMP_DIVISER + NMP_BASE_REDUCTION;
       R = MIN(R, depth);
@@ -787,7 +787,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     if (depth > 1 && legal_moves > 2 + 2 * pv_node) {
       int R = lmr[quiet][depth][MIN(255, legal_moves)] * 1024;
       R += !pv_node * LMR_PV_NODE;
-      R -= ss->history_score * LMR_HISTORY / (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
+      R -= ss->history_score * LMR_HISTORY /
+           (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
       R -= in_check * LMR_IN_CHECK;
       R += cutnode * LMR_CUTNODE;
       R -= (tt_depth >= depth) * LMR_TT_DEPTH;
