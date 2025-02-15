@@ -7,8 +7,8 @@
 #include "move.h"
 #include "movegen.h"
 #include "nnue.h"
-#include "see.h"
 #include "pyrrhic/tbprobe.h"
+#include "see.h"
 #include "structs.h"
 #include "syzygy.h"
 #include "threads.h"
@@ -214,7 +214,6 @@ static inline int is_repetition(position_t *pos) {
   return 0;
 }
 
-
 static inline uint8_t is_material_draw(position_t *pos) {
   uint8_t piece_count = __builtin_popcountll(pos->occupancies[both]);
 
@@ -361,7 +360,8 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
     thread->nodes++;
 
-    if (!is_move_promotion(move_list->entry[count].move) || !get_move_capture(move_list->entry[count].move)) {
+    if (!is_move_promotion(move_list->entry[count].move) ||
+        !get_move_capture(move_list->entry[count].move)) {
       add_move(capture_list, move_list->entry[count].move);
     }
 
@@ -414,8 +414,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
 // negamax alpha beta search
 static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
-                          int alpha, int beta, int depth, uint8_t do_nmp,
-                          uint8_t cutnode) {
+                          int alpha, int beta, int depth, uint8_t cutnode) {
   // init PV length
   thread->pv.pv_length[pos->ply] = pos->ply;
 
@@ -531,7 +530,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     }
 
     // null move pruning
-    if (do_nmp && !pv_node && ss->static_eval >= beta && depth >= 3 && !only_pawns(pos)) {
+    if (!ss->null_move && !pv_node && ss->static_eval >= beta && depth >= 3 &&
+        !only_pawns(pos)) {
       int R = MIN((ss->static_eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) +
               depth / NMP_DIVISER + NMP_BASE_REDUCTION;
       R = MIN(R, depth);
@@ -564,11 +564,14 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
       ss->move = 0;
       ss->piece = 0;
+      (ss + 1)->null_move = 1;
 
       /* search moves with reduced depth to find beta cutoffs
          depth - 1 - R where R is a reduction limit */
-      current_score = -negamax(pos, thread, ss + 1, -beta, -beta + 1, depth - R,
-                               0, !cutnode);
+      current_score =
+          -negamax(pos, thread, ss + 1, -beta, -beta + 1, depth - R, !cutnode);
+
+      (ss + 1)->null_move = 0;
 
       // decrement ply
       pos->ply--;
@@ -686,19 +689,19 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       const int s_depth = (depth - 1) / 2;
 
       copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-               pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
-      
+                 pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+
       if (make_move(pos, move, all_moves) == 0) {
         continue;
       }
 
       restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                  pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+                    pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
 
       ss->excluded_move = move;
 
       const int16_t s_score =
-          negamax(pos, thread, ss, s_beta - 1, s_beta, s_depth, 1, cutnode);
+          negamax(pos, thread, ss, s_beta - 1, s_beta, s_depth, cutnode);
 
       ss->excluded_move = 0;
 
@@ -787,13 +790,14 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     if (depth > 1 && legal_moves > 2 + 2 * pv_node) {
       int R = lmr[quiet][depth][MIN(255, legal_moves)] * 1024;
       R += !pv_node * LMR_PV_NODE;
-      R -= ss->history_score * LMR_HISTORY / (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
+      R -= ss->history_score * LMR_HISTORY /
+           (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
       R -= in_check * LMR_IN_CHECK;
       R += cutnode * LMR_CUTNODE;
       R -= (tt_depth >= depth) * LMR_TT_DEPTH;
       R = clamp(R / 1024, 1, new_depth);
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
-                               new_depth - R + 1, 1, 1);
+                               new_depth - R + 1, 1);
 
       needs_full_search = current_score > alpha && R > 0;
     } else {
@@ -802,12 +806,12 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     if (needs_full_search) {
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
-                               new_depth, 1, !cutnode);
+                               new_depth, !cutnode);
     }
 
     if (pv_node && (legal_moves == 1 || current_score > alpha)) {
       current_score =
-          -negamax(pos, thread, ss + 1, -beta, -alpha, new_depth, 1, 0);
+          -negamax(pos, thread, ss + 1, -beta, -alpha, new_depth, 0);
     }
 
     // decrement ply
@@ -954,6 +958,7 @@ void *iterative_deepening(void *thread_void) {
       ss[i].history_score = 0;
       ss[i].move = 0;
       ss[i].piece = 0;
+      ss[i].null_move = 0;
     }
 
     pos->seldepth = 0;
@@ -980,7 +985,7 @@ void *iterative_deepening(void *thread_void) {
 
       // find best move within a given position
       thread->score = negamax(pos, thread, ss + 4, alpha, beta,
-                              thread->depth - fail_high_count, 1, 0);
+                              thread->depth - fail_high_count, 0);
 
       // We hit an apspiration window cut-off before time ran out and we jumped
       // to another depth with wider search which we didnt finish

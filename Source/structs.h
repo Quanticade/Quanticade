@@ -119,6 +119,7 @@ typedef struct searchstack {
   int static_eval;
   int history_score;
   uint8_t piece;
+  uint8_t null_move;
 } searchstack_t;
 
 typedef struct nnue_settings {
