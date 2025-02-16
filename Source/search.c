@@ -651,14 +651,6 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
                                      [get_move_source(move)]
                                      [get_move_target(move)];
 
-    // Late Move Pruning
-    if (!pv_node && !in_check && quiet &&
-        legal_moves >
-            LMP_BASE + LMP_MULTIPLIER * depth * depth / (2 - improving) &&
-        !only_pawns(pos)) {
-      skip_quiets = 1;
-    }
-
     int r = lmr[quiet][MIN(63, depth)][MIN(63, legal_moves)];
     int lmr_depth = MAX(1, depth - 1 - MAX(r, 1));
 
@@ -675,6 +667,14 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
         quiet ? -SEE_QUIET * depth : -SEE_CAPTURE * depth * depth;
     if (depth <= SEE_DEPTH && legal_moves > 0 && !SEE(pos, move, see_threshold))
       continue;
+
+    // Late Move Pruning
+    if (!pv_node && !in_check && quiet &&
+        legal_moves >
+            LMP_BASE + LMP_MULTIPLIER * depth * depth / (2 - improving) &&
+        !only_pawns(pos)) {
+      skip_quiets = 1;
+    }
 
     int extensions = 0;
 
