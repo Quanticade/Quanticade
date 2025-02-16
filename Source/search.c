@@ -652,7 +652,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
                                      [get_move_target(move)];
 
     // Late Move Pruning
-    if (!pv_node && !in_check && quiet &&
+    if (!root_node && quiet &&
         legal_moves >
             LMP_BASE + LMP_MULTIPLIER * depth * depth / (2 - improving) &&
         !only_pawns(pos)) {
