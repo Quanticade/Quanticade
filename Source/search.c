@@ -711,7 +711,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
         if (s_score < s_beta - 2 * pv_node) {
           extensions++;
         }
-        if (!get_move_capture(move) && s_score + SE_TRIPLE_MARGIN < s_beta) {
+        if (s_score + (!get_move_capture(move) ? SE_TRIPLE_MARGIN : 45) < s_beta) {
           extensions++;
         }
       }
