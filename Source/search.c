@@ -364,9 +364,15 @@ static inline int quiescence(position_t *pos, thread_t *thread,
       continue;
     }
 
+    uint8_t king = pos->side ? k : K;
+    uint8_t bucket = get_king_bucket(get_lsb(pos->bitboards[king]));
+    if (need_refresh(get_lsb(bitboards_copy[king]), bucket)) {
+      init_accumulator(pos, &thread->accumulator[pos->ply]);
+    } else {
     accumulator_make_move(&thread->accumulator[pos->ply],
-                          &thread->accumulator[pos->ply - 1], pos->side,
+                          &thread->accumulator[pos->ply - 1], bucket, pos->side,
                           move_list->entry[count].move, mailbox_copy);
+    }
 
     ss->move = move_list->entry[count].move;
     ss->piece = mailbox_copy[get_move_source(move_list->entry[count].move)];
@@ -776,10 +782,16 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       // skip to next move
       continue;
     }
-
+    uint8_t king = pos->side ? k : K;
+    uint8_t bucket = get_king_bucket(get_lsb(pos->bitboards[king]));
+    printf("bucket: %d\n", bucket);
+    if (need_refresh(get_lsb(bitboards_copy[king]), bucket)) {
+      init_accumulator(pos, &thread->accumulator[pos->ply]);
+    } else {
     accumulator_make_move(&thread->accumulator[pos->ply],
-                          &thread->accumulator[pos->ply - 1], pos->side,
+                          &thread->accumulator[pos->ply - 1], bucket, pos->side,
                           move_list->entry[count].move, mailbox_copy);
+    }
 
     ss->move = move;
     ss->piece = mailbox_copy[get_move_source(move)];
