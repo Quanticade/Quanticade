@@ -12,17 +12,30 @@
 
 nnue_t nnue;
 
-uint8_t buckets[64] =
+uint8_t buckets[2][64] =
 {
-  0,  1,  2,  3,  3,  2,  1,  0,
-  4,  5,  6,  7,  7,  6,  5,  4,
-  8,  8,  9,  9,  9,  9,  8,  8,
-  10, 10, 10, 10, 10, 10, 10, 10,
-  11, 11, 11, 11, 11, 11, 11, 11,
-  11, 11, 11, 11, 11, 11, 11, 11,
-  12, 12, 12, 12, 12, 12, 12, 12,
-  12, 12, 12, 12, 12, 12, 12, 12,
+  { // White buckets
+    0,  1,  2,  3,  3,  2,  1,  0,
+    4,  5,  6,  7,  7,  6,  5,  4,
+    8,  8,  9,  9,  9,  9,  8,  8,
+    10, 10, 10, 10, 10, 10, 10, 10,
+    11, 11, 11, 11, 11, 11, 11, 11,
+    11, 11, 11, 11, 11, 11, 11, 11,
+    12, 12, 12, 12, 12, 12, 12, 12,
+    12, 12, 12, 12, 12, 12, 12, 12
+  },
+  { // Black buckets
+    12, 12, 12, 12, 12, 12, 12, 12,
+    12, 12, 12, 12, 12, 12, 12, 12,
+    11, 11, 11, 11, 11, 11, 11, 11,
+    11, 11, 11, 11, 11, 11, 11, 11,
+    10, 10, 10, 10, 10, 10, 10, 10,
+    8,  8,  9,  9,  9,  9,  8,  8,
+    4,  5,  6,  7,  7,  6,  5,  4,
+    0,  1,  2,  3,  3,  2,  1,  0
+  }
 };
+
 
 #if !defined(_MSC_VER)
 INCBIN(EVAL, EVALFILE);
@@ -34,12 +47,12 @@ const unsigned int gEVALSize = 1;
 
 const uint8_t BUCKET_DIVISOR = (32 + OUTPUT_BUCKETS - 1) / OUTPUT_BUCKETS;
 
-uint8_t get_king_bucket(uint8_t square) {
-  return buckets[square];
+uint8_t get_king_bucket(uint8_t side, uint8_t square) {
+  return buckets[side][square];
 }
 
-uint8_t need_refresh(uint8_t from, uint8_t to) {
-  if (buckets[from] != buckets[to]) {
+uint8_t need_refresh(uint8_t side, uint8_t from, uint8_t to) {
+  if (buckets[side][from] != buckets[side][to]) {
     return 1;
   }
   return 0;
@@ -154,7 +167,8 @@ static inline int16_t get_black_idx(uint8_t piece, uint8_t square) {
 }
 
 void init_accumulator(position_t *pos, accumulator_t *accumulator) {
-  uint8_t bucket = get_king_bucket(get_lsb(pos->bitboards[pos->side ? k : K]));
+  uint8_t white_bucket = buckets[white][get_lsb(pos->bitboards[K])];
+  uint8_t black_bucket = buckets[black][get_lsb(pos->bitboards[k])];
   for (int i = 0; i < HIDDEN_SIZE; ++i) {
     accumulator->accumulator[0][i] = nnue.feature_bias[i];
     accumulator->accumulator[1][i] = nnue.feature_bias[i];
@@ -170,11 +184,11 @@ void init_accumulator(position_t *pos, accumulator_t *accumulator) {
       // updates all the pieces in the accumulators
       for (int i = 0; i < HIDDEN_SIZE; ++i)
         accumulator->accumulator[white][i] +=
-            nnue.feature_weights[bucket][white_idx][i];
+            nnue.feature_weights[white_bucket][white_idx][i];
 
       for (int i = 0; i < HIDDEN_SIZE; ++i)
         accumulator->accumulator[black][i] +=
-            nnue.feature_weights[bucket][black_idx][i];
+            nnue.feature_weights[black_bucket][black_idx][i];
 
       pop_bit(bitboard, square);
     }
@@ -182,7 +196,8 @@ void init_accumulator(position_t *pos, accumulator_t *accumulator) {
 }
 
 int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
-  uint8_t king_bucket = get_king_bucket(get_lsb(pos->bitboards[pos->side ? k : K]));
+  uint8_t white_bucket = buckets[white][get_lsb(pos->bitboards[K])];
+  uint8_t black_bucket = buckets[black][get_lsb(pos->bitboards[k])];
   for (int i = 0; i < HIDDEN_SIZE; ++i) {
     accumulator->accumulator[0][i] = nnue.feature_bias[i];
     accumulator->accumulator[1][i] = nnue.feature_bias[i];
@@ -198,11 +213,11 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
       // updates all the pieces in the accumulators
       for (int i = 0; i < HIDDEN_SIZE; ++i)
         accumulator->accumulator[white][i] +=
-            nnue.feature_weights[king_bucket][white_idx][i];
+            nnue.feature_weights[white_bucket][white_idx][i];
 
       for (int i = 0; i < HIDDEN_SIZE; ++i)
         accumulator->accumulator[black][i] +=
-            nnue.feature_weights[king_bucket][black_idx][i];
+            nnue.feature_weights[black_bucket][black_idx][i];
 
       pop_bit(bitboard, square);
     }

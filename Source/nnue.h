@@ -22,8 +22,8 @@ typedef struct nnue {
 
 extern nnue_t nnue;
 
-uint8_t get_king_bucket(uint8_t square);
-uint8_t need_refresh(uint8_t from, uint8_t to);
+uint8_t get_king_bucket(uint8_t side, uint8_t square);
+uint8_t need_refresh(uint8_t side, uint8_t from, uint8_t to);
 void nnue_init(const char *nnue_file_name);
 void init_accumulator(position_t *pos, accumulator_t *accumulator);
 int nnue_evaluate(position_t *pos, accumulator_t *accumulator);
