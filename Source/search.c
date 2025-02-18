@@ -366,7 +366,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
     uint8_t king = pos->side ? k : K;
     uint8_t bucket = get_king_bucket(get_lsb(pos->bitboards[king]));
-    if (need_refresh(get_lsb(bitboards_copy[king]), bucket)) {
+    if (1) {
       init_accumulator(pos, &thread->accumulator[pos->ply]);
     } else {
     accumulator_make_move(&thread->accumulator[pos->ply],
@@ -784,7 +784,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     }
     uint8_t king = pos->side ? k : K;
     uint8_t bucket = get_king_bucket(get_lsb(pos->bitboards[king]));
-    if (need_refresh(get_lsb(bitboards_copy[king]), bucket)) {
+    if (1) {
       init_accumulator(pos, &thread->accumulator[pos->ply]);
     } else {
     accumulator_make_move(&thread->accumulator[pos->ply],
