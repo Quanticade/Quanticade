@@ -710,7 +710,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
         extensions++;
         if (s_score < s_beta - 2 * pv_node) {
           extensions++;
-          depth += depth > 10;
+          depth += depth < 10;
         }
         if (!get_move_capture(move) && s_score + SE_TRIPLE_MARGIN < s_beta) {
           extensions++;
