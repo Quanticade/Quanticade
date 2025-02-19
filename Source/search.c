@@ -533,7 +533,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     if (!ss->null_move && !pv_node && ss->static_eval >= beta && depth >= 3 &&
         !only_pawns(pos)) {
       int R = MIN((ss->static_eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) +
-              depth / NMP_DIVISER + NMP_BASE_REDUCTION;
+              depth / NMP_DIVISER + NMP_BASE_REDUCTION + (is_move_promotion(tt_move) || get_move_capture(tt_move));
       R = MIN(R, depth);
       // preserve board state
       copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
