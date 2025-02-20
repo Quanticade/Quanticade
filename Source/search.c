@@ -43,7 +43,7 @@ int NMP_BASE_REDUCTION = 4;
 int NMP_DIVISER = 3;
 int NMP_RED_DIVISER = 205;
 int NMP_RED_MIN = 6;
-int IIR_DEPTH = 4;
+int IIR_DEPTH = 7;
 int SEE_QUIET = 63;
 int SEE_CAPTURE = 34;
 int SEE_DEPTH = 10;
@@ -484,8 +484,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   }
 
   // Internal Iterative Reductions
-  if ((pv_node || cutnode) && !ss->excluded_move && depth >= IIR_DEPTH &&
-      !tt_move) {
+  if ((pv_node || (cutnode && depth >= IIR_DEPTH)) && !tt_move) {
     depth--;
   }
 
