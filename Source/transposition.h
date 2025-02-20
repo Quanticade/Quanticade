@@ -19,10 +19,10 @@ extern tt_t tt;
 
 void clear_hash_table(void);
 void prefetch_hash_entry(uint64_t hash_key);
-int read_hash_entry(position_t *pos, int *move, int16_t *tt_score,
-                    uint8_t *tt_depth, uint8_t *tt_flag);
-void write_hash_entry(position_t *pos, int score, int depth, int move,
-                      int hash_flag);
+uint8_t read_hash_entry(position_t *pos, uint16_t *move, int16_t *tt_score,
+                        uint8_t *tt_depth, uint8_t *tt_flag, uint8_t *tt_pv);
+void write_hash_entry(position_t *pos, int16_t score, uint8_t depth,
+                      uint16_t move, uint8_t hash_flag, uint8_t tt_pv);
 void init_hash_table(uint64_t mb);
 uint64_t generate_hash_key(position_t *pos);
 int hash_full(void);

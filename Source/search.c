@@ -272,17 +272,18 @@ static inline int quiescence(position_t *pos, thread_t *thread,
     pos->seldepth = pos->ply;
   }
 
-  int32_t best_move = 0;
+  uint16_t best_move = 0;
   int score, best_score = 0;
   int pv_node = beta - alpha > 1;
   int16_t tt_score = 0;
   uint8_t tt_hit = 0;
   uint8_t tt_depth = 0;
   uint8_t tt_flag = HASH_FLAG_EXACT;
+  uint8_t tt_pv = 0;
 
   if (pos->ply &&
       (tt_hit =
-           read_hash_entry(pos, &best_move, &tt_score, &tt_depth, &tt_flag)) &&
+           read_hash_entry(pos, &best_move, &tt_score, &tt_depth, &tt_flag, &tt_pv)) &&
       pv_node == 0) {
     if ((tt_flag == HASH_FLAG_EXACT) ||
         ((tt_flag == HASH_FLAG_UPPER_BOUND) && (tt_score <= alpha)) ||
@@ -407,7 +408,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
     hash_flag = HASH_FLAG_UPPER_BOUND;
   }
 
-  write_hash_entry(pos, best_score, 0, best_move, hash_flag);
+  write_hash_entry(pos, best_score, 0, best_move, hash_flag, pv_node);
 
   return best_score;
 }
@@ -422,11 +423,12 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   // perspective)
   int current_score, static_eval = -INF;
 
-  int tt_move = 0;
+  uint16_t tt_move = 0;
   int16_t tt_score = 0;
   uint8_t tt_hit = 0;
   uint8_t tt_depth = 0;
   uint8_t tt_flag = HASH_FLAG_EXACT;
+  uint8_t tt_pv = 0;
 
   uint8_t root_node = pos->ply == 0;
 
@@ -472,7 +474,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   // and current node is not a PV node
   if (!ss->excluded_move &&
       (tt_hit =
-           read_hash_entry(pos, &tt_move, &tt_score, &tt_depth, &tt_flag)) &&
+           read_hash_entry(pos, &tt_move, &tt_score, &tt_depth, &tt_flag, &tt_pv)) &&
       pv_node == 0 && !root_node) {
     if (tt_depth >= depth) {
       if ((tt_flag == HASH_FLAG_EXACT) ||
@@ -886,7 +888,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       hash_flag = HASH_FLAG_UPPER_BOUND;
     }
     // store hash entry with the score equal to alpha
-    write_hash_entry(pos, best_score, depth, best_move, hash_flag);
+    write_hash_entry(pos, best_score, depth, best_move, hash_flag, pv_node);
   }
 
   // node (position) fails low

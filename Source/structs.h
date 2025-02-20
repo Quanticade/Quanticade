@@ -28,7 +28,8 @@ typedef struct tt_entry {
   uint16_t move;
   int16_t score; // score (alpha/beta/PV)
   uint8_t depth; // current search depth
-  uint8_t flag;  // flag the type of node (fail-low/fail-high/PV)
+  uint8_t flag : 2;  // flag the type of node (fail-low/fail-high/PV)
+  uint8_t tt_pv : 1;
 } tt_entry_t;
 
 typedef struct move {

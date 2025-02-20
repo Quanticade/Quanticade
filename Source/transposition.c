@@ -2,6 +2,7 @@
 #include "bitboards.h"
 #include "enums.h"
 #include "structs.h"
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -115,8 +116,8 @@ void init_hash_table(uint64_t mb) {
 }
 
 // read hash entry data
-int read_hash_entry(position_t *pos, int *move, int16_t *tt_score,
-                    uint8_t *tt_depth, uint8_t *tt_flag) {
+uint8_t read_hash_entry(position_t *pos, uint16_t *move, int16_t *tt_score,
+                    uint8_t *tt_depth, uint8_t *tt_flag, uint8_t *tt_pv) {
   tt_entry_t *hash_entry = &tt.hash_entry[get_hash_index(pos->hash_key)];
 
   // make sure we're dealing with the exact position we need
@@ -131,6 +132,7 @@ int read_hash_entry(position_t *pos, int *move, int16_t *tt_score,
     *tt_score = score;
     *tt_depth = hash_entry->depth;
     *tt_flag = hash_entry->flag;
+    *tt_pv = hash_entry->tt_pv;
     return 1;
   }
 
@@ -139,8 +141,8 @@ int read_hash_entry(position_t *pos, int *move, int16_t *tt_score,
 }
 
 // write hash entry data
-void write_hash_entry(position_t *pos, int score, int depth, int move,
-                      int hash_flag) {
+void write_hash_entry(position_t *pos, int16_t score, uint8_t depth, uint16_t move,
+                      uint8_t hash_flag, uint8_t tt_pv) {
   // create a TT instance pointer to particular hash entry storing
   // the scoring data for the current board position if available
   tt_entry_t *hash_entry = &tt.hash_entry[get_hash_index(pos->hash_key)];
@@ -164,6 +166,7 @@ void write_hash_entry(position_t *pos, int score, int depth, int move,
   hash_entry->hash_key = get_hash_low_bits(pos->hash_key);
   hash_entry->score = score;
   hash_entry->flag = hash_flag;
+  hash_entry->tt_pv = tt_pv;
   hash_entry->depth = depth;
   hash_entry->move = move;
 }
