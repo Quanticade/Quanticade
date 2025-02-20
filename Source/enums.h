@@ -86,4 +86,6 @@ enum { opening, endgame, middlegame };
 // piece types
 enum { PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING };
 
+enum { NON_PV, PV_NODE };
+
 #endif
