@@ -414,7 +414,8 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
 // negamax alpha beta search
 static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
-                          int alpha, int beta, int depth, uint8_t cutnode, uint8_t pv_node) {
+                          int alpha, int beta, int depth, uint8_t cutnode,
+                          uint8_t pv_node) {
   // init PV length
   thread->pv.pv_length[pos->ply] = pos->ply;
 
@@ -564,8 +565,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
       /* search moves with reduced depth to find beta cutoffs
          depth - 1 - R where R is a reduction limit */
-      current_score =
-          -negamax(pos, thread, ss + 1, -beta, -beta + 1, depth - R, !cutnode, NON_PV);
+      current_score = -negamax(pos, thread, ss + 1, -beta, -beta + 1, depth - R,
+                               !cutnode, NON_PV);
 
       (ss + 1)->null_move = 0;
 
@@ -590,8 +591,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
         return current_score;
     }
 
-    if (!pv_node && depth <= RAZOR_DEPTH &&
-        ss->static_eval + RAZOR_MARGIN * depth < alpha) {
+    if (!ss->excluded_move && !pv_node && depth <= RAZOR_DEPTH &&
+        alpha < 2000 && ss->static_eval + RAZOR_MARGIN * depth < alpha) {
       const int razor_score = quiescence(pos, thread, ss, alpha, beta);
       if (razor_score <= alpha) {
         return razor_score;
@@ -696,8 +697,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
       ss->excluded_move = move;
 
-      const int16_t s_score =
-          negamax(pos, thread, ss, s_beta - 1, s_beta, s_depth, cutnode, NON_PV);
+      const int16_t s_score = negamax(pos, thread, ss, s_beta - 1, s_beta,
+                                      s_depth, cutnode, NON_PV);
 
       ss->excluded_move = 0;
 
