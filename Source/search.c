@@ -414,7 +414,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
 // negamax alpha beta search
 static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
-                          int alpha, int beta, int depth, uint8_t cutnode) {
+                          int alpha, int beta, int depth, uint8_t cutnode, uint8_t pv_node) {
   // init PV length
   thread->pv.pv_length[pos->ply] = pos->ply;
 
@@ -454,10 +454,6 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     if (alpha >= beta)
       return alpha;
   }
-
-  // a hack by Pedro Castro to figure out whether the current node is PV node
-  // or not
-  int pv_node = beta - alpha > 1;
 
   // is king in check
   int in_check = is_square_attacked(pos,
@@ -569,7 +565,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       /* search moves with reduced depth to find beta cutoffs
          depth - 1 - R where R is a reduction limit */
       current_score =
-          -negamax(pos, thread, ss + 1, -beta, -beta + 1, depth - R, !cutnode);
+          -negamax(pos, thread, ss + 1, -beta, -beta + 1, depth - R, !cutnode, NON_PV);
 
       (ss + 1)->null_move = 0;
 
@@ -701,7 +697,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       ss->excluded_move = move;
 
       const int16_t s_score =
-          negamax(pos, thread, ss, s_beta - 1, s_beta, s_depth, cutnode);
+          negamax(pos, thread, ss, s_beta - 1, s_beta, s_depth, cutnode, NON_PV);
 
       ss->excluded_move = 0;
 
@@ -797,7 +793,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       R -= (tt_depth >= depth) * LMR_TT_DEPTH;
       R = clamp(R / 1024, 1, new_depth);
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
-                               new_depth - R + 1, 1);
+                               new_depth - R + 1, 1, NON_PV);
 
       needs_full_search = current_score > alpha && R > 0;
     } else {
@@ -806,12 +802,12 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     if (needs_full_search) {
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
-                               new_depth, !cutnode);
+                               new_depth, !cutnode, NON_PV);
     }
 
     if (pv_node && (legal_moves == 1 || current_score > alpha)) {
       current_score =
-          -negamax(pos, thread, ss + 1, -beta, -alpha, new_depth, 0);
+          -negamax(pos, thread, ss + 1, -beta, -alpha, new_depth, 0, PV_NODE);
     }
 
     // decrement ply
@@ -985,7 +981,7 @@ void *iterative_deepening(void *thread_void) {
 
       // find best move within a given position
       thread->score = negamax(pos, thread, ss + 4, alpha, beta,
-                              thread->depth - fail_high_count, 0);
+                              thread->depth - fail_high_count, 0, PV_NODE);
 
       // We hit an apspiration window cut-off before time ran out and we jumped
       // to another depth with wider search which we didnt finish
