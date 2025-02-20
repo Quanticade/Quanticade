@@ -280,6 +280,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
   uint8_t tt_depth = 0;
   uint8_t tt_flag = HASH_FLAG_EXACT;
   uint8_t tt_pv = 0;
+  uint8_t tt_was_pv = pv_node;
 
   if (pos->ply &&
       (tt_hit =
@@ -291,6 +292,8 @@ static inline int quiescence(position_t *pos, thread_t *thread,
       return tt_score;
     }
   }
+
+  tt_was_pv |= tt_pv;
 
   // evaluate position
   score = best_score =
@@ -429,6 +432,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   uint8_t tt_depth = 0;
   uint8_t tt_flag = HASH_FLAG_EXACT;
   uint8_t tt_pv = 0;
+  uint8_t tt_was_pv = pv_node;
 
   uint8_t root_node = pos->ply == 0;
 
@@ -484,6 +488,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       }
     }
   }
+
+  tt_was_pv |= tt_pv;
 
   // Internal Iterative Reductions
   if ((pv_node || cutnode) && !ss->excluded_move && depth >= IIR_DEPTH &&
