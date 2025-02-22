@@ -76,9 +76,13 @@ int SEEPieceValues[] = {98, 285, 304, 518, 925, 0, 0};
 
 int lmr[2][MAX_PLY + 1][256];
 
+int SEE_MARGIN[MAX_PLY + 1][2];
+
 // Initializes the late move reduction array
 void init_reductions(void) {
   for (int depth = 0; depth <= MAX_PLY; depth++) {
+    SEE_MARGIN[depth][0] = -SEE_CAPTURE * depth * depth;
+    SEE_MARGIN[depth][1] = -SEE_QUIET * depth;
     for (int move = 0; move < 256; move++) {
       if (move == 0 || depth == 0) {
         lmr[0][depth][move] = 0;
@@ -678,9 +682,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     }
 
     // SEE PVS Pruning
-    const int see_threshold =
-        quiet ? -SEE_QUIET * depth : -SEE_CAPTURE * depth * depth;
-    if (depth <= SEE_DEPTH && legal_moves > 0 && !SEE(pos, move, see_threshold))
+    if (depth <= SEE_DEPTH && legal_moves > 0 && !SEE(pos, move, SEE_MARGIN[depth][quiet]))
       continue;
 
     int extensions = 0;

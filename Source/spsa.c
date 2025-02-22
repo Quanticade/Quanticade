@@ -112,6 +112,9 @@ void add_int_spsa(char name[], int *value, int min, int max, double rate,
 #define SPSA_INT(VARIABLE, TUNABLE)                                            \
   add_int_spsa(STRINGIFY(VARIABLE), &VARIABLE, 1, SPSA_MAX(VARIABLE),          \
                RATE(VARIABLE), NULL, TUNABLE)
+#define SPSA_INT_FUNC(VARIABLE, FUNC, TUNABLE)                                            \
+  add_int_spsa(STRINGIFY(VARIABLE), &VARIABLE, 1, SPSA_MAX(VARIABLE),          \
+               RATE(VARIABLE), FUNC, TUNABLE)
 #define SPSA_INT_NAME(NAME, VARIABLE, TUNABLE)                                 \
   add_int_spsa(NAME, &VARIABLE, 1, SPSA_MAX(VARIABLE), RATE(VARIABLE), NULL,   \
                TUNABLE)
@@ -131,8 +134,8 @@ void init_spsa_table(void) {
   SPSA_INT(NMP_RED_DIVISER, 0);
   SPSA_INT(NMP_RED_MIN, 0);
   SPSA_INT(IIR_DEPTH, 0);
-  SPSA_INT(SEE_QUIET, 1);
-  SPSA_INT(SEE_CAPTURE, 1);
+  SPSA_INT_FUNC(SEE_QUIET, init_reductions, 1);
+  SPSA_INT_FUNC(SEE_CAPTURE, init_reductions, 1);
   SPSA_INT(SEE_DEPTH, 0);
   SPSA_INT(SE_DEPTH, 0);
   SPSA_INT(SE_DEPTH_REDUCTION, 1);
