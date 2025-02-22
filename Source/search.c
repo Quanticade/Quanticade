@@ -298,7 +298,6 @@ static inline int quiescence(position_t *pos, thread_t *thread,
   // evaluate position
   score = best_score =
       tt_hit ? tt_score : evaluate(pos, &thread->accumulator[pos->ply]);
-  ;
 
   // fail-hard beta cutoff
   if (score >= beta) {
@@ -411,7 +410,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
     hash_flag = HASH_FLAG_UPPER_BOUND;
   }
 
-  write_hash_entry(pos, best_score, 0, best_move, hash_flag, pv_node);
+  write_hash_entry(pos, best_score, 0, best_move, hash_flag, tt_was_pv);
 
   return best_score;
 }
@@ -895,7 +894,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       hash_flag = HASH_FLAG_UPPER_BOUND;
     }
     // store hash entry with the score equal to alpha
-    write_hash_entry(pos, best_score, depth, best_move, hash_flag, pv_node);
+    write_hash_entry(pos, best_score, depth, best_move, hash_flag, tt_was_pv);
   }
 
   // node (position) fails low
