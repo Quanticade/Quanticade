@@ -682,7 +682,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     }
 
     // SEE PVS Pruning
-    if (depth <= SEE_DEPTH && legal_moves > 0 && !SEE(pos, move, SEE_MARGIN[depth][quiet]))
+    if (!SEE(pos, move, (2 + pv_node) * SEE_MARGIN[quiet ? lmr_depth : depth][quiet] / 2))
       continue;
 
     int extensions = 0;
