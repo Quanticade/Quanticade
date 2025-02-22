@@ -674,6 +674,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     }
 
     int r = lmr[quiet][MIN(63, depth)][MIN(63, moves_seen)];
+    r += !pv_node;
     int lmr_depth = MAX(1, depth - 1 - MAX(r, 1));
 
     // Futility Pruning
