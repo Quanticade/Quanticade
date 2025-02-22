@@ -52,7 +52,8 @@ int SE_DEPTH_REDUCTION = 4;
 int SE_PV_DOUBLE_MARGIN = 2;
 int SE_TRIPLE_MARGIN = 35;
 int LMR_PV_NODE = 1192;
-int LMR_HISTORY = 1170;
+int LMR_HISTORY_QUIET = 1170;
+int LMR_HISTORY_NOISY = 1170;
 int LMR_IN_CHECK = 902;
 int LMR_CUTNODE = 877;
 int LMR_TT_DEPTH = 991;
@@ -285,8 +286,8 @@ static inline int quiescence(position_t *pos, thread_t *thread,
   uint8_t tt_was_pv = pv_node;
 
   if (pos->ply &&
-      (tt_hit =
-           read_hash_entry(pos, &best_move, &tt_score, &tt_depth, &tt_flag, &tt_pv)) &&
+      (tt_hit = read_hash_entry(pos, &best_move, &tt_score, &tt_depth, &tt_flag,
+                                &tt_pv)) &&
       pv_node == 0) {
     if ((tt_flag == HASH_FLAG_EXACT) ||
         ((tt_flag == HASH_FLAG_UPPER_BOUND) && (tt_score <= alpha)) ||
@@ -479,8 +480,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   // read hash entry if we're not in a root ply and hash entry is available
   // and current node is not a PV node
   if (!ss->excluded_move &&
-      (tt_hit =
-           read_hash_entry(pos, &tt_move, &tt_score, &tt_depth, &tt_flag, &tt_pv)) &&
+      (tt_hit = read_hash_entry(pos, &tt_move, &tt_score, &tt_depth, &tt_flag,
+                                &tt_pv)) &&
       pv_node == 0 && !root_node) {
     if (tt_depth >= depth) {
       if ((tt_flag == HASH_FLAG_EXACT) ||
@@ -796,7 +797,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     if (depth > 1 && legal_moves > 2 + 2 * pv_node) {
       int R = lmr[quiet][depth][MIN(255, legal_moves)] * 1024;
       R += !pv_node * LMR_PV_NODE;
-      R -= ss->history_score * LMR_HISTORY /
+      R -= ss->history_score * (quiet ? LMR_HISTORY_QUIET : LMR_HISTORY_NOISY) /
            (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
       R -= in_check * LMR_IN_CHECK;
       R += cutnode * LMR_CUTNODE;
