@@ -254,7 +254,8 @@ static inline uint8_t only_pawns(position_t *pos) {
 
 // quiescence search
 static inline int quiescence(position_t *pos, thread_t *thread,
-                             searchstack_t *ss, int alpha, int beta) {
+                             searchstack_t *ss, int alpha, int beta,
+                             uint8_t pv_node) {
   // Check on time
   if (check_time(thread)) {
     stop_threads(thread, thread_count);
@@ -263,10 +264,10 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
   // we are too deep, hence there's an overflow of arrays relying on max ply
   // constant
-  if (pos->ply > MAX_PLY - 1)
+  if (pos->ply > MAX_PLY - 1) {
     // evaluate position
     return evaluate(pos, &thread->accumulator[pos->ply]);
-  ;
+  }
 
   if (pos->ply > pos->seldepth) {
     pos->seldepth = pos->ply;
@@ -274,7 +275,6 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
   uint16_t best_move = 0;
   int score, best_score = 0;
-  int pv_node = beta - alpha > 1;
   int16_t tt_score = 0;
   uint8_t tt_hit = 0;
   uint8_t tt_depth = 0;
@@ -371,7 +371,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
     prefetch_hash_entry(pos->hash_key);
 
     // score current move
-    score = -quiescence(pos, thread, ss, -beta, -alpha);
+    score = -quiescence(pos, thread, ss, -beta, -alpha, pv_node);
 
     // decrement ply
     pos->ply--;
@@ -417,7 +417,8 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
 // negamax alpha beta search
 static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
-                          int alpha, int beta, int depth, uint8_t cutnode, uint8_t pv_node) {
+                          int alpha, int beta, int depth, uint8_t cutnode,
+                          uint8_t pv_node) {
   // init PV length
   thread->pv.pv_length[pos->ply] = pos->ply;
 
@@ -470,7 +471,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   // recursion escape condition
   if (!in_check && depth <= 0) {
     // run quiescence search
-    return quiescence(pos, thread, ss, alpha, beta);
+    return quiescence(pos, thread, ss, alpha, beta, pv_node);
   }
 
   // read hash entry if we're not in a root ply and hash entry is available
@@ -571,8 +572,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
       /* search moves with reduced depth to find beta cutoffs
          depth - 1 - R where R is a reduction limit */
-      current_score =
-          -negamax(pos, thread, ss + 1, -beta, -beta + 1, depth - R, !cutnode, NON_PV);
+      current_score = -negamax(pos, thread, ss + 1, -beta, -beta + 1, depth - R,
+                               !cutnode, NON_PV);
 
       (ss + 1)->null_move = 0;
 
@@ -599,7 +600,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     if (!pv_node && depth <= RAZOR_DEPTH &&
         ss->static_eval + RAZOR_MARGIN * depth < alpha) {
-      const int razor_score = quiescence(pos, thread, ss, alpha, beta);
+      const int razor_score = quiescence(pos, thread, ss, alpha, beta, NON_PV);
       if (razor_score <= alpha) {
         return razor_score;
       }
@@ -703,8 +704,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
       ss->excluded_move = move;
 
-      const int16_t s_score =
-          negamax(pos, thread, ss, s_beta - 1, s_beta, s_depth, cutnode, NON_PV);
+      const int16_t s_score = negamax(pos, thread, ss, s_beta - 1, s_beta,
+                                      s_depth, cutnode, NON_PV);
 
       ss->excluded_move = 0;
 
