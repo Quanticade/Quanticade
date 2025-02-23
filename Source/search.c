@@ -943,8 +943,8 @@ static void print_thinking(thread_t *thread, int score, int current_depth) {
 
 static inline uint8_t aspiration_windows(thread_t *thread, position_t *pos,
                                          searchstack_t *ss, int alpha,
-                                         int beta) {
-  int window = ASP_WINDOW;
+                                         int beta, int average_score) {
+  int window = ASP_WINDOW + average_score * average_score / 16384;
 
   int fail_high_count = 0;
 
@@ -1029,7 +1029,7 @@ void *iterative_deepening(void *thread_void) {
 
     pos->seldepth = 0;
 
-    if (aspiration_windows(thread, pos, ss, alpha, beta)) {
+    if (aspiration_windows(thread, pos, ss, alpha, beta, average_score)) {
       return NULL;
     }
 
