@@ -523,8 +523,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     return 0;
   }
 
-  // legal moves counter
-  int legal_moves = 0;
+  // moves seen counter
+  int moves_seen = 0;
 
   if (!in_check && !ss->excluded_move) {
     // Reverse Futility Pruning
@@ -664,13 +664,13 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     // Late Move Pruning
     if (!pv_node && quiet &&
-        legal_moves >=
+        moves_seen >=
             LMP_BASE + LMP_MULTIPLIER * depth * depth / (3 - improving) &&
         !only_pawns(pos)) {
       skip_quiets = 1;
     }
 
-    int r = lmr[quiet][MIN(63, depth)][MIN(63, legal_moves)];
+    int r = lmr[quiet][MIN(63, depth)][MIN(63, moves_seen)];
     int lmr_depth = MAX(1, depth - 1 - MAX(r, 1));
 
     // Futility Pruning
@@ -682,7 +682,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     }
 
     // SEE PVS Pruning
-    if (depth <= SEE_DEPTH && legal_moves > 0 &&
+    if (depth <= SEE_DEPTH && moves_seen > 0 &&
         !SEE(pos, move, SEE_MARGIN[depth][quiet]))
       continue;
 
@@ -777,7 +777,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     thread->nodes++;
 
     // increment legal moves
-    legal_moves++;
+    moves_seen++;
 
     if (quiet) {
       add_move(quiet_list, move);
@@ -797,8 +797,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     // PVS & LMR
     int new_depth = depth + extensions - 1;
 
-    if (depth > 1 && legal_moves > 2 + 2 * pv_node) {
-      int R = lmr[quiet][depth][MIN(255, legal_moves)] * 1024;
+    if (depth > 1 && moves_seen > 2 + 2 * pv_node) {
+      int R = lmr[quiet][depth][MIN(255, moves_seen)] * 1024;
       R += !pv_node * LMR_PV_NODE;
       R -= ss->history_score * (quiet ? LMR_HISTORY_QUIET : LMR_HISTORY_NOISY) /
            (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
@@ -812,7 +812,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
       needs_full_search = current_score > alpha && R > 0;
     } else {
-      needs_full_search = !pv_node || legal_moves > 1;
+      needs_full_search = !pv_node || moves_seen > 1;
     }
 
     if (needs_full_search) {
@@ -820,7 +820,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
                                new_depth, !cutnode, NON_PV);
     }
 
-    if (pv_node && (legal_moves == 1 || current_score > alpha)) {
+    if (pv_node && (moves_seen == 1 || current_score > alpha)) {
       current_score =
           -negamax(pos, thread, ss + 1, -beta, -alpha, new_depth, 0, PV_NODE);
     }
@@ -881,7 +881,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   }
 
   // we don't have any legal moves to make in the current postion
-  if (legal_moves == 0) {
+  if (moves_seen == 0) {
     // king is in check
     if (in_check)
       // return mating score (assuming closest distance to mating position)
