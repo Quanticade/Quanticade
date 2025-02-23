@@ -676,13 +676,14 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     // Futility Pruning
     if (!root_node && current_score > -MATE_SCORE && lmr_depth <= FP_DEPTH &&
         !in_check && quiet &&
-        ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION <= alpha) {
+        ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION <= alpha &&
+        !only_pawns(pos)) {
       skip_quiets = 1;
       continue;
     }
 
     // SEE PVS Pruning
-    if (depth <= SEE_DEPTH && legal_moves > 0 &&
+    if (depth <= SEE_DEPTH && legal_moves > 0 && !only_pawns(pos) &&
         !SEE(pos, move, SEE_MARGIN[depth][quiet]))
       continue;
 
