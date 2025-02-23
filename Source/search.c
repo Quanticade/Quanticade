@@ -682,7 +682,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     }
 
     // SEE PVS Pruning
-    if (depth <= SEE_DEPTH && legal_moves > 0 && !SEE(pos, move, SEE_MARGIN[depth][quiet]))
+    if (depth <= SEE_DEPTH && legal_moves > 0 &&
+        !SEE(pos, move, SEE_MARGIN[depth][quiet]))
       continue;
 
     int extensions = 0;
@@ -940,6 +941,61 @@ static void print_thinking(thread_t *thread, int score, int current_depth) {
   printf("\n");
 }
 
+static inline uint8_t aspiration_windows(thread_t *thread, position_t *pos,
+                                         searchstack_t *ss, int alpha,
+                                         int beta) {
+  int window = ASP_WINDOW;
+
+  int fail_high_count = 0;
+
+  while (true) {
+
+    if (check_time(thread)) {
+      stop_threads(thread, thread_count);
+      break;
+    }
+
+    if (thread->stopped) {
+      break;
+    }
+
+    if (thread->depth >= ASP_DEPTH) {
+      alpha = MAX(-INF, thread->score - window);
+      beta = MIN(INF, thread->score + window);
+    }
+
+    // find best move within a given position
+    thread->score = negamax(pos, thread, ss + 4, alpha, beta,
+                            thread->depth - fail_high_count, 0, PV_NODE);
+
+    // We hit an apspiration window cut-off before time ran out and we jumped
+    // to another depth with wider search which we didnt finish
+    if (thread->stopped) {
+      return 1;
+    }
+
+    if (thread->score <= alpha) {
+      beta = (alpha + beta) / 2;
+
+      alpha = MAX(-INF, alpha - window);
+      fail_high_count = 0;
+    }
+
+    else if (thread->score >= beta) {
+      beta = MIN(INF, beta + window);
+
+      if (alpha < 2000 && fail_high_count < 2) {
+        ++fail_high_count;
+      }
+    } else {
+      break;
+    }
+
+    window *= ASP_MULTIPLIER;
+  }
+  return 0;
+}
+
 void *iterative_deepening(void *thread_void) {
   thread_t *thread = (thread_t *)thread_void;
   position_t *pos = &thread->pos;
@@ -973,54 +1029,8 @@ void *iterative_deepening(void *thread_void) {
 
     pos->seldepth = 0;
 
-    int window = ASP_WINDOW;
-
-    int fail_high_count = 0;
-
-    while (true) {
-
-      if (check_time(thread)) {
-        stop_threads(thread, thread_count);
-        break;
-      }
-
-      if (thread->stopped) {
-        break;
-      }
-
-      if (thread->depth >= ASP_DEPTH) {
-        alpha = MAX(-INF, thread->score - window);
-        beta = MIN(INF, thread->score + window);
-      }
-
-      // find best move within a given position
-      thread->score = negamax(pos, thread, ss + 4, alpha, beta,
-                              thread->depth - fail_high_count, 0, PV_NODE);
-
-      // We hit an apspiration window cut-off before time ran out and we jumped
-      // to another depth with wider search which we didnt finish
-      if (thread->stopped) {
-        return NULL;
-      }
-
-      if (thread->score <= alpha) {
-        beta = (alpha + beta) / 2;
-
-        alpha = MAX(-INF, alpha - window);
-        fail_high_count = 0;
-      }
-
-      else if (thread->score >= beta) {
-        beta = MIN(INF, beta + window);
-
-        if (alpha < 2000 && fail_high_count < 2) {
-          ++fail_high_count;
-        }
-      } else {
-        break;
-      }
-
-      window *= ASP_MULTIPLIER;
+    if (aspiration_windows(thread, pos, ss, alpha, beta)) {
+      return NULL;
     }
 
     if (thread->index == 0) {
