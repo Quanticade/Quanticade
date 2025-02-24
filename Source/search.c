@@ -791,8 +791,6 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     prefetch_hash_entry(pos->hash_key);
 
-    uint8_t needs_full_search = 0;
-
     if (in_check) {
       extensions++;
     }
@@ -800,25 +798,26 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     // PVS & LMR
     int new_depth = depth + extensions - 1;
 
+    int R = lmr[quiet][depth][MIN(255, moves_seen)] * 1024;
+    R += !pv_node * LMR_PV_NODE;
+    R -= ss->history_score * (quiet ? LMR_HISTORY_QUIET : LMR_HISTORY_NOISY) /
+         (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
+    R -= in_check * LMR_IN_CHECK;
+    R += cutnode * LMR_CUTNODE;
+    R -= (tt_depth >= depth) * LMR_TT_DEPTH;
+    R -= tt_was_pv * LMR_TT_PV;
+    R = clamp(R / 1024, 1, new_depth);
+    int reduced_depth = new_depth - R + 1;
+
     if (depth >= 2 && moves_seen > 2 + 2 * pv_node) {
-      int R = lmr[quiet][depth][MIN(255, moves_seen)] * 1024;
-      R += !pv_node * LMR_PV_NODE;
-      R -= ss->history_score * (quiet ? LMR_HISTORY_QUIET : LMR_HISTORY_NOISY) /
-           (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
-      R -= in_check * LMR_IN_CHECK;
-      R += cutnode * LMR_CUTNODE;
-      R -= (tt_depth >= depth) * LMR_TT_DEPTH;
-      R -= tt_was_pv * LMR_TT_PV;
-      R = clamp(R / 1024, 1, new_depth);
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
-                               new_depth - R + 1, 1, NON_PV);
+                               reduced_depth, 1, NON_PV);
 
-      needs_full_search = current_score > alpha && R > 0;
-    } else {
-      needs_full_search = !pv_node || moves_seen > 1;
-    }
-
-    if (needs_full_search) {
+      if (current_score > alpha && R != 0) {
+        current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
+                                 new_depth, !cutnode, NON_PV);
+      }
+    } else if (!pv_node || moves_seen > 1) {
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                new_depth, !cutnode, NON_PV);
     }
