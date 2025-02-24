@@ -443,6 +443,9 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
   uint8_t root_node = pos->ply == 0;
 
+  // Limit depth to MAX_PLY - 1 in case extensions make it too big
+  depth = MIN(depth, MAX_PLY - 1);
+
   if (depth == 0 && pos->ply > pos->seldepth) {
     pos->seldepth = pos->ply;
   }
