@@ -791,8 +791,6 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     prefetch_hash_entry(pos->hash_key);
 
-    uint8_t needs_full_search = 0;
-
     if (in_check) {
       extensions++;
     }
@@ -809,16 +807,19 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       R += cutnode * LMR_CUTNODE;
       R -= (tt_depth >= depth) * LMR_TT_DEPTH;
       R -= tt_was_pv * LMR_TT_PV;
-      R = clamp(R / 1024, 1, new_depth);
+      int reduced_depth = MAX(1, MIN(new_depth - R / 1024, new_depth));
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
-                               new_depth - R + 1, 1, NON_PV);
+                               reduced_depth, 1, NON_PV);
 
-      needs_full_search = current_score > alpha && R > 0;
-    } else {
-      needs_full_search = !pv_node || moves_seen > 1;
+      if (current_score > alpha && reduced_depth < new_depth) {
+        if (new_depth < reduced_depth) {
+          current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
+                                   new_depth, !cutnode, NON_PV);
+        }
+      }
     }
 
-    if (needs_full_search) {
+    else if (!pv_node || moves_seen > 1) {
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                new_depth, !cutnode, NON_PV);
     }
