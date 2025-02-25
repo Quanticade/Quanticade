@@ -281,8 +281,8 @@ static inline int quiescence(position_t *pos, thread_t *thread,
   }
 
   uint16_t best_move = 0;
-  int score, best_score = 0;
-  int16_t tt_score = 0;
+  int score = NO_SCORE, best_score = NO_SCORE;
+  int16_t tt_score = NO_SCORE;
   uint8_t tt_hit = 0;
   uint8_t tt_depth = 0;
   uint8_t tt_flag = HASH_FLAG_EXACT;
@@ -431,10 +431,10 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
   // variable to store current move's score (from the static evaluation
   // perspective)
-  int current_score, static_eval = -INF;
+  int current_score = -NO_SCORE, static_eval = -NO_SCORE;
 
   uint16_t tt_move = 0;
-  int16_t tt_score = 0;
+  int16_t tt_score = NO_SCORE;
   uint8_t tt_hit = 0;
   uint8_t tt_depth = 0;
   uint8_t tt_flag = HASH_FLAG_EXACT;
