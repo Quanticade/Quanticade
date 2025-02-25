@@ -440,6 +440,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   uint8_t tt_flag = HASH_FLAG_EXACT;
   uint8_t tt_pv = 0;
   uint8_t tt_was_pv = pv_node;
+  const uint8_t all_node  = !(pv_node || cutnode);
 
   uint8_t root_node = pos->ply == 0;
 
@@ -807,7 +808,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     R += cutnode * LMR_CUTNODE;
     R -= (tt_depth >= depth) * LMR_TT_DEPTH;
     R -= tt_was_pv * LMR_TT_PV;
-    int reduced_depth = MAX(1, MIN(new_depth - (R / 1024) + 1, new_depth));
+    int reduced_depth = MAX(1, MIN(new_depth - (R / 1024) + 1, new_depth + !all_node));
 
     if (depth >= 2 && moves_seen > 2 + 2 * pv_node) {
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
