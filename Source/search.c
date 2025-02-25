@@ -806,8 +806,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     R += cutnode * LMR_CUTNODE;
     R -= (tt_depth >= depth) * LMR_TT_DEPTH;
     R -= tt_was_pv * LMR_TT_PV;
-    R = clamp(R / 1024, 1, new_depth);
-    int reduced_depth = new_depth - R + 1;
+    int reduced_depth = MAX(1, MIN(new_depth - (R / 1024) + 1, new_depth));
 
     if (depth >= 2 && moves_seen > 2 + 2 * pv_node) {
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
