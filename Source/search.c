@@ -291,7 +291,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
   tt_hit = read_hash_entry(pos, &tt_entry);
 
-  if (pos->ply && tt_hit) {
+  if (tt_hit) {
     tt_was_pv |= tt_entry.tt_pv;
     tt_score = tt_entry.score;
     tt_flag = tt_entry.flag;
