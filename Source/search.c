@@ -293,9 +293,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
       (tt_hit = read_hash_entry(pos, &best_move, &tt_score, &tt_depth, &tt_flag,
                                 &tt_pv)) &&
       pv_node == 0) {
-    if ((tt_flag == HASH_FLAG_EXACT) ||
-        ((tt_flag == HASH_FLAG_UPPER_BOUND) && (tt_score <= alpha)) ||
-        ((tt_flag == HASH_FLAG_LOWER_BOUND) && (tt_score >= beta))) {
+    if (can_use_score(alpha, beta, tt_score, tt_flag)) {
       return tt_score;
     }
   }
@@ -303,19 +301,22 @@ static inline int quiescence(position_t *pos, thread_t *thread,
   tt_was_pv |= tt_pv;
 
   // evaluate position
-  score = best_score =
-      tt_hit ? tt_score : evaluate(pos, &thread->accumulator[pos->ply]);
+  best_score = evaluate(pos, &thread->accumulator[pos->ply]);
+
+  if (tt_hit && can_use_score(best_score, best_score, tt_score, tt_flag)) {
+    best_score = tt_score;
+  }
 
   // fail-hard beta cutoff
-  if (score >= beta) {
+  if (best_score >= beta) {
     // node (position) fails high
-    return score;
+    return best_score;
   }
 
   // found a better move
-  if (score > alpha) {
+  if (best_score > alpha) {
     // PV node (position)
-    alpha = score;
+    alpha = best_score;
   }
 
   // create move list instance
@@ -491,9 +492,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
                                 &tt_pv)) &&
       pv_node == 0 && !root_node) {
     if (tt_depth >= depth) {
-      if ((tt_flag == HASH_FLAG_EXACT) ||
-          ((tt_flag == HASH_FLAG_UPPER_BOUND) && (tt_score <= alpha)) ||
-          ((tt_flag == HASH_FLAG_LOWER_BOUND) && (tt_score >= beta))) {
+      if (can_use_score(alpha, beta, tt_score, tt_flag)) {
         return tt_score;
       }
     }
@@ -509,9 +508,10 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
   if (!ss->excluded_move) {
     static_eval = ss->static_eval =
-        in_check ? NO_SCORE
-                 : (tt_hit ? tt_score
-                           : evaluate(pos, &thread->accumulator[pos->ply]));
+        in_check ? NO_SCORE : evaluate(pos, &thread->accumulator[pos->ply]);
+    if (tt_hit && can_use_score(static_eval, static_eval, tt_score, tt_flag)) {
+      static_eval = ss->static_eval = tt_score;
+    }
   }
 
   uint8_t improving = 0;

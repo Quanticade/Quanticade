@@ -19,6 +19,7 @@ extern tt_t tt;
 
 void clear_hash_table(void);
 void prefetch_hash_entry(uint64_t hash_key);
+uint8_t can_use_score(int alpha, int beta, int16_t tt_score, uint8_t tt_flag);
 uint8_t read_hash_entry(position_t *pos, uint16_t *move, int16_t *tt_score,
                         uint8_t *tt_depth, uint8_t *tt_flag, uint8_t *tt_pv);
 void write_hash_entry(position_t *pos, int16_t score, uint8_t depth,

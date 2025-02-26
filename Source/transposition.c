@@ -36,6 +36,15 @@ void prefetch_hash_entry(uint64_t hash_key) {
   __builtin_prefetch(&tt.hash_entry[index]);
 }
 
+uint8_t can_use_score(int alpha, int beta, int16_t tt_score, uint8_t tt_flag) {
+  if ((tt_flag == HASH_FLAG_EXACT) ||
+  ((tt_flag == HASH_FLAG_UPPER_BOUND) && (tt_score <= alpha)) ||
+  ((tt_flag == HASH_FLAG_LOWER_BOUND) && (tt_score >= beta))) {
+    return 1;
+  }
+  return 0;
+}
+
 uint64_t generate_hash_key(position_t *pos) {
   // final hash key
   uint64_t final_key = 0ULL;
