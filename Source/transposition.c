@@ -115,9 +115,17 @@ void init_hash_table(uint64_t mb) {
   }
 }
 
+uint8_t can_use_score(int alpha, int beta, int tt_score, uint8_t flag) {
+  if (tt_score != NO_SCORE && ((flag == HASH_FLAG_EXACT) ||
+      ((flag == HASH_FLAG_UPPER_BOUND) && (tt_score <= alpha)) ||
+      ((flag == HASH_FLAG_LOWER_BOUND) && (tt_score >= beta)))) {
+    return 1;
+  }
+  return 0;
+}
+
 // read hash entry data
-uint8_t read_hash_entry(position_t *pos, uint16_t *move, int16_t *tt_score,
-                    uint8_t *tt_depth, uint8_t *tt_flag, uint8_t *tt_pv) {
+uint8_t read_hash_entry(position_t *pos, tt_entry_t *tt_entry) {
   tt_entry_t *hash_entry = &tt.hash_entry[get_hash_index(pos->hash_key)];
 
   // make sure we're dealing with the exact position we need
@@ -128,11 +136,11 @@ uint8_t read_hash_entry(position_t *pos, uint16_t *move, int16_t *tt_score,
     if (score > MATE_SCORE)
       score -= pos->ply;
 
-    *move = hash_entry->move;
-    *tt_score = score;
-    *tt_depth = hash_entry->depth;
-    *tt_flag = hash_entry->flag;
-    *tt_pv = hash_entry->tt_pv;
+    tt_entry->move = hash_entry->move;
+    tt_entry->score = score;
+    tt_entry->depth = hash_entry->depth;
+    tt_entry->flag = hash_entry->flag;
+    tt_entry->tt_pv = hash_entry->tt_pv;
     return 1;
   }
 
@@ -141,8 +149,8 @@ uint8_t read_hash_entry(position_t *pos, uint16_t *move, int16_t *tt_score,
 }
 
 // write hash entry data
-void write_hash_entry(position_t *pos, int16_t score, uint8_t depth, uint16_t move,
-                      uint8_t hash_flag, uint8_t tt_pv) {
+void write_hash_entry(position_t *pos, int16_t score, uint8_t depth,
+                      uint16_t move, uint8_t hash_flag, uint8_t tt_pv) {
   // create a TT instance pointer to particular hash entry storing
   // the scoring data for the current board position if available
   tt_entry_t *hash_entry = &tt.hash_entry[get_hash_index(pos->hash_key)];

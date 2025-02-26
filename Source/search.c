@@ -284,38 +284,41 @@ static inline int quiescence(position_t *pos, thread_t *thread,
   int score = NO_SCORE, best_score = NO_SCORE;
   int16_t tt_score = NO_SCORE;
   uint8_t tt_hit = 0;
-  uint8_t tt_depth = 0;
   uint8_t tt_flag = HASH_FLAG_EXACT;
-  uint8_t tt_pv = 0;
   uint8_t tt_was_pv = pv_node;
 
-  if (pos->ply &&
-      (tt_hit = read_hash_entry(pos, &best_move, &tt_score, &tt_depth, &tt_flag,
-                                &tt_pv)) &&
-      pv_node == 0) {
-    if ((tt_flag == HASH_FLAG_EXACT) ||
-        ((tt_flag == HASH_FLAG_UPPER_BOUND) && (tt_score <= alpha)) ||
-        ((tt_flag == HASH_FLAG_LOWER_BOUND) && (tt_score >= beta))) {
-      return tt_score;
-    }
+  tt_entry_t tt_entry;
+
+  tt_hit = read_hash_entry(pos, &tt_entry);
+
+  if (pos->ply && tt_hit) {
+    tt_was_pv |= tt_entry.tt_pv;
+    tt_score = tt_entry.score;
+    tt_flag = tt_entry.flag;
   }
 
-  tt_was_pv |= tt_pv;
+  // If we arent in PV node and we hit requirements for cutoff
+  // we can return early from search
+  if (!pv_node && can_use_score(alpha, beta, tt_score, tt_flag)) {
+    return tt_score;
+  }
 
-  // evaluate position
-  score = best_score =
-      tt_hit ? tt_score : evaluate(pos, &thread->accumulator[pos->ply]);
+  best_score = ss->static_eval = evaluate(pos, &thread->accumulator[pos->ply]);
+
+  if (tt_hit && can_use_score(best_score, best_score, tt_score, tt_flag)) {
+    best_score = tt_score;
+  }
 
   // fail-hard beta cutoff
-  if (score >= beta) {
+  if (best_score >= beta) {
     // node (position) fails high
-    return score;
+    return best_score;
   }
 
   // found a better move
-  if (score > alpha) {
+  if (best_score > alpha) {
     // PV node (position)
-    alpha = score;
+    alpha = best_score;
   }
 
   // create move list instance
@@ -438,7 +441,6 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   uint8_t tt_hit = 0;
   uint8_t tt_depth = 0;
   uint8_t tt_flag = HASH_FLAG_EXACT;
-  uint8_t tt_pv = 0;
   uint8_t tt_was_pv = pv_node;
 
   uint8_t root_node = pos->ply == 0;
@@ -484,22 +486,24 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     return quiescence(pos, thread, ss, alpha, beta, pv_node);
   }
 
-  // read hash entry if we're not in a root ply and hash entry is available
-  // and current node is not a PV node
-  if (!ss->excluded_move &&
-      (tt_hit = read_hash_entry(pos, &tt_move, &tt_score, &tt_depth, &tt_flag,
-                                &tt_pv)) &&
-      pv_node == 0 && !root_node) {
-    if (tt_depth >= depth) {
-      if ((tt_flag == HASH_FLAG_EXACT) ||
-          ((tt_flag == HASH_FLAG_UPPER_BOUND) && (tt_score <= alpha)) ||
-          ((tt_flag == HASH_FLAG_LOWER_BOUND) && (tt_score >= beta))) {
-        return tt_score;
-      }
-    }
+  tt_entry_t tt_entry;
+
+  tt_hit = read_hash_entry(pos, &tt_entry);
+
+  if (tt_hit) {
+    tt_was_pv |= tt_entry.tt_pv;
+    tt_score = tt_entry.score;
+    tt_depth = tt_entry.depth;
+    tt_flag = tt_entry.flag;
+    tt_move = tt_entry.move;
   }
 
-  tt_was_pv |= tt_pv;
+  // If we arent in excluded move or PV node and we hit requirements for cutoff
+  // we can return early from search
+  if (!ss->excluded_move && !pv_node && tt_depth >= depth &&
+      can_use_score(alpha, beta, tt_score, tt_flag)) {
+    return tt_score;
+  }
 
   // Internal Iterative Reductions
   if ((pv_node || cutnode) && !ss->excluded_move && depth >= IIR_DEPTH &&
@@ -507,11 +511,14 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     depth--;
   }
 
-  if (!ss->excluded_move) {
-    static_eval = ss->static_eval =
-        in_check ? NO_SCORE
-                 : (tt_hit ? tt_score
-                           : evaluate(pos, &thread->accumulator[pos->ply]));
+  if (in_check) {
+    static_eval = ss->static_eval = NO_SCORE;
+  }
+  else if (!ss->excluded_move) {
+    static_eval = ss->static_eval = evaluate(pos, &thread->accumulator[pos->ply]);
+    if (tt_hit && can_use_score(static_eval, static_eval, tt_score, tt_flag)) {
+      static_eval = ss->static_eval = tt_score;
+    }
   }
 
   uint8_t improving = 0;
