@@ -307,17 +307,21 @@ static inline int quiescence(position_t *pos, thread_t *thread,
   int score = NO_SCORE, best_score = NO_SCORE;
   int raw_static_eval = NO_SCORE;
   int16_t tt_score = NO_SCORE;
+  int16_t tt_static_eval = NO_SCORE;
   uint8_t tt_hit = 0;
   uint8_t tt_flag = HASH_FLAG_EXACT;
   uint8_t tt_was_pv = pv_node;
 
   tt_entry_t tt_entry;
+  //A hack so compiler doesnt tell us it can be used uninitialized
+  tt_entry.static_eval = NO_SCORE;
 
   tt_hit = read_hash_entry(pos, &tt_entry);
 
   if (tt_hit) {
     tt_was_pv |= tt_entry.tt_pv;
     tt_score = tt_entry.score;
+    tt_static_eval = tt_entry.static_eval;
     tt_flag = tt_entry.flag;
   }
 
@@ -327,7 +331,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
     return tt_score;
   }
 
-  raw_static_eval = evaluate(pos, &thread->accumulator[pos->ply]);
+  raw_static_eval = tt_static_eval != NO_SCORE ? tt_static_eval : evaluate(pos, &thread->accumulator[pos->ply]);
   best_score = ss->static_eval =
       adjust_static_eval(thread, pos, raw_static_eval);
 
@@ -448,7 +452,8 @@ static inline int quiescence(position_t *pos, thread_t *thread,
     hash_flag = HASH_FLAG_UPPER_BOUND;
   }
 
-  write_hash_entry(pos, best_score, 0, best_move, hash_flag, tt_was_pv);
+  write_hash_entry(pos, best_score, raw_static_eval, 0, best_move, hash_flag,
+                   tt_was_pv);
 
   return best_score;
 }
@@ -467,6 +472,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
   uint16_t tt_move = 0;
   int16_t tt_score = NO_SCORE;
+  int16_t tt_static_eval = NO_SCORE;
   uint8_t tt_hit = 0;
   uint8_t tt_depth = 0;
   uint8_t tt_flag = HASH_FLAG_EXACT;
@@ -522,6 +528,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   if (tt_hit) {
     tt_was_pv |= tt_entry.tt_pv;
     tt_score = tt_entry.score;
+    tt_static_eval = tt_entry.static_eval;
     tt_depth = tt_entry.depth;
     tt_flag = tt_entry.flag;
     tt_move = tt_entry.move;
@@ -543,7 +550,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   if (in_check) {
     static_eval = ss->static_eval = NO_SCORE;
   } else if (!ss->excluded_move) {
-    raw_static_eval = evaluate(pos, &thread->accumulator[pos->ply]);
+    raw_static_eval = tt_static_eval != NO_SCORE ? tt_static_eval : evaluate(pos, &thread->accumulator[pos->ply]);
 
     // adjust static eval with corrhist
     static_eval = ss->static_eval =
@@ -948,7 +955,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       hash_flag = HASH_FLAG_UPPER_BOUND;
     }
     // store hash entry with the score equal to alpha
-    write_hash_entry(pos, best_score, depth, best_move, hash_flag, tt_was_pv);
+    write_hash_entry(pos, best_score, raw_static_eval, depth, best_move, hash_flag, tt_was_pv);
 
     if (!in_check && (!best_move || !(is_move_promotion(best_move) ||
                                       get_move_capture(best_move)))) {
