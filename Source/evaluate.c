@@ -9,7 +9,7 @@ nnue_t nnue_data;
 extern nnue_settings_t nnue_settings;
 
 int evaluate(position_t *pos, accumulator_t *accumulator) {
-  int eval = nnue_eval_pos(pos, accumulator);
+  int eval = nnue_evaluate(pos, accumulator);
 
   int phase = 3 * popcount(pos->bitboards[n] | pos->bitboards[N]) +
               3 * popcount(pos->bitboards[b] | pos->bitboards[B]) +
