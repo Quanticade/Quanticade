@@ -513,9 +513,9 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
   if (in_check) {
     static_eval = ss->static_eval = NO_SCORE;
-  }
-  else if (!ss->excluded_move) {
-    static_eval = ss->static_eval = evaluate(pos, &thread->accumulator[pos->ply]);
+  } else if (!ss->excluded_move) {
+    static_eval = ss->static_eval =
+        evaluate(pos, &thread->accumulator[pos->ply]);
     if (tt_hit && can_use_score(static_eval, static_eval, tt_score, tt_flag)) {
       static_eval = ss->static_eval = tt_score;
     }
@@ -525,6 +525,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
   if ((ss - 2)->static_eval != NO_SCORE) {
     improving = static_eval > (ss - 2)->static_eval;
+  } else if ((ss - 4)->static_eval != NO_SCORE) {
+    improving = static_eval > (ss - 4)->static_eval;
   }
 
   // Check on time
@@ -703,8 +705,9 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     // A rather simple idea that if our TT move is accurate we run a reduced
     // search to see if we can beat this score. If not we extend the TT move
     // search
-    if (pos->ply < thread->depth * 2 && !root_node && depth >= SE_DEPTH && move == tt_move &&
-        !ss->excluded_move && tt_depth >= depth - SE_DEPTH_REDUCTION &&
+    if (pos->ply < thread->depth * 2 && !root_node && depth >= SE_DEPTH &&
+        move == tt_move && !ss->excluded_move &&
+        tt_depth >= depth - SE_DEPTH_REDUCTION &&
         tt_flag != HASH_FLAG_UPPER_BOUND && abs(tt_score) < MATE_SCORE) {
       const int s_beta = tt_score - depth;
       const int s_depth = (depth - 1) / 2;
