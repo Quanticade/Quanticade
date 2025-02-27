@@ -24,9 +24,10 @@ typedef struct nnue {
 extern nnue_t nnue;
 
 uint8_t get_king_bucket(uint8_t side, uint8_t square);
-uint8_t need_refresh(uint8_t white_bucket, uint8_t black_bucket,
-                     uint8_t old_w_bucket, uint8_t old_b_bucket);
+uint8_t need_refresh(uint8_t *mailbox, uint16_t move);
 void nnue_init(const char *nnue_file_name);
+void refresh_white_accumulator(position_t *pos, accumulator_t *accumulator);
+void refresh_black_accumulator(position_t *pos, accumulator_t *accumulator);
 void init_accumulator(position_t *pos, accumulator_t *accumulator);
 int nnue_evaluate(position_t *pos, accumulator_t *accumulator);
 int nnue_eval_pos(position_t *pos, accumulator_t *accumulator);

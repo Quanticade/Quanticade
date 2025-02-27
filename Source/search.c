@@ -366,9 +366,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
     uint8_t white_bucket = get_king_bucket(white, get_lsb(pos->bitboards[K]));
     uint8_t black_bucket = get_king_bucket(black, get_lsb(pos->bitboards[k]));
-    uint8_t old_w_bucket = get_king_bucket(white, get_lsb(bitboards_copy[K]));
-    uint8_t old_b_bucket = get_king_bucket(black, get_lsb(bitboards_copy[k]));
-    if (need_refresh(white_bucket, black_bucket, old_w_bucket, old_b_bucket)) {
+    if (need_refresh(mailbox_copy, move_list->entry[count].move)) {
       init_accumulator(pos, &thread->accumulator[pos->ply]);
     } else {
       accumulator_make_move(&thread->accumulator[pos->ply],
@@ -789,9 +787,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     uint8_t white_bucket = get_king_bucket(white, get_lsb(pos->bitboards[K]));
     uint8_t black_bucket = get_king_bucket(black, get_lsb(pos->bitboards[k]));
-    uint8_t old_w_bucket = get_king_bucket(white, get_lsb(bitboards_copy[K]));
-    uint8_t old_b_bucket = get_king_bucket(black, get_lsb(bitboards_copy[k]));
-    if (need_refresh(white_bucket, black_bucket, old_w_bucket, old_b_bucket)) {
+    if (need_refresh(mailbox_copy, move_list->entry[count].move)) {
       init_accumulator(pos, &thread->accumulator[pos->ply]);
     } else {
       accumulator_make_move(&thread->accumulator[pos->ply],
