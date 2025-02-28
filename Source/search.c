@@ -367,7 +367,19 @@ static inline int quiescence(position_t *pos, thread_t *thread,
     uint8_t white_bucket = get_king_bucket(white, get_lsb(pos->bitboards[K]));
     uint8_t black_bucket = get_king_bucket(black, get_lsb(pos->bitboards[k]));
     if (need_refresh(mailbox_copy, move_list->entry[count].move)) {
-      init_accumulator(pos, &thread->accumulator[pos->ply]);
+      if (pos->side == white) {
+        white_accumulator_make_move(&thread->accumulator[pos->ply],
+                                    &thread->accumulator[pos->ply - 1],
+                                    white_bucket, pos->side,
+                                    move_list->entry[count].move, mailbox_copy);
+        refresh_black_accumulator(pos, &thread->accumulator[pos->ply]);
+      } else if (pos->side == black) {
+        black_accumulator_make_move(&thread->accumulator[pos->ply],
+                                    &thread->accumulator[pos->ply - 1],
+                                    black_bucket, pos->side,
+                                    move_list->entry[count].move, mailbox_copy);
+        refresh_white_accumulator(pos, &thread->accumulator[pos->ply]);
+      }
     } else {
       accumulator_make_move(&thread->accumulator[pos->ply],
                             &thread->accumulator[pos->ply - 1], white_bucket,

@@ -31,6 +31,14 @@ void refresh_black_accumulator(position_t *pos, accumulator_t *accumulator);
 void init_accumulator(position_t *pos, accumulator_t *accumulator);
 int nnue_evaluate(position_t *pos, accumulator_t *accumulator);
 int nnue_eval_pos(position_t *pos, accumulator_t *accumulator);
+void white_accumulator_make_move(accumulator_t *accumulator,
+                                 accumulator_t *prev_accumulator,
+                                 uint8_t white_bucket, uint8_t side, int move,
+                                 uint8_t *mailbox);
+void black_accumulator_make_move(accumulator_t *accumulator,
+                                 accumulator_t *prev_accumulator,
+                                 uint8_t black_bucket, uint8_t side, int move,
+                                 uint8_t *mailbox);
 void accumulator_make_move(accumulator_t *accumulator,
                            accumulator_t *prev_accumulator,
                            uint8_t white_bucket, uint8_t black_bucket,
