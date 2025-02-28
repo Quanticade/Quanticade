@@ -364,9 +364,16 @@ static inline int quiescence(position_t *pos, thread_t *thread,
       continue;
     }
 
-    accumulator_make_move(&thread->accumulator[pos->ply],
-                          &thread->accumulator[pos->ply - 1], pos->side,
-                          move_list->entry[count].move, mailbox_copy);
+    uint8_t white_bucket = get_king_bucket(white, get_lsb(pos->bitboards[K]));
+    uint8_t black_bucket = get_king_bucket(black, get_lsb(pos->bitboards[k]));
+    if (need_refresh(mailbox_copy, move_list->entry[count].move)) {
+      init_accumulator(pos, &thread->accumulator[pos->ply]);
+    } else {
+      accumulator_make_move(&thread->accumulator[pos->ply],
+                            &thread->accumulator[pos->ply - 1], white_bucket,
+                            black_bucket, pos->side,
+                            move_list->entry[count].move, mailbox_copy);
+    }
 
     ss->move = move_list->entry[count].move;
     ss->piece = mailbox_copy[get_move_source(move_list->entry[count].move)];
@@ -513,9 +520,9 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
   if (in_check) {
     static_eval = ss->static_eval = NO_SCORE;
-  }
-  else if (!ss->excluded_move) {
-    static_eval = ss->static_eval = evaluate(pos, &thread->accumulator[pos->ply]);
+  } else if (!ss->excluded_move) {
+    static_eval = ss->static_eval =
+        evaluate(pos, &thread->accumulator[pos->ply]);
     if (tt_hit && can_use_score(static_eval, static_eval, tt_score, tt_flag)) {
       static_eval = ss->static_eval = tt_score;
     }
@@ -703,8 +710,9 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     // A rather simple idea that if our TT move is accurate we run a reduced
     // search to see if we can beat this score. If not we extend the TT move
     // search
-    if (pos->ply < thread->depth * 2 && !root_node && depth >= SE_DEPTH && move == tt_move &&
-        !ss->excluded_move && tt_depth >= depth - SE_DEPTH_REDUCTION &&
+    if (pos->ply < thread->depth * 2 && !root_node && depth >= SE_DEPTH &&
+        move == tt_move && !ss->excluded_move &&
+        tt_depth >= depth - SE_DEPTH_REDUCTION &&
         tt_flag != HASH_FLAG_UPPER_BOUND && abs(tt_score) < MATE_SCORE) {
       const int s_beta = tt_score - depth;
       const int s_depth = (depth - 1) / 2;
@@ -777,9 +785,16 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       continue;
     }
 
-    accumulator_make_move(&thread->accumulator[pos->ply],
-                          &thread->accumulator[pos->ply - 1], pos->side,
-                          move_list->entry[count].move, mailbox_copy);
+    uint8_t white_bucket = get_king_bucket(white, get_lsb(pos->bitboards[K]));
+    uint8_t black_bucket = get_king_bucket(black, get_lsb(pos->bitboards[k]));
+    if (need_refresh(mailbox_copy, move_list->entry[count].move)) {
+      init_accumulator(pos, &thread->accumulator[pos->ply]);
+    } else {
+      accumulator_make_move(&thread->accumulator[pos->ply],
+                            &thread->accumulator[pos->ply - 1], white_bucket,
+                            black_bucket, pos->side,
+                            move_list->entry[count].move, mailbox_copy);
+    }
 
     ss->move = move;
     ss->piece = mailbox_copy[get_move_source(move)];
