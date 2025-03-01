@@ -42,7 +42,7 @@ int FP_ADDITION = 159;
 int NMP_BASE_REDUCTION = 4;
 int NMP_DIVISER = 3;
 int NMP_RED_DIVISER = 205;
-int NMP_RED_MIN = 6;
+int NMP_RED_MIN = 3;
 int IIR_DEPTH = 4;
 int SEE_QUIET = 63;
 int SEE_CAPTURE = 34;
@@ -574,7 +574,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
         !only_pawns(pos)) {
       int R = MIN((ss->static_eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) +
               depth / NMP_DIVISER + NMP_BASE_REDUCTION;
-      R = MIN(R, depth);
+      R = clamp(R, 0, depth);
       // preserve board state
       copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
                  pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
