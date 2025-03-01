@@ -323,31 +323,40 @@ int nnue_evaluate(position_t *pos, accumulator_t *accumulator) {
   return eval;
 }
 
-static inline void
-accumulator_addsub(accumulator_t *accumulator, accumulator_t *prev_accumulator,
-                   uint8_t white_bucket, uint8_t black_bucket, uint8_t piece1,
-                   uint8_t piece2, uint8_t from1, uint8_t to2) {
+static inline void accumulator_addsub(accumulator_t *accumulator,
+                                      accumulator_t *prev_accumulator,
+                                      uint8_t white_bucket,
+                                      uint8_t black_bucket, uint8_t piece1,
+                                      uint8_t piece2, uint8_t from1,
+                                      uint8_t to2, uint8_t color_flag) {
   size_t white_idx_from = get_white_idx(piece1, from1);
   size_t black_idx_from = get_black_idx(piece1, from1);
   size_t white_idx_to = get_white_idx(piece2, to2);
   size_t black_idx_to = get_black_idx(piece2, to2);
 
   for (int i = 0; i < HIDDEN_SIZE; ++i) {
-    accumulator->accumulator[white][i] =
-        prev_accumulator->accumulator[white][i] -
-        nnue.feature_weights[white_bucket][white_idx_from][i] +
-        nnue.feature_weights[white_bucket][white_idx_to][i];
-    accumulator->accumulator[black][i] =
-        prev_accumulator->accumulator[black][i] -
-        nnue.feature_weights[black_bucket][black_idx_from][i] +
-        nnue.feature_weights[black_bucket][black_idx_to][i];
+    if (color_flag == 0 || color_flag == 2) {
+      accumulator->accumulator[white][i] =
+          prev_accumulator->accumulator[white][i] -
+          nnue.feature_weights[white_bucket][white_idx_from][i] +
+          nnue.feature_weights[white_bucket][white_idx_to][i];
+    }
+    if (color_flag == 1 || color_flag == 2) {
+      accumulator->accumulator[black][i] =
+          prev_accumulator->accumulator[black][i] -
+          nnue.feature_weights[black_bucket][black_idx_from][i] +
+          nnue.feature_weights[black_bucket][black_idx_to][i];
+    }
   }
 }
 
-static inline void accumulator_addsubsub(
-    accumulator_t *accumulator, accumulator_t *prev_accumulator,
-    uint8_t white_bucket, uint8_t black_bucket, uint8_t piece1, uint8_t piece2,
-    uint8_t piece3, uint8_t from1, uint8_t from2, uint8_t to3) {
+static inline void accumulator_addsubsub(accumulator_t *accumulator,
+                                         accumulator_t *prev_accumulator,
+                                         uint8_t white_bucket,
+                                         uint8_t black_bucket, uint8_t piece1,
+                                         uint8_t piece2, uint8_t piece3,
+                                         uint8_t from1, uint8_t from2,
+                                         uint8_t to3, uint8_t color_flag) {
   size_t white_idx_from1 = get_white_idx(piece1, from1);
   size_t black_idx_from1 = get_black_idx(piece1, from1);
   size_t white_idx_from2 = get_white_idx(piece2, from2);
@@ -356,25 +365,28 @@ static inline void accumulator_addsubsub(
   size_t black_idx_to = get_black_idx(piece3, to3);
 
   for (int i = 0; i < HIDDEN_SIZE; ++i) {
-    accumulator->accumulator[white][i] =
-        prev_accumulator->accumulator[white][i] -
-        nnue.feature_weights[white_bucket][white_idx_from1][i] -
-        nnue.feature_weights[white_bucket][white_idx_from2][i] +
-        nnue.feature_weights[white_bucket][white_idx_to][i];
-    accumulator->accumulator[black][i] =
-        prev_accumulator->accumulator[black][i] -
-        nnue.feature_weights[black_bucket][black_idx_from1][i] -
-        nnue.feature_weights[black_bucket][black_idx_from2][i] +
-        nnue.feature_weights[black_bucket][black_idx_to][i];
+    if (color_flag == 0 || color_flag == 2) {
+      accumulator->accumulator[white][i] =
+          prev_accumulator->accumulator[white][i] -
+          nnue.feature_weights[white_bucket][white_idx_from1][i] -
+          nnue.feature_weights[white_bucket][white_idx_from2][i] +
+          nnue.feature_weights[white_bucket][white_idx_to][i];
+    }
+    if (color_flag == 1 || color_flag == 2) {
+      accumulator->accumulator[black][i] =
+          prev_accumulator->accumulator[black][i] -
+          nnue.feature_weights[black_bucket][black_idx_from1][i] -
+          nnue.feature_weights[black_bucket][black_idx_from2][i] +
+          nnue.feature_weights[black_bucket][black_idx_to][i];
+    }
   }
 }
 
-static inline void
-accumulator_addaddsubsub(accumulator_t *accumulator,
-                         accumulator_t *prev_accumulator, uint8_t white_bucket,
-                         uint8_t black_bucket, uint8_t piece1, uint8_t piece2,
-                         uint8_t piece3, uint8_t piece4, uint8_t from1,
-                         uint8_t from2, uint8_t to3, uint8_t to4) {
+static inline void accumulator_addaddsubsub(
+    accumulator_t *accumulator, accumulator_t *prev_accumulator,
+    uint8_t white_bucket, uint8_t black_bucket, uint8_t piece1, uint8_t piece2,
+    uint8_t piece3, uint8_t piece4, uint8_t from1, uint8_t from2, uint8_t to3,
+    uint8_t to4, uint8_t color_flag) {
   size_t white_idx_from1 = get_white_idx(piece1, from1);
   size_t black_idx_from1 = get_black_idx(piece1, from1);
   size_t white_idx_from2 = get_white_idx(piece2, from2);
@@ -385,25 +397,30 @@ accumulator_addaddsubsub(accumulator_t *accumulator,
   size_t black_idx_to2 = get_black_idx(piece4, to4);
 
   for (int i = 0; i < HIDDEN_SIZE; ++i) {
-    accumulator->accumulator[white][i] =
-        prev_accumulator->accumulator[white][i] -
-        nnue.feature_weights[white_bucket][white_idx_from1][i] -
-        nnue.feature_weights[white_bucket][white_idx_from2][i] +
-        nnue.feature_weights[white_bucket][white_idx_to1][i] +
-        nnue.feature_weights[white_bucket][white_idx_to2][i];
-    accumulator->accumulator[black][i] =
-        prev_accumulator->accumulator[black][i] -
-        nnue.feature_weights[black_bucket][black_idx_from1][i] -
-        nnue.feature_weights[black_bucket][black_idx_from2][i] +
-        nnue.feature_weights[black_bucket][black_idx_to1][i] +
-        nnue.feature_weights[black_bucket][black_idx_to2][i];
+    if (color_flag == 0 || color_flag == 2) {
+      accumulator->accumulator[white][i] =
+          prev_accumulator->accumulator[white][i] -
+          nnue.feature_weights[white_bucket][white_idx_from1][i] -
+          nnue.feature_weights[white_bucket][white_idx_from2][i] +
+          nnue.feature_weights[white_bucket][white_idx_to1][i] +
+          nnue.feature_weights[white_bucket][white_idx_to2][i];
+    }
+    if (color_flag == 1 || color_flag == 2) {
+      accumulator->accumulator[black][i] =
+          prev_accumulator->accumulator[black][i] -
+          nnue.feature_weights[black_bucket][black_idx_from1][i] -
+          nnue.feature_weights[black_bucket][black_idx_from2][i] +
+          nnue.feature_weights[black_bucket][black_idx_to1][i] +
+          nnue.feature_weights[black_bucket][black_idx_to2][i];
+    }
   }
 }
 
 void accumulator_make_move(accumulator_t *accumulator,
                            accumulator_t *prev_accumulator,
                            uint8_t white_bucket, uint8_t black_bucket,
-                           uint8_t side, int move, uint8_t *mailbox) {
+                           uint8_t side, int move, uint8_t *mailbox,
+                           uint8_t color_flag) {
   int from = get_move_source(move);
   int to = get_move_target(move);
   int moving_piece = mailbox[from];
@@ -418,10 +435,11 @@ void accumulator_make_move(accumulator_t *accumulator,
       uint8_t captured_piece = mailbox[to];
       accumulator_addsubsub(accumulator, prev_accumulator, white_bucket,
                             black_bucket, pawn, captured_piece, promoted_piece,
-                            from, to, to);
+                            from, to, to, color_flag);
     } else {
       accumulator_addsub(accumulator, prev_accumulator, white_bucket,
-                         black_bucket, pawn, promoted_piece, from, to);
+                         black_bucket, pawn, promoted_piece, from, to,
+                         color_flag);
     }
   }
 
@@ -430,14 +448,14 @@ void accumulator_make_move(accumulator_t *accumulator,
     uint8_t captured_piece = mailbox[remove_square];
     accumulator_addsubsub(accumulator, prev_accumulator, white_bucket,
                           black_bucket, captured_piece, moving_piece,
-                          moving_piece, remove_square, from, to);
+                          moving_piece, remove_square, from, to, color_flag);
   }
 
   else if (capture) {
     uint8_t captured_piece = mailbox[to];
     accumulator_addsubsub(accumulator, prev_accumulator, white_bucket,
                           black_bucket, captured_piece, moving_piece,
-                          moving_piece, to, from, to);
+                          moving_piece, to, from, to, color_flag);
   }
 
   else if (castling) {
@@ -448,7 +466,7 @@ void accumulator_make_move(accumulator_t *accumulator,
       // move H rook
       accumulator_addaddsubsub(accumulator, prev_accumulator, white_bucket,
                                black_bucket, R, moving_piece, R, moving_piece,
-                               h1, from, f1, to);
+                               h1, from, f1, to, color_flag);
       break;
 
     // white castles queen side
@@ -456,7 +474,7 @@ void accumulator_make_move(accumulator_t *accumulator,
       // move A rook
       accumulator_addaddsubsub(accumulator, prev_accumulator, white_bucket,
                                black_bucket, R, moving_piece, R, moving_piece,
-                               a1, from, d1, to);
+                               a1, from, d1, to, color_flag);
       break;
 
     // black castles king side
@@ -464,7 +482,7 @@ void accumulator_make_move(accumulator_t *accumulator,
       // move H rook
       accumulator_addaddsubsub(accumulator, prev_accumulator, white_bucket,
                                black_bucket, r, moving_piece, r, moving_piece,
-                               h8, from, f8, to);
+                               h8, from, f8, to, color_flag);
       break;
 
     // black castles queen side
@@ -472,11 +490,12 @@ void accumulator_make_move(accumulator_t *accumulator,
       // move A rook
       accumulator_addaddsubsub(accumulator, prev_accumulator, white_bucket,
                                black_bucket, r, moving_piece, r, moving_piece,
-                               a8, from, d8, to);
+                               a8, from, d8, to, color_flag);
       break;
     }
   } else {
     accumulator_addsub(accumulator, prev_accumulator, white_bucket,
-                       black_bucket, moving_piece, moving_piece, from, to);
+                       black_bucket, moving_piece, moving_piece, from, to,
+                       color_flag);
   }
 }
