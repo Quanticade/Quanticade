@@ -105,7 +105,7 @@ void scale_time(thread_t *thread, uint8_t best_move_stability,
   double eval_scale[5] = {1.25, 1.15, 1.00, 0.94, 0.88};
   double bm_nodes_fraction =
       (double)nodes_spent_table[move >> 4] / (double)thread->nodes;
-  double node_scaling_factor = 1.6874f - bm_nodes_fraction * 0.921f;
+  double node_scaling_factor = MAX(2.63f - bm_nodes_fraction * 1.7f, 0.1f);
   limits.soft_limit =
       MIN(thread->starttime +
               limits.base_soft * bestmove_scale[best_move_stability] *
