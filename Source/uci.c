@@ -34,7 +34,7 @@ const int default_hash_size = 16;
 
 int thread_count = 1;
 
-double DEF_TIME_MULTIPLIER =  0.07261225544941069;
+double DEF_TIME_MULTIPLIER = 0.07261225544941069;
 double DEF_INC_MULTIPLIER = 0.8484297111945868;
 double MAX_TIME_MULTIPLIER = 0.7569425324273278;
 double HARD_LIMIT_MULTIPLIER = 3.0874339392141033;
@@ -399,10 +399,15 @@ static inline void parse_position(position_t *pos, thread_t *thread,
   }
 }
 
-void scale_time(thread_t *thread, uint8_t best_move_stability, uint8_t eval_stability) {
-  double bestmove_scale[5] = {2.43, 1.35, 1.09, 0.88, 0.68};
+void scale_time(thread_t *thread, uint8_t best_move_stability,
+                uint8_t eval_stability) {
   double eval_scale[5] = {1.25, 1.15, 1.00, 0.94, 0.88};
-  limits.soft_limit = MIN(thread->starttime + limits.base_soft * bestmove_scale[best_move_stability] * eval_scale[eval_stability], limits.max_time + thread->starttime);
+  limits.soft_limit =
+      MIN(thread->starttime + limits.base_soft *
+                                  (1.5114270553993898f -
+                                   best_move_stability * 0.05192744990530549f) *
+                                  eval_scale[eval_stability],
+          limits.max_time + thread->starttime);
 }
 
 static inline void time_control(position_t *pos, thread_t *threads,
@@ -471,14 +476,19 @@ static inline void time_control(position_t *pos, thread_t *threads,
       if (limits.movestogo > 0) {
         base_time = (limits.time / limits.movestogo) + limits.inc;
       } else {
-        base_time = limits.time * DEF_TIME_MULTIPLIER + limits.inc * DEF_INC_MULTIPLIER;
+        base_time =
+            limits.time * DEF_TIME_MULTIPLIER + limits.inc * DEF_INC_MULTIPLIER;
       }
-      
+
       limits.max_time = MAX(1, limits.time * MAX_TIME_MULTIPLIER);
-      limits.base_soft = MIN(base_time * SOFT_LIMIT_MULTIPLIER, limits.max_time);
+      limits.base_soft =
+          MIN(base_time * SOFT_LIMIT_MULTIPLIER, limits.max_time);
       limits.hard_limit =
-          threads->starttime + MIN(base_time * HARD_LIMIT_MULTIPLIER, limits.max_time);
-      limits.soft_limit = threads->starttime + MIN(base_time * SOFT_LIMIT_MULTIPLIER, limits.max_time);
+          threads->starttime +
+          MIN(base_time * HARD_LIMIT_MULTIPLIER, limits.max_time);
+      limits.soft_limit =
+          threads->starttime +
+          MIN(base_time * SOFT_LIMIT_MULTIPLIER, limits.max_time);
     }
   }
 }
@@ -602,7 +612,8 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
         memset(threads[i].quiet_history, 0, sizeof(threads[i].quiet_history));
         memset(threads[i].capture_history, 0,
                sizeof(threads[i].capture_history));
-        memset(threads[i].continuation_history, 0, sizeof(threads[i].continuation_history));
+        memset(threads[i].continuation_history, 0,
+               sizeof(threads[i].continuation_history));
       }
     }
     // parse UCI "go" command
@@ -660,11 +671,11 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
 
     else if (!strncmp(input, "setoption name Threads value ", 29)) {
       sscanf(input, "%*s %*s %*s %*s %d", &thread_count);
-      #ifndef _WIN32
+#ifndef _WIN32
       free(threads);
-      #else
+#else
       _aligned_free(threads);
-      #endif
+#endif
       threads = init_threads(thread_count);
       sti.threads = threads;
     }
