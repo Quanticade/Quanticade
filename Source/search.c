@@ -311,6 +311,9 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
   // fail-hard beta cutoff
   if (best_score >= beta) {
+    if (abs(best_score) < MATE_SCORE && abs(beta) < MATE_SCORE) {
+      best_score = (best_score + beta) / 2;
+    }
     // node (position) fails high
     return best_score;
   }
@@ -1087,7 +1090,7 @@ void *iterative_deepening(void *thread_void) {
                           : (average_score + thread->score) / 2;
 
       if (thread->pv.pv_table[0][0] == prev_best_move) {
-        best_move_stability = MIN(best_move_stability + 1, 4);
+        best_move_stability = MIN(best_move_stability + 1, 18);
       } else {
         prev_best_move = thread->pv.pv_table[0][0];
         best_move_stability = 0;
