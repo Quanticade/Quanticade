@@ -78,6 +78,8 @@ int lmr[2][MAX_PLY + 1][256];
 
 int SEE_MARGIN[MAX_PLY + 1][2];
 
+uint64_t nodes_spent_table[4096] = {0};
+
 // Initializes the late move reduction array
 void init_reductions(void) {
   for (int depth = 0; depth <= MAX_PLY; depth++) {
@@ -95,6 +97,20 @@ void init_reductions(void) {
           LMR_OFFSET_QUIET + log(depth) * log(move) / LMR_DIVISOR_QUIET;
     }
   }
+}
+
+void scale_time(thread_t *thread, uint8_t best_move_stability,
+                uint8_t eval_stability, uint16_t move) {
+  double bestmove_scale[5] = {2.43, 1.35, 1.09, 0.88, 0.68};
+  double eval_scale[5] = {1.25, 1.15, 1.00, 0.94, 0.88};
+  double bm_nodes_fraction =
+      (double)nodes_spent_table[move >> 4] / (double)thread->nodes;
+  double node_scaling_factor = 1.53f - bm_nodes_fraction * 1.74f;
+  limits.soft_limit =
+      MIN(thread->starttime +
+              limits.base_soft * bestmove_scale[best_move_stability] *
+                  eval_scale[eval_stability] * node_scaling_factor,
+          limits.max_time + thread->starttime);
 }
 
 uint8_t check_time(thread_t *thread) {
@@ -842,6 +858,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       extensions++;
     }
 
+    uint64_t nodes_before_search = thread->nodes;
+
     // PVS & LMR
     int new_depth = depth + extensions - 1;
 
@@ -882,6 +900,10 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     // take move back
     restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
                   pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+
+    if (thread->index == 0 && root_node) {
+      nodes_spent_table[move >> 4] += thread->nodes - nodes_before_search;
+    }
 
     // return INF so we can deal with timeout in case we are doing
     // re-search
@@ -1101,7 +1123,8 @@ void *iterative_deepening(void *thread_void) {
       }
 
       if (limits.timeset && thread->depth > 7) {
-        scale_time(thread, best_move_stability, eval_stability);
+        scale_time(thread, best_move_stability, eval_stability,
+                   thread->pv.pv_table[0][0]);
       }
     }
 
@@ -1140,6 +1163,7 @@ void search_position(position_t *pos, thread_t *threads) {
   // clear helper data structures for search
   memset(threads->pv.pv_table, 0, sizeof(threads->pv.pv_table));
   memset(threads->pv.pv_length, 0, sizeof(threads->pv.pv_length));
+  memset(nodes_spent_table, 0, sizeof(nodes_spent_table));
 
   for (int thread_index = 1; thread_index < thread_count; ++thread_index) {
     pthread_create(&pthreads[thread_index], NULL, &iterative_deepening,

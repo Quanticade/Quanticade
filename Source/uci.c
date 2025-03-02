@@ -399,12 +399,6 @@ static inline void parse_position(position_t *pos, thread_t *thread,
   }
 }
 
-void scale_time(thread_t *thread, uint8_t best_move_stability, uint8_t eval_stability) {
-  double bestmove_scale[5] = {2.43, 1.35, 1.09, 0.88, 0.68};
-  double eval_scale[5] = {1.25, 1.15, 1.00, 0.94, 0.88};
-  limits.soft_limit = MIN(thread->starttime + limits.base_soft * bestmove_scale[best_move_stability] * eval_scale[eval_stability], limits.max_time + thread->starttime);
-}
-
 static inline void time_control(position_t *pos, thread_t *threads,
                                 char *line) {
   // reset time control
