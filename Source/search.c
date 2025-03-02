@@ -1090,7 +1090,7 @@ void *iterative_deepening(void *thread_void) {
                           : (average_score + thread->score) / 2;
 
       if (thread->pv.pv_table[0][0] == prev_best_move) {
-        best_move_stability = MIN(best_move_stability + 1, 18);
+        best_move_stability = MIN(best_move_stability + 1, 4);
       } else {
         prev_best_move = thread->pv.pv_table[0][0];
         best_move_stability = 0;
