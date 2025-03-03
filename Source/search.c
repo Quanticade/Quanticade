@@ -529,7 +529,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
   // Internal Iterative Reductions
   if ((pv_node || cutnode) && !ss->excluded_move && depth >= IIR_DEPTH &&
-      !tt_move) {
+      (!tt_move || tt_depth < depth - IIR_DEPTH)) {
     depth--;
   }
 
