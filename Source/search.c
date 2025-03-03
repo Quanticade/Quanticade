@@ -311,6 +311,9 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
   // fail-hard beta cutoff
   if (best_score >= beta) {
+    if (abs(best_score) < MATE_SCORE && abs(beta) < MATE_SCORE) {
+      best_score = (best_score + beta) / 2;
+    }
     // node (position) fails high
     return best_score;
   }
