@@ -1,16 +1,7 @@
-/**********************************\
- ==================================
-
-                UCI
-          forked from VICE
-         by Richard Allbert
-
- ==================================
-\**********************************/
-
 #include "uci.h"
 #include "bitboards.h"
 #include "enums.h"
+#include "history.h"
 #include "move.h"
 #include "movegen.h"
 #include "nnue.h"
@@ -324,6 +315,7 @@ static inline void parse_fen(position_t *pos, char *fen) {
 
   // init hash key
   pos->hash_key = generate_hash_key(pos);
+  pos->pawn_key = generate_pawn_key(pos);
 }
 
 // parse UCI "position" command
@@ -606,6 +598,8 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
                sizeof(threads[i].capture_history));
         memset(threads[i].continuation_history, 0,
                sizeof(threads[i].continuation_history));
+        memset(threads[i].correction_history, 0,
+               sizeof(threads[i].correction_history));
       }
     }
     // parse UCI "go" command
