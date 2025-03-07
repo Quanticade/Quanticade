@@ -33,6 +33,7 @@ int nnue_evaluate(position_t *pos, accumulator_t *accumulator);
 int nnue_eval_pos(position_t *pos, accumulator_t *accumulator);
 void accumulator_make_move(accumulator_t *accumulator,
                            accumulator_t *prev_accumulator,
+                           uint8_t white_king_square, uint8_t black_king_square,
                            uint8_t white_bucket, uint8_t black_bucket,
                            uint8_t side, int move, uint8_t *mailbox,
                            uint8_t color_flag);
