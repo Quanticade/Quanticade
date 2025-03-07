@@ -383,27 +383,29 @@ static inline int quiescence(position_t *pos, thread_t *thread,
       continue;
     }
 
-    uint8_t white_bucket = get_king_bucket(white, get_lsb(pos->bitboards[K]));
-    uint8_t black_bucket = get_king_bucket(black, get_lsb(pos->bitboards[k]));
+    uint8_t white_king_square = get_lsb(pos->bitboards[K]);
+    uint8_t black_king_square = get_lsb(pos->bitboards[k]);
+    uint8_t white_bucket = get_king_bucket(white, white_king_square);
+    uint8_t black_bucket = get_king_bucket(black, black_king_square);
     if (need_refresh(mailbox_copy, move_list->entry[count].move)) {
       if (pos->side == black) {
         refresh_white_accumulator(pos, &thread->accumulator[pos->ply]);
         accumulator_make_move(
             &thread->accumulator[pos->ply], &thread->accumulator[pos->ply - 1],
-            white_bucket, black_bucket, pos->side, move_list->entry[count].move,
-            mailbox_copy, black);
+            white_king_square, black_king_square, white_bucket, black_bucket,
+            pos->side, move_list->entry[count].move, mailbox_copy, black);
       } else if (pos->side == white) {
         refresh_black_accumulator(pos, &thread->accumulator[pos->ply]);
         accumulator_make_move(
             &thread->accumulator[pos->ply], &thread->accumulator[pos->ply - 1],
-            white_bucket, black_bucket, pos->side, move_list->entry[count].move,
-            mailbox_copy, white);
+            white_king_square, black_king_square, white_bucket, black_bucket,
+            pos->side, move_list->entry[count].move, mailbox_copy, white);
       }
     } else {
-      accumulator_make_move(&thread->accumulator[pos->ply],
-                            &thread->accumulator[pos->ply - 1], white_bucket,
-                            black_bucket, pos->side,
-                            move_list->entry[count].move, mailbox_copy, both);
+      accumulator_make_move(
+          &thread->accumulator[pos->ply], &thread->accumulator[pos->ply - 1],
+          white_king_square, black_king_square, white_bucket, black_bucket,
+          pos->side, move_list->entry[count].move, mailbox_copy, both);
     }
 
     ss->move = move_list->entry[count].move;
@@ -816,27 +818,29 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       continue;
     }
 
-    uint8_t white_bucket = get_king_bucket(white, get_lsb(pos->bitboards[K]));
-    uint8_t black_bucket = get_king_bucket(black, get_lsb(pos->bitboards[k]));
+    uint8_t white_king_square = get_lsb(pos->bitboards[K]);
+    uint8_t black_king_square = get_lsb(pos->bitboards[k]);
+    uint8_t white_bucket = get_king_bucket(white, white_king_square);
+    uint8_t black_bucket = get_king_bucket(black, black_king_square);
     if (need_refresh(mailbox_copy, move_list->entry[count].move)) {
       if (pos->side == black) {
         refresh_white_accumulator(pos, &thread->accumulator[pos->ply]);
         accumulator_make_move(
             &thread->accumulator[pos->ply], &thread->accumulator[pos->ply - 1],
-            white_bucket, black_bucket, pos->side, move_list->entry[count].move,
-            mailbox_copy, black);
+            white_king_square, black_king_square, white_bucket, black_bucket,
+            pos->side, move_list->entry[count].move, mailbox_copy, black);
       } else if (pos->side == white) {
         refresh_black_accumulator(pos, &thread->accumulator[pos->ply]);
         accumulator_make_move(
             &thread->accumulator[pos->ply], &thread->accumulator[pos->ply - 1],
-            white_bucket, black_bucket, pos->side, move_list->entry[count].move,
-            mailbox_copy, white);
+            white_king_square, black_king_square, white_bucket, black_bucket,
+            pos->side, move_list->entry[count].move, mailbox_copy, white);
       }
     } else {
-      accumulator_make_move(&thread->accumulator[pos->ply],
-                            &thread->accumulator[pos->ply - 1], white_bucket,
-                            black_bucket, pos->side,
-                            move_list->entry[count].move, mailbox_copy, both);
+      accumulator_make_move(
+          &thread->accumulator[pos->ply], &thread->accumulator[pos->ply - 1],
+          white_king_square, black_king_square, white_bucket, black_bucket,
+          pos->side, move_list->entry[count].move, mailbox_copy, both);
     }
 
     ss->move = move;
