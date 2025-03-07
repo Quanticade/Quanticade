@@ -59,10 +59,6 @@ uint64_t generate_pawn_key(position_t *pos) {
     pop_bit(bitboard, square);
   }
 
-  if (pos->enpassant != no_sq)
-    // hash enpassant
-    final_key ^= keys.enpassant_keys[pos->enpassant];
-
   // return generated hash key
   return final_key;
 }
