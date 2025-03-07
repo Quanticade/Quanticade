@@ -382,6 +382,7 @@ static inline void parse_position(position_t *pos, thread_t *thread,
 
       // make move on the chess board
       make_move(pos, move, all_moves);
+      pos->pawn_key = generate_pawn_key(pos);
 
       // move current character pointer to the end of current move
       while (*current_char && *current_char != ' ')

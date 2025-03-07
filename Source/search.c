@@ -385,6 +385,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
       // skip to next move
       continue;
     }
+    pos->pawn_key = generate_pawn_key(pos);
 
     uint8_t white_king_square = get_lsb(pos->bitboards[K]);
     uint8_t black_king_square = get_lsb(pos->bitboards[k]);
@@ -764,6 +765,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       if (make_move(pos, move, all_moves) == 0) {
         continue;
       }
+      pos->pawn_key = generate_pawn_key(pos);
 
       restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
                     pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
@@ -825,6 +827,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       // skip to next move
       continue;
     }
+    pos->pawn_key = generate_pawn_key(pos);
 
     uint8_t white_king_square = get_lsb(pos->bitboards[K]);
     uint8_t black_king_square = get_lsb(pos->bitboards[k]);
