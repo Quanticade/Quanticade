@@ -34,7 +34,9 @@ const int default_hash_size = 16;
 
 int thread_count = 1;
 
-double DEF_TIME_MULTIPLIER =  0.07261225544941069;
+int32_t move_overhead = 10;
+
+double DEF_TIME_MULTIPLIER = 0.07261225544941069;
 double DEF_INC_MULTIPLIER = 0.8484297111945868;
 double MAX_TIME_MULTIPLIER = 0.7569425324273278;
 double HARD_LIMIT_MULTIPLIER = 3.0874339392141033;
@@ -460,19 +462,25 @@ static inline void time_control(position_t *pos, thread_t *threads,
 
     if (limits.timeset) {
       // Engine <--> GUI communication safety margin
-      limits.time -= MIN(limits.time / 2, 50);
+      printf("overhead: %d\n", move_overhead);
+      limits.time -= MIN(limits.time / 2, move_overhead);
       int64_t base_time = 0;
       if (limits.movestogo > 0) {
         base_time = (limits.time / limits.movestogo) + limits.inc;
       } else {
-        base_time = limits.time * DEF_TIME_MULTIPLIER + limits.inc * DEF_INC_MULTIPLIER;
+        base_time =
+            limits.time * DEF_TIME_MULTIPLIER + limits.inc * DEF_INC_MULTIPLIER;
       }
-      
+
       limits.max_time = MAX(1, limits.time * MAX_TIME_MULTIPLIER);
-      limits.base_soft = MIN(base_time * SOFT_LIMIT_MULTIPLIER, limits.max_time);
+      limits.base_soft =
+          MIN(base_time * SOFT_LIMIT_MULTIPLIER, limits.max_time);
       limits.hard_limit =
-          threads->starttime + MIN(base_time * HARD_LIMIT_MULTIPLIER, limits.max_time);
-      limits.soft_limit = threads->starttime + MIN(base_time * SOFT_LIMIT_MULTIPLIER, limits.max_time);
+          threads->starttime +
+          MIN(base_time * HARD_LIMIT_MULTIPLIER, limits.max_time);
+      limits.soft_limit =
+          threads->starttime +
+          MIN(base_time * SOFT_LIMIT_MULTIPLIER, limits.max_time);
     }
   }
 }
@@ -596,7 +604,8 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
         memset(threads[i].quiet_history, 0, sizeof(threads[i].quiet_history));
         memset(threads[i].capture_history, 0,
                sizeof(threads[i].capture_history));
-        memset(threads[i].continuation_history, 0, sizeof(threads[i].continuation_history));
+        memset(threads[i].continuation_history, 0,
+               sizeof(threads[i].continuation_history));
       }
     }
     // parse UCI "go" command
@@ -625,6 +634,7 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
              default_hash_size, max_hash);
       printf("option name Threads type spin default %d min %d max %d\n", 1, 1,
              256);
+      printf("option name MoveOverhead type spin default 10 min 0 max 5000\n");
       printf("option name EvalFile type string default %s\n",
              nnue_settings.nnue_file);
       printf("option name Clear Hash type button\n");
@@ -654,13 +664,17 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
 
     else if (!strncmp(input, "setoption name Threads value ", 29)) {
       sscanf(input, "%*s %*s %*s %*s %d", &thread_count);
-      #ifndef _WIN32
+#ifndef _WIN32
       free(threads);
-      #else
+#else
       _aligned_free(threads);
-      #endif
+#endif
       threads = init_threads(thread_count);
       sti.threads = threads;
+    }
+
+    else if (!strncmp(input, "setoption name MoveOverhead value ", 34)) {
+      sscanf(input, "%*s %*s %*s %*s %d", &move_overhead);
     }
 
     else if (!strncmp(input, "setoption name EvalFile value ", 30)) {

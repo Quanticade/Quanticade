@@ -97,9 +97,9 @@ typedef struct limits {
   uint64_t soft_limit;
   uint64_t hard_limit;
   uint64_t start_time;
-  uint64_t time;
+  int64_t time;
   uint64_t node_limit;
-  uint32_t inc;
+  int32_t inc;
   uint32_t base_soft;
   uint32_t max_time;
   uint16_t movestogo;
