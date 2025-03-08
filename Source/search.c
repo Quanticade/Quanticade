@@ -675,14 +675,15 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     int16_t pc_see = probcut_beta - ss->static_eval;
     uint16_t pc_tt_move = SEE(pos, tt_move, pc_see) ? tt_move : 0;
 
-    generate_captures(pos, capture_promos);
+    generate_moves(pos, capture_promos);
     for (uint32_t count = 0; count < capture_promos->count; count++) {
       score_move(pos, thread, ss, &capture_promos->entry[count], pc_tt_move);
     }
 
     for (uint32_t count = 0; count < capture_promos->count; count++) {
       int move = capture_promos->entry[count].move;
-      if (move == ss->excluded_move) {
+      if (move == ss->excluded_move ||
+          !(is_move_promotion(move) || get_move_capture(move))) {
         continue;
       }
       copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
