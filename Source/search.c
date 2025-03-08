@@ -538,6 +538,9 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     tt_move = tt_entry.move;
   }
 
+  uint8_t tt_move_noisy =
+      is_move_promotion(tt_move) || get_move_capture(tt_move);
+
   // If we arent in excluded move or PV node and we hit requirements for cutoff
   // we can return early from search
   if (!ss->excluded_move && !pv_node && tt_depth >= depth &&
@@ -594,7 +597,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     if (!ss->null_move && !pv_node && ss->static_eval >= beta && depth >= 3 &&
         !only_pawns(pos)) {
       int R = MIN((ss->static_eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) +
-              depth / NMP_DIVISER + NMP_BASE_REDUCTION;
+              depth / NMP_DIVISER + NMP_BASE_REDUCTION + tt_move_noisy;
       R = MIN(R, depth);
       // preserve board state
       copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
