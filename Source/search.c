@@ -591,7 +591,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     }
 
     // null move pruning
-    if (!ss->null_move && !pv_node && ss->static_eval >= beta && depth >= 3 &&
+    if (!ss->null_move && !pv_node && ss->static_eval >= beta &&
+        ss->static_eval + 30 * depth - 200 >= beta && depth >= 3 &&
         !only_pawns(pos)) {
       int R = MIN((ss->static_eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) +
               depth / NMP_DIVISER + NMP_BASE_REDUCTION;
