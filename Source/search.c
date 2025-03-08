@@ -62,7 +62,7 @@ int ASP_WINDOW = 11;
 int ASP_DEPTH = 4;
 int QS_SEE_THRESHOLD = 6;
 int MO_SEE_THRESHOLD = 130;
-int PROBCUT_ADDITION = 350;
+int PROBCUT_ADDITION = 250;
 double ASP_MULTIPLIER = 1.6541989293231878;
 int LMR_QUIET_HIST_DIV = 7323;
 int LMR_CAPT_HIST_DIV = 7534;
@@ -666,9 +666,10 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   }
 
   int probcut_beta = beta + PROBCUT_ADDITION;
-  if (!pv_node && !in_check && depth >= 5 &&
-      !(tt_hit && tt_depth >= depth - 3 && tt_score >= probcut_beta)) {
+  if (!pv_node && !in_check && depth >= 5 && abs(beta) < MATE_SCORE - 1 &&
+      (!tt_hit || tt_depth + 3 < depth || tt_score >= probcut_beta)) {
     moves capture_promos[1];
+    capture_promos->count = 0;
     int score = -NO_SCORE;
 
     int16_t pc_see = probcut_beta - ss->static_eval;
@@ -714,18 +715,18 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       if (need_refresh(mailbox_copy, move)) {
         if (pos->side == black) {
           refresh_white_accumulator(pos, &thread->accumulator[pos->ply]);
-          accumulator_make_move(
-              &thread->accumulator[pos->ply],
-              &thread->accumulator[pos->ply - 1], white_king_square,
-              black_king_square, white_bucket, black_bucket, pos->side,
-              move, mailbox_copy, black);
+          accumulator_make_move(&thread->accumulator[pos->ply],
+                                &thread->accumulator[pos->ply - 1],
+                                white_king_square, black_king_square,
+                                white_bucket, black_bucket, pos->side, move,
+                                mailbox_copy, black);
         } else if (pos->side == white) {
           refresh_black_accumulator(pos, &thread->accumulator[pos->ply]);
-          accumulator_make_move(
-              &thread->accumulator[pos->ply],
-              &thread->accumulator[pos->ply - 1], white_king_square,
-              black_king_square, white_bucket, black_bucket, pos->side,
-              move, mailbox_copy, white);
+          accumulator_make_move(&thread->accumulator[pos->ply],
+                                &thread->accumulator[pos->ply - 1],
+                                white_king_square, black_king_square,
+                                white_bucket, black_bucket, pos->side, move,
+                                mailbox_copy, white);
         }
       } else {
         accumulator_make_move(
@@ -734,8 +735,13 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
             pos->side, move, mailbox_copy, both);
       }
 
-      score =
-          -quiescence(pos, thread, ss + 1, -probcut_beta, -probcut_beta + 1, pv_node);
+      moves_seen++;
+
+      ss->move = move;
+      ss->piece = mailbox_copy[get_move_source(move)];
+
+      score = -quiescence(pos, thread, ss + 1, -probcut_beta, -probcut_beta + 1,
+                          pv_node);
 
       if (score >= probcut_beta) {
         score = -negamax(pos, thread, ss + 1, -probcut_beta, -probcut_beta + 1,
@@ -751,7 +757,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
                     pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
 
       if (score >= probcut_beta) {
-        write_hash_entry(pos, score, depth - 3, 0, HASH_FLAG_LOWER_BOUND, tt_was_pv);
+        write_hash_entry(pos, score, depth - 3, 0, HASH_FLAG_LOWER_BOUND,
+                         tt_was_pv);
 
         return score;
       }
