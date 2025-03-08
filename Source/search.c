@@ -884,9 +884,22 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                reduced_depth, 1, NON_PV);
 
-      if (current_score > alpha && reduced_depth < new_depth) {
+      if (current_score > alpha && R != 0) {
         current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                  new_depth, !cutnode, NON_PV);
+        if (R != 0 && quiet) {
+          int bonus = current_score <= alpha
+                          ? (16 * new_depth * new_depth + 32 * new_depth + 16)
+                      : current_score >= beta
+                          ? (16 * depth * depth + 32 * depth + 16)
+                          : 0;
+          update_continuation_history(thread, ss - 1, move, bonus, depth,
+                                      current_score >= beta);
+          update_continuation_history(thread, ss - 2, move, bonus, depth,
+                                      current_score >= beta);
+          update_continuation_history(thread, ss - 4, move, bonus, depth,
+                                      current_score >= beta);
+        }
       }
     } else if (!pv_node || moves_seen > 1) {
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
@@ -944,9 +957,10 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
         if (alpha >= beta) {
           // on quiet moves
           if (quiet) {
+            int bonus = 16 * depth * depth + 32 * depth + 16;
             update_quiet_history_moves(thread, quiet_list, best_move, depth);
-            update_continuation_history_moves(thread, ss, quiet_list, best_move,
-                                              depth);
+            update_continuation_history_moves(thread, ss, quiet_list, bonus,
+                                              best_move, depth);
             thread->killer_moves[pos->ply] = move;
           }
 
