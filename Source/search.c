@@ -884,7 +884,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                reduced_depth, 1, NON_PV);
 
-      if (current_score > alpha && R != 0) {
+      if (current_score > alpha && reduced_depth < new_depth) {
         current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                  new_depth, !cutnode, NON_PV);
       }
