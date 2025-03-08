@@ -885,6 +885,10 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
                                reduced_depth, 1, NON_PV);
 
       if (current_score > alpha && R != 0) {
+        const uint8_t do_deeper_search =
+            current_score > (best_score + 30 + 2 * new_depth);
+        const uint8_t do_shallower_search = current_score < best_score + 5;
+        new_depth += do_deeper_search - do_shallower_search;
         current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                  new_depth, !cutnode, NON_PV);
       }
