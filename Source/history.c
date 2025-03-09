@@ -3,6 +3,7 @@
 #include "move.h"
 #include "structs.h"
 #include "transposition.h"
+#include "uci.h"
 #include "utils.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -63,15 +64,6 @@ uint64_t generate_pawn_key(position_t *pos) {
   return final_key;
 }
 
-int16_t calculate_corrhist_bonus(int16_t static_eval, int16_t search_score,
-                                 uint8_t depth) {
-  return clamp((search_score - static_eval) * depth / 8, -256, 256);
-}
-
-int16_t scale_corrhist_bonus(int16_t score, int16_t bonus) {
-  return bonus - score * abs(bonus) / 1024;
-}
-
 uint8_t static_eval_within_bounds(int16_t static_eval, int16_t score,
                                   uint8_t tt_flag) {
   const uint8_t failed_high = tt_flag == HASH_FLAG_LOWER_BOUND;
@@ -83,23 +75,28 @@ uint8_t static_eval_within_bounds(int16_t static_eval, int16_t score,
 int16_t adjust_static_eval(thread_t *thread, position_t *pos,
                            int16_t static_eval) {
   const int pawn_correction =
-      thread->correction_history[pos->side][pos->pawn_key & 16383] * 43;
-  const int adjusted_score = static_eval + pawn_correction / 512;
-  //printf("%d %d %d\n", pawn_correction, adjusted_score, static_eval);
-  return clamp(adjusted_score, -MATE_SCORE + 1, MATE_SCORE - 1);
+      thread->correction_history[pos->side][pos->pawn_key & 16383] * 200;
+  const int adjusted_score = static_eval + pawn_correction / (256 * 300);
+  return adjusted_score;
 }
 
-void update_pawn_corrhist(thread_t *thread, int16_t static_eval, int16_t score,
-                          uint8_t depth, uint8_t tt_flag) {
-  if (!static_eval_within_bounds(static_eval, score, tt_flag)) {
+void update_pawn_corrhist(thread_t *thread, int16_t raw_static_eval,
+                          int16_t score, uint8_t depth, uint8_t tt_flag) {
+  if (!static_eval_within_bounds(raw_static_eval, score, tt_flag)) {
     return;
   }
-  int16_t bonus = calculate_corrhist_bonus(static_eval, score, depth);
-  thread->correction_history[thread->pos.side][thread->pos.pawn_key & 16383] +=
-      scale_corrhist_bonus(
-          thread->correction_history[thread->pos.side]
-                                    [thread->pos.pawn_key & 16383],
-          bonus);
+  int diff = (score - raw_static_eval) * 256;
+  int weight = MIN(128, depth * (depth + 1));
+  thread->correction_history[thread->pos.side][thread->pos.pawn_key & 16383] =
+      (thread->correction_history[thread->pos.side]
+                                 [thread->pos.pawn_key & 16383] *
+           (256 - weight) +
+       diff * weight) /
+      256;
+  thread->correction_history[thread->pos.side][thread->pos.pawn_key & 16383] =
+      clamp(thread->correction_history[thread->pos.side]
+                                      [thread->pos.pawn_key & 16383],
+            -8192, 8192);
 }
 
 static inline void update_quiet_history(thread_t *thread, int move,
