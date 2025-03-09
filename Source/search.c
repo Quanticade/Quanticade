@@ -826,6 +826,12 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       continue;
     }
 
+    uint64_t pawn_key = generate_pawn_key(pos);
+    if (pos->pawn_key != pawn_key) {
+      printf("WRONG KEY !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+             "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+    }
+
     uint8_t white_king_square = get_lsb(pos->bitboards[K]);
     uint8_t black_king_square = get_lsb(pos->bitboards[k]);
     uint8_t white_bucket = get_king_bucket(white, white_king_square);

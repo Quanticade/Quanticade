@@ -139,7 +139,6 @@ int make_move(position_t *pos, int move, int move_flag) {
   // hash enpassant if available (remove enpassant square from hash key)
   if (pos->enpassant != no_sq) {
     pos->hash_key ^= keys.enpassant_keys[pos->enpassant];
-    pos->pawn_key ^= keys.enpassant_keys[pos->enpassant];
   }
 
   // reset enpassant square
@@ -154,7 +153,6 @@ int make_move(position_t *pos, int move, int move_flag) {
 
       // hash enpassant
       pos->hash_key ^= keys.enpassant_keys[target_square + 8];
-      pos->pawn_key ^= keys.enpassant_keys[target_square + 8];
     }
 
     // black to move
@@ -164,7 +162,6 @@ int make_move(position_t *pos, int move, int move_flag) {
 
       // hash enpassant
       pos->hash_key ^= keys.enpassant_keys[target_square - 8];
-      pos->pawn_key ^= keys.enpassant_keys[target_square - 8];
     }
   }
 
