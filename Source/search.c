@@ -998,7 +998,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     if (!in_check && (!best_move || !(is_move_promotion(best_move) ||
                                       get_move_capture(best_move)))) {
-      update_pawn_corrhist(thread, ss->static_eval, best_score, depth, tt_flag);
+      update_pawn_corrhist(thread, raw_static_eval, best_score, depth, tt_flag);
     }
   }
 
