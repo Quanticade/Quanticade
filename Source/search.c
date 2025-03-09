@@ -365,7 +365,8 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
     // preserve board state
     copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-               pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+               pos->castle, pos->fifty, pos->hash_key, pos->pawn_key,
+               pos->mailbox);
 
     // increment ply
     pos->ply++;
@@ -434,7 +435,8 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
     // take move back
     restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                  pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+                  pos->castle, pos->fifty, pos->hash_key, pos->pawn_key,
+                  pos->mailbox);
 
     // return 0 if time is up
     if (thread->stopped == 1) {
@@ -606,7 +608,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       R = MIN(R, depth);
       // preserve board state
       copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                 pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+                 pos->castle, pos->fifty, pos->hash_key, pos->pawn_key,
+                 pos->mailbox);
       thread->accumulator[pos->ply + 1] = thread->accumulator[pos->ply];
 
       // increment ply
@@ -650,7 +653,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
       // restore board state
       restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                    pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+                    pos->castle, pos->fifty, pos->hash_key, pos->pawn_key,
+                    pos->mailbox);
 
       // return 0 if time is up
       if (thread->stopped == 1) {
@@ -759,14 +763,16 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       const int s_depth = (depth - 1) / 2;
 
       copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                 pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+                 pos->castle, pos->fifty, pos->hash_key, pos->pawn_key,
+                 pos->mailbox);
 
       if (make_move(pos, move, all_moves) == 0) {
         continue;
       }
 
       restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                    pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+                    pos->castle, pos->fifty, pos->hash_key, pos->pawn_key,
+                    pos->mailbox);
 
       ss->excluded_move = move;
 
@@ -805,7 +811,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     // preserve board state
     copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-               pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+               pos->castle, pos->fifty, pos->hash_key, pos->pawn_key,
+               pos->mailbox);
 
     // increment ply
     pos->ply++;
@@ -824,12 +831,6 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
       // skip to next move
       continue;
-    }
-
-    uint64_t pawn_key = generate_pawn_key(pos);
-    if (pos->pawn_key != pawn_key) {
-      printf("WRONG KEY !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-             "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
     }
 
     uint8_t white_king_square = get_lsb(pos->bitboards[K]);
@@ -920,7 +921,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     // take move back
     restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                  pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+                  pos->castle, pos->fifty, pos->hash_key, pos->pawn_key,
+                  pos->mailbox);
 
     if (thread->index == 0 && root_node) {
       nodes_spent_table[move >> 4] += thread->nodes - nodes_before_search;
