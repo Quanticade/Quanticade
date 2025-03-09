@@ -65,7 +65,7 @@ uint64_t generate_pawn_key(position_t *pos) {
 
 int16_t calculate_corrhist_bonus(int16_t static_eval, int16_t search_score,
                                  uint8_t depth) {
-  return clamp((search_score - static_eval) * depth / 8, -256, 256);
+  return clamp((search_score - static_eval) * depth / 8, -128, 128);
 }
 
 int16_t scale_corrhist_bonus(int16_t score, int16_t bonus) {
@@ -83,9 +83,9 @@ uint8_t static_eval_within_bounds(int16_t static_eval, int16_t score,
 int16_t adjust_static_eval(thread_t *thread, position_t *pos,
                            int16_t static_eval) {
   const int pawn_correction =
-      thread->correction_history[pos->side][pos->pawn_key & 16383] * 43;
-  const int adjusted_score = static_eval + pawn_correction / 512;
-  //printf("%d %d %d\n", pawn_correction, adjusted_score, static_eval);
+      thread->correction_history[pos->side][pos->pawn_key & 16383] * 20;
+  const int adjusted_score = static_eval + pawn_correction / 1024;
+  //printf("%d %d %d\n", pawn_correction / 1024, adjusted_score, static_eval);
   return clamp(adjusted_score, -MATE_SCORE + 1, MATE_SCORE - 1);
 }
 
