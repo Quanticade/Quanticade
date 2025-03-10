@@ -298,6 +298,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
   uint16_t best_move = 0;
   int score = NO_SCORE, best_score = NO_SCORE;
+  int raw_static_eval = NO_SCORE;
   int16_t tt_score = NO_SCORE;
   uint8_t tt_hit = 0;
   uint8_t tt_flag = HASH_FLAG_EXACT;
@@ -319,7 +320,9 @@ static inline int quiescence(position_t *pos, thread_t *thread,
     return tt_score;
   }
 
-  best_score = ss->static_eval = evaluate(pos, &thread->accumulator[pos->ply]);
+  raw_static_eval = evaluate(pos, &thread->accumulator[pos->ply]);
+  best_score = ss->static_eval =
+      adjust_static_eval(thread, pos, raw_static_eval);
 
   if (tt_hit && can_use_score(best_score, best_score, tt_score, tt_flag)) {
     best_score = tt_score;
@@ -362,7 +365,8 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
     // preserve board state
     copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-               pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+               pos->castle, pos->fifty, pos->hash_key, pos->pawn_key,
+               pos->mailbox);
 
     // increment ply
     pos->ply++;
@@ -431,7 +435,8 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
     // take move back
     restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                  pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+                  pos->castle, pos->fifty, pos->hash_key, pos->pawn_key,
+                  pos->mailbox);
 
     // return 0 if time is up
     if (thread->stopped == 1) {
@@ -475,6 +480,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   // variable to store current move's score (from the static evaluation
   // perspective)
   int current_score = -NO_SCORE, static_eval = -NO_SCORE;
+  int raw_static_eval = -NO_SCORE;
 
   uint16_t tt_move = 0;
   int16_t tt_score = NO_SCORE;
@@ -554,8 +560,12 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   if (in_check) {
     static_eval = ss->static_eval = NO_SCORE;
   } else if (!ss->excluded_move) {
+    raw_static_eval = evaluate(pos, &thread->accumulator[pos->ply]);
+
+    // adjust static eval with corrhist
     static_eval = ss->static_eval =
-        evaluate(pos, &thread->accumulator[pos->ply]);
+        adjust_static_eval(thread, pos, raw_static_eval);
+
     if (tt_hit && can_use_score(static_eval, static_eval, tt_score, tt_flag)) {
       static_eval = ss->static_eval = tt_score;
     }
@@ -598,7 +608,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       R = MIN(R, depth);
       // preserve board state
       copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                 pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+                 pos->castle, pos->fifty, pos->hash_key, pos->pawn_key,
+                 pos->mailbox);
       thread->accumulator[pos->ply + 1] = thread->accumulator[pos->ply];
 
       // increment ply
@@ -642,7 +653,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
       // restore board state
       restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                    pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+                    pos->castle, pos->fifty, pos->hash_key, pos->pawn_key,
+                    pos->mailbox);
 
       // return 0 if time is up
       if (thread->stopped == 1) {
@@ -751,14 +763,16 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       const int s_depth = (depth - 1) / 2;
 
       copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                 pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+                 pos->castle, pos->fifty, pos->hash_key, pos->pawn_key,
+                 pos->mailbox);
 
       if (make_move(pos, move, all_moves) == 0) {
         continue;
       }
 
       restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                    pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+                    pos->castle, pos->fifty, pos->hash_key, pos->pawn_key,
+                    pos->mailbox);
 
       ss->excluded_move = move;
 
@@ -797,7 +811,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     // preserve board state
     copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-               pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+               pos->castle, pos->fifty, pos->hash_key, pos->pawn_key,
+               pos->mailbox);
 
     // increment ply
     pos->ply++;
@@ -906,7 +921,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     // take move back
     restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                  pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+                  pos->castle, pos->fifty, pos->hash_key, pos->pawn_key,
+                  pos->mailbox);
 
     if (thread->index == 0 && root_node) {
       nodes_spent_table[move >> 4] += thread->nodes - nodes_before_search;
@@ -979,6 +995,11 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     }
     // store hash entry with the score equal to alpha
     write_hash_entry(pos, best_score, depth, best_move, hash_flag, tt_was_pv);
+
+    if (!in_check && (!best_move || !(is_move_promotion(best_move) ||
+                                      get_move_capture(best_move)))) {
+      update_pawn_corrhist(thread, raw_static_eval, best_score, depth, tt_flag);
+    }
   }
 
   // node (position) fails low

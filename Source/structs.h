@@ -59,6 +59,7 @@ typedef struct position {
   uint64_t bitboards[12];
   uint64_t occupancies[3];
   uint64_t hash_key;
+  uint64_t pawn_key;
   uint64_t repetition_table[1000];
   uint32_t repetition_index;
   uint32_t ply;
@@ -86,6 +87,7 @@ typedef struct searchinfo {
   int16_t quiet_history[12][64][64];
   int16_t capture_history[12][13][64][64];
   int16_t continuation_history[12][64][12][64];
+  int16_t correction_history[2][16384];
   PV_t pv;
   uint8_t depth;
   uint8_t stopped;

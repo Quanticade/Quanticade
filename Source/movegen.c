@@ -22,7 +22,8 @@ int make_move(position_t *pos, int move, int move_flag) {
   }
   // preserve board state
   copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-             pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+             pos->castle, pos->fifty, pos->hash_key, pos->pawn_key,
+             pos->mailbox);
 
   // parse move
   int source_square = get_move_source(move);
@@ -57,6 +58,9 @@ int make_move(position_t *pos, int move, int move_flag) {
 
       // remove the piece from hash key
       pos->hash_key ^= keys.piece_keys[bb_piece][target_square];
+      if (bb_piece == p || bb_piece == P) {
+        pos->pawn_key ^= keys.piece_keys[bb_piece][target_square];
+      }
     }
   }
 
@@ -70,6 +74,7 @@ int make_move(position_t *pos, int move, int move_flag) {
 
       // remove pawn from hash key
       pos->hash_key ^= keys.piece_keys[p][target_square + 8];
+      pos->pawn_key ^= keys.piece_keys[p][target_square + 8];
     }
 
     // black to move
@@ -80,6 +85,7 @@ int make_move(position_t *pos, int move, int move_flag) {
 
       // remove pawn from hash key
       pos->hash_key ^= keys.piece_keys[P][target_square - 8];
+      pos->pawn_key ^= keys.piece_keys[P][target_square - 8];
     }
   }
 
@@ -96,6 +102,10 @@ int make_move(position_t *pos, int move, int move_flag) {
   pos->hash_key ^=
       keys.piece_keys[piece][target_square]; // set piece to the target
                                              // square in hash key
+  if (piece == p || piece == P) {
+    pos->pawn_key ^= keys.piece_keys[piece][source_square];
+    pos->pawn_key ^= keys.piece_keys[piece][target_square];
+  }
 
   // handle pawn promotions
   if (promoted_piece) {
@@ -106,6 +116,7 @@ int make_move(position_t *pos, int move, int move_flag) {
 
       // remove pawn from hash key
       pos->hash_key ^= keys.piece_keys[P][target_square];
+      pos->pawn_key ^= keys.piece_keys[P][target_square];
     }
 
     // black to move
@@ -115,6 +126,7 @@ int make_move(position_t *pos, int move, int move_flag) {
 
       // remove pawn from hash key
       pos->hash_key ^= keys.piece_keys[p][target_square];
+      pos->pawn_key ^= keys.piece_keys[p][target_square];
     }
 
     // set up promoted piece on chess board
@@ -126,8 +138,9 @@ int make_move(position_t *pos, int move, int move_flag) {
   }
 
   // hash enpassant if available (remove enpassant square from hash key)
-  if (pos->enpassant != no_sq)
+  if (pos->enpassant != no_sq) {
     pos->hash_key ^= keys.enpassant_keys[pos->enpassant];
+  }
 
   // reset enpassant square
   pos->enpassant = no_sq;
@@ -256,7 +269,8 @@ int make_move(position_t *pos, int move, int move_flag) {
                          pos->side)) {
     // take move back
     restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                  pos->castle, pos->fifty, pos->hash_key, pos->mailbox);
+                  pos->castle, pos->fifty, pos->hash_key, pos->pawn_key,
+                  pos->mailbox);
 
     // return illegal move
     return 0;
@@ -315,13 +329,13 @@ void generate_captures(position_t *pos, moves *move_list) {
             // pawn promotion
             if (source_square >= a7 && source_square <= h7) {
               add_move(move_list, encode_move(source_square, target_square,
-                                                  QUEEN_CAPTURE_PROMOTION));
+                                              QUEEN_CAPTURE_PROMOTION));
               add_move(move_list, encode_move(source_square, target_square,
-                                                  ROOK_CAPTURE_PROMOTION));
+                                              ROOK_CAPTURE_PROMOTION));
               add_move(move_list, encode_move(source_square, target_square,
-                                                  BISHOP_CAPTURE_PROMOTION));
+                                              BISHOP_CAPTURE_PROMOTION));
               add_move(move_list, encode_move(source_square, target_square,
-                                                  KNIGHT_CAPTURE_PROMOTION));
+                                              KNIGHT_CAPTURE_PROMOTION));
             }
 
             else
@@ -343,9 +357,8 @@ void generate_captures(position_t *pos, moves *move_list) {
             if (enpassant_attacks) {
               // init enpassant capture target square
               int target_enpassant = __builtin_ctzll(enpassant_attacks);
-              add_move(move_list,
-                       encode_move(source_square, target_enpassant,
-                                       ENPASSANT_CAPTURE));
+              add_move(move_list, encode_move(source_square, target_enpassant,
+                                              ENPASSANT_CAPTURE));
             }
           }
 
@@ -378,13 +391,13 @@ void generate_captures(position_t *pos, moves *move_list) {
             // pawn promotion
             if (source_square >= a2 && source_square <= h2) {
               add_move(move_list, encode_move(source_square, target_square,
-                                                  QUEEN_CAPTURE_PROMOTION));
+                                              QUEEN_CAPTURE_PROMOTION));
               add_move(move_list, encode_move(source_square, target_square,
-                                                  ROOK_CAPTURE_PROMOTION));
+                                              ROOK_CAPTURE_PROMOTION));
               add_move(move_list, encode_move(source_square, target_square,
-                                                  BISHOP_CAPTURE_PROMOTION));
+                                              BISHOP_CAPTURE_PROMOTION));
               add_move(move_list, encode_move(source_square, target_square,
-                                                  KNIGHT_CAPTURE_PROMOTION));
+                                              KNIGHT_CAPTURE_PROMOTION));
             }
 
             else
@@ -406,9 +419,8 @@ void generate_captures(position_t *pos, moves *move_list) {
             if (enpassant_attacks) {
               // init enpassant capture target square
               int target_enpassant = __builtin_ctzll(enpassant_attacks);
-              add_move(move_list,
-                       encode_move(source_square, target_enpassant,
-                                       ENPASSANT_CAPTURE));
+              add_move(move_list, encode_move(source_square, target_enpassant,
+                                              ENPASSANT_CAPTURE));
             }
           }
 
@@ -619,13 +631,13 @@ void generate_moves(position_t *pos, moves *move_list) {
             // pawn promotion
             if (source_square >= a7 && source_square <= h7) {
               add_move(move_list, encode_move(source_square, target_square,
-                                                  QUEEN_PROMOTION));
+                                              QUEEN_PROMOTION));
               add_move(move_list, encode_move(source_square, target_square,
-                                                  ROOK_PROMOTION));
+                                              ROOK_PROMOTION));
               add_move(move_list, encode_move(source_square, target_square,
-                                                  BISHOP_PROMOTION));
+                                              BISHOP_PROMOTION));
               add_move(move_list, encode_move(source_square, target_square,
-                                                  KNIGHT_PROMOTION));
+                                              KNIGHT_PROMOTION));
             }
 
             else {
@@ -638,7 +650,7 @@ void generate_moves(position_t *pos, moves *move_list) {
                   !get_bit(pos->occupancies[both], target_square - 8))
                 add_move(move_list,
                          encode_move(source_square, (target_square - 8),
-                                         DOUBLE_PUSH));
+                                     DOUBLE_PUSH));
             }
           }
 
@@ -654,13 +666,13 @@ void generate_moves(position_t *pos, moves *move_list) {
             // pawn promotion
             if (source_square >= a7 && source_square <= h7) {
               add_move(move_list, encode_move(source_square, target_square,
-                                                  QUEEN_CAPTURE_PROMOTION));
+                                              QUEEN_CAPTURE_PROMOTION));
               add_move(move_list, encode_move(source_square, target_square,
-                                                  ROOK_CAPTURE_PROMOTION));
+                                              ROOK_CAPTURE_PROMOTION));
               add_move(move_list, encode_move(source_square, target_square,
-                                                  BISHOP_CAPTURE_PROMOTION));
+                                              BISHOP_CAPTURE_PROMOTION));
               add_move(move_list, encode_move(source_square, target_square,
-                                                  KNIGHT_CAPTURE_PROMOTION));
+                                              KNIGHT_CAPTURE_PROMOTION));
             }
 
             else
@@ -683,9 +695,8 @@ void generate_moves(position_t *pos, moves *move_list) {
             if (enpassant_attacks) {
               // init enpassant capture target square
               int target_enpassant = __builtin_ctzll(enpassant_attacks);
-              add_move(move_list,
-                       encode_move(source_square, target_enpassant,
-                                       ENPASSANT_CAPTURE));
+              add_move(move_list, encode_move(source_square, target_enpassant,
+                                              ENPASSANT_CAPTURE));
             }
           }
 
@@ -740,22 +751,27 @@ void generate_moves(position_t *pos, moves *move_list) {
               !get_bit(pos->occupancies[both], target_square)) {
             // pawn promotion
             if (source_square >= a2 && source_square <= h2) {
-              add_move(move_list, encode_move(source_square, target_square, QUEEN_PROMOTION));
-              add_move(move_list, encode_move(source_square, target_square, ROOK_PROMOTION));
-              add_move(move_list, encode_move(source_square, target_square, BISHOP_PROMOTION));
-              add_move(move_list, encode_move(source_square, target_square, KNIGHT_PROMOTION));
+              add_move(move_list, encode_move(source_square, target_square,
+                                              QUEEN_PROMOTION));
+              add_move(move_list, encode_move(source_square, target_square,
+                                              ROOK_PROMOTION));
+              add_move(move_list, encode_move(source_square, target_square,
+                                              BISHOP_PROMOTION));
+              add_move(move_list, encode_move(source_square, target_square,
+                                              KNIGHT_PROMOTION));
             }
 
             else {
               // one square ahead pawn move
-              add_move(move_list, encode_move(source_square, target_square,
-                                              QUIET));
+              add_move(move_list,
+                       encode_move(source_square, target_square, QUIET));
 
               // two squares ahead pawn move
               if ((source_square >= a7 && source_square <= h7) &&
                   !get_bit(pos->occupancies[both], target_square + 8))
                 add_move(move_list,
-                         encode_move(source_square, (target_square + 8), DOUBLE_PUSH));
+                         encode_move(source_square, (target_square + 8),
+                                     DOUBLE_PUSH));
             }
           }
 
@@ -770,16 +786,20 @@ void generate_moves(position_t *pos, moves *move_list) {
 
             // pawn promotion
             if (source_square >= a2 && source_square <= h2) {
-              add_move(move_list, encode_move(source_square, target_square, QUEEN_CAPTURE_PROMOTION));
-              add_move(move_list, encode_move(source_square, target_square, ROOK_CAPTURE_PROMOTION));
-              add_move(move_list, encode_move(source_square, target_square, BISHOP_CAPTURE_PROMOTION));
-              add_move(move_list, encode_move(source_square, target_square, KNIGHT_CAPTURE_PROMOTION));
+              add_move(move_list, encode_move(source_square, target_square,
+                                              QUEEN_CAPTURE_PROMOTION));
+              add_move(move_list, encode_move(source_square, target_square,
+                                              ROOK_CAPTURE_PROMOTION));
+              add_move(move_list, encode_move(source_square, target_square,
+                                              BISHOP_CAPTURE_PROMOTION));
+              add_move(move_list, encode_move(source_square, target_square,
+                                              KNIGHT_CAPTURE_PROMOTION));
             }
 
             else
               // one square ahead pawn move
-              add_move(move_list, encode_move(source_square, target_square,
-                                              CAPTURE));
+              add_move(move_list,
+                       encode_move(source_square, target_square, CAPTURE));
 
             // pop ls1b of the pawn attacks
             pop_bit(attacks, target_square);
@@ -856,11 +876,13 @@ void generate_moves(position_t *pos, moves *move_list) {
           if (!get_bit(((pos->side == white) ? pos->occupancies[black]
                                              : pos->occupancies[white]),
                        target_square))
-            add_move(move_list, encode_move(source_square, target_square, QUIET));
+            add_move(move_list,
+                     encode_move(source_square, target_square, QUIET));
 
           else
             // capture move
-            add_move(move_list, encode_move(source_square, target_square, CAPTURE));
+            add_move(move_list,
+                     encode_move(source_square, target_square, CAPTURE));
 
           // pop ls1b in current attacks set
           pop_bit(attacks, target_square);
@@ -892,11 +914,13 @@ void generate_moves(position_t *pos, moves *move_list) {
           if (!get_bit(((pos->side == white) ? pos->occupancies[black]
                                              : pos->occupancies[white]),
                        target_square))
-            add_move(move_list, encode_move(source_square, target_square, QUIET));
+            add_move(move_list,
+                     encode_move(source_square, target_square, QUIET));
 
           else
             // capture move
-            add_move(move_list, encode_move(source_square, target_square, CAPTURE));
+            add_move(move_list,
+                     encode_move(source_square, target_square, CAPTURE));
 
           // pop ls1b in current attacks set
           pop_bit(attacks, target_square);
@@ -928,11 +952,13 @@ void generate_moves(position_t *pos, moves *move_list) {
           if (!get_bit(((pos->side == white) ? pos->occupancies[black]
                                              : pos->occupancies[white]),
                        target_square))
-            add_move(move_list, encode_move(source_square, target_square, QUIET));
+            add_move(move_list,
+                     encode_move(source_square, target_square, QUIET));
 
           else
             // capture move
-            add_move(move_list, encode_move(source_square, target_square, CAPTURE));
+            add_move(move_list,
+                     encode_move(source_square, target_square, CAPTURE));
 
           // pop ls1b in current attacks set
           pop_bit(attacks, target_square);
@@ -964,11 +990,13 @@ void generate_moves(position_t *pos, moves *move_list) {
           if (!get_bit(((pos->side == white) ? pos->occupancies[black]
                                              : pos->occupancies[white]),
                        target_square))
-            add_move(move_list, encode_move(source_square, target_square, QUIET));
+            add_move(move_list,
+                     encode_move(source_square, target_square, QUIET));
 
           else
             // capture move
-            add_move(move_list, encode_move(source_square, target_square, CAPTURE));
+            add_move(move_list,
+                     encode_move(source_square, target_square, CAPTURE));
 
           // pop ls1b in current attacks set
           pop_bit(attacks, target_square);
@@ -1000,11 +1028,13 @@ void generate_moves(position_t *pos, moves *move_list) {
           if (!get_bit(((pos->side == white) ? pos->occupancies[black]
                                              : pos->occupancies[white]),
                        target_square))
-            add_move(move_list, encode_move(source_square, target_square, QUIET));
+            add_move(move_list,
+                     encode_move(source_square, target_square, QUIET));
 
           else
             // capture move
-            add_move(move_list, encode_move(source_square, target_square, CAPTURE));
+            add_move(move_list,
+                     encode_move(source_square, target_square, CAPTURE));
 
           // pop ls1b in current attacks set
           pop_bit(attacks, target_square);
