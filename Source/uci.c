@@ -314,8 +314,8 @@ static inline void parse_fen(position_t *pos, char *fen) {
   pos->occupancies[both] |= pos->occupancies[black];
 
   // init hash key
-  pos->hash_key = generate_hash_key(pos);
-  pos->pawn_key = generate_pawn_key(pos);
+  pos->hash_keys.hash_key = generate_hash_key(pos);
+  pos->hash_keys.pawn_key = generate_pawn_key(pos);
 }
 
 // parse UCI "position" command
@@ -378,7 +378,7 @@ static inline void parse_position(position_t *pos, thread_t *thread,
       pos->repetition_index++;
 
       // write hash key into a repetition table
-      pos->repetition_table[pos->repetition_index] = pos->hash_key;
+      pos->repetition_table[pos->repetition_index] = pos->hash_keys.hash_key;
 
       // make move on the chess board
       make_move(pos, move, all_moves);

@@ -55,11 +55,15 @@ typedef struct accumulator {
                                              // lets have it this way
 } accumulator_t;
 
+typedef struct hash_keys {
+  uint64_t hash_key;
+  uint64_t pawn_key;
+} hash_keys_t;
+
 typedef struct position {
   uint64_t bitboards[12];
   uint64_t occupancies[3];
-  uint64_t hash_key;
-  uint64_t pawn_key;
+  hash_keys_t hash_keys;
   uint64_t repetition_table[1000];
   uint32_t repetition_index;
   uint32_t ply;

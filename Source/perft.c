@@ -28,7 +28,7 @@ static inline void perft_driver(position_t *pos, thread_t *thread, int depth) {
   for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
     // preserve board state
     copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-               pos->castle, pos->fifty, pos->hash_key, pos->pawn_key,
+               pos->castle, pos->fifty, pos->hash_keys,
                pos->mailbox);
 
     // make move
@@ -41,7 +41,7 @@ static inline void perft_driver(position_t *pos, thread_t *thread, int depth) {
 
     // take back
     restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                  pos->castle, pos->fifty, pos->hash_key, pos->pawn_key,
+                  pos->castle, pos->fifty, pos->hash_keys,
                   pos->mailbox);
   }
 }
@@ -63,7 +63,7 @@ void perft_test(position_t *pos, thread_t *searchinfo, int depth) {
   for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
     // preserve board state
     copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-               pos->castle, pos->fifty, pos->hash_key, pos->pawn_key,
+               pos->castle, pos->fifty, pos->hash_keys,
                pos->mailbox);
 
     // make move
@@ -83,7 +83,7 @@ void perft_test(position_t *pos, thread_t *searchinfo, int depth) {
 
     // take back
     restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                  pos->castle, pos->fifty, pos->hash_key, pos->pawn_key,
+                  pos->castle, pos->fifty, pos->hash_keys,
                   pos->mailbox);
 
     // print move

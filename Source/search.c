@@ -229,7 +229,7 @@ static inline int is_repetition(position_t *pos) {
   // loop over repetition indices range
   for (uint32_t index = 0; index < pos->repetition_index; index++)
     // if we found the hash key same with a current
-    if (pos->repetition_table[index] == pos->hash_key)
+    if (pos->repetition_table[index] == pos->hash_keys.hash_key)
       // we found a repetition
       return 1;
 
@@ -365,7 +365,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
     // preserve board state
     copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-               pos->castle, pos->fifty, pos->hash_key, pos->pawn_key,
+               pos->castle, pos->fifty, pos->hash_keys,
                pos->mailbox);
 
     // increment ply
@@ -373,7 +373,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
     // increment repetition index & store hash key
     pos->repetition_index++;
-    pos->repetition_table[pos->repetition_index] = pos->hash_key;
+    pos->repetition_table[pos->repetition_index] = pos->hash_keys.hash_key;
 
     // make sure to make only legal moves
     if (make_move(pos, move_list->entry[count].move, only_captures) == 0) {
@@ -422,7 +422,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
       add_move(capture_list, move_list->entry[count].move);
     }
 
-    prefetch_hash_entry(pos->hash_key);
+    prefetch_hash_entry(pos->hash_keys.hash_key);
 
     // score current move
     score = -quiescence(pos, thread, ss, -beta, -alpha, pv_node);
@@ -435,7 +435,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
     // take move back
     restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                  pos->castle, pos->fifty, pos->hash_key, pos->pawn_key,
+                  pos->castle, pos->fifty, pos->hash_keys,
                   pos->mailbox);
 
     // return 0 if time is up
@@ -608,7 +608,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       R = MIN(R, depth);
       // preserve board state
       copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                 pos->castle, pos->fifty, pos->hash_key, pos->pawn_key,
+                 pos->castle, pos->fifty, pos->hash_keys,
                  pos->mailbox);
       thread->accumulator[pos->ply + 1] = thread->accumulator[pos->ply];
 
@@ -617,11 +617,11 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
       // increment repetition index & store hash key
       pos->repetition_index++;
-      pos->repetition_table[pos->repetition_index] = pos->hash_key;
+      pos->repetition_table[pos->repetition_index] = pos->hash_keys.hash_key;
 
       // hash enpassant if available
       if (pos->enpassant != no_sq)
-        pos->hash_key ^= keys.enpassant_keys[pos->enpassant];
+        pos->hash_keys.hash_key ^= keys.enpassant_keys[pos->enpassant];
 
       // reset enpassant capture square
       pos->enpassant = no_sq;
@@ -630,9 +630,9 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       pos->side ^= 1;
 
       // hash the side
-      pos->hash_key ^= keys.side_key;
+      pos->hash_keys.hash_key ^= keys.side_key;
 
-      prefetch_hash_entry(pos->hash_key);
+      prefetch_hash_entry(pos->hash_keys.hash_key);
 
       ss->move = 0;
       ss->piece = 0;
@@ -653,7 +653,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
       // restore board state
       restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                    pos->castle, pos->fifty, pos->hash_key, pos->pawn_key,
+                    pos->castle, pos->fifty, pos->hash_keys,
                     pos->mailbox);
 
       // return 0 if time is up
@@ -763,7 +763,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       const int s_depth = (depth - 1) / 2;
 
       copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                 pos->castle, pos->fifty, pos->hash_key, pos->pawn_key,
+                 pos->castle, pos->fifty, pos->hash_keys,
                  pos->mailbox);
 
       if (make_move(pos, move, all_moves) == 0) {
@@ -771,7 +771,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       }
 
       restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                    pos->castle, pos->fifty, pos->hash_key, pos->pawn_key,
+                    pos->castle, pos->fifty, pos->hash_keys,
                     pos->mailbox);
 
       ss->excluded_move = move;
@@ -811,7 +811,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     // preserve board state
     copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-               pos->castle, pos->fifty, pos->hash_key, pos->pawn_key,
+               pos->castle, pos->fifty, pos->hash_keys,
                pos->mailbox);
 
     // increment ply
@@ -819,7 +819,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     // increment repetition index & store hash key
     pos->repetition_index++;
-    pos->repetition_table[pos->repetition_index] = pos->hash_key;
+    pos->repetition_table[pos->repetition_index] = pos->hash_keys.hash_key;
 
     // make sure to make only legal moves
     if (make_move(pos, move, all_moves) == 0) {
@@ -874,7 +874,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       add_move(capture_list, move);
     }
 
-    prefetch_hash_entry(pos->hash_key);
+    prefetch_hash_entry(pos->hash_keys.hash_key);
 
     if (in_check) {
       extensions++;
@@ -921,7 +921,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     // take move back
     restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                  pos->castle, pos->fifty, pos->hash_key, pos->pawn_key,
+                  pos->castle, pos->fifty, pos->hash_keys,
                   pos->mailbox);
 
     if (thread->index == 0 && root_node) {
