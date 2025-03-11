@@ -66,6 +66,8 @@ extern int CONT_HISTORY_BONUS_MIN;
 extern int CAPTURE_HISTORY_MALUS_MIN;
 extern int QUIET_HISTORY_MALUS_MIN;
 extern int CONT_HISTORY_MALUS_MIN;
+extern int CORR_HISTORY_MINMAX;
+extern int PAWN_CORR_HISTORY_MULTIPLIER;
 extern int HISTORY_MAX;
 
 // TM
@@ -74,12 +76,19 @@ extern double DEF_INC_MULTIPLIER;
 extern double MAX_TIME_MULTIPLIER;
 extern double HARD_LIMIT_MULTIPLIER;
 extern double SOFT_LIMIT_MULTIPLIER;
+extern double NODE_TIME_MULTIPLIER;
+extern double NODE_TIME_ADDITION;
+extern double NODE_TIME_MIN;
 
 extern int mvv[];
 extern int SEEPieceValues[];
 
+extern double bestmove_scale[5];
+extern double eval_scale[5];
+
 #define RATE(VALUE) MAX(0.5, MAX(1, (((float)VALUE * 2) - 1)) / 20)
 #define RATE_DOUBLE(VALUE) MAX(0.05, MAX(1, ((VALUE * 2) - 1)) / 20)
+#define RATE_DOUBLE_TIME(VALUE) MAX(0.001, (MAX(1, ((VALUE * 2) - 1)) / 20) / 5)
 #define SPSA_MAX(VALUE) VALUE * 2
 #define STRINGIFY(VARIABLE) (#VARIABLE)
 
@@ -112,7 +121,7 @@ void add_int_spsa(char name[], int *value, int min, int max, double rate,
 #define SPSA_INT(VARIABLE, TUNABLE)                                            \
   add_int_spsa(STRINGIFY(VARIABLE), &VARIABLE, 1, SPSA_MAX(VARIABLE),          \
                RATE(VARIABLE), NULL, TUNABLE)
-#define SPSA_INT_FUNC(VARIABLE, FUNC, TUNABLE)                                            \
+#define SPSA_INT_FUNC(VARIABLE, FUNC, TUNABLE)                                 \
   add_int_spsa(STRINGIFY(VARIABLE), &VARIABLE, 1, SPSA_MAX(VARIABLE),          \
                RATE(VARIABLE), FUNC, TUNABLE)
 #define SPSA_INT_NAME(NAME, VARIABLE, TUNABLE)                                 \
@@ -166,6 +175,8 @@ void init_spsa_table(void) {
   SPSA_INT(CAPTURE_HISTORY_MALUS_MIN, 1);
   SPSA_INT(QUIET_HISTORY_MALUS_MIN, 1);
   SPSA_INT(CONT_HISTORY_MALUS_MIN, 1);
+  SPSA_INT(CORR_HISTORY_MINMAX, 1);
+  SPSA_INT(PAWN_CORR_HISTORY_MULTIPLIER, 1);
   SPSA_INT(HISTORY_MAX, 0);
   SPSA_INT_NAME("SEE_PAWN", SEEPieceValues[PAWN], 1);
   SPSA_INT_NAME("SEE_KNIGHT", SEEPieceValues[KNIGHT], 1);
@@ -195,19 +206,55 @@ void init_spsa_table(void) {
   // TM
   add_double_spsa(STRINGIFY(DEF_TIME_MULTIPLIER), &DEF_TIME_MULTIPLIER, 0,
                   SPSA_MAX(DEF_TIME_MULTIPLIER),
-                  RATE_DOUBLE(DEF_TIME_MULTIPLIER), NULL, 1);
+                  RATE_DOUBLE_TIME(DEF_TIME_MULTIPLIER), NULL, 1);
   add_double_spsa(STRINGIFY(DEF_INC_MULTIPLIER), &DEF_INC_MULTIPLIER, 0,
-                  SPSA_MAX(DEF_INC_MULTIPLIER), RATE_DOUBLE(DEF_INC_MULTIPLIER),
-                  NULL, 1);
+                  SPSA_MAX(DEF_INC_MULTIPLIER),
+                  RATE_DOUBLE_TIME(DEF_INC_MULTIPLIER), NULL, 1);
   add_double_spsa(STRINGIFY(MAX_TIME_MULTIPLIER), &MAX_TIME_MULTIPLIER, 0,
                   SPSA_MAX(MAX_TIME_MULTIPLIER),
-                  RATE_DOUBLE(MAX_TIME_MULTIPLIER), NULL, 1);
+                  RATE_DOUBLE_TIME(MAX_TIME_MULTIPLIER), NULL, 1);
   add_double_spsa(STRINGIFY(HARD_LIMIT_MULTIPLIER), &HARD_LIMIT_MULTIPLIER, 1,
                   SPSA_MAX(HARD_LIMIT_MULTIPLIER),
-                  RATE_DOUBLE(HARD_LIMIT_MULTIPLIER), NULL, 1);
+                  RATE_DOUBLE_TIME(HARD_LIMIT_MULTIPLIER), NULL, 1);
   add_double_spsa(STRINGIFY(SOFT_LIMIT_MULTIPLIER), &SOFT_LIMIT_MULTIPLIER, 0,
                   SPSA_MAX(SOFT_LIMIT_MULTIPLIER),
-                  RATE_DOUBLE(SOFT_LIMIT_MULTIPLIER), NULL, 1);
+                  RATE_DOUBLE_TIME(SOFT_LIMIT_MULTIPLIER), NULL, 1);
+  add_double_spsa(STRINGIFY(NODE_TIME_MULTIPLIER), &NODE_TIME_MULTIPLIER, 0,
+                  SPSA_MAX(NODE_TIME_MULTIPLIER),
+                  RATE_DOUBLE_TIME(NODE_TIME_MULTIPLIER), NULL, 1);
+  add_double_spsa(STRINGIFY(NODE_TIME_ADDITION), &NODE_TIME_ADDITION, 0,
+                  SPSA_MAX(NODE_TIME_ADDITION),
+                  RATE_DOUBLE_TIME(NODE_TIME_ADDITION), NULL, 1);
+  add_double_spsa(STRINGIFY(NODE_TIME_MIN), &NODE_TIME_MIN, 0,
+                  SPSA_MAX(NODE_TIME_MIN), RATE_DOUBLE_TIME(NODE_TIME_MIN),
+                  NULL, 1);
+
+  add_double_spsa("BESTMOVE_SCALE0", &bestmove_scale[0], 0,
+                  SPSA_MAX(bestmove_scale[0]),
+                  RATE_DOUBLE_TIME(bestmove_scale[0]), NULL, 1);
+  add_double_spsa("BESTMOVE_SCALE1", &bestmove_scale[1], 0,
+                  SPSA_MAX(bestmove_scale[1]),
+                  RATE_DOUBLE_TIME(bestmove_scale[1]), NULL, 1);
+  add_double_spsa("BESTMOVE_SCALE2", &bestmove_scale[2], 0,
+                  SPSA_MAX(bestmove_scale[2]),
+                  RATE_DOUBLE_TIME(bestmove_scale[2]), NULL, 1);
+  add_double_spsa("BESTMOVE_SCALE3", &bestmove_scale[3], 0,
+                  SPSA_MAX(bestmove_scale[3]),
+                  RATE_DOUBLE_TIME(bestmove_scale[3]), NULL, 1);
+  add_double_spsa("BESTMOVE_SCALE4", &bestmove_scale[4], 0,
+                  SPSA_MAX(bestmove_scale[4]),
+                  RATE_DOUBLE_TIME(bestmove_scale[4]), NULL, 1);
+
+  add_double_spsa("EVAL_SCALE0", &eval_scale[0], 0, SPSA_MAX(eval_scale[0]),
+                  RATE_DOUBLE_TIME(eval_scale[0]), NULL, 1);
+  add_double_spsa("EVAL_SCALE1", &eval_scale[1], 0, SPSA_MAX(eval_scale[1]),
+                  RATE_DOUBLE_TIME(eval_scale[1]), NULL, 1);
+  add_double_spsa("EVAL_SCALE2", &eval_scale[2], 0, SPSA_MAX(eval_scale[2]),
+                  RATE_DOUBLE_TIME(eval_scale[2]), NULL, 1);
+  add_double_spsa("EVAL_SCALE3", &eval_scale[3], 0, SPSA_MAX(eval_scale[3]),
+                  RATE_DOUBLE_TIME(eval_scale[3]), NULL, 1);
+  add_double_spsa("EVAL_SCALE4", &eval_scale[4], 0, SPSA_MAX(eval_scale[4]),
+                  RATE_DOUBLE_TIME(eval_scale[4]), NULL, 1);
 }
 
 void print_spsa_table_uci(void) {

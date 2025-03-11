@@ -70,6 +70,10 @@ double LMR_DIVISOR_QUIET = 1.4141416976120227;
 double LMR_OFFSET_NOISY = -0.23601909184212566;
 double LMR_DIVISOR_NOISY = 2.8963234699203277;
 
+double NODE_TIME_MULTIPLIER = 2.3;
+double NODE_TIME_ADDITION = 0.45;
+double NODE_TIME_MIN = 0.55;
+
 int mvv[] = {122, 387, 314, 569, 1464, 0};
 
 int SEEPieceValues[] = {98, 285, 304, 518, 925, 0, 0};
@@ -77,6 +81,9 @@ int SEEPieceValues[] = {98, 285, 304, 518, 925, 0, 0};
 int lmr[2][MAX_PLY + 1][256];
 
 int SEE_MARGIN[MAX_PLY + 1][2];
+
+double bestmove_scale[5] = {2.43, 1.35, 1.09, 0.88, 0.68};
+double eval_scale[5] = {1.25, 1.15, 1.00, 0.94, 0.88};
 
 uint64_t nodes_spent_table[4096] = {0};
 
@@ -101,11 +108,9 @@ void init_reductions(void) {
 
 void scale_time(thread_t *thread, uint8_t best_move_stability,
                 uint8_t eval_stability, uint16_t move) {
-  double bestmove_scale[5] = {2.43, 1.35, 1.09, 0.88, 0.68};
-  double eval_scale[5] = {1.25, 1.15, 1.00, 0.94, 0.88};
   double not_bm_nodes_fraction =
       1 - (double)nodes_spent_table[move >> 4] / (double)thread->nodes;
-  double node_scaling_factor = MAX(2.3f * not_bm_nodes_fraction + 0.45f, 0.55f);
+  double node_scaling_factor = MAX(NODE_TIME_MULTIPLIER * not_bm_nodes_fraction + NODE_TIME_ADDITION, NODE_TIME_MIN);
   limits.soft_limit =
       MIN(thread->starttime +
               limits.base_soft * bestmove_scale[best_move_stability] *
