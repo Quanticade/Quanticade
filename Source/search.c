@@ -591,9 +591,9 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   // moves seen counter
   int moves_seen = 0;
 
-  if (!in_check && !ss->excluded_move) {
+  if (!pv_node && !in_check && !ss->excluded_move) {
     // Reverse Futility Pruning
-    if (depth <= RFP_DEPTH && !pv_node) {
+    if (depth <= RFP_DEPTH) {
       // get static evaluation score
 
       // define evaluation margin
@@ -606,7 +606,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     }
 
     // null move pruning
-    if (!ss->null_move && !pv_node && ss->static_eval >= beta && depth >= 3 &&
+    if (!ss->null_move && ss->static_eval >= beta && depth >= 3 &&
         !only_pawns(pos)) {
       int R = MIN((ss->static_eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) +
               depth / NMP_DIVISER + NMP_BASE_REDUCTION;
@@ -672,7 +672,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
         return current_score;
     }
 
-    if (!pv_node && depth <= RAZOR_DEPTH &&
+    if (depth <= RAZOR_DEPTH &&
         ss->static_eval + RAZOR_MARGIN * depth < alpha) {
       const int razor_score = quiescence(pos, thread, ss, alpha, beta, NON_PV);
       if (razor_score <= alpha) {
