@@ -30,6 +30,8 @@ extern int thread_count;
 
 extern keys_t keys;
 
+accumulator_t finny_tables[KING_BUCKETS];
+
 int LMP_BASE = 3;
 int LMP_MULTIPLIER = 1;
 int RAZOR_DEPTH = 7;

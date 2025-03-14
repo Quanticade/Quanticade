@@ -12,6 +12,8 @@
 
 nnue_t nnue;
 
+extern accumulator_t finny_tables[KING_BUCKETS];
+
 uint8_t buckets[64] = {12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
                        12, 12, 12, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11,
                        11, 11, 11, 11, 11, 11, 10, 10, 10, 10, 10, 10, 10,
@@ -235,6 +237,37 @@ void init_accumulator(position_t *pos, accumulator_t *accumulator) {
             nnue.feature_weights[black_bucket][black_idx][i];
 
       pop_bit(bitboard, square);
+    }
+  }
+}
+
+void init_accumulator(position_t *pos) {
+  for (int bucket = 0; bucket < KING_BUCKETS; ++bucket) {
+    for (int i = 0; i < HIDDEN_SIZE; ++i) {
+      finny_tables[bucket].accumulator[0][i] = nnue.feature_bias[i];
+      finny_tables[bucket].accumulator[1][i] = nnue.feature_bias[i];
+    }
+
+    for (int piece = P; piece <= k; ++piece) {
+      uint64_t bitboard = pos->bitboards[piece];
+      while (bitboard) {
+        int square = get_lsb(bitboard);
+        size_t white_idx =
+            get_white_idx(piece, square, get_lsb(pos->bitboards[K]));
+        size_t black_idx =
+            get_black_idx(piece, square, get_lsb(pos->bitboards[k]));
+
+        // updates all the pieces in the accumulators
+        for (int i = 0; i < HIDDEN_SIZE; ++i)
+        finny_tables[bucket].accumulator[white][i] +=
+              nnue.feature_weights[white_bucket][white_idx][i];
+
+        for (int i = 0; i < HIDDEN_SIZE; ++i)
+          accumulator->accumulator[black][i] +=
+              nnue.feature_weights[black_bucket][black_idx][i];
+
+        pop_bit(bitboard, square);
+      }
     }
   }
 }
