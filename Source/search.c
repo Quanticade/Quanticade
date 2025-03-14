@@ -366,8 +366,9 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
+    uint16_t move = move_list->entry[count].move;
 
-    if (!SEE(pos, move_list->entry[count].move, -QS_SEE_THRESHOLD))
+    if (!SEE(pos, move, -QS_SEE_THRESHOLD))
       continue;
 
     // preserve board state
@@ -382,7 +383,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
     pos->repetition_table[pos->repetition_index] = pos->hash_keys.hash_key;
 
     // make sure to make only legal moves
-    if (make_move(pos, move_list->entry[count].move, only_captures) == 0) {
+    if (make_move(pos, move, only_captures) == 0) {
       // decrement ply
       pos->ply--;
 
@@ -393,16 +394,16 @@ static inline int quiescence(position_t *pos, thread_t *thread,
       continue;
     }
 
-    update_nnue(pos, thread, mailbox_copy, move_list->entry[count].move);
+    update_nnue(pos, thread, mailbox_copy, move);
 
-    ss->move = move_list->entry[count].move;
-    ss->piece = mailbox_copy[get_move_source(move_list->entry[count].move)];
+    ss->move = move;
+    ss->piece = mailbox_copy[get_move_source(move)];
 
     thread->nodes++;
 
-    if (!is_move_promotion(move_list->entry[count].move) ||
-        !get_move_capture(move_list->entry[count].move)) {
-      add_move(capture_list, move_list->entry[count].move);
+    if (!is_move_promotion(move) ||
+        !get_move_capture(move)) {
+      add_move(capture_list, move);
     }
 
     prefetch_hash_entry(pos->hash_keys.hash_key);
@@ -427,7 +428,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
     if (score > best_score) {
       best_score = score;
-      best_move = move_list->entry[count].move;
+      best_move = move;
       // found a better move
       if (score > alpha) {
         alpha = score;
