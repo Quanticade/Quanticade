@@ -28,7 +28,7 @@ const unsigned int gEVALSize = 1;
 
 const uint8_t BUCKET_DIVISOR = (32 + OUTPUT_BUCKETS - 1) / OUTPUT_BUCKETS;
 
-uint8_t get_king_bucket(uint8_t side, uint8_t square) {
+static inline uint8_t get_king_bucket(uint8_t side, uint8_t square) {
   return buckets[side ? square ^ 56 : square];
 }
 
@@ -164,7 +164,8 @@ static inline int16_t get_black_idx(uint8_t piece, uint8_t square,
   return black_idx;
 }
 
-void refresh_white_accumulator(position_t *pos, accumulator_t *accumulator) {
+static inline void refresh_white_accumulator(position_t *pos,
+                                             accumulator_t *accumulator) {
   uint8_t white_bucket = get_king_bucket(white, get_lsb(pos->bitboards[K]));
   for (int i = 0; i < HIDDEN_SIZE; ++i)
     accumulator->accumulator[white][i] = nnue.feature_bias[i];
@@ -185,7 +186,8 @@ void refresh_white_accumulator(position_t *pos, accumulator_t *accumulator) {
   }
 }
 
-void refresh_black_accumulator(position_t *pos, accumulator_t *accumulator) {
+static inline void refresh_black_accumulator(position_t *pos,
+                                             accumulator_t *accumulator) {
   uint8_t black_bucket = get_king_bucket(black, get_lsb(pos->bitboards[k]));
   for (int i = 0; i < HIDDEN_SIZE; ++i)
     accumulator->accumulator[black][i] = nnue.feature_bias[i];
@@ -432,12 +434,12 @@ static inline void accumulator_addaddsubsub(
   }
 }
 
-void accumulator_make_move(accumulator_t *accumulator,
-                           accumulator_t *prev_accumulator,
-                           uint8_t white_king_square, uint8_t black_king_square,
-                           uint8_t white_bucket, uint8_t black_bucket,
-                           uint8_t side, int move, uint8_t *mailbox,
-                           uint8_t color_flag) {
+static inline void
+accumulator_make_move(accumulator_t *accumulator,
+                      accumulator_t *prev_accumulator,
+                      uint8_t white_king_square, uint8_t black_king_square,
+                      uint8_t white_bucket, uint8_t black_bucket, uint8_t side,
+                      int move, uint8_t *mailbox, uint8_t color_flag) {
   int from = get_move_source(move);
   int to = get_move_target(move);
   int moving_piece = mailbox[from];
@@ -521,5 +523,33 @@ void accumulator_make_move(accumulator_t *accumulator,
     accumulator_addsub(accumulator, prev_accumulator, white_king_square,
                        black_king_square, white_bucket, black_bucket,
                        moving_piece, moving_piece, from, to, color_flag);
+  }
+}
+
+void update_nnue(position_t *pos, thread_t *thread, uint8_t mailbox_copy[64],
+                 uint16_t move) {
+  uint8_t white_king_square = get_lsb(pos->bitboards[K]);
+  uint8_t black_king_square = get_lsb(pos->bitboards[k]);
+  uint8_t white_bucket = get_king_bucket(white, white_king_square);
+  uint8_t black_bucket = get_king_bucket(black, black_king_square);
+  if (need_refresh(mailbox_copy, move)) {
+    if (pos->side == black) {
+      refresh_white_accumulator(pos, &thread->accumulator[pos->ply]);
+      accumulator_make_move(&thread->accumulator[pos->ply],
+                            &thread->accumulator[pos->ply - 1],
+                            white_king_square, black_king_square, white_bucket,
+                            black_bucket, pos->side, move, mailbox_copy, black);
+    } else if (pos->side == white) {
+      refresh_black_accumulator(pos, &thread->accumulator[pos->ply]);
+      accumulator_make_move(&thread->accumulator[pos->ply],
+                            &thread->accumulator[pos->ply - 1],
+                            white_king_square, black_king_square, white_bucket,
+                            black_bucket, pos->side, move, mailbox_copy, white);
+    }
+  } else {
+    accumulator_make_move(&thread->accumulator[pos->ply],
+                          &thread->accumulator[pos->ply - 1], white_king_square,
+                          black_king_square, white_bucket, black_bucket,
+                          pos->side, move, mailbox_copy, both);
   }
 }

@@ -110,7 +110,9 @@ void scale_time(thread_t *thread, uint8_t best_move_stability,
                 uint8_t eval_stability, uint16_t move) {
   double not_bm_nodes_fraction =
       1 - (double)nodes_spent_table[move >> 4] / (double)thread->nodes;
-  double node_scaling_factor = MAX(NODE_TIME_MULTIPLIER * not_bm_nodes_fraction + NODE_TIME_ADDITION, NODE_TIME_MIN);
+  double node_scaling_factor =
+      MAX(NODE_TIME_MULTIPLIER * not_bm_nodes_fraction + NODE_TIME_ADDITION,
+          NODE_TIME_MIN);
   limits.soft_limit =
       MIN(thread->starttime +
               limits.base_soft * bestmove_scale[best_move_stability] *
@@ -370,8 +372,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
     // preserve board state
     copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-               pos->castle, pos->fifty, pos->hash_keys,
-               pos->mailbox);
+               pos->castle, pos->fifty, pos->hash_keys, pos->mailbox);
 
     // increment ply
     pos->ply++;
@@ -392,30 +393,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
       continue;
     }
 
-    uint8_t white_king_square = get_lsb(pos->bitboards[K]);
-    uint8_t black_king_square = get_lsb(pos->bitboards[k]);
-    uint8_t white_bucket = get_king_bucket(white, white_king_square);
-    uint8_t black_bucket = get_king_bucket(black, black_king_square);
-    if (need_refresh(mailbox_copy, move_list->entry[count].move)) {
-      if (pos->side == black) {
-        refresh_white_accumulator(pos, &thread->accumulator[pos->ply]);
-        accumulator_make_move(
-            &thread->accumulator[pos->ply], &thread->accumulator[pos->ply - 1],
-            white_king_square, black_king_square, white_bucket, black_bucket,
-            pos->side, move_list->entry[count].move, mailbox_copy, black);
-      } else if (pos->side == white) {
-        refresh_black_accumulator(pos, &thread->accumulator[pos->ply]);
-        accumulator_make_move(
-            &thread->accumulator[pos->ply], &thread->accumulator[pos->ply - 1],
-            white_king_square, black_king_square, white_bucket, black_bucket,
-            pos->side, move_list->entry[count].move, mailbox_copy, white);
-      }
-    } else {
-      accumulator_make_move(
-          &thread->accumulator[pos->ply], &thread->accumulator[pos->ply - 1],
-          white_king_square, black_king_square, white_bucket, black_bucket,
-          pos->side, move_list->entry[count].move, mailbox_copy, both);
-    }
+    update_nnue(pos, thread, mailbox_copy, move_list->entry[count].move);
 
     ss->move = move_list->entry[count].move;
     ss->piece = mailbox_copy[get_move_source(move_list->entry[count].move)];
@@ -440,8 +418,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
     // take move back
     restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                  pos->castle, pos->fifty, pos->hash_keys,
-                  pos->mailbox);
+                  pos->castle, pos->fifty, pos->hash_keys, pos->mailbox);
 
     // return 0 if time is up
     if (thread->stopped == 1) {
@@ -613,8 +590,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       R = MIN(R, depth);
       // preserve board state
       copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                 pos->castle, pos->fifty, pos->hash_keys,
-                 pos->mailbox);
+                 pos->castle, pos->fifty, pos->hash_keys, pos->mailbox);
       thread->accumulator[pos->ply + 1] = thread->accumulator[pos->ply];
 
       // increment ply
@@ -658,8 +634,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
       // restore board state
       restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                    pos->castle, pos->fifty, pos->hash_keys,
-                    pos->mailbox);
+                    pos->castle, pos->fifty, pos->hash_keys, pos->mailbox);
 
       // return 0 if time is up
       if (thread->stopped == 1) {
@@ -768,16 +743,14 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       const int s_depth = (depth - 1) / 2;
 
       copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                 pos->castle, pos->fifty, pos->hash_keys,
-                 pos->mailbox);
+                 pos->castle, pos->fifty, pos->hash_keys, pos->mailbox);
 
       if (make_move(pos, move, all_moves) == 0) {
         continue;
       }
 
       restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                    pos->castle, pos->fifty, pos->hash_keys,
-                    pos->mailbox);
+                    pos->castle, pos->fifty, pos->hash_keys, pos->mailbox);
 
       ss->excluded_move = move;
 
@@ -816,8 +789,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     // preserve board state
     copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-               pos->castle, pos->fifty, pos->hash_keys,
-               pos->mailbox);
+               pos->castle, pos->fifty, pos->hash_keys, pos->mailbox);
 
     // increment ply
     pos->ply++;
@@ -838,30 +810,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       continue;
     }
 
-    uint8_t white_king_square = get_lsb(pos->bitboards[K]);
-    uint8_t black_king_square = get_lsb(pos->bitboards[k]);
-    uint8_t white_bucket = get_king_bucket(white, white_king_square);
-    uint8_t black_bucket = get_king_bucket(black, black_king_square);
-    if (need_refresh(mailbox_copy, move_list->entry[count].move)) {
-      if (pos->side == black) {
-        refresh_white_accumulator(pos, &thread->accumulator[pos->ply]);
-        accumulator_make_move(
-            &thread->accumulator[pos->ply], &thread->accumulator[pos->ply - 1],
-            white_king_square, black_king_square, white_bucket, black_bucket,
-            pos->side, move_list->entry[count].move, mailbox_copy, black);
-      } else if (pos->side == white) {
-        refresh_black_accumulator(pos, &thread->accumulator[pos->ply]);
-        accumulator_make_move(
-            &thread->accumulator[pos->ply], &thread->accumulator[pos->ply - 1],
-            white_king_square, black_king_square, white_bucket, black_bucket,
-            pos->side, move_list->entry[count].move, mailbox_copy, white);
-      }
-    } else {
-      accumulator_make_move(
-          &thread->accumulator[pos->ply], &thread->accumulator[pos->ply - 1],
-          white_king_square, black_king_square, white_bucket, black_bucket,
-          pos->side, move_list->entry[count].move, mailbox_copy, both);
-    }
+    update_nnue(pos, thread, mailbox_copy, move);
 
     ss->move = move;
     ss->piece = mailbox_copy[get_move_source(move)];
@@ -926,8 +875,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     // take move back
     restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                  pos->castle, pos->fifty, pos->hash_keys,
-                  pos->mailbox);
+                  pos->castle, pos->fifty, pos->hash_keys, pos->mailbox);
 
     if (thread->index == 0 && root_node) {
       nodes_spent_table[move >> 4] += thread->nodes - nodes_before_search;
