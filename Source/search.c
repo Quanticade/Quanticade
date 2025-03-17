@@ -311,6 +311,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
   uint8_t tt_hit = 0;
   uint8_t tt_flag = HASH_FLAG_EXACT;
   uint8_t tt_was_pv = pv_node;
+  uint8_t tt_depth = 0;
 
   tt_entry_t tt_entry;
 
@@ -321,6 +322,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
     tt_score = tt_entry.score;
     tt_static_eval = tt_entry.static_eval;
     tt_flag = tt_entry.flag;
+    tt_depth = tt_entry.depth;
   }
 
   // If we arent in PV node and we hit requirements for cutoff
@@ -339,6 +341,9 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
   // fail-hard beta cutoff
   if (best_score >= beta) {
+    if (!tt_hit) {
+      write_hash_entry(pos, NO_SCORE, tt_depth, 0, 0, tt_was_pv);
+    }
     if (abs(best_score) < MATE_SCORE && abs(beta) < MATE_SCORE) {
       best_score = (best_score + beta) / 2;
     }
