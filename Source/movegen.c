@@ -4,6 +4,7 @@
 #include "enums.h"
 #include "move.h"
 #include "structs.h"
+#include <stdio.h>
 #include <string.h>
 
 extern nnue_settings_t nnue_settings;
@@ -59,6 +60,14 @@ int make_move(position_t *pos, int move, int move_flag) {
       pos->hash_keys.hash_key ^= keys.piece_keys[bb_piece][target_square];
       if (bb_piece == p || bb_piece == P) {
         pos->hash_keys.pawn_key ^= keys.piece_keys[bb_piece][target_square];
+      } else {
+        if (pos->side == white) {
+          pos->hash_keys.non_pawn_key[black] ^=
+              keys.piece_keys[bb_piece][target_square];
+        } else {
+          pos->hash_keys.non_pawn_key[white] ^=
+              keys.piece_keys[bb_piece][target_square];
+        }
       }
     }
   }
@@ -104,6 +113,18 @@ int make_move(position_t *pos, int move, int move_flag) {
   if (piece == p || piece == P) {
     pos->hash_keys.pawn_key ^= keys.piece_keys[piece][source_square];
     pos->hash_keys.pawn_key ^= keys.piece_keys[piece][target_square];
+  } else {
+    if (pos->side == white) {
+      pos->hash_keys.non_pawn_key[white] ^=
+          keys.piece_keys[piece][source_square];
+      pos->hash_keys.non_pawn_key[white] ^=
+          keys.piece_keys[piece][target_square];
+    } else {
+      pos->hash_keys.non_pawn_key[black] ^=
+          keys.piece_keys[piece][source_square];
+      pos->hash_keys.non_pawn_key[black] ^=
+          keys.piece_keys[piece][target_square];
+    }
   }
 
   // handle pawn promotions
@@ -134,6 +155,13 @@ int make_move(position_t *pos, int move, int move_flag) {
 
     // add promoted piece into the hash key
     pos->hash_keys.hash_key ^= keys.piece_keys[promoted_piece][target_square];
+    if (pos->side == white) {
+      pos->hash_keys.non_pawn_key[white] ^=
+          keys.piece_keys[promoted_piece][target_square];
+    } else {
+      pos->hash_keys.non_pawn_key[black] ^=
+          keys.piece_keys[promoted_piece][target_square];
+    }
   }
 
   // hash enpassant if available (remove enpassant square from hash key)
@@ -191,7 +219,13 @@ int make_move(position_t *pos, int move, int move_flag) {
         // Update hash key
         pos->hash_keys.hash_key ^= keys.piece_keys[piece][r_start];
         pos->hash_keys.hash_key ^= keys.piece_keys[piece][r_end];
-
+        if (pos->side == white) {
+          pos->hash_keys.non_pawn_key[white] ^= keys.piece_keys[piece][r_start];
+          pos->hash_keys.non_pawn_key[white] ^= keys.piece_keys[piece][r_end];
+        } else {
+          pos->hash_keys.non_pawn_key[black] ^= keys.piece_keys[piece][r_start];
+          pos->hash_keys.non_pawn_key[black] ^= keys.piece_keys[piece][r_end];
+        }
         break;
       }
     }
