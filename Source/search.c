@@ -82,8 +82,12 @@ int lmr[2][MAX_PLY + 1][256];
 
 int SEE_MARGIN[MAX_PLY + 1][2];
 
-double bestmove_scale[5] = {2.4127778879395403, 1.3591679728822201, 1.0892878736366167, 0.8801589058035711, 0.6928914388892039};
-double eval_scale[5] = {1.2422734971107077, 1.1390735152797768, 0.9904722958613691, 0.945176041488196, 0.8876516599534069};
+double bestmove_scale[5] = {2.4127778879395403, 1.3591679728822201,
+                            1.0892878736366167, 0.8801589058035711,
+                            0.6928914388892039};
+double eval_scale[5] = {1.2422734971107077, 1.1390735152797768,
+                        0.9904722958613691, 0.945176041488196,
+                        0.8876516599534069};
 
 uint64_t nodes_spent_table[4096] = {0};
 
@@ -401,8 +405,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
     thread->nodes++;
 
-    if (!is_move_promotion(move) ||
-        !get_move_capture(move)) {
+    if (!is_move_promotion(move) || !get_move_capture(move)) {
       add_move(capture_list, move);
     }
 
@@ -587,8 +590,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     if (!ss->null_move && ss->static_eval >= beta && depth >= 3 &&
         !only_pawns(pos)) {
       int R = MIN((ss->static_eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) +
-              depth / NMP_DIVISER + NMP_BASE_REDUCTION;
-      R = MIN(R, depth);
+              depth / NMP_DIVISER + NMP_BASE_REDUCTION + improving;
+      R = clamp(R, 0, depth);
       // preserve board state
       copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
                  pos->castle, pos->fifty, pos->hash_keys, pos->mailbox);
