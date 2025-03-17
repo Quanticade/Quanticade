@@ -76,6 +76,7 @@ typedef struct finny_table {
 typedef struct hash_keys {
   uint64_t hash_key;
   uint64_t pawn_key;
+  uint64_t non_pawn_key;
 } hash_keys_t;
 
 typedef struct position {
