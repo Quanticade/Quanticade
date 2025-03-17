@@ -163,63 +163,33 @@ uint8_t make_move(position_t *pos, uint16_t move) {
 
   // handle castling moves
   if (castling) {
-    // switch target square
-    switch (target_square) {
-    // white castles king side
-    case (g1):
-      // move H rook
-      pop_bit(pos->bitboards[R], h1);
-      set_bit(pos->bitboards[R], f1);
-      pos->mailbox[h1] = NO_PIECE;
-      pos->mailbox[f1] = R;
+    // Lookup tables for rook movement during castling
+    static const int rook_start[4] = {h1, a1, h8,
+                                      a8}; // H-file and A-file rooks
+    static const int rook_end[4] = {f1, d1, f8,
+                                    d8}; // Destination squares for rooks
+    static const int castle_squares[4] = {
+        g1, c1, g8, c8}; // Target squares for castling moves
+    static const int rook_piece[4] = {R, R, r, r}; // Corresponding rook pieces
 
-      // hash rook
-      pos->hash_keys.hash_key ^=
-          keys.piece_keys[R][h1]; // remove rook from h1 from hash key
-      pos->hash_keys.hash_key ^= keys.piece_keys[R][f1]; // put rook on f1 into a hash key
-      break;
+    for (int i = 0; i < 4; ++i) {
+      if (target_square == castle_squares[i]) {
+        int r_start = rook_start[i];
+        int r_end = rook_end[i];
+        int piece = rook_piece[i];
 
-    // white castles queen side
-    case (c1):
-      // move A rook
-      pop_bit(pos->bitboards[R], a1);
-      set_bit(pos->bitboards[R], d1);
-      pos->mailbox[a1] = NO_PIECE;
-      pos->mailbox[d1] = R;
+        // Move rook
+        pop_bit(pos->bitboards[piece], r_start);
+        set_bit(pos->bitboards[piece], r_end);
+        pos->mailbox[r_start] = NO_PIECE;
+        pos->mailbox[r_end] = piece;
 
-      // hash rook
-      pos->hash_keys.hash_key ^=
-          keys.piece_keys[R][a1]; // remove rook from a1 from hash key
-      pos->hash_keys.hash_key ^= keys.piece_keys[R][d1]; // put rook on d1 into a hash key
-      break;
+        // Update hash key
+        pos->hash_keys.hash_key ^= keys.piece_keys[piece][r_start];
+        pos->hash_keys.hash_key ^= keys.piece_keys[piece][r_end];
 
-    // black castles king side
-    case (g8):
-      // move H rook
-      pop_bit(pos->bitboards[r], h8);
-      set_bit(pos->bitboards[r], f8);
-      pos->mailbox[h8] = NO_PIECE;
-      pos->mailbox[f8] = r;
-
-      // hash rook
-      pos->hash_keys.hash_key ^=
-          keys.piece_keys[r][h8]; // remove rook from h8 from hash key
-      pos->hash_keys.hash_key ^= keys.piece_keys[r][f8]; // put rook on f8 into a hash key
-      break;
-
-    // black castles queen side
-    case (c8):
-      // move A rook
-      pop_bit(pos->bitboards[r], a8);
-      set_bit(pos->bitboards[r], d8);
-      pos->mailbox[a8] = NO_PIECE;
-      pos->mailbox[d8] = r;
-
-      // hash rook
-      pos->hash_keys.hash_key ^=
-          keys.piece_keys[r][a8]; // remove rook from a8 from hash key
-      pos->hash_keys.hash_key ^= keys.piece_keys[r][d8]; // put rook on d8 into a hash key
-      break;
+        break;
+      }
     }
   }
 
