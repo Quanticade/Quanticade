@@ -89,6 +89,49 @@ uint64_t generate_pawn_key(position_t *pos) {
   return final_key;
 }
 
+uint64_t generate_non_pawn_key(position_t *pos) {
+  // final hash key
+  uint64_t final_key = 0ULL;
+
+  // temp piece bitboard copy
+  uint64_t bitboard;
+
+  for (int piece = N; piece <= K; ++piece) {
+
+    // init piece bitboard copy
+    bitboard = pos->bitboards[piece];
+
+    // loop over the pieces within a bitboard
+    while (bitboard) {
+      // init square occupied by the piece
+      int square = __builtin_ctzll(bitboard);
+
+      // hash piece
+      final_key ^= keys.piece_keys[piece][square];
+
+      // pop LS1B
+      pop_bit(bitboard, square);
+    }
+
+    bitboard = pos->bitboards[piece + 6];
+
+    // loop over the pieces within a bitboard
+    while (bitboard) {
+      // init square occupied by the piece
+      int square = __builtin_ctzll(bitboard);
+
+      // hash piece
+      final_key ^= keys.piece_keys[piece + 6][square];
+
+      // pop LS1B
+      pop_bit(bitboard, square);
+    }
+  }
+
+  // return generated hash key
+  return final_key;
+}
+
 int16_t calculate_corrhist_bonus(int16_t static_eval, int16_t search_score,
                                  uint8_t depth) {
   return clamp((search_score - static_eval) * depth / 8, -CORR_HISTORY_MINMAX,
