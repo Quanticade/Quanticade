@@ -313,8 +313,6 @@ static inline int quiescence(position_t *pos, thread_t *thread,
   uint8_t tt_was_pv = pv_node;
 
   tt_entry_t tt_entry;
-  //A hack so compiler doesnt tell us it can be used uninitialized
-  tt_entry.static_eval = NO_SCORE;
 
   tt_hit = read_hash_entry(pos, &tt_entry);
 

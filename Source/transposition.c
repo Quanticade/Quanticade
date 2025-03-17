@@ -139,6 +139,7 @@ uint8_t read_hash_entry(position_t *pos, tt_entry_t *tt_entry) {
 
     tt_entry->move = hash_entry->move;
     tt_entry->score = score;
+    tt_entry->static_eval = hash_entry->static_eval;
     tt_entry->depth = hash_entry->depth;
     tt_entry->flag = hash_entry->flag;
     tt_entry->tt_pv = hash_entry->tt_pv;
