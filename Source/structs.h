@@ -76,7 +76,7 @@ typedef struct finny_table {
 typedef struct hash_keys {
   uint64_t hash_key;
   uint64_t pawn_key;
-  uint64_t non_pawn_key;
+  uint64_t non_pawn_key[2];
 } hash_keys_t;
 
 typedef struct position {
@@ -114,6 +114,7 @@ typedef struct searchinfo {
   int16_t continuation_history[12][64][12][64];
   int16_t capture_history[12][13][64][64];
   int16_t pawn_history[32768][12][64];
+  int16_t non_pawn_correction_history[2][2][16384];
   uint8_t depth;
   uint8_t seldepth;
   uint8_t stopped;

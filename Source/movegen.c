@@ -4,6 +4,7 @@
 #include "enums.h"
 #include "move.h"
 #include "structs.h"
+#include <stdio.h>
 #include <string.h>
 
 extern nnue_settings_t nnue_settings;
@@ -55,6 +56,14 @@ uint8_t make_move(position_t *pos, uint16_t move) {
       pos->hash_keys.hash_key ^= keys.piece_keys[bb_piece][target_square];
       if (bb_piece == p || bb_piece == P) {
         pos->hash_keys.pawn_key ^= keys.piece_keys[bb_piece][target_square];
+      } else {
+        if (pos->side == white) {
+          pos->hash_keys.non_pawn_key[black] ^=
+              keys.piece_keys[bb_piece][target_square];
+        } else {
+          pos->hash_keys.non_pawn_key[white] ^=
+              keys.piece_keys[bb_piece][target_square];
+        }
       }
     }
   }
@@ -100,6 +109,18 @@ uint8_t make_move(position_t *pos, uint16_t move) {
   if (piece == p || piece == P) {
     pos->hash_keys.pawn_key ^= keys.piece_keys[piece][source_square];
     pos->hash_keys.pawn_key ^= keys.piece_keys[piece][target_square];
+  } else {
+    if (pos->side == white) {
+      pos->hash_keys.non_pawn_key[white] ^=
+          keys.piece_keys[piece][source_square];
+      pos->hash_keys.non_pawn_key[white] ^=
+          keys.piece_keys[piece][target_square];
+    } else {
+      pos->hash_keys.non_pawn_key[black] ^=
+          keys.piece_keys[piece][source_square];
+      pos->hash_keys.non_pawn_key[black] ^=
+          keys.piece_keys[piece][target_square];
+    }
   }
 
   // handle pawn promotions
@@ -130,6 +151,13 @@ uint8_t make_move(position_t *pos, uint16_t move) {
 
     // add promoted piece into the hash key
     pos->hash_keys.hash_key ^= keys.piece_keys[promoted_piece][target_square];
+    if (pos->side == white) {
+      pos->hash_keys.non_pawn_key[white] ^=
+          keys.piece_keys[promoted_piece][target_square];
+    } else {
+      pos->hash_keys.non_pawn_key[black] ^=
+          keys.piece_keys[promoted_piece][target_square];
+    }
   }
 
   // hash enpassant if available (remove enpassant square from hash key)
@@ -172,20 +200,11 @@ uint8_t make_move(position_t *pos, uint16_t move) {
         g1, c1, g8, c8}; // Target squares for castling moves
     static const int rook_piece[4] = {R, R, r, r}; // Corresponding rook pieces
 
-<<<<<<< HEAD
-      // hash rook
-      pos->hash_keys.hash_key ^=
-          keys.piece_keys[R][h1]; // remove rook from h1 from hash key
-      pos->hash_keys.hash_key ^=
-          keys.piece_keys[R][f1]; // put rook on f1 into a hash key
-      break;
-=======
     for (int i = 0; i < 4; ++i) {
       if (target_square == castle_squares[i]) {
         int r_start = rook_start[i];
         int r_end = rook_end[i];
         int piece = rook_piece[i];
->>>>>>> ba0bd11 (movegen.c: Simplify castling code)
 
         // Move rook
         pop_bit(pos->bitboards[piece], r_start);
@@ -193,51 +212,18 @@ uint8_t make_move(position_t *pos, uint16_t move) {
         pos->mailbox[r_start] = NO_PIECE;
         pos->mailbox[r_end] = piece;
 
-<<<<<<< HEAD
-      // hash rook
-      pos->hash_keys.hash_key ^=
-          keys.piece_keys[R][a1]; // remove rook from a1 from hash key
-      pos->hash_keys.hash_key ^=
-          keys.piece_keys[R][d1]; // put rook on d1 into a hash key
-      break;
-
-    // black castles king side
-    case (g8):
-      // move H rook
-      pop_bit(pos->bitboards[r], h8);
-      set_bit(pos->bitboards[r], f8);
-      pos->mailbox[h8] = NO_PIECE;
-      pos->mailbox[f8] = r;
-
-      // hash rook
-      pos->hash_keys.hash_key ^=
-          keys.piece_keys[r][h8]; // remove rook from h8 from hash key
-      pos->hash_keys.hash_key ^=
-          keys.piece_keys[r][f8]; // put rook on f8 into a hash key
-      break;
-
-    // black castles queen side
-    case (c8):
-      // move A rook
-      pop_bit(pos->bitboards[r], a8);
-      set_bit(pos->bitboards[r], d8);
-      pos->mailbox[a8] = NO_PIECE;
-      pos->mailbox[d8] = r;
-
-      // hash rook
-      pos->hash_keys.hash_key ^=
-          keys.piece_keys[r][a8]; // remove rook from a8 from hash key
-      pos->hash_keys.hash_key ^=
-          keys.piece_keys[r][d8]; // put rook on d8 into a hash key
-      break;
-=======
         // Update hash key
         pos->hash_keys.hash_key ^= keys.piece_keys[piece][r_start];
         pos->hash_keys.hash_key ^= keys.piece_keys[piece][r_end];
-
+        if (pos->side == white) {
+          pos->hash_keys.non_pawn_key[white] ^= keys.piece_keys[piece][r_start];
+          pos->hash_keys.non_pawn_key[white] ^= keys.piece_keys[piece][r_end];
+        } else {
+          pos->hash_keys.non_pawn_key[black] ^= keys.piece_keys[piece][r_start];
+          pos->hash_keys.non_pawn_key[black] ^= keys.piece_keys[piece][r_end];
+        }
         break;
       }
->>>>>>> ba0bd11 (movegen.c: Simplify castling code)
     }
   }
 
