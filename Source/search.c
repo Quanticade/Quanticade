@@ -465,8 +465,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
   // variable to store current move's score (from the static evaluation
   // perspective)
-  int current_score = -NO_SCORE, static_eval = -NO_SCORE;
-  int raw_static_eval = -NO_SCORE;
+  int current_score = NO_SCORE, static_eval = NO_SCORE;
+  int raw_static_eval = NO_SCORE;
 
   uint16_t tt_move = 0;
   int16_t tt_score = NO_SCORE;
@@ -672,8 +672,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   // generate moves
   generate_moves(pos, move_list);
 
-  int best_score = -INF;
-  current_score = -INF;
+  int best_score = NO_SCORE;
+  current_score = NO_SCORE;
 
   int best_move = 0;
   for (uint32_t count = 0; count < move_list->count; count++) {
