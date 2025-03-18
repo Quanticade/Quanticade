@@ -550,6 +550,12 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   } else if (!ss->excluded_move) {
     raw_static_eval = tt_static_eval != NO_SCORE ? tt_static_eval : evaluate(pos, &thread->accumulator[pos->ply]);
 
+    if (!tt_hit) {
+      //Save the static eval to TT if we have nothing
+      write_hash_entry(pos, NO_SCORE, raw_static_eval, 0, 0, HASH_FLAG_NONE,
+                   tt_was_pv);
+    }
+
     // adjust static eval with corrhist
     static_eval = ss->static_eval =
         adjust_static_eval(thread, pos, raw_static_eval);
