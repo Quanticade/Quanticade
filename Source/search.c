@@ -847,10 +847,11 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     int R = lmr[quiet][depth][MIN(255, moves_seen)] * 1024;
     R += !pv_node * LMR_PV_NODE;
+    R += cutnode * LMR_CUTNODE;
+    R += !improving * 1024;
     R -= ss->history_score * (quiet ? LMR_HISTORY_QUIET : LMR_HISTORY_NOISY) /
          (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
     R -= in_check * LMR_IN_CHECK;
-    R += cutnode * LMR_CUTNODE;
     R -= (tt_depth >= depth) * LMR_TT_DEPTH;
     R -= tt_was_pv * LMR_TT_PV;
     int reduced_depth = MAX(1, MIN(new_depth - (R / 1024) + 1, new_depth));
