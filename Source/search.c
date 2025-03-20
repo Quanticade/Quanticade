@@ -373,19 +373,19 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
   sort_moves(move_list);
 
-  const int futility_score = ss->static_eval + 70;
+  const int futility_score = best_score + 130;
 
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
     uint16_t move = move_list->entry[count].move;
 
-    if (!SEE(pos, move, -QS_SEE_THRESHOLD))
-      continue;
-
     if (!in_check && get_move_capture(move) && futility_score <= alpha && !SEE(pos, move, 1)) {
       best_score = MAX(best_score, futility_score);
       continue;
     }
+
+    if (!SEE(pos, move, -QS_SEE_THRESHOLD))
+      continue;
 
     // preserve board state
     copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
