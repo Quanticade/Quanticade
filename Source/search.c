@@ -746,7 +746,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
         tt_depth >= depth - SE_DEPTH_REDUCTION &&
         tt_flag != HASH_FLAG_UPPER_BOUND && abs(tt_score) < MATE_SCORE) {
       const int s_beta = tt_score - depth;
-      const int s_depth = (depth - 1) / 2;
+      const int s_depth = 7 * (depth - 1) / 16;
 
       copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
                  pos->castle, pos->fifty, pos->hash_keys, pos->mailbox);
