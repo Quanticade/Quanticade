@@ -373,7 +373,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
   sort_moves(move_list);
 
-  const int futility_score = ss->static_eval + 140;
+  const int futility_score = ss->static_eval + 70;
 
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
