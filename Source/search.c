@@ -329,6 +329,13 @@ static inline int quiescence(position_t *pos, thread_t *thread,
     return tt_score;
   }
 
+  // is king in check
+  int in_check = is_square_attacked(pos,
+                                    (pos->side == white)
+                                        ? __builtin_ctzll(pos->bitboards[K])
+                                        : __builtin_ctzll(pos->bitboards[k]),
+                                    pos->side ^ 1);
+
   raw_static_eval = tt_static_eval != NO_SCORE ? tt_static_eval : evaluate(pos, &thread->accumulator[pos->ply]);
   best_score = ss->static_eval =
       adjust_static_eval(thread, pos, raw_static_eval);
@@ -366,7 +373,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
   sort_moves(move_list);
 
-  const int futility_score = best_score + 140;
+  const int futility_score = ss->static_eval + 140;
 
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
@@ -375,7 +382,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
     if (!SEE(pos, move, -QS_SEE_THRESHOLD))
       continue;
 
-    if (get_move_capture(move) && futility_score <= alpha && !SEE(pos, move, 1)) {
+    if (!in_check && get_move_capture(move) && futility_score <= alpha && !SEE(pos, move, 1)) {
       best_score = MAX(best_score, futility_score);
       continue;
     }
