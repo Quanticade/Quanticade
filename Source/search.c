@@ -388,7 +388,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
     pos->repetition_table[pos->repetition_index] = pos->hash_keys.hash_key;
 
     // make sure to make only legal moves
-    if (make_move(pos, move, only_captures) == 0) {
+    if (make_move(pos, move) == 0) {
       // decrement ply
       pos->ply--;
 
@@ -755,7 +755,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
                  pos->castle, pos->fifty, pos->hash_keys, pos->mailbox);
 
-      if (make_move(pos, move, all_moves) == 0) {
+      if (make_move(pos, move) == 0) {
         continue;
       }
 
@@ -809,7 +809,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
     pos->repetition_table[pos->repetition_index] = pos->hash_keys.hash_key;
 
     // make sure to make only legal moves
-    if (make_move(pos, move, all_moves) == 0) {
+    if (make_move(pos, move) == 0) {
       // decrement ply
       pos->ply--;
 

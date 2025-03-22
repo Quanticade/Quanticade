@@ -32,7 +32,7 @@ static inline void perft_driver(position_t *pos, thread_t *thread, int depth) {
                pos->mailbox);
 
     // make move
-    if (!make_move(pos, move_list->entry[move_count].move, all_moves))
+    if (!make_move(pos, move_list->entry[move_count].move))
       // skip to the next move
       continue;
 
@@ -67,7 +67,7 @@ void perft_test(position_t *pos, thread_t *searchinfo, int depth) {
                pos->mailbox);
 
     // make move
-    if (!make_move(pos, move_list->entry[move_count].move, all_moves))
+    if (!make_move(pos, move_list->entry[move_count].move))
       // skip to the next move
       continue;
 

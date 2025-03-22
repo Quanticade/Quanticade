@@ -381,7 +381,7 @@ static inline void parse_position(position_t *pos, thread_t *thread,
       pos->repetition_table[pos->repetition_index] = pos->hash_keys.hash_key;
 
       // make move on the chess board
-      make_move(pos, move, all_moves);
+      make_move(pos, move);
 
       // move current character pointer to the end of current move
       while (*current_char && *current_char != ' ')

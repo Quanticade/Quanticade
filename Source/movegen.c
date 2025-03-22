@@ -15,17 +15,14 @@ const int castling_rights[64] = {
     15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
     15, 15, 15, 15, 15, 15, 15, 15, 13, 15, 15, 15, 12, 15, 15, 14};
 
-int make_move(position_t *pos, int move, int move_flag) {
-  int capture = get_move_capture(move);
-  if (move_flag == only_captures && !capture) {
-    return 0;
-  }
+int make_move(position_t *pos, int move) {
   // preserve board state
   copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
              pos->castle, pos->fifty, pos->hash_keys,
              pos->mailbox);
 
   // parse move
+  int capture = get_move_capture(move);
   int source_square = get_move_source(move);
   int target_square = get_move_target(move);
   int piece = pos->mailbox[get_move_source(move)];
