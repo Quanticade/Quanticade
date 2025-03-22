@@ -411,7 +411,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
     prefetch_hash_entry(pos->hash_keys.hash_key);
 
     // score current move
-    score = -quiescence(pos, thread, ss, -beta, -alpha, pv_node);
+    score = -quiescence(pos, thread, ss + 1, -beta, -alpha, pv_node);
 
     // decrement ply
     pos->ply--;
