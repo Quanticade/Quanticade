@@ -82,8 +82,12 @@ int lmr[2][MAX_PLY + 1][256];
 
 int SEE_MARGIN[MAX_PLY + 1][2];
 
-double bestmove_scale[5] = {2.4127778879395403, 1.3591679728822201, 1.0892878736366167, 0.8801589058035711, 0.6928914388892039};
-double eval_scale[5] = {1.2422734971107077, 1.1390735152797768, 0.9904722958613691, 0.945176041488196, 0.8876516599534069};
+double bestmove_scale[5] = {2.4127778879395403, 1.3591679728822201,
+                            1.0892878736366167, 0.8801589058035711,
+                            0.6928914388892039};
+double eval_scale[5] = {1.2422734971107077, 1.1390735152797768,
+                        0.9904722958613691, 0.945176041488196,
+                        0.8876516599534069};
 
 uint64_t nodes_spent_table[4096] = {0};
 
@@ -329,7 +333,9 @@ static inline int quiescence(position_t *pos, thread_t *thread,
     return tt_score;
   }
 
-  raw_static_eval = tt_static_eval != NO_SCORE ? tt_static_eval : evaluate(pos, &thread->accumulator[pos->ply]);
+  raw_static_eval = tt_static_eval != NO_SCORE
+                        ? tt_static_eval
+                        : evaluate(pos, &thread->accumulator[pos->ply]);
   best_score = ss->static_eval =
       adjust_static_eval(thread, pos, raw_static_eval);
 
@@ -347,10 +353,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
   }
 
   // found a better move
-  if (best_score > alpha) {
-    // PV node (position)
-    alpha = best_score;
-  }
+  alpha = MAX(alpha, best_score);
 
   // create move list instance
   moves move_list[1];
@@ -403,8 +406,7 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 
     thread->nodes++;
 
-    if (!is_move_promotion(move) ||
-        !get_move_capture(move)) {
+    if (get_move_capture(move)) {
       add_move(capture_list, move);
     }
 
@@ -548,7 +550,9 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   if (in_check) {
     static_eval = ss->static_eval = NO_SCORE;
   } else if (!ss->excluded_move) {
-    raw_static_eval = tt_static_eval != NO_SCORE ? tt_static_eval : evaluate(pos, &thread->accumulator[pos->ply]);
+    raw_static_eval = tt_static_eval != NO_SCORE
+                          ? tt_static_eval
+                          : evaluate(pos, &thread->accumulator[pos->ply]);
 
     // adjust static eval with corrhist
     static_eval = ss->static_eval =
@@ -953,7 +957,8 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       hash_flag = HASH_FLAG_UPPER_BOUND;
     }
     // store hash entry with the score equal to alpha
-    write_hash_entry(pos, best_score, raw_static_eval, depth, best_move, hash_flag, tt_was_pv);
+    write_hash_entry(pos, best_score, raw_static_eval, depth, best_move,
+                     hash_flag, tt_was_pv);
 
     if (!in_check && (!best_move || !(is_move_promotion(best_move) ||
                                       get_move_capture(best_move)))) {
