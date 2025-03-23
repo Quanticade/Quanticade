@@ -288,8 +288,8 @@ static inline uint8_t only_pawns(position_t *pos) {
 
 // quiescence search
 static inline int16_t quiescence(position_t *pos, thread_t *thread,
-                             searchstack_t *ss, int16_t alpha, int16_t beta,
-                             uint8_t pv_node) {
+                                 searchstack_t *ss, int16_t alpha, int16_t beta,
+                                 uint8_t pv_node) {
   // Check on time
   if (check_time(thread)) {
     stop_threads(thread, thread_count);
@@ -333,27 +333,38 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     return tt_score;
   }
 
-  raw_static_eval = tt_static_eval != NO_SCORE
-                        ? tt_static_eval
-                        : evaluate(pos, &thread->accumulator[pos->ply]);
-  best_score = ss->static_eval =
-      adjust_static_eval(thread, pos, raw_static_eval);
+  // is king in check
+  uint8_t in_check = is_square_attacked(
+      pos,
+      (pos->side == white) ? __builtin_ctzll(pos->bitboards[K])
+                           : __builtin_ctzll(pos->bitboards[k]),
+      pos->side ^ 1);
 
-  if (tt_hit && can_use_score(best_score, best_score, tt_score, tt_flag)) {
-    best_score = tt_score;
-  }
+  if (!in_check) {
+    raw_static_eval = tt_static_eval != NO_SCORE
+                          ? tt_static_eval
+                          : evaluate(pos, &thread->accumulator[pos->ply]);
+    best_score = ss->static_eval =
+        adjust_static_eval(thread, pos, raw_static_eval);
 
-  // fail-hard beta cutoff
-  if (best_score >= beta) {
-    if (abs(best_score) < MATE_SCORE && abs(beta) < MATE_SCORE) {
-      best_score = (best_score + beta) / 2;
+    if (tt_hit && can_use_score(best_score, best_score, tt_score, tt_flag)) {
+      best_score = tt_score;
     }
-    // node (position) fails high
-    return best_score;
-  }
 
-  // found a better move
-  alpha = MAX(alpha, best_score);
+    // fail-hard beta cutoff
+    if (best_score >= beta) {
+      if (abs(best_score) < MATE_SCORE && abs(beta) < MATE_SCORE) {
+        best_score = (best_score + beta) / 2;
+      }
+      // node (position) fails high
+      return best_score;
+    }
+
+    // found a better move
+    alpha = MAX(alpha, best_score);
+  } else {
+    ss->static_eval = NO_SCORE;
+  }
 
   // create move list instance
   moves move_list[1];
@@ -459,9 +470,9 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 }
 
 // negamax alpha beta search
-static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
-                          int16_t alpha, int16_t beta, int depth, uint8_t cutnode,
-                          uint8_t pv_node) {
+static inline int16_t negamax(position_t *pos, thread_t *thread,
+                              searchstack_t *ss, int16_t alpha, int16_t beta,
+                              int depth, uint8_t cutnode, uint8_t pv_node) {
   // init PV length
   thread->pv.pv_length[pos->ply] = pos->ply;
 
@@ -509,11 +520,11 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
   }
 
   // is king in check
-  uint8_t in_check = is_square_attacked(pos,
-                                    (pos->side == white)
-                                        ? __builtin_ctzll(pos->bitboards[K])
-                                        : __builtin_ctzll(pos->bitboards[k]),
-                                    pos->side ^ 1);
+  uint8_t in_check = is_square_attacked(
+      pos,
+      (pos->side == white) ? __builtin_ctzll(pos->bitboards[K])
+                           : __builtin_ctzll(pos->bitboards[k]),
+      pos->side ^ 1);
 
   // recursion escape condition
   if (!in_check && depth <= 0) {
@@ -659,7 +670,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
 
     if (depth <= RAZOR_DEPTH &&
         ss->static_eval + RAZOR_MARGIN * depth < alpha) {
-      const int16_t razor_score = quiescence(pos, thread, ss, alpha, beta, NON_PV);
+      const int16_t razor_score =
+          quiescence(pos, thread, ss, alpha, beta, NON_PV);
       if (razor_score <= alpha) {
         return razor_score;
       }
@@ -970,7 +982,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
   return best_score;
 }
 
-static void print_thinking(thread_t *thread, int16_t score, uint8_t current_depth) {
+static void print_thinking(thread_t *thread, int16_t score,
+                           uint8_t current_depth) {
 
   uint64_t nodes = total_nodes(thread, thread_count);
   uint64_t time = get_time_ms() - thread->starttime;
