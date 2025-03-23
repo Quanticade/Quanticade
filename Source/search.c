@@ -316,6 +316,8 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   uint8_t tt_flag = HASH_FLAG_EXACT;
   uint8_t tt_was_pv = pv_node;
 
+  uint16_t moves_seen = 0;
+
   tt_entry_t tt_entry;
 
   tt_hit = read_hash_entry(pos, &tt_entry);
@@ -387,8 +389,9 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
     uint16_t move = move_list->entry[count].move;
+    uint8_t quiet = !(get_move_capture(move) || is_move_promotion(move));
 
-    if (!SEE(pos, move, -QS_SEE_THRESHOLD))
+    if (!in_check && !SEE(pos, move, -QS_SEE_THRESHOLD))
       continue;
 
     // preserve board state
@@ -418,6 +421,8 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 
     ss->move = move;
     ss->piece = mailbox_copy[get_move_source(move)];
+
+    moves_seen++;
 
     thread->nodes++;
 
@@ -453,11 +458,26 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
         alpha = score;
         // fail-hard beta cutoff
         if (alpha >= beta) {
-          update_capture_history_moves(thread, capture_list, best_move, 1);
+          if (!quiet) {
+            update_capture_history_moves(thread, capture_list, best_move, 1);
+          }
           break;
         }
       }
     }
+  }
+
+  // we don't have any legal moves to make in the current postion
+  if (moves_seen == 0) {
+    // king is in check
+    if (in_check)
+      // return mating score (assuming closest distance to mating position)
+      return -MATE_VALUE + pos->ply;
+
+    // king is not in check
+    else
+      // return stalemate score
+      return 0;
   }
 
   uint8_t hash_flag = HASH_FLAG_NONE;
