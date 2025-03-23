@@ -210,7 +210,8 @@ static inline void score_move(position_t *pos, thread_t *thread,
                                [get_move_source(move)][get_move_target(move)] +
           get_conthist_score(thread, ss - 1, move) +
           get_conthist_score(thread, ss - 2, move) +
-          get_conthist_score(thread, ss - 4, move);
+          get_conthist_score(thread, ss - 4, move) +
+          get_conthist_score(thread, ss - 6, move);
     }
 
     return;
@@ -1027,7 +1028,7 @@ static inline uint8_t aspiration_windows(thread_t *thread, position_t *pos,
     }
 
     // find best move within a given position
-    thread->score = negamax(pos, thread, ss + 4, alpha, beta,
+    thread->score = negamax(pos, thread, ss + 6, alpha, beta,
                             thread->depth - fail_high_count, 0, PV_NODE);
 
     // We hit an apspiration window cut-off before time ran out and we jumped
@@ -1079,8 +1080,8 @@ void *iterative_deepening(void *thread_void) {
     int16_t alpha = -INF;
     int16_t beta = INF;
 
-    searchstack_t ss[MAX_PLY + 4];
-    for (int i = 0; i < MAX_PLY + 4; ++i) {
+    searchstack_t ss[MAX_PLY + 6];
+    for (int i = 0; i < MAX_PLY + 6; ++i) {
       ss[i].excluded_move = 0;
       ss[i].static_eval = NO_SCORE;
       ss[i].history_score = 0;
