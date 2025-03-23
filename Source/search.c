@@ -465,6 +465,12 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
         }
       }
     }
+
+    if (best_score > -MATE_SCORE) {
+      if (in_check && quiet) {
+        break;
+      }
+    }
   }
 
   // we don't have any legal moves to make in the current postion
@@ -473,11 +479,6 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     if (in_check)
       // return mating score (assuming closest distance to mating position)
       return -MATE_VALUE + pos->ply;
-
-    // king is not in check
-    else
-      // return stalemate score
-      return 0;
   }
 
   uint8_t hash_flag = HASH_FLAG_NONE;
