@@ -236,7 +236,7 @@ static inline void sort_moves(moves *move_list) {
 }
 
 // position repetition detection
-static inline int is_repetition(position_t *pos) {
+static inline uint8_t is_repetition(position_t *pos) {
   // loop over repetition indices range
   for (uint32_t index = 0; index < pos->repetition_index; index++)
     // if we found the hash key same with a current
@@ -287,8 +287,8 @@ static inline uint8_t only_pawns(position_t *pos) {
 }
 
 // quiescence search
-static inline int quiescence(position_t *pos, thread_t *thread,
-                             searchstack_t *ss, int alpha, int beta,
+static inline int16_t quiescence(position_t *pos, thread_t *thread,
+                             searchstack_t *ss, int16_t alpha, int16_t beta,
                              uint8_t pv_node) {
   // Check on time
   if (check_time(thread)) {
@@ -308,8 +308,8 @@ static inline int quiescence(position_t *pos, thread_t *thread,
   }
 
   uint16_t best_move = 0;
-  int score = NO_SCORE, best_score = NO_SCORE;
-  int raw_static_eval = NO_SCORE;
+  int16_t score = NO_SCORE, best_score = NO_SCORE;
+  int16_t raw_static_eval = NO_SCORE;
   int16_t tt_score = NO_SCORE;
   int16_t tt_static_eval = NO_SCORE;
   uint8_t tt_hit = 0;
@@ -459,16 +459,16 @@ static inline int quiescence(position_t *pos, thread_t *thread,
 }
 
 // negamax alpha beta search
-static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
-                          int alpha, int beta, int depth, uint8_t cutnode,
+static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
+                          int16_t alpha, int16_t beta, int depth, uint8_t cutnode,
                           uint8_t pv_node) {
   // init PV length
   thread->pv.pv_length[pos->ply] = pos->ply;
 
   // variable to store current move's score (from the static evaluation
   // perspective)
-  int current_score = NO_SCORE, static_eval = NO_SCORE;
-  int raw_static_eval = NO_SCORE;
+  int16_t current_score = NO_SCORE, static_eval = NO_SCORE;
+  int16_t raw_static_eval = NO_SCORE;
 
   uint16_t tt_move = 0;
   int16_t tt_score = NO_SCORE;
@@ -509,7 +509,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   }
 
   // is king in check
-  int in_check = is_square_attacked(pos,
+  uint8_t in_check = is_square_attacked(pos,
                                     (pos->side == white)
                                         ? __builtin_ctzll(pos->bitboards[K])
                                         : __builtin_ctzll(pos->bitboards[k]),
@@ -576,7 +576,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   }
 
   // moves seen counter
-  int moves_seen = 0;
+  uint16_t moves_seen = 0;
 
   if (!pv_node && !in_check && !ss->excluded_move) {
     // Reverse Futility Pruning
@@ -584,7 +584,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
       // get static evaluation score
 
       // define evaluation margin
-      int eval_margin = RFP_MARGIN * MAX(0, depth - improving);
+      uint16_t eval_margin = RFP_MARGIN * MAX(0, depth - improving);
 
       // evaluation margin substracted from static evaluation score fails high
       if (ss->static_eval - eval_margin >= beta)
@@ -659,7 +659,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
     if (depth <= RAZOR_DEPTH &&
         ss->static_eval + RAZOR_MARGIN * depth < alpha) {
-      const int razor_score = quiescence(pos, thread, ss, alpha, beta, NON_PV);
+      const int16_t razor_score = quiescence(pos, thread, ss, alpha, beta, NON_PV);
       if (razor_score <= alpha) {
         return razor_score;
       }
@@ -676,10 +676,10 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   // generate moves
   generate_moves(pos, move_list);
 
-  int best_score = NO_SCORE;
+  int16_t best_score = NO_SCORE;
   current_score = NO_SCORE;
 
-  int best_move = 0;
+  uint16_t best_move = 0;
   for (uint32_t count = 0; count < move_list->count; count++) {
     score_move(pos, thread, ss, &move_list->entry[count], tt_move);
   }
@@ -688,11 +688,11 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
 
   uint8_t skip_quiets = 0;
 
-  const int original_alpha = alpha;
+  const int16_t original_alpha = alpha;
 
   // loop over moves within a movelist
   for (uint32_t count = 0; count < move_list->count; count++) {
-    int move = move_list->entry[count].move;
+    uint16_t move = move_list->entry[count].move;
     uint8_t quiet =
         (get_move_capture(move) == 0 && is_move_promotion(move) == 0);
 
@@ -970,7 +970,7 @@ static inline int negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
   return best_score;
 }
 
-static void print_thinking(thread_t *thread, int score, int current_depth) {
+static void print_thinking(thread_t *thread, int16_t score, uint8_t current_depth) {
 
   uint64_t nodes = total_nodes(thread, thread_count);
   uint64_t time = get_time_ms() - thread->starttime;
@@ -1004,11 +1004,11 @@ static void print_thinking(thread_t *thread, int score, int current_depth) {
 }
 
 static inline uint8_t aspiration_windows(thread_t *thread, position_t *pos,
-                                         searchstack_t *ss, int alpha,
-                                         int beta) {
-  int window = ASP_WINDOW;
+                                         searchstack_t *ss, int16_t alpha,
+                                         int16_t beta) {
+  uint16_t window = ASP_WINDOW;
 
-  int fail_high_count = 0;
+  uint8_t fail_high_count = 0;
 
   while (true) {
 
@@ -1076,8 +1076,8 @@ void *iterative_deepening(void *thread_void) {
     }
 
     // define initial alpha beta bounds
-    int alpha = -INF;
-    int beta = INF;
+    int16_t alpha = -INF;
+    int16_t beta = INF;
 
     searchstack_t ss[MAX_PLY + 4];
     for (int i = 0; i < MAX_PLY + 4; ++i) {

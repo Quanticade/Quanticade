@@ -28,8 +28,8 @@ typedef struct tt_entry {
   uint16_t move;
   int16_t score; // score (alpha/beta/PV)
   int16_t static_eval;
-  uint8_t depth; // current search depth
-  uint8_t flag : 2;  // flag the type of node (fail-low/fail-high/PV)
+  uint8_t depth;    // current search depth
+  uint8_t flag : 2; // flag the type of node (fail-low/fail-high/PV)
   uint8_t tt_pv : 1;
 } tt_entry_t;
 
@@ -85,15 +85,15 @@ typedef struct PV {
 typedef struct searchinfo {
   accumulator_t accumulator[MAX_PLY + 4];
   position_t pos;
+  PV_t pv;
   uint64_t nodes;
   uint64_t starttime;
-  int score;
-  int killer_moves[MAX_PLY];
+  uint16_t killer_moves[MAX_PLY];
+  int16_t score;
   int16_t quiet_history[12][64][64];
   int16_t capture_history[12][13][64][64];
   int16_t continuation_history[12][64][12][64];
   int16_t correction_history[2][16384];
-  PV_t pv;
   uint8_t depth;
   uint8_t stopped;
   uint8_t quit;
@@ -103,9 +103,9 @@ typedef struct searchinfo {
 typedef struct limits {
   uint64_t soft_limit;
   uint64_t hard_limit;
+  uint64_t node_limit;
   uint64_t start_time;
   int64_t time;
-  uint64_t node_limit;
   int32_t inc;
   uint32_t base_soft;
   uint32_t max_time;
@@ -123,8 +123,8 @@ typedef struct searchthread {
 
 typedef struct searchstack {
   uint16_t move;
-  int excluded_move;
-  int static_eval;
+  int16_t static_eval;
+  uint16_t excluded_move;
   int history_score;
   uint8_t piece;
   uint8_t null_move;

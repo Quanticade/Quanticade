@@ -4,11 +4,12 @@
 #include "nnue.h"
 #include "structs.h"
 #include "uci.h"
+#include "utils.h"
 
 nnue_t nnue_data;
 extern nnue_settings_t nnue_settings;
 
-int evaluate(position_t *pos, accumulator_t *accumulator) {
+int16_t evaluate(position_t *pos, accumulator_t *accumulator) {
   int eval = nnue_evaluate(pos, accumulator);
 
   int phase = 3 * popcount(pos->bitboards[n] | pos->bitboards[N]) +
@@ -19,5 +20,7 @@ int evaluate(position_t *pos, accumulator_t *accumulator) {
   eval = eval * (200 + phase) / 256;
   float fifty_move_scaler = (float)((100 - (float)pos->fifty) / 100);
   fifty_move_scaler = MAX(fifty_move_scaler, 0.5f);
-  return (int)(eval * fifty_move_scaler);
+  int final_eval = eval * fifty_move_scaler;
+  clamp(final_eval, -MATE_SCORE + 1, MATE_SCORE - 1);
+  return (int16_t)final_eval;
 }

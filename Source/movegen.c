@@ -9,27 +9,27 @@
 extern nnue_settings_t nnue_settings;
 extern keys_t keys;
 
-const int castling_rights[64] = {
+const uint8_t castling_rights[64] = {
     7,  15, 15, 15, 3,  15, 15, 11, 15, 15, 15, 15, 15, 15, 15, 15,
     15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
     15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
     15, 15, 15, 15, 15, 15, 15, 15, 13, 15, 15, 15, 12, 15, 15, 14};
 
-int make_move(position_t *pos, int move) {
+uint8_t make_move(position_t *pos, uint16_t move) {
   // preserve board state
   copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
              pos->castle, pos->fifty, pos->hash_keys,
              pos->mailbox);
 
   // parse move
-  int capture = get_move_capture(move);
-  int source_square = get_move_source(move);
-  int target_square = get_move_target(move);
-  int piece = pos->mailbox[get_move_source(move)];
-  int promoted_piece = get_move_promoted(pos->side, move);
-  int double_push = get_move_double(move);
-  int enpass = get_move_enpassant(move);
-  int castling = get_move_castling(move);
+  uint8_t capture = get_move_capture(move);
+  uint8_t source_square = get_move_source(move);
+  uint8_t target_square = get_move_target(move);
+  uint8_t piece = pos->mailbox[get_move_source(move)];
+  uint8_t promoted_piece = get_move_promoted(pos->side, move);
+  uint8_t double_push = get_move_double(move);
+  uint8_t enpass = get_move_enpassant(move);
+  uint8_t castling = get_move_castling(move);
 
   // increment fifty move rule counter
   pos->fifty++;
