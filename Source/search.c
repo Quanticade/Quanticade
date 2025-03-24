@@ -426,7 +426,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 
     thread->nodes++;
 
-    if (get_move_capture(move)) {
+    if (!quiet) {
       add_move(capture_list, move);
     }
 
