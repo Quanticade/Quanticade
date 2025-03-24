@@ -288,8 +288,8 @@ static inline uint8_t only_pawns(position_t *pos) {
 
 // quiescence search
 static inline int16_t quiescence(position_t *pos, thread_t *thread,
-                             searchstack_t *ss, int16_t alpha, int16_t beta,
-                             uint8_t pv_node) {
+                                 searchstack_t *ss, int16_t alpha, int16_t beta,
+                                 uint8_t pv_node) {
   // Check on time
   if (check_time(thread)) {
     stop_threads(thread, thread_count);
@@ -459,9 +459,9 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 }
 
 // negamax alpha beta search
-static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
-                          int16_t alpha, int16_t beta, int depth, uint8_t cutnode,
-                          uint8_t pv_node) {
+static inline int16_t negamax(position_t *pos, thread_t *thread,
+                              searchstack_t *ss, int16_t alpha, int16_t beta,
+                              int depth, uint8_t cutnode, uint8_t pv_node) {
   // init PV length
   thread->pv.pv_length[pos->ply] = pos->ply;
 
@@ -509,11 +509,11 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
   }
 
   // is king in check
-  uint8_t in_check = is_square_attacked(pos,
-                                    (pos->side == white)
-                                        ? __builtin_ctzll(pos->bitboards[K])
-                                        : __builtin_ctzll(pos->bitboards[k]),
-                                    pos->side ^ 1);
+  uint8_t in_check = is_square_attacked(
+      pos,
+      (pos->side == white) ? __builtin_ctzll(pos->bitboards[K])
+                           : __builtin_ctzll(pos->bitboards[k]),
+      pos->side ^ 1);
 
   // recursion escape condition
   if (!in_check && depth <= 0) {
@@ -659,7 +659,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
 
     if (depth <= RAZOR_DEPTH &&
         ss->static_eval + RAZOR_MARGIN * depth < alpha) {
-      const int16_t razor_score = quiescence(pos, thread, ss, alpha, beta, NON_PV);
+      const int16_t razor_score =
+          quiescence(pos, thread, ss, alpha, beta, NON_PV);
       if (razor_score <= alpha) {
         return razor_score;
       }
@@ -745,55 +746,62 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
     // A rather simple idea that if our TT move is accurate we run a reduced
     // search to see if we can beat this score. If not we extend the TT move
     // search
-    if (pos->ply < thread->depth * 2 && !root_node && depth >= SE_DEPTH &&
-        move == tt_move && !ss->excluded_move &&
-        tt_depth >= depth - SE_DEPTH_REDUCTION &&
-        tt_flag != HASH_FLAG_UPPER_BOUND && abs(tt_score) < MATE_SCORE) {
-      const int s_beta = tt_score - depth;
-      const int s_depth = (depth - 1) / 2;
+    if (pos->ply < thread->depth * 2) {
+      if (!root_node && depth >= SE_DEPTH && move == tt_move &&
+          !ss->excluded_move && tt_depth >= depth - SE_DEPTH_REDUCTION &&
+          tt_flag != HASH_FLAG_UPPER_BOUND && abs(tt_score) < MATE_SCORE) {
+        const int s_beta = tt_score - depth;
+        const int s_depth = (depth - 1) / 2;
 
-      copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                 pos->castle, pos->fifty, pos->hash_keys, pos->mailbox);
+        copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
+                   pos->castle, pos->fifty, pos->hash_keys, pos->mailbox);
 
-      if (make_move(pos, move) == 0) {
-        continue;
-      }
-
-      restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                    pos->castle, pos->fifty, pos->hash_keys, pos->mailbox);
-
-      ss->excluded_move = move;
-
-      const int16_t s_score = negamax(pos, thread, ss, s_beta - 1, s_beta,
-                                      s_depth, cutnode, NON_PV);
-
-      ss->excluded_move = 0;
-
-      // No move beat tt score so we extend the search
-      if (s_score < s_beta) {
-        extensions++;
-        if (s_score < s_beta - SE_PV_DOUBLE_MARGIN * pv_node) {
-          extensions++;
+        if (make_move(pos, move) == 0) {
+          continue;
         }
-        if (!get_move_capture(move) && s_score + SE_TRIPLE_MARGIN < s_beta) {
+
+        restore_board(pos->bitboards, pos->occupancies, pos->side,
+                      pos->enpassant, pos->castle, pos->fifty, pos->hash_keys,
+                      pos->mailbox);
+
+        ss->excluded_move = move;
+
+        const int16_t s_score = negamax(pos, thread, ss, s_beta - 1, s_beta,
+                                        s_depth, cutnode, NON_PV);
+
+        ss->excluded_move = 0;
+
+        // No move beat tt score so we extend the search
+        if (s_score < s_beta) {
           extensions++;
+          if (s_score < s_beta - SE_PV_DOUBLE_MARGIN * pv_node) {
+            extensions++;
+          }
+          if (!get_move_capture(move) && s_score + SE_TRIPLE_MARGIN < s_beta) {
+            extensions++;
+          }
         }
-      }
 
-      // Multicut: Singular search failed high so if singular beta beats our
-      // beta we can assume the main search will also fail high and thus we can
-      // just cutoff here
-      else if (s_beta >= beta) {
-        return s_beta;
-      }
+        // Multicut: Singular search failed high so if singular beta beats our
+        // beta we can assume the main search will also fail high and thus we
+        // can just cutoff here
+        else if (s_beta >= beta) {
+          return s_beta;
+        }
 
-      // Negative Extensions
-      else if (tt_score >= beta) {
-        extensions -= 2 + !pv_node;
-      }
+        // Negative Extensions
+        else if (tt_score >= beta) {
+          extensions -= 2 + !pv_node;
+        }
 
-      else if (cutnode) {
-        extensions -= 2;
+        else if (cutnode) {
+          extensions -= 2;
+        }
+      } else if (depth < 8 && !ss->excluded_move && !in_check &&
+                 move == tt_move && !root_node &&
+                 ss->static_eval < alpha - 25 &&
+                 tt_flag == HASH_FLAG_LOWER_BOUND) {
+        extensions = 1;
       }
     }
 
@@ -970,7 +978,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
   return best_score;
 }
 
-static void print_thinking(thread_t *thread, int16_t score, uint8_t current_depth) {
+static void print_thinking(thread_t *thread, int16_t score,
+                           uint8_t current_depth) {
 
   uint64_t nodes = total_nodes(thread, thread_count);
   uint64_t time = get_time_ms() - thread->starttime;
