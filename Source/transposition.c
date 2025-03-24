@@ -17,7 +17,7 @@ int hash_full(void) {
   int samples = 1000;
 
   for (int i = 0; i < samples; ++i)
-    if (tt.hash_entry[i].flag != HASH_FLAG_NONE)
+    if (tt.hash_entry[i].hash_key != 0)
       used++;
 
   return used / (samples / 1000);
