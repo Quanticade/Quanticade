@@ -3,15 +3,17 @@
 ## Overview
 
 Quanticade is a strong uci command-line chess engine written in C in development since late 2023 with NNUE trained on Lc0 Data.
+Since Fenrir release Quanticade is top 18th engine from the CCRL blitz rating list.
 
 ## Playing Strength
 
-|         | CCRL Blitz | CCRL 40/15 | CEGT 40/20 |
-|---------|------------|------------|------------|
-| Chimera | 3622       | Est 3530   | Untested   |
-| Electra | 3552       | 3487       | 3410       |
-| Aurora  | 3465       | 3406       | Untested   |
-| 0.7     | Untested   | Untested   | Untested   |
+|         | CCRL Blitz    | CCRL 40/15 | CEGT 40/20 |
+|---------|---------------|------------|------------|
+| Fenrir  | 3669 (Top 18) | Est 3560   | Untested   |
+| Chimera | 3619          | 3515       | Untested   |
+| Electra | 3552          | 3487       | 3410       |
+| Aurora  | 3465          | 3406       | Untested   |
+| 0.7     | Untested      | Untested   | Untested   |
 
 ## History
 
