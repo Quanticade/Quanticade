@@ -288,8 +288,8 @@ static inline uint8_t only_pawns(position_t *pos) {
 
 // quiescence search
 static inline int16_t quiescence(position_t *pos, thread_t *thread,
-                             searchstack_t *ss, int16_t alpha, int16_t beta,
-                             uint8_t pv_node) {
+                                 searchstack_t *ss, int16_t alpha, int16_t beta,
+                                 uint8_t pv_node) {
   // Check on time
   if (check_time(thread)) {
     stop_threads(thread, thread_count);
@@ -459,9 +459,9 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 }
 
 // negamax alpha beta search
-static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
-                          int16_t alpha, int16_t beta, int depth, uint8_t cutnode,
-                          uint8_t pv_node) {
+static inline int16_t negamax(position_t *pos, thread_t *thread,
+                              searchstack_t *ss, int16_t alpha, int16_t beta,
+                              int depth, uint8_t cutnode, uint8_t pv_node) {
   // init PV length
   thread->pv.pv_length[pos->ply] = pos->ply;
 
@@ -509,11 +509,11 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
   }
 
   // is king in check
-  uint8_t in_check = is_square_attacked(pos,
-                                    (pos->side == white)
-                                        ? __builtin_ctzll(pos->bitboards[K])
-                                        : __builtin_ctzll(pos->bitboards[k]),
-                                    pos->side ^ 1);
+  uint8_t in_check = is_square_attacked(
+      pos,
+      (pos->side == white) ? __builtin_ctzll(pos->bitboards[K])
+                           : __builtin_ctzll(pos->bitboards[k]),
+      pos->side ^ 1);
 
   // recursion escape condition
   if (!in_check && depth <= 0) {
@@ -659,7 +659,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
 
     if (depth <= RAZOR_DEPTH &&
         ss->static_eval + RAZOR_MARGIN * depth < alpha) {
-      const int16_t razor_score = quiescence(pos, thread, ss, alpha, beta, NON_PV);
+      const int16_t razor_score =
+          quiescence(pos, thread, ss, alpha, beta, NON_PV);
       if (razor_score <= alpha) {
         return razor_score;
       }
@@ -738,6 +739,11 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
     if (depth <= SEE_DEPTH && moves_seen > 0 &&
         !SEE(pos, move, SEE_MARGIN[depth][quiet]))
       continue;
+
+    if (quiet && depth <= 5 && ss->history_score <= -434 + -2012 * depth) {
+      skip_quiets = 1;
+      continue;
+    }
 
     int extensions = 0;
 
@@ -970,7 +976,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
   return best_score;
 }
 
-static void print_thinking(thread_t *thread, int16_t score, uint8_t current_depth) {
+static void print_thinking(thread_t *thread, int16_t score,
+                           uint8_t current_depth) {
 
   uint64_t nodes = total_nodes(thread, thread_count);
   uint64_t time = get_time_ms() - thread->starttime;
