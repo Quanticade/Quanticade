@@ -27,8 +27,8 @@ static inline uint64_t get_hash_index(uint64_t hash) {
   return ((uint128_t)hash * (uint128_t)tt.num_of_entries) >> 64;
 }
 
-static inline uint32_t get_hash_low_bits(uint64_t hash) {
-  return (uint32_t)hash;
+static inline uint16_t get_hash_low_bits(uint64_t hash) {
+  return (uint16_t)hash;
 }
 
 void prefetch_hash_entry(uint64_t hash_key) {
@@ -137,7 +137,7 @@ int16_t score_from_tt(position_t *pos, int16_t score) {
 // read hash entry data
 tt_entry_t* read_hash_entry(position_t *pos, uint8_t *tt_hit) {
   tt_entry_t *hash_entry = tt.hash_entry[get_hash_index(pos->hash_keys.hash_key)].tt_entries;
-  for (uint8_t i = 0; i < 5; ++i) {
+  for (uint8_t i = 0; i < 3; ++i) {
     if (hash_entry->hash_key == get_hash_low_bits(pos->hash_keys.hash_key)) {
       *tt_hit = 1;
       return &hash_entry[i];
@@ -145,7 +145,7 @@ tt_entry_t* read_hash_entry(position_t *pos, uint8_t *tt_hit) {
   }
 
     tt_entry_t *replace = hash_entry;
-    for (int i = 1; i < 5; ++i) {
+    for (int i = 1; i < 3; ++i) {
       if (replace->depth > hash_entry[i].depth) {
           replace = &hash_entry[i];
       }
