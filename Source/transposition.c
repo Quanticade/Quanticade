@@ -142,8 +142,6 @@ uint8_t read_hash_entry(position_t *pos, tt_entry_t *tt_entry) {
     if (score > MATE_SCORE)
       score -= pos->ply;
 
-    hash_entry->age = tt.age;
-
     tt_entry->move = hash_entry->move;
     tt_entry->score = score;
     tt_entry->static_eval = hash_entry->static_eval;
