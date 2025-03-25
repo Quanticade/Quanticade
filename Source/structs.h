@@ -33,6 +33,11 @@ typedef struct tt_entry {
   uint8_t tt_pv : 1;
 } tt_entry_t;
 
+typedef struct tt_bucket {
+  tt_entry_t tt_entries[5];
+  uint32_t padding;
+} tt_bucket_t;
+
 typedef struct move {
   int score;
   uint16_t move;

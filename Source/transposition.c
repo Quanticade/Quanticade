@@ -17,7 +17,7 @@ int hash_full(void) {
   int samples = 1000;
 
   for (int i = 0; i < samples; ++i)
-    if (tt.hash_entry[i].hash_key != 0)
+    if (tt.hash_entry[i].tt_entries[1].hash_key != 0)
       used++;
 
   return used / (samples / 1000);
@@ -78,7 +78,7 @@ uint64_t generate_hash_key(position_t *pos) {
 }
 
 void clear_hash_table(void) {
-  memset(tt.hash_entry, 0, sizeof(tt_entry_t) * tt.num_of_entries);
+  memset(tt.hash_entry, 0, sizeof(tt_bucket_t) * tt.num_of_entries);
 }
 
 // dynamically allocate memory for hash table
@@ -87,7 +87,7 @@ void init_hash_table(uint64_t mb) {
   uint64_t hash_size = 0x100000LL * mb;
 
   // init number of hash entries
-  tt.num_of_entries = hash_size / sizeof(tt_entry_t);
+  tt.num_of_entries = hash_size / sizeof(tt_bucket_t);
 
   // free hash table if not empty
   if (tt.hash_entry != NULL) {
@@ -98,7 +98,7 @@ void init_hash_table(uint64_t mb) {
   }
 
   // allocate memory
-  tt.hash_entry = malloc(tt.num_of_entries * sizeof(tt_entry_t));
+  tt.hash_entry = malloc(tt.num_of_entries * sizeof(tt_bucket_t));
 
   // if allocation has failed
   if (tt.hash_entry == NULL) {
@@ -136,11 +136,22 @@ int16_t score_from_tt(position_t *pos, int16_t score) {
 
 // read hash entry data
 tt_entry_t* read_hash_entry(position_t *pos, uint8_t *tt_hit) {
-  tt_entry_t *hash_entry = &tt.hash_entry[get_hash_index(pos->hash_keys.hash_key)];
-  *tt_hit = hash_entry->hash_key == get_hash_low_bits(pos->hash_keys.hash_key);
+  tt_entry_t *hash_entry = tt.hash_entry[get_hash_index(pos->hash_keys.hash_key)].tt_entries;
+  for (uint8_t i = 0; i < 5; ++i) {
+    if (hash_entry->hash_key == get_hash_low_bits(pos->hash_keys.hash_key)) {
+      *tt_hit = 1;
+      return &hash_entry[i];
+    }
+  }
 
-  // if hash entry doesn't exist
-  return hash_entry;
+    tt_entry_t *replace = hash_entry;
+    for (int i = 1; i < 5; ++i) {
+      if (replace->depth > hash_entry[i].depth) {
+          replace = &hash_entry[i];
+      }
+    }
+    *tt_hit = 0;
+    return replace;
 }
 
 // write hash entry data
