@@ -12,6 +12,10 @@ extern keys_t keys;
 
 __extension__ typedef unsigned __int128 uint128_t;
 
+void update_table_age() {
+  tt.age = (tt.age + 1) % 32;
+}
+
 int hash_full(void) {
   uint64_t used = 0;
   int samples = 1000;
@@ -79,6 +83,7 @@ uint64_t generate_hash_key(position_t *pos) {
 
 void clear_hash_table(void) {
   memset(tt.hash_entry, 0, sizeof(tt_entry_t) * tt.num_of_entries);
+  tt.age = 1;
 }
 
 // dynamically allocate memory for hash table
@@ -137,6 +142,8 @@ uint8_t read_hash_entry(position_t *pos, tt_entry_t *tt_entry) {
     if (score > MATE_SCORE)
       score -= pos->ply;
 
+    hash_entry->age = tt.age;
+
     tt_entry->move = hash_entry->move;
     tt_entry->score = score;
     tt_entry->static_eval = hash_entry->static_eval;
@@ -160,7 +167,7 @@ void write_hash_entry(position_t *pos, int16_t score, int16_t static_eval,
 
   uint8_t replace = hash_entry->hash_key != get_hash_low_bits(pos->hash_keys.hash_key) ||
                     depth + 4 > hash_entry->depth ||
-                    hash_flag == HASH_FLAG_EXACT;
+                    hash_flag == HASH_FLAG_EXACT || tt.age != hash_entry->age;
 
   if (!replace) {
     return;
@@ -179,6 +186,7 @@ void write_hash_entry(position_t *pos, int16_t score, int16_t static_eval,
   hash_entry->static_eval = static_eval;
   hash_entry->flag = hash_flag;
   hash_entry->tt_pv = tt_pv;
+  hash_entry->age = tt.age;
   hash_entry->depth = depth;
   hash_entry->move = move;
 }

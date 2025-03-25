@@ -1157,6 +1157,8 @@ void search_position(position_t *pos, thread_t *threads) {
   memset(threads->pv.pv_length, 0, sizeof(threads->pv.pv_length));
   memset(nodes_spent_table, 0, sizeof(nodes_spent_table));
 
+  update_table_age();
+
   for (int thread_index = 1; thread_index < thread_count; ++thread_index) {
     pthread_create(&pthreads[thread_index], NULL, &iterative_deepening,
                    &threads[thread_index]);

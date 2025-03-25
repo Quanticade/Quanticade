@@ -29,6 +29,7 @@ typedef struct tt_entry {
   int16_t score; // score (alpha/beta/PV)
   int16_t static_eval;
   uint8_t depth;    // current search depth
+  uint8_t age : 5;
   uint8_t flag : 2; // flag the type of node (fail-low/fail-high/PV)
   uint8_t tt_pv : 1;
 } tt_entry_t;
