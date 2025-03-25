@@ -125,41 +125,30 @@ uint8_t can_use_score(int alpha, int beta, int tt_score, uint8_t flag) {
   return 0;
 }
 
-// read hash entry data
-uint8_t read_hash_entry(position_t *pos, tt_entry_t *tt_entry) {
-  tt_entry_t *hash_entry = &tt.hash_entry[get_hash_index(pos->hash_keys.hash_key)];
+int16_t score_from_tt(position_t *pos, int16_t score) {
 
-  // make sure we're dealing with the exact position we need
-  if (hash_entry->hash_key == get_hash_low_bits(pos->hash_keys.hash_key)) {
-    int score = hash_entry->score;
-    if (score < -MATE_SCORE)
+  if (score < -MATE_SCORE)
       score += pos->ply;
-    if (score > MATE_SCORE)
+  if (score > MATE_SCORE)
       score -= pos->ply;
+  return score;
+}
 
-    tt_entry->move = hash_entry->move;
-    tt_entry->score = score;
-    tt_entry->static_eval = hash_entry->static_eval;
-    tt_entry->depth = hash_entry->depth;
-    tt_entry->flag = hash_entry->flag;
-    tt_entry->tt_pv = hash_entry->tt_pv;
-    return 1;
-  }
+// read hash entry data
+tt_entry_t* read_hash_entry(position_t *pos, uint8_t *tt_hit) {
+  tt_entry_t *hash_entry = &tt.hash_entry[get_hash_index(pos->hash_keys.hash_key)];
+  *tt_hit = hash_entry->hash_key == get_hash_low_bits(pos->hash_keys.hash_key);
 
   // if hash entry doesn't exist
-  return 0;
+  return hash_entry;
 }
 
 // write hash entry data
-void write_hash_entry(position_t *pos, int16_t score, int16_t static_eval,
+void write_hash_entry(tt_entry_t *tt_entry, position_t *pos, int16_t score, int16_t static_eval,
                       uint8_t depth, uint16_t move, uint8_t hash_flag,
                       uint8_t tt_pv) {
-  // create a TT instance pointer to particular hash entry storing
-  // the scoring data for the current board position if available
-  tt_entry_t *hash_entry = &tt.hash_entry[get_hash_index(pos->hash_keys.hash_key)];
-
-  uint8_t replace = hash_entry->hash_key != get_hash_low_bits(pos->hash_keys.hash_key) ||
-                    depth + 4 > hash_entry->depth ||
+  uint8_t replace = tt_entry->hash_key != get_hash_low_bits(pos->hash_keys.hash_key) ||
+                    depth + 4 > tt_entry->depth ||
                     hash_flag == HASH_FLAG_EXACT;
 
   if (!replace) {
@@ -174,11 +163,11 @@ void write_hash_entry(position_t *pos, int16_t score, int16_t static_eval,
     score += pos->ply;
 
   // write hash entry data
-  hash_entry->hash_key = get_hash_low_bits(pos->hash_keys.hash_key);
-  hash_entry->score = score;
-  hash_entry->static_eval = static_eval;
-  hash_entry->flag = hash_flag;
-  hash_entry->tt_pv = tt_pv;
-  hash_entry->depth = depth;
-  hash_entry->move = move;
+  tt_entry->hash_key = get_hash_low_bits(pos->hash_keys.hash_key);
+  tt_entry->score = score;
+  tt_entry->static_eval = static_eval;
+  tt_entry->flag = hash_flag;
+  tt_entry->tt_pv = tt_pv;
+  tt_entry->depth = depth;
+  tt_entry->move = move;
 }

@@ -20,8 +20,9 @@ extern tt_t tt;
 void clear_hash_table(void);
 void prefetch_hash_entry(uint64_t hash_key);
 uint8_t can_use_score(int alpha, int beta, int tt_score, uint8_t flag);
-uint8_t read_hash_entry(position_t *pos, tt_entry_t *tt_entry);
-void write_hash_entry(position_t *pos, int16_t score, int16_t static_eval,
+int16_t score_from_tt(position_t *pos, int16_t score);
+tt_entry_t* read_hash_entry(position_t *pos, uint8_t *tt_hit);
+void write_hash_entry(tt_entry_t *tt_entry, position_t *pos, int16_t score, int16_t static_eval,
                       uint8_t depth, uint16_t move, uint8_t hash_flag,
                       uint8_t tt_pv);
 void init_hash_table(uint64_t mb);
