@@ -316,15 +316,13 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   uint8_t tt_flag = HASH_FLAG_EXACT;
   uint8_t tt_was_pv = pv_node;
 
-  tt_entry_t tt_entry;
-
-  tt_hit = read_hash_entry(pos, &tt_entry);
+  tt_entry_t *tt_entry = read_hash_entry(pos, &tt_hit);
 
   if (tt_hit) {
-    tt_was_pv |= tt_entry.tt_pv;
-    tt_score = tt_entry.score;
-    tt_static_eval = tt_entry.static_eval;
-    tt_flag = tt_entry.flag;
+    tt_was_pv |= tt_entry->tt_pv;
+    tt_score = score_from_tt(pos, tt_entry->score);
+    tt_static_eval = tt_entry->static_eval;
+    tt_flag = tt_entry->flag;
   }
 
   // If we arent in PV node and we hit requirements for cutoff
@@ -452,7 +450,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     hash_flag = HASH_FLAG_UPPER_BOUND;
   }
 
-  write_hash_entry(pos, best_score, raw_static_eval, 0, best_move, hash_flag,
+  write_hash_entry(tt_entry, pos, best_score, raw_static_eval, 0, best_move, hash_flag,
                    tt_was_pv);
 
   return best_score;
@@ -521,17 +519,15 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
     return quiescence(pos, thread, ss, alpha, beta, pv_node);
   }
 
-  tt_entry_t tt_entry;
-
-  tt_hit = read_hash_entry(pos, &tt_entry);
+  tt_entry_t *tt_entry = read_hash_entry(pos, &tt_hit);
 
   if (tt_hit) {
-    tt_was_pv |= tt_entry.tt_pv;
-    tt_score = tt_entry.score;
-    tt_static_eval = tt_entry.static_eval;
-    tt_depth = tt_entry.depth;
-    tt_flag = tt_entry.flag;
-    tt_move = tt_entry.move;
+    tt_was_pv |= tt_entry->tt_pv;
+    tt_score = score_from_tt(pos, tt_entry->score);
+    tt_static_eval = tt_entry->static_eval;
+    tt_depth = tt_entry->depth;
+    tt_flag = tt_entry->flag;
+    tt_move = tt_entry->move;
   }
 
   // If we arent in excluded move or PV node and we hit requirements for cutoff
@@ -957,7 +953,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
       hash_flag = HASH_FLAG_UPPER_BOUND;
     }
     // store hash entry with the score equal to alpha
-    write_hash_entry(pos, best_score, raw_static_eval, depth, best_move,
+    write_hash_entry(tt_entry, pos, best_score, raw_static_eval, depth, best_move,
                      hash_flag, tt_was_pv);
 
     if (!in_check && (!best_move || !(is_move_promotion(best_move) ||
