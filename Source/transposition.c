@@ -146,9 +146,9 @@ tt_entry_t* read_hash_entry(position_t *pos, uint8_t *tt_hit) {
 // write hash entry data
 void write_hash_entry(tt_entry_t *tt_entry, position_t *pos, int16_t score, int16_t static_eval,
                       uint8_t depth, uint16_t move, uint8_t hash_flag,
-                      uint8_t tt_pv) {
+                      uint8_t tt_pv, uint8_t pv) {
   uint8_t replace = tt_entry->hash_key != get_hash_low_bits(pos->hash_keys.hash_key) ||
-                    depth + 4 > tt_entry->depth ||
+                    depth + 4 + 2 * pv > tt_entry->depth ||
                     hash_flag == HASH_FLAG_EXACT;
 
   if (!replace) {

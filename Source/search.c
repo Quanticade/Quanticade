@@ -451,7 +451,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   }
 
   write_hash_entry(tt_entry, pos, best_score, raw_static_eval, 0, best_move, hash_flag,
-                   tt_was_pv);
+                   tt_was_pv, pv_node);
 
   return best_score;
 }
@@ -954,7 +954,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
     }
     // store hash entry with the score equal to alpha
     write_hash_entry(tt_entry, pos, best_score, raw_static_eval, depth, best_move,
-                     hash_flag, tt_was_pv);
+                     hash_flag, tt_was_pv, pv_node);
 
     if (!in_check && (!best_move || !(is_move_promotion(best_move) ||
                                       get_move_capture(best_move)))) {
