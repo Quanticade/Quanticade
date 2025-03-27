@@ -508,6 +508,34 @@ void print_move(int move) {
            square_to_coordinates[get_move_target(move)]);
 }
 
+/*void export_quiet_history(thread_t *thread) {
+    FILE *file = fopen("quiet_history.h", "w");
+    if (!file) {
+        perror("Failed to open file");
+        return;
+    }
+    
+    fprintf(file, "#ifndef QUIET_HISTORY_H\n#define QUIET_HISTORY_H\n\n");
+    fprintf(file, "#include <stdint.h>\n\n");
+    fprintf(file, "static const int16_t quiet_history[12][64][64] = {\n");
+    
+    for (int i = 0; i < 12; i++) {
+        fprintf(file, "    {\n");
+        for (int j = 0; j < 64; j++) {
+            fprintf(file, "        { ");
+            for (int k = 0; k < 64; k++) {
+                fprintf(file, "%d%s", thread->quiet_history[i][j][k], (k < 63) ? ", " : "");
+            }
+            fprintf(file, " }%s\n", (j < 63) ? "," : "");
+        }
+        fprintf(file, "    }%s\n", (i < 11) ? "," : "");
+    }
+    
+    fprintf(file, "};\n\n#endif // QUIET_HISTORY_H\n");
+    
+    fclose(file);
+}*/
+
 // main UCI loop
 void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
   // max hash MB
@@ -535,6 +563,8 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
   init_accumulator(pos, &threads->accumulator[pos->ply]);
   init_finny_tables(pos);
 
+  //int16_t history_temp[12][64][64];
+
   if (argc >= 2) {
     if (strncmp("bench", argv[1], 5) == 0) {
       uint64_t total_nodes = 0;
@@ -543,7 +573,9 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
         memset(input, 0, sizeof(input));
         strcpy(input, "position fen ");
         strcat(input, bench_positions[pos_index]);
+        //memcpy(&history_temp, threads->capture_history, sizeof(threads->quiet_history));
         memset(threads, 0, sizeof(thread_t));
+        //memcpy(threads->quiet_history, &history_temp, sizeof(threads->quiet_history));
         printf("\nPosition %d/%d (%s)\n", pos_index, 49,
                bench_positions[pos_index]);
 
@@ -557,6 +589,7 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
       uint64_t total_time = get_time_ms() - start_time;
       printf("\n%" PRIu64 " nodes %" PRIu64 " nps\n", total_nodes,
              (total_nodes / (total_time + 1) * 1000));
+      //export_quiet_history(threads);
       return;
     }
   }
