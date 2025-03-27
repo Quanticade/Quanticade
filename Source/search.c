@@ -560,9 +560,13 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
   }
 
   uint8_t improving = 0;
+  uint8_t opponent_worsening = 0;
 
   if ((ss - 2)->static_eval != NO_SCORE) {
     improving = static_eval > (ss - 2)->static_eval;
+  }
+  if (!in_check) {
+    opponent_worsening = ss->static_eval + (ss-1)->static_eval > 1;
   }
 
   // Check on time
@@ -574,7 +578,12 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
   // moves seen counter
   uint16_t moves_seen = 0;
 
+
+
   if (!pv_node && !in_check && !ss->excluded_move) {
+    if ((ss-1)->reduction >= 3 && !opponent_worsening) {
+      ++depth;
+    }
     // Reverse Futility Pruning
     if (depth <= RFP_DEPTH) {
       // get static evaluation score
@@ -853,11 +862,14 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
     R += cutnode * LMR_CUTNODE;
     R -= (tt_depth >= depth) * LMR_TT_DEPTH;
     R -= tt_was_pv * LMR_TT_PV;
-    int reduced_depth = MAX(1, MIN(new_depth - (R / 1024) + 1, new_depth));
+    R = R / 1024;
+    int reduced_depth = MAX(1, MIN(new_depth - R + 1, new_depth));
 
     if (depth >= 2 && moves_seen > 2 + 2 * pv_node) {
+      ss->reduction = R;
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                reduced_depth, 1, NON_PV);
+      ss->reduction = 0;
 
       if (current_score > alpha && R != 0) {
         current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
@@ -1083,6 +1095,7 @@ void *iterative_deepening(void *thread_void) {
       ss[i].move = 0;
       ss[i].piece = 0;
       ss[i].null_move = 0;
+      ss[i].reduction = 0;
     }
 
     pos->seldepth = 0;
