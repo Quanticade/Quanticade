@@ -6,7 +6,7 @@
 extern nnue_settings_t nnue_settings;
 
 #define INPUT_WEIGHTS 768
-#define HIDDEN_SIZE 2048
+#define HIDDEN_SIZE 2560
 #define OUTPUT_BUCKETS 8
 #define KING_BUCKETS 13
 #define SCALE 400
