@@ -56,6 +56,11 @@ typedef struct accumulator {
                                              // lets have it this way
 } accumulator_t;
 
+typedef struct finny_table {
+  accumulator_t accumulators;
+  uint64_t bitboards[2][12];
+} finny_table_t;
+
 typedef struct hash_keys {
   uint64_t hash_key;
   uint64_t pawn_key;

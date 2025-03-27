@@ -28,6 +28,8 @@ const unsigned int gEVALSize = 1;
 
 const uint8_t BUCKET_DIVISOR = (32 + OUTPUT_BUCKETS - 1) / OUTPUT_BUCKETS;
 
+finny_table_t finny_tables[2][KING_BUCKETS];
+
 static inline uint8_t get_king_bucket(uint8_t side, uint8_t square) {
   return buckets[side ? square ^ 56 : square];
 }
@@ -164,48 +166,110 @@ static inline int16_t get_black_idx(uint8_t piece, uint8_t square,
   return black_idx;
 }
 
+static inline int16_t get_white_idx_hm(uint8_t piece, uint8_t square,
+                                       uint8_t do_hm) {
+  const size_t COLOR_STRIDE = 64 * 6;
+  const size_t PIECE_STRIDE = 64;
+  if (do_hm) {
+    square = square ^ 7;
+  }
+  int piece_type = piece > 5 ? piece - 6 : piece;
+  int color = piece / 6;
+  int16_t white_idx =
+      color * COLOR_STRIDE + piece_type * PIECE_STRIDE + (square ^ 56);
+  return white_idx;
+}
+
+static inline int16_t get_black_idx_hm(uint8_t piece, uint8_t square,
+                                       uint8_t do_hm) {
+  const size_t COLOR_STRIDE = 64 * 6;
+  const size_t PIECE_STRIDE = 64;
+  if (do_hm) {
+    square = square ^ 7;
+  }
+  int piece_type = piece > 5 ? piece - 6 : piece;
+  int color = piece / 6;
+  int16_t black_idx =
+      (1 ^ color) * COLOR_STRIDE + piece_type * PIECE_STRIDE + square;
+  return black_idx;
+}
+
 static inline void refresh_white_accumulator(position_t *pos,
                                              accumulator_t *accumulator) {
-  uint8_t white_bucket = get_king_bucket(white, get_lsb(pos->bitboards[K]));
-  for (int i = 0; i < HIDDEN_SIZE; ++i)
-    accumulator->accumulator[white][i] = nnue.feature_bias[i];
+  uint8_t white_king_square = get_lsb(pos->bitboards[K]);
+  uint8_t white_bucket = get_king_bucket(white, white_king_square);
+  uint8_t do_hm = (white_king_square & 7) >= 4;
+  accumulator_t *finny_accumulator =
+      &finny_tables[do_hm][white_bucket].accumulators;
+  uint64_t *finny_bitboards =
+      finny_tables[do_hm][white_bucket].bitboards[white];
 
-  for (int piece = P; piece <= k; ++piece) {
-    uint64_t bitboard = pos->bitboards[piece];
-    while (bitboard) {
-      int square = get_lsb(bitboard);
-      size_t white_idx =
-          get_white_idx(piece, square, get_lsb(pos->bitboards[K]));
+  for (uint8_t piece = P; piece <= k; ++piece) {
+    uint64_t added = pos->bitboards[piece] & ~finny_bitboards[piece];
+    uint64_t removed = finny_bitboards[piece] & ~pos->bitboards[piece];
+
+    while (added) {
+      uint8_t square = get_lsb(added);
+      pop_bit(added, square);
+      size_t white_index = get_white_idx(piece, square, white_king_square);
 
       for (int i = 0; i < HIDDEN_SIZE; ++i)
-        accumulator->accumulator[white][i] +=
-            nnue.feature_weights[white_bucket][white_idx][i];
+        finny_accumulator->accumulator[white][i] +=
+            nnue.feature_weights[white_bucket][white_index][i];
+    }
 
-      pop_bit(bitboard, square);
+    while (removed) {
+      uint8_t square = get_lsb(removed);
+      pop_bit(removed, square);
+      size_t white_index = get_white_idx(piece, square, white_king_square);
+
+      for (int i = 0; i < HIDDEN_SIZE; ++i)
+        finny_accumulator->accumulator[white][i] -=
+            nnue.feature_weights[white_bucket][white_index][i];
     }
   }
+  memcpy(accumulator->accumulator[white], finny_accumulator->accumulator[white],
+         HIDDEN_SIZE * sizeof(int16_t));
+  memcpy(finny_bitboards, pos->bitboards, 12 * sizeof(uint64_t));
 }
 
 static inline void refresh_black_accumulator(position_t *pos,
                                              accumulator_t *accumulator) {
-  uint8_t black_bucket = get_king_bucket(black, get_lsb(pos->bitboards[k]));
-  for (int i = 0; i < HIDDEN_SIZE; ++i)
-    accumulator->accumulator[black][i] = nnue.feature_bias[i];
+  uint8_t black_king_square = get_lsb(pos->bitboards[k]);
+  uint8_t black_bucket = get_king_bucket(black, black_king_square);
+  uint8_t do_hm = (black_king_square & 7) >= 4;
+  accumulator_t *finny_accumulator =
+      &finny_tables[do_hm][black_bucket].accumulators;
+  uint64_t *finny_bitboards =
+      finny_tables[do_hm][black_bucket].bitboards[black];
 
-  for (int piece = P; piece <= k; ++piece) {
-    uint64_t bitboard = pos->bitboards[piece];
-    while (bitboard) {
-      int square = get_lsb(bitboard);
-      size_t black_idx =
-          get_black_idx(piece, square, get_lsb(pos->bitboards[k]));
+  for (uint8_t piece = P; piece <= k; ++piece) {
+    uint64_t added = pos->bitboards[piece] & ~finny_bitboards[piece];
+    uint64_t removed = finny_bitboards[piece] & ~pos->bitboards[piece];
+
+    while (added) {
+      uint8_t square = get_lsb(added);
+      pop_bit(added, square);
+      size_t black_index = get_black_idx(piece, square, black_king_square);
 
       for (int i = 0; i < HIDDEN_SIZE; ++i)
-        accumulator->accumulator[black][i] +=
-            nnue.feature_weights[black_bucket][black_idx][i];
+        finny_accumulator->accumulator[black][i] +=
+            nnue.feature_weights[black_bucket][black_index][i];
+    }
 
-      pop_bit(bitboard, square);
+    while (removed) {
+      uint8_t square = get_lsb(removed);
+      pop_bit(removed, square);
+      size_t black_index = get_black_idx(piece, square, black_king_square);
+
+      for (int i = 0; i < HIDDEN_SIZE; ++i)
+        finny_accumulator->accumulator[black][i] -=
+            nnue.feature_weights[black_bucket][black_index][i];
     }
   }
+  memcpy(accumulator->accumulator[black], finny_accumulator->accumulator[black],
+         HIDDEN_SIZE * sizeof(int16_t));
+  memcpy(finny_bitboards, pos->bitboards, 12 * sizeof(uint64_t));
 }
 
 void init_accumulator(position_t *pos, accumulator_t *accumulator) {
@@ -235,6 +299,47 @@ void init_accumulator(position_t *pos, accumulator_t *accumulator) {
             nnue.feature_weights[black_bucket][black_idx][i];
 
       pop_bit(bitboard, square);
+    }
+  }
+}
+
+void init_accumulator_bucket(position_t *pos, accumulator_t *accumulator,
+                             uint8_t bucket, uint8_t do_hm) {
+  for (int i = 0; i < HIDDEN_SIZE; ++i) {
+    accumulator->accumulator[0][i] = nnue.feature_bias[i];
+    accumulator->accumulator[1][i] = nnue.feature_bias[i];
+  }
+
+  for (int piece = P; piece <= k; ++piece) {
+    uint64_t bitboard = pos->bitboards[piece];
+    while (bitboard) {
+      int square = get_lsb(bitboard);
+      size_t white_idx = get_white_idx_hm(piece, square, do_hm);
+      size_t black_idx = get_black_idx_hm(piece, square, do_hm);
+
+      // updates all the pieces in the accumulators
+      for (int i = 0; i < HIDDEN_SIZE; ++i)
+        accumulator->accumulator[white][i] +=
+            nnue.feature_weights[bucket][white_idx][i];
+
+      for (int i = 0; i < HIDDEN_SIZE; ++i)
+        accumulator->accumulator[black][i] +=
+            nnue.feature_weights[bucket][black_idx][i];
+
+      pop_bit(bitboard, square);
+    }
+  }
+}
+
+void init_finny_tables(position_t *pos) {
+  for (uint8_t do_hm = 0; do_hm < 2; ++do_hm) {
+    for (uint8_t bucket = 0; bucket < KING_BUCKETS; ++bucket) {
+      init_accumulator_bucket(pos, &finny_tables[do_hm][bucket].accumulators,
+                              bucket, do_hm);
+      memcpy(finny_tables[do_hm][bucket].bitboards[white], pos->bitboards,
+             12 * sizeof(uint64_t));
+      memcpy(finny_tables[do_hm][bucket].bitboards[black], pos->bitboards,
+             12 * sizeof(uint64_t));
     }
   }
 }

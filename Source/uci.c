@@ -532,6 +532,7 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
   // Setup engine with start position as default
   parse_position(pos, threads, "position startpos");
   init_accumulator(pos, &threads->accumulator[pos->ply]);
+  init_finny_tables(pos);
 
   if (argc >= 2) {
     if (strncmp("bench", argv[1], 5) == 0) {
@@ -547,6 +548,7 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
 
         parse_position(pos, threads, input);
         init_accumulator(pos, &threads->accumulator[pos->ply]);
+        init_finny_tables(pos);
         time_control(pos, threads, "go depth 13");
         search_position(pos, threads);
         total_nodes += threads->nodes;
@@ -587,6 +589,7 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
       // call parse position function
       parse_position(pos, threads, input);
       init_accumulator(pos, &threads->accumulator[pos->ply]);
+      init_finny_tables(pos);
     }
     // parse UCI "ucinewgame" command
     else if (strncmp(input, "ucinewgame", 10) == 0) {
