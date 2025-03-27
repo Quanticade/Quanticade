@@ -208,6 +208,20 @@ static inline void refresh_white_accumulator(position_t *pos,
     uint64_t added = pos->bitboards[piece] & ~finny_bitboards[piece];
     uint64_t removed = finny_bitboards[piece] & ~pos->bitboards[piece];
 
+    while (added && removed) {
+      uint8_t added_square = get_lsb(added);
+      pop_bit(added, added_square);
+      uint8_t removed_square = get_lsb(removed);
+      pop_bit(removed, removed_square);
+      size_t added_index = get_white_idx(piece, added_square, white_king_square);
+      size_t removed_index = get_white_idx(piece, removed_square, white_king_square);
+
+      for (int i = 0; i < HIDDEN_SIZE; ++i)
+        finny_accumulator->accumulator[white][i] +=
+            nnue.feature_weights[white_bucket][added_index][i] -
+            nnue.feature_weights[white_bucket][removed_index][i];
+    }
+
     while (added) {
       uint8_t square = get_lsb(added);
       pop_bit(added, square);
@@ -246,6 +260,20 @@ static inline void refresh_black_accumulator(position_t *pos,
   for (uint8_t piece = P; piece <= k; ++piece) {
     uint64_t added = pos->bitboards[piece] & ~finny_bitboards[piece];
     uint64_t removed = finny_bitboards[piece] & ~pos->bitboards[piece];
+
+    while (added && removed) {
+      uint8_t added_square = get_lsb(added);
+      pop_bit(added, added_square);
+      uint8_t removed_square = get_lsb(removed);
+      pop_bit(removed, removed_square);
+      size_t added_index = get_black_idx(piece, added_square, black_king_square);
+      size_t removed_index = get_black_idx(piece, removed_square, black_king_square);
+
+      for (int i = 0; i < HIDDEN_SIZE; ++i)
+        finny_accumulator->accumulator[black][i] +=
+            nnue.feature_weights[black_bucket][added_index][i] -
+            nnue.feature_weights[black_bucket][removed_index][i];
+    }
 
     while (added) {
       uint8_t square = get_lsb(added);
