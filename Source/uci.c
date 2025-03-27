@@ -7,6 +7,7 @@
 #include "nnue.h"
 #include "perft.h"
 #include "pyrrhic/tbprobe.h"
+#include "quiet_history.h"
 #include "search.h"
 #include "spsa.h"
 #include "structs.h"
@@ -596,7 +597,7 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
       // clear hash table
       clear_hash_table();
       for (int i = 0; i < thread_count; ++i) {
-        memset(threads[i].quiet_history, 0, sizeof(threads[i].quiet_history));
+        memcpy(threads[i].quiet_history, quiet_history, sizeof(threads[i].quiet_history));
         memset(threads[i].capture_history, 0,
                sizeof(threads[i].capture_history));
         memset(threads[i].continuation_history, 0,
