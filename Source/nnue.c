@@ -214,7 +214,7 @@ static inline void refresh_white_accumulator(position_t *pos,
       size_t white_index = get_white_idx(piece, square, white_king_square);
 
       for (int i = 0; i < HIDDEN_SIZE; ++i)
-        accumulator->accumulator[white][i] +=
+        finny_accumulator->accumulator[white][i] +=
             nnue.feature_weights[white_bucket][white_index][i];
     }
 
@@ -224,11 +224,11 @@ static inline void refresh_white_accumulator(position_t *pos,
       size_t white_index = get_white_idx(piece, square, white_king_square);
 
       for (int i = 0; i < HIDDEN_SIZE; ++i)
-        accumulator->accumulator[white][i] -=
+        finny_accumulator->accumulator[white][i] -=
             nnue.feature_weights[white_bucket][white_index][i];
     }
   }
-  memcpy(finny_accumulator->accumulator[white], accumulator->accumulator[white],
+  memcpy(accumulator->accumulator[white], finny_accumulator->accumulator[white],
          HIDDEN_SIZE * sizeof(int16_t));
   memcpy(finny_bitboards, pos->bitboards, 12 * sizeof(uint64_t));
 }
@@ -236,7 +236,7 @@ static inline void refresh_white_accumulator(position_t *pos,
 static inline void refresh_black_accumulator(position_t *pos,
                                              accumulator_t *accumulator) {
   uint8_t black_king_square = get_lsb(pos->bitboards[k]);
-  uint8_t black_bucket = get_king_bucket(white, black_king_square);
+  uint8_t black_bucket = get_king_bucket(black, black_king_square);
   uint8_t do_hm = (black_king_square & 7) >= 4;
   accumulator_t *finny_accumulator =
       &finny_tables[do_hm][black_bucket].accumulators;
@@ -253,7 +253,7 @@ static inline void refresh_black_accumulator(position_t *pos,
       size_t black_index = get_black_idx(piece, square, black_king_square);
 
       for (int i = 0; i < HIDDEN_SIZE; ++i)
-        accumulator->accumulator[black][i] +=
+        finny_accumulator->accumulator[black][i] +=
             nnue.feature_weights[black_bucket][black_index][i];
     }
 
@@ -263,11 +263,11 @@ static inline void refresh_black_accumulator(position_t *pos,
       size_t black_index = get_black_idx(piece, square, black_king_square);
 
       for (int i = 0; i < HIDDEN_SIZE; ++i)
-        accumulator->accumulator[black][i] -=
+        finny_accumulator->accumulator[black][i] -=
             nnue.feature_weights[black_bucket][black_index][i];
     }
   }
-  memcpy(finny_accumulator->accumulator[black], accumulator->accumulator[black],
+  memcpy(accumulator->accumulator[black], finny_accumulator->accumulator[black],
          HIDDEN_SIZE * sizeof(int16_t));
   memcpy(finny_bitboards, pos->bitboards, 12 * sizeof(uint64_t));
 }
