@@ -52,7 +52,7 @@ typedef struct keys {
 } keys_t;
 
 typedef struct accumulator {
-  _Alignas(64) int16_t accumulator[2][2048]; // This is very cursed but for now
+  _Alignas(64) int16_t accumulator[2][2560]; // This is very cursed but for now
                                              // lets have it this way
 } accumulator_t;
 
