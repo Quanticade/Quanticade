@@ -460,7 +460,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       pos->side ^ 1);
 
   // recursion escape condition
-  if (depth <= 0) {
+  if (!in_check && depth <= 0) {
     // run quiescence search
     return quiescence(pos, thread, ss, alpha, beta, pv_node);
   }
