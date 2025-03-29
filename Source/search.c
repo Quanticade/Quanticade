@@ -303,6 +303,21 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 
   pos->seldepth = MAX(pos->ply, pos->seldepth);
 
+  uint8_t tt_hit = 0;
+  int16_t tt_score = NO_SCORE;
+  uint8_t tt_flag = HASH_FLAG_EXACT;
+
+  tt_entry_t *tt_entry = read_hash_entry(pos, &tt_hit);
+
+  if (tt_hit) {
+    tt_score = score_from_tt(pos, tt_entry->score);
+    tt_flag = tt_entry->flag;
+  }
+
+  if (!pv_node && can_use_score(alpha, beta, tt_score, tt_flag)) {
+    return tt_score;
+  }
+
   uint8_t in_check = is_square_attacked(
       pos,
       (pos->side == white) ? __builtin_ctzll(pos->bitboards[K])
