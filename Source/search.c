@@ -309,11 +309,11 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
                            : __builtin_ctzll(pos->bitboards[k]),
       pos->side ^ 1);
 
-  int16_t raw_static_eval = evaluate(pos, &thread->accumulator[pos->ply]);
-  int16_t best_score = ss->static_eval;
+  int16_t best_score = NO_SCORE;
 
   if (!in_check) {
-    ss->static_eval = adjust_static_eval(thread, pos, raw_static_eval);
+    ss->static_eval = adjust_static_eval(
+        thread, pos, evaluate(pos, &thread->accumulator[pos->ply]));
 
     best_score = ss->static_eval;
     if (best_score > beta) {
@@ -326,9 +326,14 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   }
 
   uint16_t moves_seen = 0;
+  uint16_t quiets_seen = 0;
 
   moves move_list[1];
-  generate_captures(pos, move_list);
+  if (!in_check) {
+    generate_captures(pos, move_list);
+  } else {
+    generate_moves(pos, move_list);
+  }
 
   for (uint32_t count = 0; count < move_list->count; count++) {
     score_move(pos, thread, ss, &move_list->entry[count], 0);
@@ -338,6 +343,11 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 
   for (uint32_t count = 0; count < move_list->count; count++) {
     uint16_t move = move_list->entry[count].move;
+    uint8_t quiet = !(get_move_capture(move) || is_move_promotion(move));
+
+    if (best_score > -MATE_SCORE && quiets_seen > 0) {
+      break;
+    }
 
     // preserve board state
     copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
@@ -366,6 +376,9 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 
     thread->nodes++;
     moves_seen++;
+    if (quiet) {
+      quiets_seen++;
+    }
 
     prefetch_hash_entry(pos->hash_keys.hash_key);
 
@@ -399,6 +412,11 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
       }
     }
   }
+
+  if (in_check && moves_seen == 0) {
+    return -MATE_VALUE + pos->ply;
+  }
+
   return best_score;
 }
 
@@ -460,7 +478,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       pos->side ^ 1);
 
   // recursion escape condition
-  if (!in_check && depth <= 0) {
+  if (depth <= 0) {
     // run quiescence search
     return quiescence(pos, thread, ss, alpha, beta, pv_node);
   }
