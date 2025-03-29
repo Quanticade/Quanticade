@@ -290,11 +290,116 @@ static inline uint8_t only_pawns(position_t *pos) {
 static inline int16_t quiescence(position_t *pos, thread_t *thread,
                                  searchstack_t *ss, int16_t alpha, int16_t beta,
                                  uint8_t pv_node) {
-  (void)ss;
-  (void)alpha;
-  (void)beta;
-  (void)pv_node;
-  return evaluate(pos, &thread->accumulator[pos->ply]);
+  // Check up on time at the start
+  if (check_time(thread)) {
+    stop_threads(thread, thread_count);
+    return 0;
+  }
+
+  // If we are too deep exit
+  if (pos->ply > MAX_PLY - 1) {
+    return evaluate(pos, &thread->accumulator[pos->ply]);
+  }
+
+  pos->seldepth = MAX(pos->ply, pos->seldepth);
+
+  uint8_t in_check = is_square_attacked(
+      pos,
+      (pos->side == white) ? __builtin_ctzll(pos->bitboards[K])
+                           : __builtin_ctzll(pos->bitboards[k]),
+      pos->side ^ 1);
+
+  int16_t raw_static_eval = evaluate(pos, &thread->accumulator[pos->ply]);
+  int16_t best_score = ss->static_eval;
+
+  if (!in_check) {
+    ss->static_eval = adjust_static_eval(thread, pos, raw_static_eval);
+
+    best_score = ss->static_eval;
+    if (best_score > beta) {
+      return best_score;
+    }
+
+    alpha = MAX(alpha, best_score);
+  } else {
+    ss->static_eval = NO_SCORE;
+  }
+
+  uint16_t moves_seen = 0;
+
+  moves move_list[1];
+  generate_captures(pos, move_list);
+
+  for (uint32_t count = 0; count < move_list->count; count++) {
+    score_move(pos, thread, ss, &move_list->entry[count], 0);
+  }
+
+  sort_moves(move_list);
+
+  for (uint32_t count = 0; count < move_list->count; count++) {
+    uint16_t move = move_list->entry[count].move;
+
+    // preserve board state
+    copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
+               pos->castle, pos->fifty, pos->hash_keys, pos->mailbox);
+
+    // increment ply
+    pos->ply++;
+
+    // increment repetition index & store hash key
+    pos->repetition_index++;
+    pos->repetition_table[pos->repetition_index] = pos->hash_keys.hash_key;
+
+    // make sure to make only legal moves
+    if (make_move(pos, move) == 0) {
+      // decrement ply
+      pos->ply--;
+
+      // decrement repetition index
+      pos->repetition_index--;
+
+      // skip to next move
+      continue;
+    }
+
+    update_nnue(pos, thread, mailbox_copy, move);
+
+    thread->nodes++;
+    moves_seen++;
+
+    prefetch_hash_entry(pos->hash_keys.hash_key);
+
+    // score current move
+    int16_t score = -quiescence(pos, thread, ss + 1, -beta, -alpha, pv_node);
+
+    // decrement ply
+    pos->ply--;
+
+    // decrement repetition index
+    pos->repetition_index--;
+
+    // take move back
+    restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
+                  pos->castle, pos->fifty, pos->hash_keys, pos->mailbox);
+
+    // return 0 if time is up
+    if (thread->stopped == 1) {
+      return 0;
+    }
+
+    if (score > best_score) {
+      best_score = score;
+
+      if (score > alpha) {
+        alpha = score;
+
+        if (alpha >= beta) {
+          break;
+        }
+      }
+    }
+  }
+  return best_score;
 }
 
 // negamax alpha beta search
