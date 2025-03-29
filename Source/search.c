@@ -288,178 +288,19 @@ static inline uint8_t only_pawns(position_t *pos) {
 
 // quiescence search
 static inline int16_t quiescence(position_t *pos, thread_t *thread,
-                             searchstack_t *ss, int16_t alpha, int16_t beta,
-                             uint8_t pv_node) {
-  // Check on time
-  if (check_time(thread)) {
-    stop_threads(thread, thread_count);
-    return 0;
-  }
-
-  // we are too deep, hence there's an overflow of arrays relying on max ply
-  // constant
-  if (pos->ply > MAX_PLY - 1) {
-    // evaluate position
-    return evaluate(pos, &thread->accumulator[pos->ply]);
-  }
-
-  if (pos->ply > pos->seldepth) {
-    pos->seldepth = pos->ply;
-  }
-
-  uint16_t best_move = 0;
-  int16_t score = NO_SCORE, best_score = NO_SCORE;
-  int16_t raw_static_eval = NO_SCORE;
-  int16_t tt_score = NO_SCORE;
-  int16_t tt_static_eval = NO_SCORE;
-  uint8_t tt_hit = 0;
-  uint8_t tt_flag = HASH_FLAG_EXACT;
-  uint8_t tt_was_pv = pv_node;
-
-  tt_entry_t *tt_entry = read_hash_entry(pos, &tt_hit);
-
-  if (tt_hit) {
-    tt_was_pv |= tt_entry->tt_pv;
-    tt_score = score_from_tt(pos, tt_entry->score);
-    tt_static_eval = tt_entry->static_eval;
-    tt_flag = tt_entry->flag;
-  }
-
-  // If we arent in PV node and we hit requirements for cutoff
-  // we can return early from search
-  if (!pv_node && can_use_score(alpha, beta, tt_score, tt_flag)) {
-    return tt_score;
-  }
-
-  raw_static_eval = tt_static_eval != NO_SCORE
-                        ? tt_static_eval
-                        : evaluate(pos, &thread->accumulator[pos->ply]);
-  best_score = ss->static_eval =
-      adjust_static_eval(thread, pos, raw_static_eval);
-
-  if (tt_hit && can_use_score(best_score, best_score, tt_score, tt_flag)) {
-    best_score = tt_score;
-  }
-
-  // fail-hard beta cutoff
-  if (best_score >= beta) {
-    if (abs(best_score) < MATE_SCORE && abs(beta) < MATE_SCORE) {
-      best_score = (best_score + beta) / 2;
-    }
-    // node (position) fails high
-    return best_score;
-  }
-
-  // found a better move
-  alpha = MAX(alpha, best_score);
-
-  // create move list instance
-  moves move_list[1];
-  moves capture_list[1];
-  capture_list->count = 0;
-
-  // generate moves
-  generate_captures(pos, move_list);
-
-  for (uint32_t count = 0; count < move_list->count; count++) {
-    score_move(pos, thread, ss, &move_list->entry[count], best_move);
-  }
-
-  sort_moves(move_list);
-
-  // loop over moves within a movelist
-  for (uint32_t count = 0; count < move_list->count; count++) {
-    uint16_t move = move_list->entry[count].move;
-
-    if (!SEE(pos, move, -QS_SEE_THRESHOLD))
-      continue;
-
-    // preserve board state
-    copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-               pos->castle, pos->fifty, pos->hash_keys, pos->mailbox);
-
-    // increment ply
-    pos->ply++;
-
-    // increment repetition index & store hash key
-    pos->repetition_index++;
-    pos->repetition_table[pos->repetition_index] = pos->hash_keys.hash_key;
-
-    // make sure to make only legal moves
-    if (make_move(pos, move) == 0) {
-      // decrement ply
-      pos->ply--;
-
-      // decrement repetition index
-      pos->repetition_index--;
-
-      // skip to next move
-      continue;
-    }
-
-    update_nnue(pos, thread, mailbox_copy, move);
-
-    ss->move = move;
-    ss->piece = mailbox_copy[get_move_source(move)];
-
-    thread->nodes++;
-
-    if (get_move_capture(move)) {
-      add_move(capture_list, move);
-    }
-
-    prefetch_hash_entry(pos->hash_keys.hash_key);
-
-    // score current move
-    score = -quiescence(pos, thread, ss + 1, -beta, -alpha, pv_node);
-
-    // decrement ply
-    pos->ply--;
-
-    // decrement repetition index
-    pos->repetition_index--;
-
-    // take move back
-    restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                  pos->castle, pos->fifty, pos->hash_keys, pos->mailbox);
-
-    // return 0 if time is up
-    if (thread->stopped == 1) {
-      return 0;
-    }
-
-    if (score > best_score) {
-      best_score = score;
-      best_move = move;
-      // found a better move
-      if (score > alpha) {
-        alpha = score;
-        // fail-hard beta cutoff
-        if (alpha >= beta) {
-          update_capture_history_moves(thread, capture_list, best_move, 1);
-          break;
-        }
-      }
-    }
-  }
-
-  uint8_t hash_flag = HASH_FLAG_NONE;
-  if (alpha >= beta) {
-    hash_flag = HASH_FLAG_LOWER_BOUND;
-  } else {
-    hash_flag = HASH_FLAG_UPPER_BOUND;
-  }
-
-  write_hash_entry(tt_entry, pos, best_score, raw_static_eval, 0, best_move, hash_flag,
-                   tt_was_pv);
-
-  return best_score;
+                                 searchstack_t *ss, int16_t alpha, int16_t beta,
+                                 uint8_t pv_node) {
+  (void)ss;
+  (void)alpha;
+  (void)beta;
+  (void)pv_node;
+  return evaluate(pos, &thread->accumulator[pos->ply]);
 }
 
 // negamax alpha beta search
-static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
-                          int16_t alpha, int16_t beta, int depth, uint8_t cutnode,
-                          uint8_t pv_node) {
+static inline int16_t negamax(position_t *pos, thread_t *thread,
+                              searchstack_t *ss, int16_t alpha, int16_t beta,
+                              int depth, uint8_t cutnode, uint8_t pv_node) {
   // init PV length
   thread->pv.pv_length[pos->ply] = pos->ply;
 
@@ -507,14 +348,14 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
   }
 
   // is king in check
-  uint8_t in_check = is_square_attacked(pos,
-                                    (pos->side == white)
-                                        ? __builtin_ctzll(pos->bitboards[K])
-                                        : __builtin_ctzll(pos->bitboards[k]),
-                                    pos->side ^ 1);
+  uint8_t in_check = is_square_attacked(
+      pos,
+      (pos->side == white) ? __builtin_ctzll(pos->bitboards[K])
+                           : __builtin_ctzll(pos->bitboards[k]),
+      pos->side ^ 1);
 
   // recursion escape condition
-  if (!in_check && depth <= 0) {
+  if (depth <= 0) {
     // run quiescence search
     return quiescence(pos, thread, ss, alpha, beta, pv_node);
   }
@@ -566,7 +407,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
     improving = static_eval > (ss - 2)->static_eval;
   }
   if (!in_check) {
-    opponent_worsening = ss->static_eval + (ss-1)->static_eval > 1;
+    opponent_worsening = ss->static_eval + (ss - 1)->static_eval > 1;
   }
 
   // Check on time
@@ -578,10 +419,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
   // moves seen counter
   uint16_t moves_seen = 0;
 
-
-
   if (!pv_node && !in_check && !ss->excluded_move) {
-    if ((ss-1)->reduction >= 3 && !opponent_worsening) {
+    if ((ss - 1)->reduction >= 3 && !opponent_worsening) {
       ++depth;
     }
     // Reverse Futility Pruning
@@ -664,7 +503,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
 
     if (depth <= RAZOR_DEPTH &&
         ss->static_eval + RAZOR_MARGIN * depth < alpha) {
-      const int16_t razor_score = quiescence(pos, thread, ss, alpha, beta, NON_PV);
+      const int16_t razor_score =
+          quiescence(pos, thread, ss, alpha, beta, NON_PV);
       if (razor_score <= alpha) {
         return razor_score;
       }
@@ -965,8 +805,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
       hash_flag = HASH_FLAG_UPPER_BOUND;
     }
     // store hash entry with the score equal to alpha
-    write_hash_entry(tt_entry, pos, best_score, raw_static_eval, depth, best_move,
-                     hash_flag, tt_was_pv);
+    write_hash_entry(tt_entry, pos, best_score, raw_static_eval, depth,
+                     best_move, hash_flag, tt_was_pv);
 
     if (!in_check && (!best_move || !(is_move_promotion(best_move) ||
                                       get_move_capture(best_move)))) {
@@ -978,7 +818,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
   return best_score;
 }
 
-static void print_thinking(thread_t *thread, int16_t score, uint8_t current_depth) {
+static void print_thinking(thread_t *thread, int16_t score,
+                           uint8_t current_depth) {
 
   uint64_t nodes = total_nodes(thread, thread_count);
   uint64_t time = get_time_ms() - thread->starttime;
