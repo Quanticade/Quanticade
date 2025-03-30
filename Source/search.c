@@ -366,8 +366,13 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     uint16_t move = move_list->entry[count].move;
     uint8_t quiet = !(get_move_capture(move) || is_move_promotion(move));
 
-    if (best_score > -MATE_SCORE && quiets_seen > 0) {
-      break;
+    if (best_score > -MATE_SCORE) {
+      if (quiets_seen > 0) {
+        break;
+      }
+      if (!SEE(pos, move, -QS_SEE_THRESHOLD)) {
+        continue;
+      }
     }
 
     // preserve board state
