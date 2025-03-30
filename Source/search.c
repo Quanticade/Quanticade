@@ -362,6 +362,8 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 
   sort_moves(move_list);
 
+  int16_t futility_score = best_score + 150;
+
   for (uint32_t count = 0; count < move_list->count; count++) {
     uint16_t move = move_list->entry[count].move;
     uint8_t quiet = !(get_move_capture(move) || is_move_promotion(move));
@@ -369,6 +371,10 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     if (best_score > -MATE_SCORE) {
       if (quiets_seen > 0) {
         break;
+      }
+      if (!in_check && futility_score <= alpha && !SEE(pos, move, 1)) {
+        best_score = MAX(best_score, futility_score);
+        continue;
       }
       if (!SEE(pos, move, -QS_SEE_THRESHOLD)) {
         continue;
