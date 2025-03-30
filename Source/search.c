@@ -306,12 +306,14 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   uint8_t tt_hit = 0;
   int16_t tt_score = NO_SCORE;
   uint8_t tt_flag = HASH_FLAG_EXACT;
+  uint8_t tt_was_pv = pv_node;
 
   tt_entry_t *tt_entry = read_hash_entry(pos, &tt_hit);
 
   if (tt_hit) {
     tt_score = score_from_tt(pos, tt_entry->score);
     tt_flag = tt_entry->flag;
+    tt_was_pv |= tt_entry->tt_pv;
   }
 
   if (!pv_node && can_use_score(alpha, beta, tt_score, tt_flag)) {
@@ -325,10 +327,11 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
       pos->side ^ 1);
 
   int16_t best_score = NO_SCORE;
+  int16_t raw_static_eval = NO_SCORE;
 
   if (!in_check) {
-    ss->static_eval = adjust_static_eval(
-        thread, pos, evaluate(pos, &thread->accumulator[pos->ply]));
+    raw_static_eval = evaluate(pos, &thread->accumulator[pos->ply]);
+    ss->static_eval = adjust_static_eval(thread, pos, raw_static_eval);
 
     best_score = ss->static_eval;
     if (best_score > beta) {
@@ -431,6 +434,16 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   if (in_check && moves_seen == 0) {
     return -MATE_VALUE + pos->ply;
   }
+
+  uint8_t hash_flag = HASH_FLAG_NONE;
+  if (alpha >= beta) {
+    hash_flag = HASH_FLAG_LOWER_BOUND;
+  } else {
+    hash_flag = HASH_FLAG_UPPER_BOUND;
+  }
+
+  write_hash_entry(tt_entry, pos, best_score, raw_static_eval, 0, 0, hash_flag,
+                   tt_was_pv);
 
   return best_score;
 }
