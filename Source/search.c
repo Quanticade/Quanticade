@@ -307,12 +307,14 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   int16_t tt_score = NO_SCORE;
   uint8_t tt_flag = HASH_FLAG_EXACT;
   uint8_t tt_was_pv = pv_node;
+  uint16_t tt_move = 0;
 
   tt_entry_t *tt_entry = read_hash_entry(pos, &tt_hit);
 
   if (tt_hit) {
     tt_score = score_from_tt(pos, tt_entry->score);
     tt_flag = tt_entry->flag;
+    tt_move = tt_entry->move;
     tt_was_pv |= tt_entry->tt_pv;
   }
 
@@ -345,6 +347,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 
   uint16_t moves_seen = 0;
   uint16_t quiets_seen = 0;
+  uint16_t best_move = 0;
 
   moves move_list[1];
   if (!in_check) {
@@ -354,7 +357,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   }
 
   for (uint32_t count = 0; count < move_list->count; count++) {
-    score_move(pos, thread, ss, &move_list->entry[count], 0);
+    score_move(pos, thread, ss, &move_list->entry[count], tt_move);
   }
 
   sort_moves(move_list);
@@ -420,6 +423,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 
     if (score > best_score) {
       best_score = score;
+      best_move = move;
 
       if (score > alpha) {
         alpha = score;
@@ -442,8 +446,8 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     hash_flag = HASH_FLAG_UPPER_BOUND;
   }
 
-  write_hash_entry(tt_entry, pos, best_score, raw_static_eval, 0, 0, hash_flag,
-                   tt_was_pv);
+  write_hash_entry(tt_entry, pos, best_score, raw_static_eval, 0, best_move,
+                   hash_flag, tt_was_pv);
 
   return best_score;
 }
