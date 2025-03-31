@@ -308,6 +308,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   }
 
   uint16_t best_move = 0;
+  uint16_t tt_move = 0;
   int16_t score = NO_SCORE, best_score = NO_SCORE;
   int16_t raw_static_eval = NO_SCORE;
   int16_t tt_score = NO_SCORE;
@@ -323,6 +324,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     tt_score = score_from_tt(pos, tt_entry->score);
     tt_static_eval = tt_entry->static_eval;
     tt_flag = tt_entry->flag;
+    tt_move = tt_entry->move;
   }
 
   // If we arent in PV node and we hit requirements for cutoff
@@ -362,7 +364,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   generate_captures(pos, move_list);
 
   for (uint32_t count = 0; count < move_list->count; count++) {
-    score_move(pos, thread, ss, &move_list->entry[count], best_move);
+    score_move(pos, thread, ss, &move_list->entry[count], tt_move);
   }
 
   sort_moves(move_list);
