@@ -863,7 +863,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
     R -= (tt_depth >= depth) * LMR_TT_DEPTH;
     R -= tt_was_pv * LMR_TT_PV;
     R = R / 1024;
-    int reduced_depth = MAX(1, MIN(new_depth - R + 1, new_depth));
+    int reduced_depth = MAX(1, MIN(new_depth - R, new_depth));
 
     if (depth >= 2 && moves_seen > 2 + 2 * pv_node) {
       ss->reduction = R;
