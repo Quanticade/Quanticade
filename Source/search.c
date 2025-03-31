@@ -305,6 +305,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 
   uint8_t tt_hit = 0;
   int16_t tt_score = NO_SCORE;
+  int16_t tt_static_eval = NO_SCORE;
   uint8_t tt_flag = HASH_FLAG_EXACT;
   uint8_t tt_was_pv = pv_node;
   uint16_t tt_move = 0;
@@ -332,7 +333,9 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   int16_t raw_static_eval = NO_SCORE;
 
   if (!in_check) {
-    raw_static_eval = evaluate(pos, &thread->accumulator[pos->ply]);
+    raw_static_eval = tt_static_eval != NO_SCORE
+                          ? tt_static_eval
+                          : evaluate(pos, &thread->accumulator[pos->ply]);
     ss->static_eval = adjust_static_eval(thread, pos, raw_static_eval);
 
     best_score = ss->static_eval;
