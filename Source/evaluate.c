@@ -12,7 +12,8 @@ extern nnue_settings_t nnue_settings;
 int16_t evaluate(position_t *pos, accumulator_t *accumulator) {
   int eval = nnue_evaluate(pos, accumulator);
 
-  int phase = 3 * popcount(pos->bitboards[n] | pos->bitboards[N]) +
+  int phase = popcount(pos->bitboards[p] | pos->bitboards[P]) +
+              3 * popcount(pos->bitboards[n] | pos->bitboards[N]) +
               3 * popcount(pos->bitboards[b] | pos->bitboards[B]) +
               5 * popcount(pos->bitboards[r] | pos->bitboards[R]) +
               10 * popcount(pos->bitboards[q] | pos->bitboards[Q]);
