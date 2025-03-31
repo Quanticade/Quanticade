@@ -350,6 +350,9 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   uint16_t best_move = 0;
 
   moves move_list[1];
+  moves capture_list[1];
+  capture_list->count = 0;
+
   if (!in_check) {
     generate_captures(pos, move_list);
   } else {
@@ -412,6 +415,13 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
       quiets_seen++;
     }
 
+    ss->move = move;
+    ss->piece = mailbox_copy[get_move_source(move)];
+
+    if (get_move_capture(move)) {
+      add_move(capture_list, move);
+    }
+
     prefetch_hash_entry(pos->hash_keys.hash_key);
 
     // score current move
@@ -440,6 +450,9 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
         alpha = score;
 
         if (alpha >= beta) {
+          if (get_move_capture(move)) {
+            update_capture_history_moves(thread, capture_list, best_move, 1);
+          }
           break;
         }
       }
