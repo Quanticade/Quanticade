@@ -368,6 +368,16 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     uint16_t move = move_list->entry[count].move;
     uint8_t quiet = !(get_move_capture(move) || is_move_promotion(move));
 
+    ss->history_score =
+        quiet
+            ? thread
+                  ->quiet_history[pos->mailbox[get_move_source(move)]]
+                                 [get_move_source(move)][get_move_target(move)]
+            : thread->capture_history[pos->mailbox[get_move_source(move)]]
+                                     [pos->mailbox[get_move_target(move)]]
+                                     [get_move_source(move)]
+                                     [get_move_target(move)];
+
     if (best_score > -MATE_SCORE) {
       if (quiets_seen > 0) {
         break;
@@ -376,7 +386,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
         best_score = MAX(best_score, futility_score);
         continue;
       }
-      if (!SEE(pos, move, -QS_SEE_THRESHOLD)) {
+      if (!SEE(pos, move, -ss->history_score / 60)) {
         continue;
       }
     }
@@ -411,6 +421,9 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     if (quiet) {
       quiets_seen++;
     }
+
+    ss->move = move;
+    ss->piece = mailbox_copy[get_move_source(move)];
 
     prefetch_hash_entry(pos->hash_keys.hash_key);
 
