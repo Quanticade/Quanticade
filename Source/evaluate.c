@@ -22,5 +22,5 @@ int16_t evaluate(position_t *pos, accumulator_t *accumulator) {
   fifty_move_scaler = MAX(fifty_move_scaler, 0.5f);
   int final_eval = eval * fifty_move_scaler;
   clamp(final_eval, -MATE_SCORE + 1, MATE_SCORE - 1);
-  return (int16_t)final_eval;
+  return -(int16_t)final_eval;
 }
