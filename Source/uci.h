@@ -3,7 +3,7 @@
 
 #include "structs.h"
 
-#define version "Iocus 1.0"
+#define version "Iocus 420.69"
 
 #define MIN(A, B) ((A) < (B) ? (A) : (B))
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
