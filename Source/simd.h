@@ -39,9 +39,9 @@ static inline vepi16 multiply_epi16(vepi16 v1, vepi16 v2) {
 static inline vepi32 multiply_add_epi16(vepi16 v1, vepi16 v2) {
   return _mm512_madd_epi16(v1, v2);
 }
-static inline vepi16 clip(vepi16 vector, int l1q) {
+static inline vepi16 clip(vepi16 vector, vepi16 l1q) {
   return _mm512_min_epi16(_mm512_max_epi16(vector, zero_epi16()),
-                          load_epi16_broadcast(l1q));
+                          l1q);
 }
 static inline int reduce_add_epi32(vepi32 v) {
   return _mm512_reduce_add_epi32(v);
@@ -76,9 +76,9 @@ static inline vepi16 multiply_epi16(vepi16 v1, vepi16 v2) {
 static inline vepi32 multiply_add_epi16(vepi16 v1, vepi16 v2) {
   return _mm256_madd_epi16(v1, v2);
 }
-static inline vepi16 clip(vepi16 vector, int l1q) {
+static inline vepi16 clip(vepi16 vector, vepi16 l1q) {
   return _mm256_min_epi16(_mm256_max_epi16(vector, zero_epi16()),
-                          load_epi16_broadcast(l1q));
+                          l1q);
 }
 
 static inline int reduce_add_epi32(vepi32 vector) {
@@ -121,9 +121,9 @@ static inline vepi32 multiply_add_epi16(vepi16 v1, vepi16 v2) {
   const vepi32 high = vmull_high_s16(v1, v2);
   return vpaddq_s32(low, high);
 }
-static inline vepi16 clip(vepi16 vector, int l1q) {
+static inline vepi16 clip(vepi16 vector, vepi16 l1q) {
   return vminq_s16(vmaxq_s16(vector, zero_epi16()),
-                   load_epi16_broadcast(l1q));
+                   l1q);
 }
 static inline int reduce_add_epi32(vepi32 v) {
   int32x2_t sum1 = vpadd_s32(vget_low_s32(v), vget_high_s32(v));

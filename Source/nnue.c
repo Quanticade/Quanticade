@@ -428,13 +428,14 @@ int nnue_evaluate(position_t *pos, accumulator_t *accumulator) {
 #if defined(USE_SIMD)
   vepi32 sum = zero_epi32();
   const int chunk_size = sizeof(vepi16) / sizeof(int16_t);
+  vepi16 l1q = load_epi16_broadcast(L1Q);
 
   for (int i = 0; i < HIDDEN_SIZE; i += chunk_size) {
     const vepi16 accumulator_data =
         load_epi16(&accumulator->accumulator[side][i]);
     const vepi16 weights = load_epi16(&nnue.output_weights[bucket][0][i]);
 
-    const vepi16 clipped_accumulator = clip(accumulator_data, L1Q);
+    const vepi16 clipped_accumulator = clip(accumulator_data, l1q);
 
     const vepi16 intermediate = multiply_epi16(clipped_accumulator, weights);
 
@@ -448,7 +449,7 @@ int nnue_evaluate(position_t *pos, accumulator_t *accumulator) {
         load_epi16(&accumulator->accumulator[side ^ 1][i]);
     const vepi16 weights = load_epi16(&nnue.output_weights[bucket][1][i]);
 
-    const vepi16 clipped_accumulator = clip(accumulator_data, L1Q);
+    const vepi16 clipped_accumulator = clip(accumulator_data, l1q);
 
     const vepi16 intermediate = multiply_epi16(clipped_accumulator, weights);
 
