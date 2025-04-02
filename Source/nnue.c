@@ -12,11 +12,15 @@
 
 nnue_t nnue;
 
-uint8_t buckets[64] = {12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
-                       12, 12, 12, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11,
-                       11, 11, 11, 11, 11, 11, 10, 10, 10, 10, 10, 10, 10,
-                       10, 8,  8,  9,  9,  9,  9,  8,  8,  4,  5,  6,  7,
-                       7,  6,  5,  4,  0,  1,  2,  3,  3,  2,  1,  0};
+uint8_t buckets[64] = {0,  1,  2,  3,  3,  2,  1,  0,  
+                       4,  5,  6,  7,  7,  6,  5,  4,  
+                      8,  9,  10, 11, 11, 10,  9,  8,  
+                      8,  9,  10, 11, 11, 10,  9,  8,  
+                      12, 12, 13, 13, 13, 13, 12, 12,  
+                      12, 12, 13, 13, 13, 13, 12, 12,  
+                      14, 14, 15, 15, 15, 15, 14, 14,  
+                      14, 14, 15, 15, 15, 15, 14, 14,  
+};
 
 #if !defined(_MSC_VER)
 INCBIN(EVAL, EVALFILE);
@@ -31,7 +35,7 @@ const uint8_t BUCKET_DIVISOR = (32 + OUTPUT_BUCKETS - 1) / OUTPUT_BUCKETS;
 finny_table_t finny_tables[2][KING_BUCKETS];
 
 static inline uint8_t get_king_bucket(uint8_t side, uint8_t square) {
-  return buckets[side ? square ^ 56 : square];
+  return buckets[side ? square : square ^ 56];
 }
 
 uint8_t need_refresh(uint8_t *mailbox, uint16_t move) {
