@@ -70,8 +70,6 @@ typedef struct position {
   uint64_t bitboards[12];
   uint64_t occupancies[3];
   hash_keys_t hash_keys;
-  uint64_t repetition_table[1000];
-  uint32_t repetition_index;
   uint32_t ply;
   uint32_t seldepth;
   uint32_t fifty;
@@ -93,6 +91,8 @@ typedef struct searchinfo {
   PV_t pv;
   uint64_t nodes;
   uint64_t starttime;
+  uint64_t repetition_table[1000];
+  uint32_t repetition_index;
   uint16_t killer_moves[MAX_PLY];
   int16_t score;
   int16_t quiet_history[12][64][64];

@@ -236,11 +236,11 @@ static inline void sort_moves(moves *move_list) {
 }
 
 // position repetition detection
-static inline uint8_t is_repetition(position_t *pos) {
+static inline uint8_t is_repetition(position_t *pos, thread_t *thread) {
   // loop over repetition indices range
-  for (uint32_t index = 0; index < pos->repetition_index; index++)
+  for (uint32_t index = 0; index < thread->repetition_index; index++)
     // if we found the hash key same with a current
-    if (pos->repetition_table[index] == pos->hash_keys.hash_key)
+    if (thread->repetition_table[index] == pos->hash_keys.hash_key)
       // we found a repetition
       return 1;
 
@@ -382,8 +382,8 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     pos->ply++;
 
     // increment repetition index & store hash key
-    pos->repetition_index++;
-    pos->repetition_table[pos->repetition_index] = pos->hash_keys.hash_key;
+    thread->repetition_index++;
+    thread->repetition_table[thread->repetition_index] = pos->hash_keys.hash_key;
 
     // make sure to make only legal moves
     if (make_move(pos, move) == 0) {
@@ -391,7 +391,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
       pos->ply--;
 
       // decrement repetition index
-      pos->repetition_index--;
+      thread->repetition_index--;
 
       // skip to next move
       continue;
@@ -417,7 +417,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     pos->ply--;
 
     // decrement repetition index
-    pos->repetition_index--;
+    thread->repetition_index--;
 
     // take move back
     restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
@@ -487,7 +487,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
 
   if (!root_node) {
     // if position repetition occurs
-    if (is_repetition(pos) || pos->fifty >= 100 || is_material_draw(pos)) {
+    if (is_repetition(pos, thread) || pos->fifty >= 100 || is_material_draw(pos)) {
       // return draw score
       return 1 - (thread->nodes & 2);
     }
@@ -612,8 +612,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
       pos->ply++;
 
       // increment repetition index & store hash key
-      pos->repetition_index++;
-      pos->repetition_table[pos->repetition_index] = pos->hash_keys.hash_key;
+      thread->repetition_index++;
+      thread->repetition_table[thread->repetition_index] = pos->hash_keys.hash_key;
 
       // hash enpassant if available
       if (pos->enpassant != no_sq)
@@ -645,7 +645,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
       pos->ply--;
 
       // decrement repetition index
-      pos->repetition_index--;
+      thread->repetition_index--;
 
       // restore board state
       restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
@@ -810,8 +810,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
     pos->ply++;
 
     // increment repetition index & store hash key
-    pos->repetition_index++;
-    pos->repetition_table[pos->repetition_index] = pos->hash_keys.hash_key;
+    thread->repetition_index++;
+    thread->repetition_table[thread->repetition_index] = pos->hash_keys.hash_key;
 
     // make sure to make only legal moves
     if (make_move(pos, move) == 0) {
@@ -819,7 +819,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
       pos->ply--;
 
       // decrement repetition index
-      pos->repetition_index--;
+      thread->repetition_index--;
 
       // skip to next move
       continue;
@@ -889,7 +889,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
     pos->ply--;
 
     // decrement repetition index
-    pos->repetition_index--;
+    thread->repetition_index--;
 
     // take move back
     restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,

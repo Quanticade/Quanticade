@@ -167,7 +167,7 @@ static inline int parse_move(position_t *pos, thread_t *thread,
   return 0;
 }
 
-static inline void reset_board(position_t *pos) {
+static inline void reset_board(position_t *pos, thread_t *thread) {
   // reset board position (bitboards)
   memset(pos->bitboards, 0ULL, sizeof(pos->bitboards));
 
@@ -180,17 +180,17 @@ static inline void reset_board(position_t *pos) {
   pos->castle = 0;
 
   // reset repetition index
-  pos->repetition_index = 0;
+  thread->repetition_index = 0;
 
   pos->fifty = 0;
 
   // reset repetition table
-  memset(pos->repetition_table, 0ULL, sizeof(pos->repetition_table));
+  memset(thread->repetition_table, 0ULL, sizeof(thread->repetition_table));
 }
 
-static inline void parse_fen(position_t *pos, char *fen) {
+static inline void parse_fen(position_t *pos, thread_t *thread, char *fen) {
   // prepare for new game
-  reset_board(pos);
+  reset_board(pos, thread);
 
   // loop over board ranks
   for (int rank = 0; rank < 8; rank++) {
@@ -334,7 +334,7 @@ static inline void parse_position(position_t *pos, thread_t *thread,
   // parse UCI "startpos" command
   if (strncmp(command, "startpos", 8) == 0)
     // init chess board with start position
-    parse_fen(pos, start_position);
+    parse_fen(pos, thread, start_position);
 
   // parse UCI "fen" command
   else {
@@ -344,7 +344,7 @@ static inline void parse_position(position_t *pos, thread_t *thread,
     // if no "fen" command is available within command string
     if (current_char == NULL)
       // init chess board with start position
-      parse_fen(pos, start_position);
+      parse_fen(pos, thread, start_position);
 
     // found "fen" substring
     else {
@@ -352,7 +352,7 @@ static inline void parse_position(position_t *pos, thread_t *thread,
       current_char += 4;
 
       // init chess board with position from FEN string
-      parse_fen(pos, current_char);
+      parse_fen(pos, thread, current_char);
     }
   }
 
@@ -375,10 +375,10 @@ static inline void parse_position(position_t *pos, thread_t *thread,
         break;
 
       // increment repetition index
-      pos->repetition_index++;
+      thread->repetition_index++;
 
       // write hash key into a repetition table
-      pos->repetition_table[pos->repetition_index] = pos->hash_keys.hash_key;
+      thread->repetition_table[thread->repetition_index] = pos->hash_keys.hash_key;
 
       // make move on the chess board
       make_move(pos, move);
