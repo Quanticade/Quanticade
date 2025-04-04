@@ -794,7 +794,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
 
       // Negative Extensions
       else if (tt_score >= beta) {
-        extensions -= 2 + !pv_node;
+        extensions -= 3 + !pv_node;
       }
 
       else if (cutnode) {
