@@ -856,6 +856,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
     R += cutnode * LMR_CUTNODE;
     R -= (tt_depth >= depth) * LMR_TT_DEPTH;
     R -= tt_was_pv * LMR_TT_PV;
+    R += (tt_was_pv && tt_hit && tt_entry->score <= alpha) * 1024;
     R = R / 1024;
     int reduced_depth = MAX(1, MIN(new_depth - R, new_depth));
 
