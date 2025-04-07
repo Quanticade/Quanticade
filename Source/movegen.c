@@ -17,9 +17,7 @@ const uint8_t castling_rights[64] = {
 
 uint8_t make_move(position_t *pos, uint16_t move) {
   // preserve board state
-  copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-             pos->castle, pos->fifty, pos->hash_keys,
-             pos->mailbox);
+  position_t pos_copy = *pos;
 
   // parse move
   uint8_t capture = get_move_capture(move);
@@ -265,9 +263,7 @@ uint8_t make_move(position_t *pos, uint16_t move) {
                              : __builtin_ctzll(pos->bitboards[K]),
                          pos->side)) {
     // take move back
-    restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                  pos->castle, pos->fifty, pos->hash_keys,
-                  pos->mailbox);
+    *pos = pos_copy;
 
     // return illegal move
     return 0;

@@ -70,9 +70,8 @@ typedef struct position {
   uint64_t bitboards[12];
   uint64_t occupancies[3];
   hash_keys_t hash_keys;
-  uint32_t ply;
-  uint32_t seldepth;
-  uint32_t fifty;
+  uint8_t ply;
+  uint8_t fifty;
   uint8_t mailbox[64];
   uint8_t side;
   uint8_t enpassant;
@@ -99,6 +98,7 @@ typedef struct searchinfo {
   int16_t continuation_history[12][64][12][64];
   int16_t correction_history[2][16384];
   uint8_t depth;
+  uint8_t seldepth;
   uint8_t stopped;
   uint8_t quit;
   uint8_t index;

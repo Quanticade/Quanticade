@@ -303,8 +303,8 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     return evaluate(pos, &thread->accumulator[pos->ply]);
   }
 
-  if (pos->ply > pos->seldepth) {
-    pos->seldepth = pos->ply;
+  if (pos->ply > thread->seldepth) {
+    thread->seldepth = pos->ply;
   }
 
   uint16_t best_move = 0;
@@ -375,8 +375,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
       continue;
 
     // preserve board state
-    copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-               pos->castle, pos->fifty, pos->hash_keys, pos->mailbox);
+    position_t pos_copy = *pos;
 
     // increment ply
     pos->ply++;
@@ -397,10 +396,10 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
       continue;
     }
 
-    update_nnue(pos, thread, mailbox_copy, move);
+    update_nnue(pos, thread, pos_copy.mailbox, move);
 
     ss->move = move;
-    ss->piece = mailbox_copy[get_move_source(move)];
+    ss->piece = pos_copy.mailbox[get_move_source(move)];
 
     thread->nodes++;
 
@@ -420,8 +419,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     thread->repetition_index--;
 
     // take move back
-    restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                  pos->castle, pos->fifty, pos->hash_keys, pos->mailbox);
+    *pos = pos_copy;
 
     // return 0 if time is up
     if (thread->stopped == 1) {
@@ -481,8 +479,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
   // Limit depth to MAX_PLY - 1 in case extensions make it too big
   depth = MIN(depth, MAX_PLY - 1);
 
-  if (depth == 0 && pos->ply > pos->seldepth) {
-    pos->seldepth = pos->ply;
+  if (depth == 0 && pos->ply > thread->seldepth) {
+    thread->seldepth = pos->ply;
   }
 
   if (!root_node) {
@@ -604,8 +602,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
               depth / NMP_DIVISER + NMP_BASE_REDUCTION;
       R = MIN(R, depth);
       // preserve board state
-      copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                 pos->castle, pos->fifty, pos->hash_keys, pos->mailbox);
+      position_t pos_copy = *pos;
+
       thread->accumulator[pos->ply + 1] = thread->accumulator[pos->ply];
 
       // increment ply
@@ -648,8 +646,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
       thread->repetition_index--;
 
       // restore board state
-      restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                    pos->castle, pos->fifty, pos->hash_keys, pos->mailbox);
+      *pos = pos_copy;
 
       // return 0 if time is up
       if (thread->stopped == 1) {
@@ -757,15 +754,13 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
       const int s_beta = tt_score - depth;
       const int s_depth = (depth - 1) / 2;
 
-      copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                 pos->castle, pos->fifty, pos->hash_keys, pos->mailbox);
+      position_t pos_copy = *pos;
 
       if (make_move(pos, move) == 0) {
         continue;
       }
 
-      restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                    pos->castle, pos->fifty, pos->hash_keys, pos->mailbox);
+      *pos = pos_copy;
 
       ss->excluded_move = move;
 
@@ -803,8 +798,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
     }
 
     // preserve board state
-    copy_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-               pos->castle, pos->fifty, pos->hash_keys, pos->mailbox);
+    position_t pos_copy = *pos;
 
     // increment ply
     pos->ply++;
@@ -825,10 +819,10 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
       continue;
     }
 
-    update_nnue(pos, thread, mailbox_copy, move);
+    update_nnue(pos, thread, pos_copy.mailbox, move);
 
     ss->move = move;
-    ss->piece = mailbox_copy[get_move_source(move)];
+    ss->piece = pos_copy.mailbox[get_move_source(move)];
 
     // increment nodes count
     thread->nodes++;
@@ -892,8 +886,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
     thread->repetition_index--;
 
     // take move back
-    restore_board(pos->bitboards, pos->occupancies, pos->side, pos->enpassant,
-                  pos->castle, pos->fifty, pos->hash_keys, pos->mailbox);
+    *pos = pos_copy;
 
     if (thread->index == 0 && root_node) {
       nodes_spent_table[move >> 4] += thread->nodes - nodes_before_search;
@@ -985,7 +978,7 @@ static void print_thinking(thread_t *thread, int16_t score, uint8_t current_dept
   uint64_t nps = (nodes / fmax(time, 1)) * 1000;
 
   printf("info depth %d seldepth %d score ", current_depth,
-         thread->pos.seldepth);
+         thread->seldepth);
 
   if (score > -MATE_VALUE && score < -MATE_SCORE) {
     printf("mate %d ", -(score + MATE_VALUE) / 2 - 1);
@@ -1098,7 +1091,7 @@ void *iterative_deepening(void *thread_void) {
       ss[i].reduction = 0;
     }
 
-    pos->seldepth = 0;
+    thread->seldepth = 0;
 
     if (aspiration_windows(thread, pos, ss, alpha, beta)) {
       return NULL;
