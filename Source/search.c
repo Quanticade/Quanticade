@@ -165,16 +165,30 @@ static inline void score_move(position_t *pos, thread_t *thread,
     }
     if (get_move_capture(move)) {
       // The promotion is a capture and we check SEE score
-      if (SEE(pos, move, -MO_SEE_THRESHOLD)) {
-        return;
-      } else {
+      if (!SEE(pos, move, -MO_SEE_THRESHOLD)) {
         // Capture failed SEE and thus gets ordered at the bottom of the list
-        move_entry->score = -1000000;
-        return;
+        // But above non promotion bad capture
+        move_entry->score = -900000000;
       }
+      int target_piece = P;
+      uint8_t bb_piece = pos->mailbox[get_move_target(move)];
+      // if there's a piece on the target square
+      if (bb_piece != NO_PIECE &&
+          get_bit(pos->bitboards[bb_piece], get_move_target(move))) {
+        target_piece = bb_piece;
+      }
+
+      // Score the bad and good promotion captures with MVV and capture history as well
+      move_entry->score +=
+          mvv[target_piece > 5 ? target_piece - 6 : target_piece];
+      move_entry->score +=
+          thread
+              ->capture_history[pos->mailbox[get_move_source(move)]][target_piece]
+                              [get_move_source(move)][get_move_target(move)];
+      return;
     } else {
       // We have a promotion that is not a capture. Order it below good capture promotions.
-      move_entry->score -= 100000;
+      move_entry->score -= 1000000;
       return;
     }
   }
@@ -201,7 +215,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
             ->capture_history[pos->mailbox[get_move_source(move)]][target_piece]
                              [get_move_source(move)][get_move_target(move)];
     move_entry->score +=
-        SEE(pos, move, -MO_SEE_THRESHOLD) ? 1000000000 : -1000000;
+        SEE(pos, move, -MO_SEE_THRESHOLD) ? 1000000000 : -1000000000;
     return;
   }
 
