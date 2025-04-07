@@ -303,8 +303,8 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     return evaluate(pos, &thread->accumulator[pos->ply]);
   }
 
-  if (pos->ply > pos->seldepth) {
-    pos->seldepth = pos->ply;
+  if (pos->ply > thread->seldepth) {
+    thread->seldepth = pos->ply;
   }
 
   uint16_t best_move = 0;
@@ -479,8 +479,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
   // Limit depth to MAX_PLY - 1 in case extensions make it too big
   depth = MIN(depth, MAX_PLY - 1);
 
-  if (depth == 0 && pos->ply > pos->seldepth) {
-    pos->seldepth = pos->ply;
+  if (depth == 0 && pos->ply > thread->seldepth) {
+    thread->seldepth = pos->ply;
   }
 
   if (!root_node) {
@@ -978,7 +978,7 @@ static void print_thinking(thread_t *thread, int16_t score, uint8_t current_dept
   uint64_t nps = (nodes / fmax(time, 1)) * 1000;
 
   printf("info depth %d seldepth %d score ", current_depth,
-         thread->pos.seldepth);
+         thread->seldepth);
 
   if (score > -MATE_VALUE && score < -MATE_SCORE) {
     printf("mate %d ", -(score + MATE_VALUE) / 2 - 1);
@@ -1091,7 +1091,7 @@ void *iterative_deepening(void *thread_void) {
       ss[i].reduction = 0;
     }
 
-    pos->seldepth = 0;
+    thread->seldepth = 0;
 
     if (aspiration_windows(thread, pos, ss, alpha, beta)) {
       return NULL;
