@@ -153,7 +153,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
     switch (piece) {
     case q:
     case Q:
-      move_entry->score = 1400000001;
+      move_entry->score = 1410000000;
       break;
     case n:
     case N:
@@ -169,6 +169,9 @@ static inline void score_move(position_t *pos, thread_t *thread,
         // Capture failed SEE and thus gets ordered at the bottom of the list
         // But above non promotion bad capture
         move_entry->score = -900000000;
+      } else {
+        //Give a bonus to good promo-captures so they are ordered above normal promos
+        move_entry->score += 1000000;
       }
       int target_piece = P;
       uint8_t bb_piece = pos->mailbox[get_move_target(move)];
