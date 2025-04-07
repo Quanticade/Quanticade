@@ -149,6 +149,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
   }
 
   if (piece) {
+    // We have a promotion
     switch (piece) {
     case q:
     case Q:
@@ -162,10 +163,18 @@ static inline void score_move(position_t *pos, thread_t *thread,
       move_entry->score = -1000000;
       break;
     }
-    if (get_move_capture(move) && SEE(pos, move, -MO_SEE_THRESHOLD)) {
-      return;
+    if (get_move_capture(move)) {
+      // The promotion is a capture and we check SEE score
+      if (SEE(pos, move, -MO_SEE_THRESHOLD)) {
+        return;
+      } else {
+        // Capture failed SEE and thus gets ordered at the bottom of the list
+        move_entry->score = -1000000;
+        return;
+      }
     } else {
-      move_entry->score = -1000000;
+      // We have a promotion that is not a capture. Order it below good capture promotions.
+      move_entry->score -= 100000;
       return;
     }
   }
