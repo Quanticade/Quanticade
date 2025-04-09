@@ -633,7 +633,7 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
       printf("option name Hash type spin default %d min 4 max %d\n",
              default_hash_size, max_hash);
       printf("option name Threads type spin default %d min %d max %d\n", 1, 1,
-             256);
+             1024);
       printf("option name MoveOverhead type spin default 10 min 0 max 5000\n");
       printf("option name EvalFile type string default %s\n",
              nnue_settings.nnue_file);
