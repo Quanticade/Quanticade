@@ -28,8 +28,6 @@ const unsigned int gEVALSize = 1;
 
 const uint8_t BUCKET_DIVISOR = (32 + OUTPUT_BUCKETS - 1) / OUTPUT_BUCKETS;
 
-finny_table_t finny_tables[2][KING_BUCKETS];
-
 static inline uint8_t get_king_bucket(uint8_t side, uint8_t square) {
   return buckets[side ? square ^ 56 : square];
 }
@@ -194,15 +192,15 @@ static inline int16_t get_black_idx_hm(uint8_t piece, uint8_t square,
   return black_idx;
 }
 
-static inline void refresh_white_accumulator(position_t *pos,
+static inline void refresh_white_accumulator(thread_t *thread, position_t *pos,
                                              accumulator_t *accumulator) {
   uint8_t white_king_square = get_lsb(pos->bitboards[K]);
   uint8_t white_bucket = get_king_bucket(white, white_king_square);
   uint8_t do_hm = (white_king_square & 7) >= 4;
   accumulator_t *finny_accumulator =
-      &finny_tables[do_hm][white_bucket].accumulators;
+      &thread->finny_tables[do_hm][white_bucket].accumulators;
   uint64_t *finny_bitboards =
-      finny_tables[do_hm][white_bucket].bitboards[white];
+      thread->finny_tables[do_hm][white_bucket].bitboards[white];
 
   for (uint8_t piece = P; piece <= k; ++piece) {
     uint64_t added = pos->bitboards[piece] & ~finny_bitboards[piece];
@@ -247,15 +245,15 @@ static inline void refresh_white_accumulator(position_t *pos,
   memcpy(finny_bitboards, pos->bitboards, 12 * sizeof(uint64_t));
 }
 
-static inline void refresh_black_accumulator(position_t *pos,
+static inline void refresh_black_accumulator(thread_t *thread, position_t *pos,
                                              accumulator_t *accumulator) {
   uint8_t black_king_square = get_lsb(pos->bitboards[k]);
   uint8_t black_bucket = get_king_bucket(black, black_king_square);
   uint8_t do_hm = (black_king_square & 7) >= 4;
   accumulator_t *finny_accumulator =
-      &finny_tables[do_hm][black_bucket].accumulators;
+      &thread->finny_tables[do_hm][black_bucket].accumulators;
   uint64_t *finny_bitboards =
-      finny_tables[do_hm][black_bucket].bitboards[black];
+      thread->finny_tables[do_hm][black_bucket].bitboards[black];
 
   for (uint8_t piece = P; piece <= k; ++piece) {
     uint64_t added = pos->bitboards[piece] & ~finny_bitboards[piece];
@@ -359,14 +357,14 @@ void init_accumulator_bucket(position_t *pos, accumulator_t *accumulator,
   }
 }
 
-void init_finny_tables(position_t *pos) {
+void init_finny_tables(thread_t *thread, position_t *pos) {
   for (uint8_t do_hm = 0; do_hm < 2; ++do_hm) {
     for (uint8_t bucket = 0; bucket < KING_BUCKETS; ++bucket) {
-      init_accumulator_bucket(pos, &finny_tables[do_hm][bucket].accumulators,
+      init_accumulator_bucket(pos, &thread->finny_tables[do_hm][bucket].accumulators,
                               bucket, do_hm);
-      memcpy(finny_tables[do_hm][bucket].bitboards[white], pos->bitboards,
+      memcpy(thread->finny_tables[do_hm][bucket].bitboards[white], pos->bitboards,
              12 * sizeof(uint64_t));
-      memcpy(finny_tables[do_hm][bucket].bitboards[black], pos->bitboards,
+      memcpy(thread->finny_tables[do_hm][bucket].bitboards[black], pos->bitboards,
              12 * sizeof(uint64_t));
     }
   }
@@ -667,13 +665,13 @@ void update_nnue(position_t *pos, thread_t *thread, uint8_t mailbox_copy[64],
   uint8_t black_bucket = get_king_bucket(black, black_king_square);
   if (need_refresh(mailbox_copy, move)) {
     if (pos->side == black) {
-      refresh_white_accumulator(pos, &thread->accumulator[pos->ply]);
+      refresh_white_accumulator(thread, pos, &thread->accumulator[pos->ply]);
       accumulator_make_move(&thread->accumulator[pos->ply],
                             &thread->accumulator[pos->ply - 1],
                             white_king_square, black_king_square, white_bucket,
                             black_bucket, pos->side, move, mailbox_copy, black);
     } else if (pos->side == white) {
-      refresh_black_accumulator(pos, &thread->accumulator[pos->ply]);
+      refresh_black_accumulator(thread, pos, &thread->accumulator[pos->ply]);
       accumulator_make_move(&thread->accumulator[pos->ply],
                             &thread->accumulator[pos->ply - 1],
                             white_king_square, black_king_square, white_bucket,

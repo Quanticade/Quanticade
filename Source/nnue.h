@@ -25,7 +25,7 @@ extern nnue_t nnue;
 
 void nnue_init(const char *nnue_file_name);
 void init_accumulator(position_t *pos, accumulator_t *accumulator);
-void init_finny_tables(position_t *pos);
+void init_finny_tables(thread_t *thread, position_t *pos);
 int nnue_evaluate(position_t *pos, accumulator_t *accumulator);
 int nnue_eval_pos(position_t *pos, accumulator_t *accumulator);
 void update_nnue(position_t *pos, thread_t *thread, uint8_t mailbox_copy[64],

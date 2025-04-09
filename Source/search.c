@@ -1162,6 +1162,7 @@ void search_position(position_t *pos, thread_t *threads) {
     memset(threads[i].killer_moves, 0, sizeof(threads[i].killer_moves));
     memcpy(&threads[i].pos, pos, sizeof(position_t));
     init_accumulator(pos, threads[i].accumulator);
+    init_finny_tables(&threads[i], pos);
   }
 
   // clear helper data structures for search
