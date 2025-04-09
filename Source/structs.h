@@ -93,6 +93,7 @@ typedef struct searchinfo {
   uint64_t repetition_table[1000];
   uint32_t repetition_index;
   uint16_t killer_moves[MAX_PLY];
+  uint16_t index;
   int16_t score;
   int16_t quiet_history[12][64][64];
   int16_t capture_history[12][13][64][64];
@@ -102,7 +103,6 @@ typedef struct searchinfo {
   uint8_t seldepth;
   uint8_t stopped;
   uint8_t quit;
-  uint8_t index;
 } thread_t;
 
 typedef struct limits {
