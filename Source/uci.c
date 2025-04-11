@@ -658,7 +658,6 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
         mb = max_hash;
 
       // set hash table size in MB
-      printf("    Set hash table size to %dMB\n", mb);
       init_hash_table(mb);
     }
 
