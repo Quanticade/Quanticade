@@ -2,13 +2,17 @@
 #include "bitboards.h"
 #include "enums.h"
 #include "structs.h"
+#include "uci.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 
 tt_t tt;
 extern keys_t keys;
+
+extern int thread_count;
 
 __extension__ typedef unsigned __int128 uint128_t;
 
@@ -77,8 +81,37 @@ uint64_t generate_hash_key(position_t *pos) {
   return final_key;
 }
 
+typedef struct {
+    size_t start;
+    size_t end;
+} thread_data_t;
+
+void *clear_hash_chunk(void *arg) {
+    thread_data_t *data = (thread_data_t *)arg;
+    size_t count = data->end - data->start;
+    memset(&tt.hash_entry[data->start], 0, sizeof(tt_entry_t) * count);
+    return NULL;
+}
+
 void clear_hash_table(void) {
-  memset(tt.hash_entry, 0, sizeof(tt_entry_t) * tt.num_of_entries);
+    pthread_t threads[thread_count];
+    thread_data_t thread_data[thread_count];
+
+    size_t chunk_size = (tt.num_of_entries + thread_count - 1) / thread_count; // Ceiling division
+
+    for (int i = 0; i < thread_count; i++) {
+        size_t start = i * chunk_size;
+        size_t end = MIN(start + chunk_size, tt.num_of_entries);
+
+        thread_data[i].start = start;
+        thread_data[i].end = end;
+
+        pthread_create(&threads[i], NULL, clear_hash_chunk, &thread_data[i]);
+    }
+
+    for (int i = 0; i < thread_count; i++) {
+        pthread_join(threads[i], NULL);
+    }
 }
 
 // dynamically allocate memory for hash table
@@ -91,8 +124,6 @@ void init_hash_table(uint64_t mb) {
 
   // free hash table if not empty
   if (tt.hash_entry != NULL) {
-    printf("    Clearing hash memory...\n");
-
     // free hash table dynamic memory
     free(tt.hash_entry);
   }
