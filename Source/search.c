@@ -173,7 +173,8 @@ static inline void score_move(position_t *pos, thread_t *thread,
         return;
       }
     } else {
-      // We have a promotion that is not a capture. Order it below good capture promotions.
+      // We have a promotion that is not a capture. Order it below good capture
+      // promotions.
       move_entry->score -= 100000;
       return;
     }
@@ -244,6 +245,28 @@ static inline void sort_moves(moves *move_list) {
   }
 }
 
+static inline move_t pick_next_best_move(moves *move_list, uint16_t *index) {
+  if (*index >= move_list->count)
+    return (move_t){0}; // Return dummy if we're out of bounds
+
+  uint16_t best = *index;
+
+  for (uint16_t i = *index + 1; i < move_list->count; ++i) {
+    if (move_list->entry[i].score > move_list->entry[best].score)
+      best = i;
+  }
+
+  // Swap best with current index
+  if (best != *index) {
+    move_t temp = move_list->entry[*index];
+    move_list->entry[*index] = move_list->entry[best];
+    move_list->entry[best] = temp;
+  }
+
+  // Return and increment index for next call
+  return move_list->entry[(*index)++];
+}
+
 // position repetition detection
 static inline uint8_t is_repetition(position_t *pos, thread_t *thread) {
   // loop over repetition indices range
@@ -297,8 +320,8 @@ static inline uint8_t only_pawns(position_t *pos) {
 
 // quiescence search
 static inline int16_t quiescence(position_t *pos, thread_t *thread,
-                             searchstack_t *ss, int16_t alpha, int16_t beta,
-                             uint8_t pv_node) {
+                                 searchstack_t *ss, int16_t alpha, int16_t beta,
+                                 uint8_t pv_node) {
   // Check on time
   if (check_time(thread)) {
     stop_threads(thread, thread_count);
@@ -374,11 +397,12 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     score_move(pos, thread, ss, &move_list->entry[count], best_move);
   }
 
-  sort_moves(move_list);
+  uint16_t move_index = 0;
 
   // loop over moves within a movelist
-  for (uint32_t count = 0; count < move_list->count; count++) {
-    uint16_t move = move_list->entry[count].move;
+
+  while (move_index < move_list->count) {
+    uint16_t move = pick_next_best_move(move_list, &move_index).move;
 
     if (!SEE(pos, move, -QS_SEE_THRESHOLD))
       continue;
@@ -391,7 +415,8 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 
     // increment repetition index & store hash key
     thread->repetition_index++;
-    thread->repetition_table[thread->repetition_index] = pos->hash_keys.hash_key;
+    thread->repetition_table[thread->repetition_index] =
+        pos->hash_keys.hash_key;
 
     // make sure to make only legal moves
     if (make_move(pos, move) == 0) {
@@ -457,16 +482,16 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     hash_flag = HASH_FLAG_UPPER_BOUND;
   }
 
-  write_hash_entry(tt_entry, pos, best_score, raw_static_eval, 0, best_move, hash_flag,
-                   tt_was_pv);
+  write_hash_entry(tt_entry, pos, best_score, raw_static_eval, 0, best_move,
+                   hash_flag, tt_was_pv);
 
   return best_score;
 }
 
 // negamax alpha beta search
-static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *ss,
-                          int16_t alpha, int16_t beta, int depth, uint8_t cutnode,
-                          uint8_t pv_node) {
+static inline int16_t negamax(position_t *pos, thread_t *thread,
+                              searchstack_t *ss, int16_t alpha, int16_t beta,
+                              int depth, uint8_t cutnode, uint8_t pv_node) {
   // init PV length
   thread->pv.pv_length[pos->ply] = pos->ply;
 
@@ -494,7 +519,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
 
   if (!root_node) {
     // if position repetition occurs
-    if (is_repetition(pos, thread) || pos->fifty >= 100 || is_material_draw(pos)) {
+    if (is_repetition(pos, thread) || pos->fifty >= 100 ||
+        is_material_draw(pos)) {
       // return draw score
       return 1 - (thread->nodes & 2);
     }
@@ -514,11 +540,11 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
   }
 
   // is king in check
-  uint8_t in_check = is_square_attacked(pos,
-                                    (pos->side == white)
-                                        ? __builtin_ctzll(pos->bitboards[K])
-                                        : __builtin_ctzll(pos->bitboards[k]),
-                                    pos->side ^ 1);
+  uint8_t in_check = is_square_attacked(
+      pos,
+      (pos->side == white) ? __builtin_ctzll(pos->bitboards[K])
+                           : __builtin_ctzll(pos->bitboards[k]),
+      pos->side ^ 1);
 
   // recursion escape condition
   if (!in_check && depth <= 0) {
@@ -573,7 +599,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
     improving = static_eval > (ss - 2)->static_eval;
   }
   if (!in_check) {
-    opponent_worsening = ss->static_eval + (ss-1)->static_eval > 1;
+    opponent_worsening = ss->static_eval + (ss - 1)->static_eval > 1;
   }
 
   // Check on time
@@ -585,10 +611,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
   // moves seen counter
   uint16_t moves_seen = 0;
 
-
-
   if (!pv_node && !in_check && !ss->excluded_move) {
-    if ((ss-1)->reduction >= 3 && !opponent_worsening) {
+    if ((ss - 1)->reduction >= 3 && !opponent_worsening) {
       ++depth;
     }
     // Reverse Futility Pruning
@@ -620,7 +644,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
 
       // increment repetition index & store hash key
       thread->repetition_index++;
-      thread->repetition_table[thread->repetition_index] = pos->hash_keys.hash_key;
+      thread->repetition_table[thread->repetition_index] =
+          pos->hash_keys.hash_key;
 
       // hash enpassant if available
       if (pos->enpassant != no_sq)
@@ -670,7 +695,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
 
     if (depth <= RAZOR_DEPTH &&
         ss->static_eval + RAZOR_MARGIN * depth < alpha) {
-      const int16_t razor_score = quiescence(pos, thread, ss, alpha, beta, NON_PV);
+      const int16_t razor_score =
+          quiescence(pos, thread, ss, alpha, beta, NON_PV);
       if (razor_score <= alpha) {
         return razor_score;
       }
@@ -695,15 +721,15 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
     score_move(pos, thread, ss, &move_list->entry[count], tt_move);
   }
 
-  sort_moves(move_list);
-
   uint8_t skip_quiets = 0;
 
   const int16_t original_alpha = alpha;
 
+  uint16_t move_index = 0;
+
   // loop over moves within a movelist
-  for (uint32_t count = 0; count < move_list->count; count++) {
-    uint16_t move = move_list->entry[count].move;
+  while (move_index < move_list->count) {
+    uint16_t move = pick_next_best_move(move_list, &move_index).move;
     uint8_t quiet =
         (get_move_capture(move) == 0 && is_move_promotion(move) == 0);
 
@@ -814,7 +840,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
 
     // increment repetition index & store hash key
     thread->repetition_index++;
-    thread->repetition_table[thread->repetition_index] = pos->hash_keys.hash_key;
+    thread->repetition_table[thread->repetition_index] =
+        pos->hash_keys.hash_key;
 
     // make sure to make only legal moves
     if (make_move(pos, move) == 0) {
@@ -968,8 +995,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
       hash_flag = HASH_FLAG_UPPER_BOUND;
     }
     // store hash entry with the score equal to alpha
-    write_hash_entry(tt_entry, pos, best_score, raw_static_eval, depth, best_move,
-                     hash_flag, tt_was_pv);
+    write_hash_entry(tt_entry, pos, best_score, raw_static_eval, depth,
+                     best_move, hash_flag, tt_was_pv);
 
     if (!in_check && (!best_move || !(is_move_promotion(best_move) ||
                                       get_move_capture(best_move)))) {
@@ -981,14 +1008,14 @@ static inline int16_t negamax(position_t *pos, thread_t *thread, searchstack_t *
   return best_score;
 }
 
-static void print_thinking(thread_t *thread, int16_t score, uint8_t current_depth) {
+static void print_thinking(thread_t *thread, int16_t score,
+                           uint8_t current_depth) {
 
   uint64_t nodes = total_nodes(thread, thread_count);
   uint64_t time = get_time_ms() - thread->starttime;
   uint64_t nps = (nodes / fmax(time, 1)) * 1000;
 
-  printf("info depth %d seldepth %d score ", current_depth,
-         thread->seldepth);
+  printf("info depth %d seldepth %d score ", current_depth, thread->seldepth);
 
   if (score > -MATE_VALUE && score < -MATE_SCORE) {
     printf("mate %d ", -(score + MATE_VALUE) / 2 - 1);
