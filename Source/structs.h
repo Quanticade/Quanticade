@@ -97,7 +97,7 @@ typedef struct searchinfo {
   int16_t score;
   int16_t quiet_history[12][64][64];
   int16_t capture_history[12][13][64][64];
-  int16_t continuation_history[12][64][12][64];
+  int16_t continuation_history[2][12][64][12][64];
   int16_t correction_history[2][16384];
   uint8_t depth;
   uint8_t seldepth;
