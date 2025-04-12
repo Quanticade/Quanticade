@@ -134,6 +134,7 @@ typedef struct searchstack {
   int history_score;
   uint8_t piece;
   uint8_t null_move;
+  uint8_t tt_pv;
 } searchstack_t;
 
 typedef struct nnue_settings {

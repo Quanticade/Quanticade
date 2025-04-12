@@ -491,7 +491,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   uint8_t tt_hit = 0;
   uint8_t tt_depth = 0;
   uint8_t tt_flag = HASH_FLAG_EXACT;
-  uint8_t tt_was_pv = pv_node;
+  ss->tt_pv = ss->excluded_move ? ss->tt_pv : pv_node;
 
   uint8_t root_node = pos->ply == 0;
 
@@ -540,7 +540,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   tt_entry_t *tt_entry = read_hash_entry(pos, &tt_hit);
 
   if (tt_hit) {
-    tt_was_pv |= tt_entry->tt_pv;
+    ss->tt_pv |= tt_entry->tt_pv;
     tt_score = score_from_tt(pos, tt_entry->score);
     tt_static_eval = tt_entry->static_eval;
     tt_depth = tt_entry->depth;
@@ -876,8 +876,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     R -= in_check * LMR_IN_CHECK;
     R += cutnode * LMR_CUTNODE;
     R -= (tt_depth >= depth) * LMR_TT_DEPTH;
-    R -= tt_was_pv * LMR_TT_PV;
-    R += (tt_was_pv && tt_hit && tt_entry->score <= alpha) * 1024;
+    R -= ss->tt_pv * LMR_TT_PV;
+    R += (ss->tt_pv && tt_hit && tt_entry->score <= alpha) * 1024;
     R = R / 1024;
     int reduced_depth = MAX(1, MIN(new_depth - R, new_depth));
 
@@ -981,7 +981,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     }
     // store hash entry with the score equal to alpha
     write_hash_entry(tt_entry, pos, best_score, raw_static_eval, depth,
-                     best_move, hash_flag, tt_was_pv);
+                     best_move, hash_flag, ss->tt_pv);
 
     if (!in_check && (!best_move || !(is_move_promotion(best_move) ||
                                       get_move_capture(best_move)))) {
@@ -1111,6 +1111,7 @@ void *iterative_deepening(void *thread_void) {
       ss[i].piece = 0;
       ss[i].null_move = 0;
       ss[i].reduction = 0;
+      ss[i].tt_pv = 0;
     }
 
     thread->seldepth = 0;
