@@ -216,8 +216,9 @@ static inline void score_move(position_t *pos, thread_t *thread,
     // score history move
     else {
       move_entry->score =
-          thread->quiet_history[pos->mailbox[get_move_source(move)]]
-                               [get_move_source(move)][get_move_target(move)] +
+          2 * thread->quiet_history[pos->mailbox[get_move_source(move)]]
+                                   [get_move_source(move)]
+                                   [get_move_target(move)] +
           get_conthist_score(thread, ss - 1, move) +
           get_conthist_score(thread, ss - 2, move) +
           get_conthist_score(thread, ss - 4, move);
