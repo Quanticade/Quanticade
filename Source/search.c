@@ -230,21 +230,6 @@ static inline void score_move(position_t *pos, thread_t *thread,
   return;
 }
 
-// sort moves in descending order
-static inline void sort_moves(moves *move_list) {
-  for (uint32_t i = 1; i < move_list->count; i++) {
-    move_t key = move_list->entry[i];
-    int j = i - 1;
-
-    // Sort in descending order by score
-    while (j >= 0 && move_list->entry[j].score < key.score) {
-      move_list->entry[j + 1] = move_list->entry[j];
-      j--;
-    }
-    move_list->entry[j + 1] = key;
-  }
-}
-
 static inline move_t pick_next_best_move(moves *move_list, uint16_t *index) {
   if (*index >= move_list->count)
     return (move_t){0}; // Return dummy if we're out of bounds
