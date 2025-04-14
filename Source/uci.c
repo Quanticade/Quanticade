@@ -378,7 +378,8 @@ static inline void parse_position(position_t *pos, thread_t *thread,
       thread->repetition_index++;
 
       // write hash key into a repetition table
-      thread->repetition_table[thread->repetition_index] = pos->hash_keys.hash_key;
+      thread->repetition_table[thread->repetition_index] =
+          pos->hash_keys.hash_key;
 
       // make move on the chess board
       make_move(pos, move);
@@ -603,6 +604,7 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
                sizeof(threads[i].continuation_history));
         memset(threads[i].correction_history, 0,
                sizeof(threads[i].correction_history));
+        memset(threads[i].pawn_history, 0, sizeof(threads[i].pawn_history));
       }
     }
     // parse UCI "go" command
@@ -639,7 +641,7 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
              nnue_settings.nnue_file);
       printf("option name Clear Hash type button\n");
       // SPSA
-      //print_spsa_table_uci();
+      // print_spsa_table_uci();
       // uciok
       printf("uciok\n");
     } else if (strncmp(input, "spsa", 4) == 0) {

@@ -220,7 +220,10 @@ static inline void score_move(position_t *pos, thread_t *thread,
                                [get_move_source(move)][get_move_target(move)] +
           get_conthist_score(thread, ss - 1, move) +
           get_conthist_score(thread, ss - 2, move) +
-          get_conthist_score(thread, ss - 4, move);
+          get_conthist_score(thread, ss - 4, move) +
+          thread->pawn_history[pos->hash_keys.pawn_key % 32767]
+                              [pos->mailbox[get_move_source(move)]]
+                              [get_move_target(move)];
     }
 
     return;
@@ -949,6 +952,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
             update_quiet_history_moves(thread, quiet_list, best_move, depth);
             update_continuation_history_moves(thread, ss, quiet_list, best_move,
                                               depth);
+            update_quiet_history_moves(thread, quiet_list, best_move, depth);
             thread->killer_moves[pos->ply] = move;
           }
 
