@@ -153,7 +153,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
     switch (piece) {
     case q:
     case Q:
-      move_entry->score = 1400000001;
+      move_entry->score = 1410000000;
       break;
     case n:
     case N:
@@ -222,6 +222,8 @@ static inline void score_move(position_t *pos, thread_t *thread,
           get_conthist_score(thread, ss - 2, move) +
           get_conthist_score(thread, ss - 4, move);
     }
+
+    move_entry->score = move_entry->score / 128 * 128;
 
     return;
   }
