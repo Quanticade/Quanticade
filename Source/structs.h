@@ -24,7 +24,7 @@ typedef struct spsa {
 } spsa_t;
 
 typedef struct tt_entry {
-  uint32_t hash_key; // "almost" unique chess position identifier
+  uint16_t hash_key; // "almost" unique chess position identifier
   uint16_t move;
   int16_t score; // score (alpha/beta/PV)
   int16_t static_eval;
@@ -32,6 +32,11 @@ typedef struct tt_entry {
   uint8_t flag : 2; // flag the type of node (fail-low/fail-high/PV)
   uint8_t tt_pv : 1;
 } tt_entry_t;
+
+typedef struct tt_bucket {
+  tt_entry_t tt_entries[3];
+  uint16_t padding;
+} tt_bucket_t;
 
 typedef struct move {
   int score;
