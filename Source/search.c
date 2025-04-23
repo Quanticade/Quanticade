@@ -729,6 +729,16 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       continue;
     }
 
+    position_t copy = *pos;
+    if (make_move(&copy, move) == 0) {
+      continue;
+    }
+    uint8_t gives_check = is_square_attacked(
+        pos,
+        (copy.side == white) ? __builtin_ctzll(pos->bitboards[K])
+                             : __builtin_ctzll(pos->bitboards[k]),
+        copy.side ^ 1);
+
     ss->history_score =
         quiet
             ? thread
@@ -761,7 +771,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
     // SEE PVS Pruning
     if (depth <= SEE_DEPTH && moves_seen > 0 &&
-        !SEE(pos, move, SEE_MARGIN[depth][quiet] - ss->history_score / 60))
+        !SEE(pos, move,
+             SEE_MARGIN[depth][quiet && !gives_check] - ss->history_score / 60))
       continue;
 
     int extensions = 0;
