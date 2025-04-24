@@ -170,9 +170,9 @@ static inline void update_pawn_history(thread_t *thread, int move,
   int clamped_malus =
       clamp(bonus, -QUIET_HISTORY_MALUS_MIN, QUIET_HISTORY_MALUS_MAX);
   int adjust = is_best_move ? clamped_bonus : -clamped_malus;
-  thread->pawn_history[thread->pos.hash_keys.pawn_key % 32767]
+  thread->pawn_history[thread->pos.hash_keys.pawn_key % 4091]
                       [thread->pos.mailbox[source]][target] +=
-      adjust - thread->pawn_history[thread->pos.hash_keys.pawn_key % 32767]
+      adjust - thread->pawn_history[thread->pos.hash_keys.pawn_key % 4091]
                                    [thread->pos.mailbox[source]][target] *
                    abs(adjust) / HISTORY_MAX;
 }
