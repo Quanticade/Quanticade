@@ -877,7 +877,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     R -= ss->history_score * (quiet ? LMR_HISTORY_QUIET : LMR_HISTORY_NOISY) /
          (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
     R -= in_check * LMR_IN_CHECK;
-    R += cutnode * LMR_CUTNODE;
+    R += cutnode * LMR_CUTNODE + 1024 * (cutnode && !tt_move);
     R -= (tt_depth >= depth) * LMR_TT_DEPTH;
     R -= ss->tt_pv * LMR_TT_PV;
     R += (ss->tt_pv && tt_hit && tt_entry->score <= alpha) * 1024;
