@@ -609,7 +609,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
       // define evaluation margin
       uint16_t eval_margin = RFP_MARGIN * MAX(0, depth - improving) +
-                             (ss - 1)->history_score / 400;
+                             (ss - 1)->history_score / 700;
 
       // evaluation margin substracted from static evaluation score fails high
       if (ss->static_eval - eval_margin >= beta)
