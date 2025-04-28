@@ -588,6 +588,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
   if ((ss - 2)->static_eval != NO_SCORE) {
     improving = static_eval > (ss - 2)->static_eval;
+  } else if ((ss - 4)->static_eval != NO_SCORE) {
+    improving = static_eval > (ss - 4)->static_eval;
   }
   if (!in_check) {
     opponent_worsening = ss->static_eval + (ss - 1)->static_eval > 1;
@@ -620,8 +622,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     }
 
     // null move pruning
-    if (!ss->null_move && ss->eval >= beta && depth >= 3 &&
-        !only_pawns(pos)) {
+    if (!ss->null_move && ss->eval >= beta && depth >= 3 && !only_pawns(pos)) {
       int R = MIN((ss->eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) +
               depth / NMP_DIVISER + NMP_BASE_REDUCTION;
       R = MIN(R, depth);
