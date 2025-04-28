@@ -357,7 +357,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   ss->static_eval = adjust_static_eval(thread, pos, raw_static_eval);
 
   if (tt_hit && can_use_score(best_score, best_score, tt_score, tt_flag)) {
-    best_score = score_from_tt(pos, tt_score);
+    best_score = tt_score;
   } else {
     best_score = ss->static_eval;
   }
@@ -577,7 +577,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
         adjust_static_eval(thread, pos, raw_static_eval);
 
     if (tt_hit && can_use_score(static_eval, static_eval, tt_score, tt_flag)) {
-      ss->eval = score_from_tt(pos, tt_score);
+      ss->eval = tt_score;
     } else {
       ss->eval = ss->static_eval;
     }
