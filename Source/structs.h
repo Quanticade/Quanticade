@@ -133,9 +133,10 @@ typedef struct searchthread {
 } searchthreadinfo_t;
 
 typedef struct searchstack {
+  uint16_t excluded_move;
   uint16_t move;
   int16_t static_eval;
-  uint16_t excluded_move;
+  int16_t eval;
   int16_t reduction;
   int history_score;
   uint8_t piece;

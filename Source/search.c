@@ -354,11 +354,12 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   raw_static_eval = tt_static_eval != NO_SCORE
                         ? tt_static_eval
                         : evaluate(pos, &thread->accumulator[pos->ply]);
-  best_score = ss->static_eval =
-      adjust_static_eval(thread, pos, raw_static_eval);
+  ss->static_eval = adjust_static_eval(thread, pos, raw_static_eval);
 
   if (tt_hit && can_use_score(best_score, best_score, tt_score, tt_flag)) {
-    best_score = tt_score;
+    best_score = score_from_tt(pos, tt_score);
+  } else {
+    best_score = ss->static_eval;
   }
 
   // fail-hard beta cutoff
@@ -576,7 +577,9 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
         adjust_static_eval(thread, pos, raw_static_eval);
 
     if (tt_hit && can_use_score(static_eval, static_eval, tt_score, tt_flag)) {
-      static_eval = ss->static_eval = tt_score;
+      ss->eval = score_from_tt(pos, tt_score);
+    } else {
+      ss->eval = ss->static_eval;
     }
   }
 
@@ -611,9 +614,9 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       uint16_t eval_margin = RFP_MARGIN * MAX(0, depth - improving);
 
       // evaluation margin substracted from static evaluation score fails high
-      if (ss->static_eval - eval_margin >= beta)
+      if (ss->eval - eval_margin >= beta)
         // evaluation margin substracted from static evaluation score
-        return beta + (ss->static_eval - beta) / 3;
+        return beta + (ss->eval - beta) / 3;
     }
 
     // null move pruning
@@ -1110,6 +1113,7 @@ void *iterative_deepening(void *thread_void) {
     for (int i = 0; i < MAX_PLY + 4; ++i) {
       ss[i].excluded_move = 0;
       ss[i].static_eval = NO_SCORE;
+      ss[i].eval = NO_SCORE;
       ss[i].history_score = 0;
       ss[i].move = 0;
       ss[i].piece = 0;
