@@ -455,7 +455,6 @@ static inline void time_control(position_t *pos, thread_t *threads,
 
     if (limits.timeset) {
       // Engine <--> GUI communication safety margin
-      printf("overhead: %d\n", move_overhead);
       limits.time -= MIN(limits.time / 2, move_overhead);
       int64_t base_time = 0;
       if (limits.movestogo > 0) {
