@@ -86,6 +86,7 @@ extern double bestmove_scale[5];
 extern double eval_scale[5];
 
 #define RATE(VALUE) MAX(0.5, MAX(1, (((float)VALUE * 2) - 1)) / 20)
+#define RATE_POISON(VALUE) MAX(0.5, MAX(1, (((float)VALUE * 2) - 1)) / 20 / 5)
 #define RATE_DOUBLE(VALUE) MAX(0.05, MAX(1, ((VALUE * 2) - 1)) / 20)
 #define RATE_DOUBLE_TIME(VALUE) MAX(0.001, (MAX(1, ((VALUE * 2) - 1)) / 20) / 5)
 #define SPSA_MAX(VALUE) VALUE * 2
@@ -120,6 +121,9 @@ void add_int_spsa(char name[], int *value, int min, int max, double rate,
 #define SPSA_INT(VARIABLE, TUNABLE)                                            \
   add_int_spsa(STRINGIFY(VARIABLE), &VARIABLE, 1, SPSA_MAX(VARIABLE),          \
                RATE(VARIABLE), NULL, TUNABLE)
+#define SPSA_INT_POISON(VARIABLE, TUNABLE)                                     \
+  add_int_spsa(STRINGIFY(VARIABLE), &VARIABLE, 1, SPSA_MAX(VARIABLE),          \
+              RATE_POISON(VARIABLE), NULL, TUNABLE)
 #define SPSA_INT_FUNC(VARIABLE, FUNC, TUNABLE)                                 \
   add_int_spsa(STRINGIFY(VARIABLE), &VARIABLE, 1, SPSA_MAX(VARIABLE),          \
                RATE(VARIABLE), FUNC, TUNABLE)
@@ -129,25 +133,25 @@ void add_int_spsa(char name[], int *value, int min, int max, double rate,
 
 void init_spsa_table(void) {
   SPSA_INT(LMP_BASE, 1);
-  SPSA_INT(RAZOR_DEPTH, 0);
+  SPSA_INT_POISON(RAZOR_DEPTH, 1);
   SPSA_INT(RAZOR_MARGIN, 1);
-  SPSA_INT(RFP_DEPTH, 0);
+  SPSA_INT_POISON(RFP_DEPTH, 1);
   SPSA_INT(RFP_MARGIN, 1);
-  SPSA_INT(FP_DEPTH, 0);
+  SPSA_INT_POISON(FP_DEPTH, 1);
   SPSA_INT(FP_MULTIPLIER, 1);
   SPSA_INT(FP_ADDITION, 1);
-  SPSA_INT(NMP_BASE_REDUCTION, 0);
+  SPSA_INT_POISON(NMP_BASE_REDUCTION, 1);
   SPSA_INT(NMP_DIVISER, 1);
-  SPSA_INT(NMP_RED_DIVISER, 0);
-  SPSA_INT(NMP_RED_MIN, 0);
-  SPSA_INT(IIR_DEPTH, 0);
+  SPSA_INT_POISON(NMP_RED_DIVISER, 1);
+  SPSA_INT_POISON(NMP_RED_MIN, 1);
+  SPSA_INT_POISON(IIR_DEPTH, 1);
   SPSA_INT_FUNC(SEE_QUIET, init_reductions, 1);
   SPSA_INT_FUNC(SEE_CAPTURE, init_reductions, 1);
-  SPSA_INT(SEE_DEPTH, 0);
-  SPSA_INT(SE_DEPTH, 0);
+  SPSA_INT_POISON(SEE_DEPTH, 1);
+  SPSA_INT_POISON(SE_DEPTH, 1);
   SPSA_INT(SE_DEPTH_REDUCTION, 1);
-  SPSA_INT(SE_PV_DOUBLE_MARGIN, 0);
-  SPSA_INT(SE_TRIPLE_MARGIN, 0);
+  SPSA_INT_POISON(SE_PV_DOUBLE_MARGIN, 1);
+  SPSA_INT_POISON(SE_TRIPLE_MARGIN, 1);
   SPSA_INT(LMR_PV_NODE, 1);
   SPSA_INT(LMR_HISTORY_QUIET, 1);
   SPSA_INT(LMR_HISTORY_NOISY, 1);
