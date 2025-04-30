@@ -623,7 +623,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     if (!ss->null_move && ss->eval >= beta && depth >= 3 &&
         !only_pawns(pos)) {
       int R = MIN((ss->eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) +
-              depth / NMP_DIVISER + NMP_BASE_REDUCTION;
+              depth / NMP_DIVISER + NMP_BASE_REDUCTION + improving;
       R = MIN(R, depth);
       // preserve board state
       position_t pos_copy = *pos;
