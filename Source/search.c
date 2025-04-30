@@ -159,7 +159,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
       move_entry->score = 1400000000;
       break;
     default:
-      move_entry->score = -1000000;
+      move_entry->score = 1350000000;
       break;
     }
     if (get_move_capture(move)) {
