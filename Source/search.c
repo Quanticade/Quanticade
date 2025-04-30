@@ -31,7 +31,6 @@ extern int thread_count;
 extern keys_t keys;
 
 int LMP_BASE = 2;
-int LMP_MULTIPLIER = 1;
 int RAZOR_DEPTH = 7;
 int RAZOR_MARGIN = 313;
 int RFP_DEPTH = 7;
@@ -745,7 +744,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     // Late Move Pruning
     if (!pv_node && quiet &&
         moves_seen >=
-            LMP_BASE + LMP_MULTIPLIER * depth * depth / (3 - improving) &&
+            LMP_BASE + depth * depth / (3 - improving) &&
         !only_pawns(pos)) {
       skip_quiets = 1;
     }

@@ -14,7 +14,6 @@ uint8_t spsa_index = 0;
 
 // search.c
 extern int LMP_BASE;
-extern int LMP_MULTIPLIER;
 extern int RAZOR_DEPTH;
 extern int RAZOR_MARGIN;
 extern int RFP_DEPTH;
@@ -130,7 +129,6 @@ void add_int_spsa(char name[], int *value, int min, int max, double rate,
 
 void init_spsa_table(void) {
   SPSA_INT(LMP_BASE, 1);
-  SPSA_INT(LMP_MULTIPLIER, 0);
   SPSA_INT(RAZOR_DEPTH, 0);
   SPSA_INT(RAZOR_MARGIN, 1);
   SPSA_INT(RFP_DEPTH, 0);
