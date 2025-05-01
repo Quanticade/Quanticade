@@ -735,7 +735,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
         quiet
             ? thread
                   ->quiet_history[pos->mailbox[get_move_source(move)]]
-                                 [get_move_source(move)][get_move_target(move)]
+                                 [get_move_source(move)][get_move_target(move)] +
+              get_conthist_score(thread, ss - 1, move)
             : thread->capture_history[pos->mailbox[get_move_source(move)]]
                                      [pos->mailbox[get_move_target(move)]]
                                      [get_move_source(move)]
