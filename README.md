@@ -2,6 +2,8 @@
 
 ## Overview
 
+### This branch is for over time creating selfgenerated data network for Quanticade. DO NOT BUILD
+
 Quanticade is a strong uci command-line chess engine written in C in development since late 2023 with NNUE trained on Lc0 Data.
 Since Fenrir release Quanticade is top 18th engine from the CCRL blitz rating list.
 
