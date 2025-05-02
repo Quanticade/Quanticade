@@ -586,7 +586,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   uint8_t opponent_worsening = 0;
 
   if ((ss - 2)->static_eval != NO_SCORE) {
-    improving = static_eval > (ss - 2)->static_eval;
+    improving = ss->static_eval > (ss - 2)->static_eval;
   }
   if (!in_check) {
     opponent_worsening = ss->static_eval + (ss - 1)->static_eval > 1;
