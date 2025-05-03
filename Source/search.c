@@ -565,7 +565,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   }
 
   // Internal Iterative Reductions
-  if ((pv_node || cutnode) && !ss->excluded_move && depth >= IIR_DEPTH &&
+  if ((pv_node || cutnode) && !ss->excluded_move &&
+      depth >= 2 + 2 * cutnode &&
       (!tt_move || tt_depth < depth - IIR_DEPTH)) {
     depth--;
   }
@@ -625,7 +626,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     }
 
     // null move pruning
-    if (!ss->null_move && ss->eval >= beta && depth >= NMP_DEPTH && !only_pawns(pos)) {
+    if (!ss->null_move && ss->eval >= beta && depth >= NMP_DEPTH &&
+        !only_pawns(pos)) {
       int R = MIN((ss->eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) +
               depth / NMP_DIVISER + NMP_BASE_REDUCTION;
       R = MIN(R, depth);
@@ -749,7 +751,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
     // Late Move Pruning
     if (!pv_node && quiet &&
-        moves_seen >= LMP_BASE + depth * depth / (LMP_DEPTH_DIVISOR - improving) &&
+        moves_seen >=
+            LMP_BASE + depth * depth / (LMP_DEPTH_DIVISOR - improving) &&
         !only_pawns(pos)) {
       skip_quiets = 1;
     }
