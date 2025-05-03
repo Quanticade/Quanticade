@@ -800,6 +800,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       if (s_score < s_beta) {
         extensions++;
         if (s_score < s_beta - SE_PV_DOUBLE_MARGIN * pv_node) {
+          depth += depth < 11;
           extensions++;
         }
         if (!get_move_capture(move) && s_score + SE_TRIPLE_MARGIN < s_beta) {
