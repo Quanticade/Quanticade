@@ -46,6 +46,7 @@ int IIR_DEPTH = 4;
 int SEE_QUIET = 63;
 int SEE_CAPTURE = 34;
 int SEE_DEPTH = 10;
+int SEE_HISTORY_DIVISOR = 60;
 int SE_DEPTH = 6;
 int SE_DEPTH_REDUCTION = 4;
 int SE_PV_DOUBLE_MARGIN = 2;
@@ -57,6 +58,8 @@ int LMR_IN_CHECK = 894;
 int LMR_CUTNODE = 964;
 int LMR_TT_DEPTH = 1014;
 int LMR_TT_PV = 986;
+int LMR_DEEPER_MARGIN = 35;
+int LMR_SHALLOWER_MARGIN = 6;
 int ASP_WINDOW = 11;
 int ASP_DEPTH = 4;
 int QS_SEE_THRESHOLD = 6;
@@ -762,7 +765,9 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
     // SEE PVS Pruning
     if (depth <= SEE_DEPTH && moves_seen > 0 &&
-        !SEE(pos, move, SEE_MARGIN[depth][quiet] - ss->history_score / 60))
+        !SEE(pos, move,
+             SEE_MARGIN[depth][quiet] -
+                 ss->history_score / SEE_HISTORY_DIVISOR))
       continue;
 
     int extensions = 0;
@@ -892,8 +897,9 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       ss->reduction = 0;
 
       if (current_score > alpha && R != 0) {
-        new_depth += (current_score > best_score + 35 + 2 * new_depth);
-        new_depth -= (current_score < best_score + 6);
+        new_depth +=
+            (current_score > best_score + LMR_DEEPER_MARGIN + 2 * new_depth);
+        new_depth -= (current_score < best_score + LMR_SHALLOWER_MARGIN);
 
         current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                  new_depth, !cutnode, NON_PV);

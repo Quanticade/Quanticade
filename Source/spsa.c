@@ -29,6 +29,7 @@ extern int IIR_DEPTH;
 extern int SEE_QUIET;
 extern int SEE_CAPTURE;
 extern int SEE_DEPTH;
+extern int SEE_HISTORY_DIVISOR;
 extern int SE_DEPTH;
 extern int SE_DEPTH_REDUCTION;
 extern int SE_PV_DOUBLE_MARGIN;
@@ -40,6 +41,8 @@ extern int LMR_IN_CHECK;
 extern int LMR_CUTNODE;
 extern int LMR_TT_DEPTH;
 extern int LMR_TT_PV;
+extern int LMR_DEEPER_MARGIN;
+extern int LMR_SHALLOWER_MARGIN;
 extern int ASP_WINDOW;
 extern int ASP_DEPTH;
 extern int QS_SEE_THRESHOLD;
@@ -123,7 +126,7 @@ void add_int_spsa(char name[], int *value, int min, int max, double rate,
                RATE(VARIABLE), NULL, TUNABLE)
 #define SPSA_INT_POISON(VARIABLE, TUNABLE)                                     \
   add_int_spsa(STRINGIFY(VARIABLE), &VARIABLE, 1, SPSA_MAX(VARIABLE),          \
-              RATE_POISON(VARIABLE), NULL, TUNABLE)
+               RATE_POISON(VARIABLE), NULL, TUNABLE)
 #define SPSA_INT_FUNC(VARIABLE, FUNC, TUNABLE)                                 \
   add_int_spsa(STRINGIFY(VARIABLE), &VARIABLE, 1, SPSA_MAX(VARIABLE),          \
                RATE(VARIABLE), FUNC, TUNABLE)
@@ -148,6 +151,7 @@ void init_spsa_table(void) {
   SPSA_INT_FUNC(SEE_QUIET, init_reductions, 1);
   SPSA_INT_FUNC(SEE_CAPTURE, init_reductions, 1);
   SPSA_INT_POISON(SEE_DEPTH, 1);
+  SPSA_INT(SEE_HISTORY_DIVISOR, 1);
   SPSA_INT_POISON(SE_DEPTH, 1);
   SPSA_INT(SE_DEPTH_REDUCTION, 1);
   SPSA_INT_POISON(SE_PV_DOUBLE_MARGIN, 1);
@@ -159,6 +163,8 @@ void init_spsa_table(void) {
   SPSA_INT(LMR_CUTNODE, 1);
   SPSA_INT(LMR_TT_DEPTH, 1);
   SPSA_INT(LMR_TT_PV, 1);
+  SPSA_INT(LMR_DEEPER_MARGIN, 1);
+  SPSA_INT(LMR_SHALLOWER_MARGIN, 1);
   SPSA_INT(ASP_WINDOW, 1);
   SPSA_INT(ASP_DEPTH, 0);
   SPSA_INT(QS_SEE_THRESHOLD, 1);
