@@ -619,8 +619,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     }
 
     // null move pruning
-    if (!ss->null_move && ss->eval >= beta && depth >= 3 &&
-        !only_pawns(pos)) {
+    if (!ss->null_move && ss->eval >= beta && depth >= 3 && !only_pawns(pos)) {
       int R = MIN((ss->eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) +
               depth / NMP_DIVISER + NMP_BASE_REDUCTION;
       R = MIN(R, depth);
@@ -732,21 +731,19 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     }
 
     ss->history_score =
-        quiet
-            ? thread
-                  ->quiet_history[pos->mailbox[get_move_source(move)]]
-                                 [get_move_source(move)][get_move_target(move)] +
-              get_conthist_score(thread, ss - 1, move) +
-              get_conthist_score(thread, ss - 2, move)
-            : thread->capture_history[pos->mailbox[get_move_source(move)]]
-                                     [pos->mailbox[get_move_target(move)]]
+        quiet ? thread->quiet_history[pos->mailbox[get_move_source(move)]]
                                      [get_move_source(move)]
-                                     [get_move_target(move)];
+                                     [get_move_target(move)] +
+                    get_conthist_score(thread, ss - 1, move) +
+                    get_conthist_score(thread, ss - 2, move)
+              : thread->capture_history[pos->mailbox[get_move_source(move)]]
+                                       [pos->mailbox[get_move_target(move)]]
+                                       [get_move_source(move)]
+                                       [get_move_target(move)];
 
     // Late Move Pruning
     if (!pv_node && quiet &&
-        moves_seen >=
-            LMP_BASE + depth * depth / (3 - improving) &&
+        moves_seen >= LMP_BASE + depth * depth / (3 - improving) &&
         !only_pawns(pos)) {
       skip_quiets = 1;
     }
@@ -801,9 +798,9 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
         extensions++;
         if (s_score < s_beta - SE_PV_DOUBLE_MARGIN * pv_node) {
           extensions++;
-        }
-        if (!get_move_capture(move) && s_score + SE_TRIPLE_MARGIN < s_beta) {
-          extensions++;
+          if (!get_move_capture(move) && s_score + SE_TRIPLE_MARGIN < s_beta) {
+            extensions++;
+          }
         }
       }
 
