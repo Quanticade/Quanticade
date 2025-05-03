@@ -58,6 +58,7 @@ int LMR_IN_CHECK = 894;
 int LMR_CUTNODE = 964;
 int LMR_TT_DEPTH = 1014;
 int LMR_TT_PV = 986;
+int LMR_TT_SCORE = 1024;
 int LMR_DEEPER_MARGIN = 35;
 int LMR_SHALLOWER_MARGIN = 6;
 int ASP_WINDOW = 11;
@@ -886,7 +887,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     R += cutnode * LMR_CUTNODE;
     R -= (tt_depth >= depth) * LMR_TT_DEPTH;
     R -= ss->tt_pv * LMR_TT_PV;
-    R += (ss->tt_pv && tt_hit && tt_entry->score <= alpha) * 1024;
+    R += (ss->tt_pv && tt_hit && tt_entry->score <= alpha) * LMR_TT_SCORE;
     R = R / 1024;
     int reduced_depth = MAX(1, MIN(new_depth - R, new_depth));
 

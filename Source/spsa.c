@@ -41,6 +41,7 @@ extern int LMR_IN_CHECK;
 extern int LMR_CUTNODE;
 extern int LMR_TT_DEPTH;
 extern int LMR_TT_PV;
+extern int LMR_TT_SCORE;
 extern int LMR_DEEPER_MARGIN;
 extern int LMR_SHALLOWER_MARGIN;
 extern int ASP_WINDOW;
@@ -163,6 +164,7 @@ void init_spsa_table(void) {
   SPSA_INT(LMR_CUTNODE, 1);
   SPSA_INT(LMR_TT_DEPTH, 1);
   SPSA_INT(LMR_TT_PV, 1);
+  SPSA_INT(LMR_TT_SCORE, 1);
   SPSA_INT(LMR_DEEPER_MARGIN, 1);
   SPSA_INT(LMR_SHALLOWER_MARGIN, 1);
   SPSA_INT(ASP_WINDOW, 1);
