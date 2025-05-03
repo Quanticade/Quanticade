@@ -8,6 +8,9 @@ uint64_t generate_pawn_key(position_t *pos);
 void update_pawn_corrhist(thread_t *thread, position_t *pos,
                           int16_t static_eval, int16_t score, uint8_t depth,
                           uint8_t tt_flag);
+void update_major_corrhist(thread_t *thread, position_t *pos,
+                          int16_t static_eval, int16_t score, uint8_t depth,
+                          uint8_t tt_flag);
 int16_t adjust_static_eval(thread_t *thread, position_t *pos,
                            int16_t static_eval);
 void update_capture_history_moves(thread_t *thread, position_t *pos,

@@ -697,8 +697,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
       /* search moves with reduced depth to find beta cutoffs
          depth - 1 - R where R is a reduction limit */
-      current_score = -negamax(&pos_copy, thread, ss + 1, -beta, -beta + 1, depth - R,
-                               !cutnode, NON_PV);
+      current_score = -negamax(&pos_copy, thread, ss + 1, -beta, -beta + 1,
+                               depth - R, !cutnode, NON_PV);
 
       (ss + 1)->null_move = 0;
 
@@ -1037,6 +1037,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
                                       get_move_capture(best_move)))) {
       update_pawn_corrhist(thread, pos, raw_static_eval, best_score, depth,
                            tt_flag);
+      update_major_corrhist(thread, pos, raw_static_eval, best_score, depth,
+                            tt_flag);
     }
   }
 

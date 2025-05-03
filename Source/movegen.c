@@ -15,6 +15,14 @@ const uint8_t castling_rights[64] = {
     15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
     15, 15, 15, 15, 15, 15, 15, 15, 13, 15, 15, 15, 12, 15, 15, 14};
 
+static const uint8_t major_table[13] = {
+    0, 0, 0, 1, 1, 1, // P, N, B, R, Q, K
+    0, 0, 0, 1, 1, 1, // p, n, b, r, q, k
+    0                 // NO_PIECE
+};
+
+static inline uint8_t major(uint8_t piece) { return major_table[piece]; }
+
 uint8_t make_move(position_t *pos, uint16_t move) {
   // preserve board state
   position_t pos_copy = *pos;
@@ -55,6 +63,8 @@ uint8_t make_move(position_t *pos, uint16_t move) {
       pos->hash_keys.hash_key ^= keys.piece_keys[bb_piece][target_square];
       if (bb_piece == p || bb_piece == P) {
         pos->hash_keys.pawn_key ^= keys.piece_keys[bb_piece][target_square];
+      } else if (major(bb_piece)) {
+        pos->hash_keys.major_key ^= keys.piece_keys[bb_piece][target_square];
       }
     }
   }
@@ -100,6 +110,9 @@ uint8_t make_move(position_t *pos, uint16_t move) {
   if (piece == p || piece == P) {
     pos->hash_keys.pawn_key ^= keys.piece_keys[piece][source_square];
     pos->hash_keys.pawn_key ^= keys.piece_keys[piece][target_square];
+  } else if (major(piece)) {
+    pos->hash_keys.major_key ^= keys.piece_keys[piece][source_square];
+    pos->hash_keys.major_key ^= keys.piece_keys[piece][target_square];
   }
 
   // handle pawn promotions
@@ -130,6 +143,10 @@ uint8_t make_move(position_t *pos, uint16_t move) {
 
     // add promoted piece into the hash key
     pos->hash_keys.hash_key ^= keys.piece_keys[promoted_piece][target_square];
+    if (major(promoted_piece)) {
+      pos->hash_keys.major_key ^=
+          keys.piece_keys[promoted_piece][target_square];
+    }
   }
 
   // hash enpassant if available (remove enpassant square from hash key)
@@ -178,6 +195,8 @@ uint8_t make_move(position_t *pos, uint16_t move) {
           keys.piece_keys[R][h1]; // remove rook from h1 from hash key
       pos->hash_keys.hash_key ^=
           keys.piece_keys[R][f1]; // put rook on f1 into a hash key
+      pos->hash_keys.major_key ^= keys.piece_keys[R][h1];
+      pos->hash_keys.major_key ^= keys.piece_keys[R][f1];
       break;
 
     // white castles queen side
@@ -192,6 +211,10 @@ uint8_t make_move(position_t *pos, uint16_t move) {
       pos->hash_keys.hash_key ^=
           keys.piece_keys[R][a1]; // remove rook from a1 from hash key
       pos->hash_keys.hash_key ^=
+          keys.piece_keys[R][d1]; // put rook on d1 into a hash key
+      pos->hash_keys.major_key ^=
+          keys.piece_keys[R][a1]; // remove rook from a1 from hash key
+      pos->hash_keys.major_key ^=
           keys.piece_keys[R][d1]; // put rook on d1 into a hash key
       break;
 
@@ -208,6 +231,9 @@ uint8_t make_move(position_t *pos, uint16_t move) {
           keys.piece_keys[r][h8]; // remove rook from h8 from hash key
       pos->hash_keys.hash_key ^=
           keys.piece_keys[r][f8]; // put rook on f8 into a hash key
+      pos->hash_keys.major_key ^=
+          keys.piece_keys[r][h8]; // remove rook from h8 from hash key
+      pos->hash_keys.major_key ^= keys.piece_keys[r][f8];
       break;
 
     // black castles queen side
@@ -223,6 +249,9 @@ uint8_t make_move(position_t *pos, uint16_t move) {
           keys.piece_keys[r][a8]; // remove rook from a8 from hash key
       pos->hash_keys.hash_key ^=
           keys.piece_keys[r][d8]; // put rook on d8 into a hash key
+      pos->hash_keys.major_key ^=
+          keys.piece_keys[r][a8]; // remove rook from a8 from hash key
+      pos->hash_keys.major_key ^= keys.piece_keys[r][d8];
       break;
     }
   }

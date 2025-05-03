@@ -112,8 +112,12 @@ int16_t adjust_static_eval(thread_t *thread, position_t *pos,
   const int pawn_correction =
       thread->correction_history[pos->side][pos->hash_keys.pawn_key & 16383] *
       PAWN_CORR_HISTORY_MULTIPLIER;
-  const int adjusted_score = static_eval + pawn_correction / 1024;
-  // printf("%d %d %d\n", pawn_correction / 1024, adjusted_score, static_eval);
+  const int major_correction =
+      thread->major_correction_history[pos->side]
+                                      [pos->hash_keys.major_key & 16383] *
+      PAWN_CORR_HISTORY_MULTIPLIER;
+  const int adjusted_score =
+      static_eval + (pawn_correction + major_correction) / 1024;
   return clamp(adjusted_score, -MATE_SCORE + 1, MATE_SCORE - 1);
 }
 
@@ -128,6 +132,21 @@ void update_pawn_corrhist(thread_t *thread, position_t *pos,
       scale_corrhist_bonus(
           thread
               ->correction_history[pos->side][pos->hash_keys.pawn_key & 16383],
+          bonus);
+}
+
+void update_major_corrhist(thread_t *thread, position_t *pos, int16_t static_eval, int16_t score,
+                           uint8_t depth, uint8_t tt_flag) {
+  if (!static_eval_within_bounds(static_eval, score, tt_flag)) {
+    return;
+  }
+  int16_t bonus = calculate_corrhist_bonus(static_eval, score, depth);
+  thread->major_correction_history[pos->side]
+                                  [pos->hash_keys.major_key & 16383] +=
+      scale_corrhist_bonus(
+          thread->major_correction_history[pos->side]
+                                          [pos->hash_keys.major_key &
+                                           16383],
           bonus);
 }
 
