@@ -42,6 +42,7 @@ int NMP_BASE_REDUCTION = 4;
 int NMP_DIVISER = 3;
 int NMP_RED_DIVISER = 205;
 int NMP_RED_MIN = 6;
+int NMP_DEPTH = 3;
 int IIR_DEPTH = 4;
 int SEE_QUIET = 63;
 int SEE_CAPTURE = 34;
@@ -61,6 +62,7 @@ int LMR_TT_PV = 986;
 int LMR_TT_SCORE = 1024;
 int LMR_DEEPER_MARGIN = 35;
 int LMR_SHALLOWER_MARGIN = 6;
+int LMP_DEPTH_DIVISOR = 3;
 int ASP_WINDOW = 11;
 int ASP_DEPTH = 4;
 int QS_SEE_THRESHOLD = 6;
@@ -623,7 +625,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     }
 
     // null move pruning
-    if (!ss->null_move && ss->eval >= beta && depth >= 3 && !only_pawns(pos)) {
+    if (!ss->null_move && ss->eval >= beta && depth >= NMP_DEPTH && !only_pawns(pos)) {
       int R = MIN((ss->eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) +
               depth / NMP_DIVISER + NMP_BASE_REDUCTION;
       R = MIN(R, depth);
@@ -747,7 +749,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
     // Late Move Pruning
     if (!pv_node && quiet &&
-        moves_seen >= LMP_BASE + depth * depth / (3 - improving) &&
+        moves_seen >= LMP_BASE + depth * depth / (LMP_DEPTH_DIVISOR - improving) &&
         !only_pawns(pos)) {
       skip_quiets = 1;
     }
