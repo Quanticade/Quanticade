@@ -892,6 +892,9 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       ss->reduction = 0;
 
       if (current_score > alpha && R != 0) {
+        new_depth += (current_score > best_score + 35 + 2 * new_depth);
+        new_depth -= (current_score < best_score + 6);
+
         current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                  new_depth, !cutnode, NON_PV);
       }
