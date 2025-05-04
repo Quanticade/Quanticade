@@ -27,6 +27,7 @@ extern int NMP_RED_DIVISER;
 extern int NMP_RED_MIN;
 extern int NMP_DEPTH;
 extern int IIR_DEPTH;
+extern int IIR_DEPTH_REDUCTION;
 extern int SEE_QUIET;
 extern int SEE_CAPTURE;
 extern int SEE_DEPTH;
@@ -152,6 +153,7 @@ void init_spsa_table(void) {
   SPSA_INT_POISON(NMP_RED_MIN, 1);
   SPSA_INT_POISON(NMP_DEPTH, 1);
   SPSA_INT_POISON(IIR_DEPTH, 1);
+  SPSA_INT_POISON(IIR_DEPTH_REDUCTION, 1);
   SPSA_INT_FUNC(SEE_QUIET, init_reductions, 1);
   SPSA_INT_FUNC(SEE_CAPTURE, init_reductions, 1);
   SPSA_INT_POISON(SEE_DEPTH, 1);
