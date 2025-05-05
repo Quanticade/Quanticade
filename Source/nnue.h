@@ -10,7 +10,7 @@ extern nnue_settings_t nnue_settings;
 #define OUTPUT_BUCKETS 8
 #define KING_BUCKETS 13
 #define SCALE 400
-#define L1Q 362
+#define L1Q 255
 #define OutputQ 64
 
 typedef struct nnue {
