@@ -578,6 +578,11 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
                           ? tt_static_eval
                           : evaluate(pos, &thread->accumulator[pos->ply]);
 
+    if (!tt_hit) {
+      write_hash_entry(tt_entry, pos, NO_SCORE, raw_static_eval, depth, 0,
+        HASH_FLAG_NONE, pv_node);
+    }
+
     // adjust static eval with corrhist
     static_eval = ss->static_eval =
         adjust_static_eval(thread, pos, raw_static_eval);
