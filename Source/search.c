@@ -614,7 +614,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     }
     if (depth >= 2 && (ss - 1)->reduction >= 2 &&
         (ss - 1)->static_eval != NO_SCORE &&
-        (ss - 1)->static_eval + ss->static_eval > 90) {
+        (ss - 1)->static_eval + ss->static_eval > 40) {
           --depth;
     }
     // Reverse Futility Pruning
