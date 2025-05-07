@@ -547,15 +547,19 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     return quiescence(pos, thread, ss, alpha, beta, pv_node);
   }
 
-  tt_entry_t *tt_entry = read_hash_entry(pos, &tt_hit);
+  tt_entry_t *tt_entry = NULL;
 
-  if (tt_hit) {
-    ss->tt_pv |= tt_entry->tt_pv;
-    tt_score = score_from_tt(pos, tt_entry->score);
-    tt_static_eval = tt_entry->static_eval;
-    tt_depth = tt_entry->depth;
-    tt_flag = tt_entry->flag;
-    tt_move = tt_entry->move;
+  if (!ss->excluded_move) {
+    tt_entry = read_hash_entry(pos, &tt_hit);
+
+    if (tt_hit) {
+      ss->tt_pv |= tt_entry->tt_pv;
+      tt_score = score_from_tt(pos, tt_entry->score);
+      tt_static_eval = tt_entry->static_eval;
+      tt_depth = tt_entry->depth;
+      tt_flag = tt_entry->flag;
+      tt_move = tt_entry->move;
+    }
   }
 
   // If we arent in excluded move or PV node and we hit requirements for cutoff
