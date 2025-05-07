@@ -357,28 +357,40 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     return tt_score;
   }
 
-  raw_static_eval = tt_static_eval != NO_SCORE
-                        ? tt_static_eval
-                        : evaluate(pos, &thread->accumulator[pos->ply]);
-  ss->static_eval = adjust_static_eval(thread, pos, raw_static_eval);
+  // is king in check
+  uint8_t in_check = is_square_attacked(
+    pos,
+    (pos->side == white) ? __builtin_ctzll(pos->bitboards[K])
+                         : __builtin_ctzll(pos->bitboards[k]),
+    pos->side ^ 1);
 
-  if (tt_hit && can_use_score(best_score, best_score, tt_score, tt_flag)) {
-    best_score = tt_score;
-  } else {
-    best_score = ss->static_eval;
-  }
+  if (!in_check) {
+    raw_static_eval = tt_static_eval != NO_SCORE
+                          ? tt_static_eval
+                          : evaluate(pos, &thread->accumulator[pos->ply]);
+    ss->static_eval = adjust_static_eval(thread, pos, raw_static_eval);
 
-  // fail-hard beta cutoff
-  if (best_score >= beta) {
-    if (abs(best_score) < MATE_SCORE && abs(beta) < MATE_SCORE) {
-      best_score = (best_score + beta) / 2;
+    if (tt_hit && can_use_score(best_score, best_score, tt_score, tt_flag)) {
+      best_score = tt_score;
+    } else {
+      best_score = ss->static_eval;
     }
-    // node (position) fails high
-    return best_score;
-  }
 
-  // found a better move
-  alpha = MAX(alpha, best_score);
+    // fail-hard beta cutoff
+    if (best_score >= beta) {
+      if (abs(best_score) < MATE_SCORE && abs(beta) < MATE_SCORE) {
+        best_score = (best_score + beta) / 2;
+      }
+      // node (position) fails high
+      return best_score;
+    }
+
+    // found a better move
+    alpha = MAX(alpha, best_score);
+  }
+  else {
+    raw_static_eval = ss->static_eval = NO_SCORE;
+  }
 
   // create move list instance
   moves move_list[1];
