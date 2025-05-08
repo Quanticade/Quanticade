@@ -750,7 +750,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
     // Late Move Pruning
     if (!pv_node && quiet &&
-        moves_seen >= LMP_BASE + depth * depth / (LMP_DEPTH_DIVISOR - improving) &&
+        moves_seen >= LMP_BASE + depth * depth / MAX(1, (LMP_DEPTH_DIVISOR - improving)) &&
         !only_pawns(pos)) {
       skip_quiets = 1;
     }
