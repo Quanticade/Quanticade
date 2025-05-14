@@ -32,68 +32,68 @@ extern keys_t keys;
 
 int LMP_BASE = 1;
 int RAZOR_DEPTH = 7;
-int RAZOR_MARGIN = 280;
+int RAZOR_MARGIN = 278;
 int RFP_DEPTH = 7;
-int RFP_MARGIN = 58;
+int RFP_MARGIN = 59;
 int FP_DEPTH = 10;
-int FP_MULTIPLIER = 186;
-int FP_ADDITION = 173;
+int FP_MULTIPLIER = 184;
+int FP_ADDITION = 179;
 int NMP_BASE_REDUCTION = 4;
 int NMP_DIVISER = 3;
-int NMP_RED_DIVISER = 179;
+int NMP_RED_DIVISER = 173;
 int NMP_RED_MIN = 6;
 int NMP_DEPTH = 3;
 int IIR_DEPTH = 4;
 int IIR_DEPTH_REDUCTION = 3;
-int SEE_QUIET = 57;
+int SEE_QUIET = 55;
 int SEE_CAPTURE = 32;
 int SEE_DEPTH = 10;
-int SEE_HISTORY_DIVISOR = 56;
+int SEE_HISTORY_DIVISOR = 57;
 int SE_DEPTH = 6;
 int SE_DEPTH_REDUCTION = 4;
-int SE_PV_DOUBLE_MARGIN = 2;
+int SE_PV_DOUBLE_MARGIN = 1;
 int SE_TRIPLE_MARGIN = 35;
-int LMR_PV_NODE = 1075;
-int LMR_HISTORY_QUIET = 1147;
-int LMR_HISTORY_NOISY = 1133;
-int LMR_IN_CHECK = 841;
-int LMR_CUTNODE = 908;
-int LMR_TT_DEPTH = 1125;
-int LMR_TT_PV = 944;
-int LMR_TT_SCORE = 1085;
-int LMR_DEEPER_MARGIN = 32;
+int LMR_PV_NODE = 1070;
+int LMR_HISTORY_QUIET = 1149;
+int LMR_HISTORY_NOISY = 1130;
+int LMR_IN_CHECK = 850;
+int LMR_CUTNODE = 913;
+int LMR_TT_DEPTH = 1138;
+int LMR_TT_PV = 960;
+int LMR_TT_SCORE = 1083;
+int LMR_DEEPER_MARGIN = 33;
 int LMR_SHALLOWER_MARGIN = 6;
 int LMP_DEPTH_DIVISOR = 3;
 int ASP_WINDOW = 12;
 int ASP_DEPTH = 4;
 int QS_SEE_THRESHOLD = 7;
-int MO_SEE_THRESHOLD = 119;
-double ASP_MULTIPLIER = 1.6816129954239851;
-int LMR_QUIET_HIST_DIV = 7645;
-int LMR_CAPT_HIST_DIV = 7082;
-double LMR_OFFSET_QUIET = 0.7821548758613932;
-double LMR_DIVISOR_QUIET = 1.6522308814095419;
-double LMR_OFFSET_NOISY = -0.17447858702736502;
-double LMR_DIVISOR_NOISY = 3.1157873054664407;
+int MO_SEE_THRESHOLD = 117;
+double ASP_MULTIPLIER = 1.672500911158661;
+int LMR_QUIET_HIST_DIV = 7706;
+int LMR_CAPT_HIST_DIV = 6944;
+double LMR_OFFSET_QUIET = 0.7850124125307294;
+double LMR_DIVISOR_QUIET = 1.669870647511874;
+double LMR_OFFSET_NOISY = -0.17488885536548365;
+double LMR_DIVISOR_NOISY = 3.175066267203452;
 
-double NODE_TIME_MULTIPLIER = 2.3266269428013517;
-double NODE_TIME_ADDITION = 0.44433971476089684;
-double NODE_TIME_MIN = 0.550444231059761;
+double NODE_TIME_MULTIPLIER = 2.3488118001616107;
+double NODE_TIME_ADDITION = 0.44220291987424754;
+double NODE_TIME_MIN = 0.550282095437872;
 
-int mvv[] = {133, 383, 293, 575, 1360, 0};
+int mvv[] = {132, 373, 304, 589, 1341, 0};
 
-int SEEPieceValues[] = {73, 313, 320, 556, 1047, 0, 0};
+int SEEPieceValues[] = {71, 314, 327, 561, 1072, 0, 0};
 
 int lmr[2][MAX_PLY + 1][256];
 
 int SEE_MARGIN[MAX_PLY + 1][2];
 
-double bestmove_scale[5] = {2.4127778879395403, 1.3591679728822201,
-                            1.0892878736366167, 0.8801589058035711,
-                            0.6928914388892039};
-double eval_scale[5] = {1.2422734971107077, 1.1390735152797768,
-                        0.9904722958613691, 0.945176041488196,
-                        0.8876516599534069};
+double bestmove_scale[5] = {2.446403143803803, 1.3607489123921896,
+                            1.0890958256624443, 0.8799470725486243,
+                            0.6941073018107671};
+double eval_scale[5] = {1.2474331785316286, 1.1275422869951235,
+                        0.9849754435168508, 0.9463622070014438,
+                        0.8855881112874966};
 
 uint64_t nodes_spent_table[4096] = {0};
 
@@ -626,7 +626,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     }
 
     // null move pruning
-    if (!ss->null_move && ss->eval >= beta && depth >= NMP_DEPTH && !only_pawns(pos)) {
+    if (!ss->null_move && ss->eval >= beta && depth >= NMP_DEPTH &&
+        !only_pawns(pos)) {
       int R = MIN((ss->eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) +
               depth / NMP_DIVISER + NMP_BASE_REDUCTION;
       R = MIN(R, depth);
@@ -750,7 +751,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
     // Late Move Pruning
     if (!pv_node && quiet &&
-        moves_seen >= LMP_BASE + depth * depth / (LMP_DEPTH_DIVISOR - improving) &&
+        moves_seen >=
+            LMP_BASE + depth * depth / (LMP_DEPTH_DIVISOR - improving) &&
         !only_pawns(pos)) {
       skip_quiets = 1;
     }
