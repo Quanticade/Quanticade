@@ -68,9 +68,17 @@ int ASP_WINDOW = 12;
 int ASP_DEPTH = 4;
 int QS_SEE_THRESHOLD = 7;
 int MO_SEE_THRESHOLD = 117;
-double ASP_MULTIPLIER = 1.672500911158661;
 int LMR_QUIET_HIST_DIV = 7706;
 int LMR_CAPT_HIST_DIV = 6944;
+
+double LMP_MARGIN_WORSENING_BASE = 1.932336729298966f;
+double LMP_MARGIN_WORSENING_FACTOR = 0.4372991933478511f;
+double LMP_MARGIN_WORSENING_POWER = 1.660804390081005f;
+double LMP_MARGIN_IMPROVING_BASE = 2.7242843289961067f;
+double LMP_MARGIN_IMPROVING_FACTOR = 0.8277962583165434f;
+double LMP_MARGIN_IMPROVING_POWER = 1.9124128409053007f;
+
+double ASP_MULTIPLIER = 1.672500911158661;
 double LMR_OFFSET_QUIET = 0.7850124125307294;
 double LMR_DIVISOR_QUIET = 1.669870647511874;
 double LMR_OFFSET_NOISY = -0.17488885536548365;
@@ -88,6 +96,8 @@ int lmr[2][MAX_PLY + 1][256];
 
 int SEE_MARGIN[MAX_PLY + 1][2];
 
+int LMP_MARGIN[MAX_PLY + 1][2];
+
 double bestmove_scale[5] = {2.446403143803803, 1.3607489123921896,
                             1.0890958256624443, 0.8799470725486243,
                             0.6941073018107671};
@@ -102,6 +112,14 @@ void init_reductions(void) {
   for (int depth = 0; depth <= MAX_PLY; depth++) {
     SEE_MARGIN[depth][0] = -SEE_CAPTURE * depth * depth;
     SEE_MARGIN[depth][1] = -SEE_QUIET * depth;
+    LMP_MARGIN[depth][0] =
+        LMP_MARGIN_WORSENING_BASE +
+        LMP_MARGIN_WORSENING_FACTOR *
+            pow(depth, LMP_MARGIN_WORSENING_POWER); // non-improving
+    LMP_MARGIN[depth][1] =
+        LMP_MARGIN_IMPROVING_BASE +
+        LMP_MARGIN_WORSENING_FACTOR *
+            pow(depth, LMP_MARGIN_IMPROVING_POWER); // improving
     for (int move = 0; move < 256; move++) {
       if (move == 0 || depth == 0) {
         lmr[0][depth][move] = 0;
@@ -750,9 +768,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
                                        [get_move_target(move)];
 
     // Late Move Pruning
-    if (!pv_node && quiet &&
-        moves_seen >=
-            LMP_BASE + depth * depth / (LMP_DEPTH_DIVISOR - improving) &&
+    if (!pv_node && quiet && moves_seen >= LMP_MARGIN[depth][improving] &&
         !only_pawns(pos)) {
       skip_quiets = 1;
     }
