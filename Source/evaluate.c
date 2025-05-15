@@ -12,10 +12,11 @@ extern nnue_settings_t nnue_settings;
 int16_t evaluate(position_t *pos, accumulator_t *accumulator) {
   int eval = nnue_evaluate(pos, accumulator);
 
-  int phase = 3 * popcount(pos->bitboards[n] | pos->bitboards[N]) +
+  int phase = 2 * popcount(pos->bitboards[p] | pos->bitboards[P]) +
+              3 * popcount(pos->bitboards[n] | pos->bitboards[N]) +
               3 * popcount(pos->bitboards[b] | pos->bitboards[B]) +
               5 * popcount(pos->bitboards[r] | pos->bitboards[R]) +
-              10 * popcount(pos->bitboards[q] | pos->bitboards[Q]);
+              12 * popcount(pos->bitboards[q] | pos->bitboards[Q]);
 
   eval = eval * (200 + phase) / 256;
   float fifty_move_scaler = (float)((100 - (float)pos->fifty) / 100);
