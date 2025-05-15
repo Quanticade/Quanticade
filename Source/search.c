@@ -118,7 +118,7 @@ void init_reductions(void) {
             pow(depth, LMP_MARGIN_WORSENING_POWER); // non-improving
     LMP_MARGIN[depth][1] =
         LMP_MARGIN_IMPROVING_BASE +
-        LMP_MARGIN_WORSENING_FACTOR *
+        LMP_MARGIN_IMPROVING_FACTOR *
             pow(depth, LMP_MARGIN_IMPROVING_POWER); // improving
     for (int move = 0; move < 256; move++) {
       if (move == 0 || depth == 0) {
