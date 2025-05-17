@@ -786,7 +786,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     }
 
     // Futility pruning for captures
-    if (!pv_node && current_score > -MATE_SCORE && lmr_depth < 9 && get_move_capture(move) &&
+    if (!pv_node && !in_check && current_score > -MATE_SCORE && lmr_depth < 9 && get_move_capture(move) &&
         !is_move_promotion(move)) {
       uint8_t captured_piece = get_move_enpassant(move) ? P
                                : pos->mailbox[get_move_target(move)] >= 6
