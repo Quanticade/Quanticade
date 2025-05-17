@@ -767,30 +767,32 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
                                        [get_move_source(move)]
                                        [get_move_target(move)];
 
-    // Late Move Pruning
-    if (!pv_node && quiet && moves_seen >= LMP_MARGIN[depth][improving] &&
-        !only_pawns(pos)) {
-      skip_quiets = 1;
-    }
-
     int r = lmr[quiet][MIN(63, depth)][MIN(63, moves_seen)];
     r += !pv_node;
     int lmr_depth = MAX(1, depth - 1 - MAX(r, 1));
 
-    // Futility Pruning
-    if (!root_node && current_score > -MATE_SCORE && lmr_depth <= FP_DEPTH &&
-        !in_check && quiet &&
-        ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION <= alpha) {
-      skip_quiets = 1;
-      continue;
-    }
+    if (!root_node) {
+      // Late Move Pruning
+      if (!pv_node && quiet && moves_seen >= LMP_MARGIN[depth][improving] &&
+          !only_pawns(pos)) {
+        skip_quiets = 1;
+      }
 
-    // SEE PVS Pruning
-    if (depth <= SEE_DEPTH && moves_seen > 0 &&
-        !SEE(pos, move,
-             SEE_MARGIN[depth][quiet] -
-                 ss->history_score / SEE_HISTORY_DIVISOR))
-      continue;
+      // Futility Pruning
+      if (current_score > -MATE_SCORE && lmr_depth <= FP_DEPTH &&
+          !in_check && quiet &&
+          ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION <= alpha) {
+        skip_quiets = 1;
+        continue;
+      }
+
+      // SEE PVS Pruning
+      if (depth <= SEE_DEPTH && moves_seen > 0 &&
+          !SEE(pos, move,
+               SEE_MARGIN[depth][quiet] -
+                   ss->history_score / SEE_HISTORY_DIVISOR))
+        continue;
+    }
 
     int extensions = 0;
 
