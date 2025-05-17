@@ -785,6 +785,18 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       continue;
     }
 
+    // Futility pruning for captures
+    if (!pv_node && lmr_depth < 9 && get_move_capture(move) &&
+        !is_move_promotion(move)) {
+      uint8_t captured_piece = get_move_enpassant(move) ? P
+                               : pos->mailbox[get_move_target(move)] >= 6
+                                   ? pos->mailbox[get_move_target(move)] - 6
+                                   : pos->mailbox[get_move_target(move)];
+      if (ss->static_eval + 400 + mvv[captured_piece] + 400 * lmr_depth <=
+          alpha)
+        continue;
+    }
+
     // SEE PVS Pruning
     if (depth <= SEE_DEPTH && moves_seen > 0 &&
         !SEE(pos, move,
