@@ -630,6 +630,10 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     if ((ss - 1)->reduction >= 3 && !opponent_worsening) {
       ++depth;
     }
+    if ((ss - 1)->reduction >= 1 && depth >= 2 &&
+        ss->static_eval + (ss - 1)->static_eval > 200) {
+      --depth;
+    }
     // Reverse Futility Pruning
     if (depth <= RFP_DEPTH) {
       // get static evaluation score
