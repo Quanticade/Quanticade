@@ -340,12 +340,13 @@ int nnue_evaluate(position_t *pos, accumulator_t *accumulator) {
   uint8_t side = pos->side;
   uint8_t bucket = calculate_output_bucket(pos);
 #if defined(USE_SIMD)
-  vepi32 sums[4] = {zero_epi32(), zero_epi32(), zero_epi32(), zero_epi32()};
+  #define INFERENCE_UNROLL 4
+  vepi32 sums[INFERENCE_UNROLL];
+  memset(sums, 0, sizeof(sums));
   const int chunk_size = sizeof(vepi16) / sizeof(int16_t);
 
   for (int i = 0; i < HIDDEN_SIZE; ) {
-    #pragma GCC unroll 4
-    for (int k = 0; k < 4; ++k, i += chunk_size) {
+    for (int k = 0; k < INFERENCE_UNROLL; ++k, i += chunk_size) {
       const vepi16 accumulator_data =
           load_epi16(&accumulator->accumulator[side][i]);
       const vepi16 weights = load_epi16(&nnue.output_weights[bucket][0][i]);
@@ -361,8 +362,7 @@ int nnue_evaluate(position_t *pos, accumulator_t *accumulator) {
   }
 
   for (int i = 0; i < HIDDEN_SIZE; ) {
-    #pragma GCC unroll 4
-    for (int k = 0; k < 4; ++k, i += chunk_size) {
+    for (int k = 0; k < INFERENCE_UNROLL; ++k, i += chunk_size) {
       const vepi16 accumulator_data =
           load_epi16(&accumulator->accumulator[side^1][i]);
       const vepi16 weights = load_epi16(&nnue.output_weights[bucket][1][i]);
@@ -376,8 +376,10 @@ int nnue_evaluate(position_t *pos, accumulator_t *accumulator) {
       sums[k] = add_epi32(sums[k], result);
     }
   }
-  vepi32 sum = sums[0] + sums[1] + sums[2] + sums[3];
-
+  vepi32 sum = sums[0];
+  for (int k = 1; k < INFERENCE_UNROLL; ++k) {
+    sum = add_epi32(sum, sums[k]);
+  }
   eval = reduce_add_epi32(sum);
 #else
   // feed everything forward to get the final value
