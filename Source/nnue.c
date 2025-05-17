@@ -339,38 +339,44 @@ int nnue_evaluate(position_t *pos, accumulator_t *accumulator) {
   int eval = 0;
   uint8_t side = pos->side;
   uint8_t bucket = calculate_output_bucket(pos);
-
 #if defined(USE_SIMD)
-  vepi32 sum = zero_epi32();
+  vepi32 sums[4] = {zero_epi32(), zero_epi32(), zero_epi32(), zero_epi32()};
   const int chunk_size = sizeof(vepi16) / sizeof(int16_t);
 
-  for (int i = 0; i < HIDDEN_SIZE; i += chunk_size) {
-    const vepi16 accumulator_data =
-        load_epi16(&accumulator->accumulator[side][i]);
-    const vepi16 weights = load_epi16(&nnue.output_weights[bucket][0][i]);
+  for (int i = 0; i < HIDDEN_SIZE; ) {
+    #pragma GCC unroll 4
+    for (int k = 0; k < 4; ++k, i += chunk_size) {
+      const vepi16 accumulator_data =
+          load_epi16(&accumulator->accumulator[side][i]);
+      const vepi16 weights = load_epi16(&nnue.output_weights[bucket][0][i]);
 
-    const vepi16 clipped_accumulator = clip(accumulator_data, L1Q);
+      const vepi16 clipped_accumulator = clip(accumulator_data, L1Q);
 
-    const vepi16 intermediate = multiply_epi16(clipped_accumulator, weights);
+      const vepi16 intermediate = multiply_epi16(clipped_accumulator, weights);
 
-    const vepi32 result = multiply_add_epi16(intermediate, clipped_accumulator);
+      const vepi32 result = multiply_add_epi16(intermediate, clipped_accumulator);
 
-    sum = add_epi32(sum, result);
+      sums[k] = add_epi32(sums[k], result);
+    }
   }
 
-  for (int i = 0; i < HIDDEN_SIZE; i += chunk_size) {
-    const vepi16 accumulator_data =
-        load_epi16(&accumulator->accumulator[side ^ 1][i]);
-    const vepi16 weights = load_epi16(&nnue.output_weights[bucket][1][i]);
+  for (int i = 0; i < HIDDEN_SIZE; ) {
+    #pragma GCC unroll 4
+    for (int k = 0; k < 4; ++k, i += chunk_size) {
+      const vepi16 accumulator_data =
+          load_epi16(&accumulator->accumulator[side^1][i]);
+      const vepi16 weights = load_epi16(&nnue.output_weights[bucket][1][i]);
 
-    const vepi16 clipped_accumulator = clip(accumulator_data, L1Q);
+      const vepi16 clipped_accumulator = clip(accumulator_data, L1Q);
 
-    const vepi16 intermediate = multiply_epi16(clipped_accumulator, weights);
+      const vepi16 intermediate = multiply_epi16(clipped_accumulator, weights);
 
-    const vepi32 result = multiply_add_epi16(intermediate, clipped_accumulator);
+      const vepi32 result = multiply_add_epi16(intermediate, clipped_accumulator);
 
-    sum = add_epi32(sum, result);
+      sums[k] = add_epi32(sums[k], result);
+    }
   }
+  vepi32 sum = sums[0] + sums[1] + sums[2] + sums[3];
 
   eval = reduce_add_epi32(sum);
 #else
