@@ -404,7 +404,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   capture_list->count = 0;
 
   // generate moves
-  generate_captures(pos, move_list);
+  generate_noisy(pos, move_list);
 
   for (uint32_t count = 0; count < move_list->count; count++) {
     score_move(pos, thread, ss, &move_list->entry[count], best_move);
