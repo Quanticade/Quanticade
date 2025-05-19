@@ -3,6 +3,7 @@
 #include "move.h"
 #include "structs.h"
 #include "transposition.h"
+#include "uci.h"
 #include "utils.h"
 #include <stdlib.h>
 
@@ -12,12 +13,6 @@ int CONT_HISTORY_BONUS_MAX = 1531;
 int CAPTURE_HISTORY_MALUS_MAX = 1042;
 int QUIET_HISTORY_MALUS_MAX = 1127;
 int CONT_HISTORY_MALUS_MAX = 1448;
-int CAPTURE_HISTORY_BONUS_MIN = 1544;
-int QUIET_HISTORY_BONUS_MIN = 1512;
-int CONT_HISTORY_BONUS_MIN = 1470;
-int CAPTURE_HISTORY_MALUS_MIN = 1350;
-int QUIET_HISTORY_MALUS_MIN = 1417;
-int CONT_HISTORY_MALUS_MIN = 1378;
 int CORR_HISTORY_MINMAX = 136;
 int PAWN_CORR_HISTORY_MULTIPLIER = 22;
 int HISTORY_MAX = 8192;
@@ -106,125 +101,60 @@ void update_pawn_corrhist(thread_t *thread, int16_t static_eval, int16_t score,
           bonus);
 }
 
-static inline void update_quiet_history(thread_t *thread, int move,
-                                        uint8_t depth, uint8_t is_best_move) {
+static inline void update_quiet_history(thread_t *thread, int move, int bonus) {
   int target = get_move_target(move);
   int source = get_move_source(move);
-  int bonus = 16 * depth * depth + 32 * depth + 16;
-  int clamped_bonus =
-      clamp(bonus, -QUIET_HISTORY_BONUS_MIN, QUIET_HISTORY_BONUS_MAX);
-  int clamped_malus =
-      clamp(bonus, -QUIET_HISTORY_MALUS_MIN, QUIET_HISTORY_MALUS_MAX);
-  int adjust = is_best_move ? clamped_bonus : -clamped_malus;
   thread->quiet_history[thread->pos.mailbox[source]][source][target] +=
-      adjust -
+      bonus -
       thread->quiet_history[thread->pos.mailbox[source]][source][target] *
-          abs(adjust) / HISTORY_MAX;
+          abs(bonus) / HISTORY_MAX;
 }
 
 static inline void update_capture_history(thread_t *thread, int move,
-                                          uint8_t depth, uint8_t is_best_move) {
+                                          int bonus) {
   int from = get_move_source(move);
   int target = get_move_target(move);
-  int bonus = 16 * depth * depth + 32 * depth + 16;
-  int clamped_bonus =
-      clamp(bonus, -CAPTURE_HISTORY_BONUS_MIN, CAPTURE_HISTORY_BONUS_MAX);
-  int clamped_malus =
-      clamp(bonus, -CAPTURE_HISTORY_MALUS_MIN, CAPTURE_HISTORY_MALUS_MAX);
-  int adjust = is_best_move ? clamped_bonus : -clamped_malus;
   thread->capture_history[thread->pos.mailbox[from]]
                          [thread->pos.mailbox[target]][from][target] +=
-      adjust -
+      bonus -
       thread->capture_history[thread->pos.mailbox[from]]
                              [thread->pos.mailbox[target]][from][target] *
-          abs(adjust) / HISTORY_MAX;
+          abs(bonus) / HISTORY_MAX;
 }
 
 static inline void update_continuation_history(thread_t *thread,
                                                searchstack_t *ss, int move,
-                                               uint8_t depth,
-                                               uint8_t is_best_move) {
+                                               int bonus) {
   int prev_piece = ss->piece;
   int prev_target = get_move_target(ss->move);
   int piece = thread->pos.mailbox[get_move_source(move)];
   int target = get_move_target(move);
-  int bonus = 16 * depth * depth + 32 * depth + 16;
-  int clamped_bonus =
-      clamp(bonus, -CONT_HISTORY_BONUS_MIN, CONT_HISTORY_BONUS_MAX);
-  int clamped_malus =
-      clamp(bonus, -CONT_HISTORY_MALUS_MIN, CONT_HISTORY_MALUS_MAX);
-  int adjust = is_best_move ? clamped_bonus : -clamped_malus;
   thread->continuation_history[prev_piece][prev_target][piece][target] +=
-      adjust -
+      bonus -
       thread->continuation_history[prev_piece][prev_target][piece][target] *
-          abs(adjust) / HISTORY_MAX;
+          abs(bonus) / HISTORY_MAX;
 }
 
-static inline void update_pawn_history(thread_t *thread, int move,
-                                       uint8_t depth, uint8_t is_best_move) {
+static inline void update_pawn_history(thread_t *thread, int move, int bonus) {
   int target = get_move_target(move);
   int source = get_move_source(move);
-  int bonus = 16 * depth * depth + 32 * depth + 16;
-  int clamped_bonus =
-      clamp(bonus, -QUIET_HISTORY_BONUS_MIN, QUIET_HISTORY_BONUS_MAX);
-  int clamped_malus =
-      clamp(bonus, -QUIET_HISTORY_MALUS_MIN, QUIET_HISTORY_MALUS_MAX);
-  int adjust = is_best_move ? clamped_bonus : -clamped_malus;
   thread->pawn_history[thread->pos.hash_keys.pawn_key % 32767]
                       [thread->pos.mailbox[source]][target] +=
-      adjust - thread->pawn_history[thread->pos.hash_keys.pawn_key % 32767]
-                                   [thread->pos.mailbox[source]][target] *
-                   abs(adjust) / HISTORY_MAX;
-}
-
-void update_quiet_history_moves(thread_t *thread, moves *quiet_moves,
-                                int best_move, uint8_t depth) {
-  for (uint32_t i = 0; i < quiet_moves->count; ++i) {
-    if (quiet_moves->entry[i].move == best_move) {
-      update_quiet_history(thread, best_move, depth, 1);
-    } else {
-      update_quiet_history(thread, quiet_moves->entry[i].move, depth, 0);
-    }
-  }
+      bonus - thread->pawn_history[thread->pos.hash_keys.pawn_key % 32767]
+                                  [thread->pos.mailbox[source]][target] *
+                  abs(bonus) / HISTORY_MAX;
 }
 
 void update_capture_history_moves(thread_t *thread, moves *capture_moves,
                                   int best_move, uint8_t depth) {
+  int value = 16 * depth * depth + 32 * depth + 16;
+  int capt_bonus = MIN(value, CAPTURE_HISTORY_BONUS_MAX);
+  int capt_malus = -MIN(value, CAPTURE_HISTORY_MALUS_MAX);
   for (uint32_t i = 0; i < capture_moves->count; ++i) {
     if (capture_moves->entry[i].move == best_move) {
-      update_capture_history(thread, best_move, depth, 1);
+      update_capture_history(thread, best_move, capt_bonus);
     } else {
-      update_capture_history(thread, capture_moves->entry[i].move, depth, 0);
-    }
-  }
-}
-
-void update_continuation_history_moves(thread_t *thread, searchstack_t *ss,
-                                       moves *quiet_moves, int best_move,
-                                       uint8_t depth) {
-  for (uint32_t i = 0; i < quiet_moves->count; ++i) {
-    if (quiet_moves->entry[i].move == best_move) {
-      update_continuation_history(thread, ss - 1, best_move, depth, 1);
-      update_continuation_history(thread, ss - 2, best_move, depth, 1);
-      update_continuation_history(thread, ss - 4, best_move, depth, 1);
-    } else {
-      update_continuation_history(thread, ss - 1, quiet_moves->entry[i].move,
-                                  depth, 0);
-      update_continuation_history(thread, ss - 2, quiet_moves->entry[i].move,
-                                  depth, 0);
-      update_continuation_history(thread, ss - 4, quiet_moves->entry[i].move,
-                                  depth, 0);
-    }
-  }
-}
-
-void update_pawn_history_moves(thread_t *thread, moves *quiet_moves,
-                               int best_move, uint8_t depth) {
-  for (uint32_t i = 0; i < quiet_moves->count; ++i) {
-    if (quiet_moves->entry[i].move == best_move) {
-      update_pawn_history(thread, best_move, depth, 1);
-    } else {
-      update_pawn_history(thread, quiet_moves->entry[i].move, depth, 0);
+      update_capture_history(thread, capture_moves->entry[i].move, capt_malus);
     }
   }
 }
@@ -237,22 +167,28 @@ int16_t get_conthist_score(thread_t *thread, searchstack_t *ss, int move) {
 
 void update_quiet_histories(thread_t *thread, searchstack_t *ss,
                             moves *quiet_moves, int best_move, uint8_t depth) {
+  int value = 16 * depth * depth + 32 * depth + 16;
+  int cont_bonus = MIN(value, CONT_HISTORY_BONUS_MAX);
+  int quiet_bonus = MIN(value, QUIET_HISTORY_BONUS_MAX);
+  int pawn_bonus = MIN(value, QUIET_HISTORY_BONUS_MAX);
+
+  int cont_malus = -MIN(value, CONT_HISTORY_MALUS_MAX);
+  int quiet_malus = -MIN(value, QUIET_HISTORY_MALUS_MAX);
+  int pawn_malus = -MIN(value, QUIET_HISTORY_MALUS_MAX);
   for (uint32_t i = 0; i < quiet_moves->count; ++i) {
-    if (quiet_moves->entry[i].move == best_move) {
-      update_continuation_history(thread, ss - 1, best_move, depth, 1);
-      update_continuation_history(thread, ss - 2, best_move, depth, 1);
-      update_continuation_history(thread, ss - 4, best_move, depth, 1);
-      update_pawn_history(thread, best_move, depth, 1);
-      update_quiet_history(thread, best_move, depth, 1);
+    uint16_t move = quiet_moves->entry[i].move;
+    if (move == best_move) {
+      update_continuation_history(thread, ss - 1, best_move, cont_bonus);
+      update_continuation_history(thread, ss - 2, best_move, cont_bonus);
+      update_continuation_history(thread, ss - 4, best_move, cont_bonus);
+      update_pawn_history(thread, best_move, pawn_bonus);
+      update_quiet_history(thread, best_move, quiet_bonus);
     } else {
-      update_continuation_history(thread, ss - 1, quiet_moves->entry[i].move,
-                                  depth, 0);
-      update_continuation_history(thread, ss - 2, quiet_moves->entry[i].move,
-                                  depth, 0);
-      update_continuation_history(thread, ss - 4, quiet_moves->entry[i].move,
-                                  depth, 0);
-      update_pawn_history(thread, quiet_moves->entry[i].move, depth, 0);
-      update_quiet_history(thread, quiet_moves->entry[i].move, depth, 0);
+      update_continuation_history(thread, ss - 1, move, cont_malus);
+      update_continuation_history(thread, ss - 2, move, cont_malus);
+      update_continuation_history(thread, ss - 4, move, cont_malus);
+      update_pawn_history(thread, move, pawn_malus);
+      update_quiet_history(thread, move, quiet_malus);
     }
   }
 }
