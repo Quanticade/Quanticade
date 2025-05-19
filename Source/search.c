@@ -981,10 +981,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
         if (alpha >= beta) {
           // on quiet moves
           if (quiet) {
-            update_quiet_history_moves(thread, quiet_list, best_move, depth);
-            update_continuation_history_moves(thread, ss, quiet_list, best_move,
-                                              depth);
-            update_pawn_history_moves(thread, quiet_list, best_move, depth);
+            update_quiet_histories(thread, ss, quiet_list, best_move, depth);
             thread->killer_moves[pos->ply] = move;
           }
 

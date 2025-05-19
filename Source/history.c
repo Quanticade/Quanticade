@@ -234,3 +234,25 @@ int16_t get_conthist_score(thread_t *thread, searchstack_t *ss, int move) {
       ss->move)][thread->pos.mailbox[get_move_source(move)]]
                                      [get_move_target(move)];
 }
+
+void update_quiet_histories(thread_t *thread, searchstack_t *ss,
+                            moves *quiet_moves, int best_move, uint8_t depth) {
+  for (uint32_t i = 0; i < quiet_moves->count; ++i) {
+    if (quiet_moves->entry[i].move == best_move) {
+      update_continuation_history(thread, ss - 1, best_move, depth, 1);
+      update_continuation_history(thread, ss - 2, best_move, depth, 1);
+      update_continuation_history(thread, ss - 4, best_move, depth, 1);
+      update_pawn_history(thread, best_move, depth, 1);
+      update_quiet_history(thread, best_move, depth, 1);
+    } else {
+      update_continuation_history(thread, ss - 1, quiet_moves->entry[i].move,
+                                  depth, 0);
+      update_continuation_history(thread, ss - 2, quiet_moves->entry[i].move,
+                                  depth, 0);
+      update_continuation_history(thread, ss - 4, quiet_moves->entry[i].move,
+                                  depth, 0);
+      update_pawn_history(thread, quiet_moves->entry[i].move, depth, 0);
+      update_quiet_history(thread, quiet_moves->entry[i].move, depth, 0);
+    }
+  }
+}
