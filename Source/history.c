@@ -7,12 +7,18 @@
 #include "utils.h"
 #include <stdlib.h>
 
-int CAPTURE_HISTORY_BONUS_MAX = 1386;
-int QUIET_HISTORY_BONUS_MAX = 1351;
-int CONT_HISTORY_BONUS_MAX = 1531;
-int CAPTURE_HISTORY_MALUS_MAX = 1042;
 int QUIET_HISTORY_MALUS_MAX = 1127;
+int QUIET_HISTORY_BONUS_MAX = 1351;
+
+int CAPTURE_HISTORY_MALUS_MAX = 1042;
+int CAPTURE_HISTORY_BONUS_MAX = 1386;
+
 int CONT_HISTORY_MALUS_MAX = 1448;
+int CONT_HISTORY_BONUS_MAX = 1531;
+
+int PAWN_HISTORY_MALUS_MAX = 1127;
+int PAWN_HISTORY_BONUS_MAX = 1351;
+
 int CORR_HISTORY_MINMAX = 136;
 int PAWN_CORR_HISTORY_MULTIPLIER = 22;
 int HISTORY_MAX = 8192;
@@ -170,11 +176,11 @@ void update_quiet_histories(thread_t *thread, searchstack_t *ss,
   int value = 16 * depth * depth + 32 * depth + 16;
   int cont_bonus = MIN(value, CONT_HISTORY_BONUS_MAX);
   int quiet_bonus = MIN(value, QUIET_HISTORY_BONUS_MAX);
-  int pawn_bonus = MIN(value, QUIET_HISTORY_BONUS_MAX);
+  int pawn_bonus = MIN(value, PAWN_HISTORY_BONUS_MAX);
 
   int cont_malus = -MIN(value, CONT_HISTORY_MALUS_MAX);
   int quiet_malus = -MIN(value, QUIET_HISTORY_MALUS_MAX);
-  int pawn_malus = -MIN(value, QUIET_HISTORY_MALUS_MAX);
+  int pawn_malus = -MIN(value, PAWN_HISTORY_MALUS_MAX);
   for (uint32_t i = 0; i < quiet_moves->count; ++i) {
     uint16_t move = quiet_moves->entry[i].move;
     if (move == best_move) {
