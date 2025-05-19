@@ -27,6 +27,14 @@ int CONT_HISTORY_BASE_BONUS = 10;
 int CONT_HISTORY_FACTOR_BONUS = 200;
 int CONT_HISTORY_BASE_MALUS = 10;
 int CONT_HISTORY_FACTOR_MALUS = 200;
+int CONT_HISTORY_BASE2_BONUS = 10;
+int CONT_HISTORY_FACTOR2_BONUS = 200;
+int CONT_HISTORY_BASE2_MALUS = 10;
+int CONT_HISTORY_FACTOR2_MALUS = 200;
+int CONT_HISTORY_BASE4_BONUS = 10;
+int CONT_HISTORY_FACTOR4_BONUS = 200;
+int CONT_HISTORY_BASE4_MALUS = 10;
+int CONT_HISTORY_FACTOR4_MALUS = 200;
 
 int PAWN_HISTORY_MALUS_MAX = 1127;
 int PAWN_HISTORY_BONUS_MAX = 1351;
@@ -195,19 +203,32 @@ void update_quiet_histories(thread_t *thread, searchstack_t *ss,
   int cont_bonus =
       MIN(CONT_HISTORY_BASE_BONUS + CONT_HISTORY_FACTOR_BONUS * depth,
           CONT_HISTORY_BONUS_MAX);
-  int quiet_bonus =
-      MIN(QUIET_HISTORY_BASE_BONUS + QUIET_HISTORY_FACTOR_BONUS * depth,
-          QUIET_HISTORY_BONUS_MAX);
-  int pawn_bonus =
-      MIN(PAWN_HISTORY_BASE_BONUS + PAWN_HISTORY_FACTOR_BONUS * depth,
-          PAWN_HISTORY_BONUS_MAX);
-
   int cont_malus =
       -MIN(CONT_HISTORY_BASE_MALUS + CONT_HISTORY_FACTOR_MALUS * depth,
            CONT_HISTORY_MALUS_MAX);
+  int cont_bonus2 =
+      MIN(CONT_HISTORY_BASE2_BONUS + CONT_HISTORY_FACTOR2_BONUS * depth,
+          CONT_HISTORY_BONUS_MAX);
+  int cont_malus2 =
+      -MIN(CONT_HISTORY_BASE2_MALUS + CONT_HISTORY_FACTOR2_MALUS * depth,
+           CONT_HISTORY_MALUS_MAX);
+  int cont_bonus4 =
+      MIN(CONT_HISTORY_BASE4_BONUS + CONT_HISTORY_FACTOR4_BONUS * depth,
+          CONT_HISTORY_BONUS_MAX);
+  int cont_malus4 =
+      -MIN(CONT_HISTORY_BASE4_MALUS + CONT_HISTORY_FACTOR4_MALUS * depth,
+           CONT_HISTORY_MALUS_MAX);
+
+  int quiet_bonus =
+      MIN(QUIET_HISTORY_BASE_BONUS + QUIET_HISTORY_FACTOR_BONUS * depth,
+          QUIET_HISTORY_BONUS_MAX);
   int quiet_malus =
       -MIN(QUIET_HISTORY_BASE_MALUS + QUIET_HISTORY_FACTOR_MALUS * depth,
            QUIET_HISTORY_MALUS_MAX);
+
+  int pawn_bonus =
+      MIN(PAWN_HISTORY_BASE_BONUS + PAWN_HISTORY_FACTOR_BONUS * depth,
+          PAWN_HISTORY_BONUS_MAX);
   int pawn_malus =
       -MIN(PAWN_HISTORY_BASE_MALUS + PAWN_HISTORY_FACTOR_MALUS * depth,
            PAWN_HISTORY_MALUS_MAX);
@@ -215,14 +236,14 @@ void update_quiet_histories(thread_t *thread, searchstack_t *ss,
     uint16_t move = quiet_moves->entry[i].move;
     if (move == best_move) {
       update_continuation_history(thread, ss - 1, best_move, cont_bonus);
-      update_continuation_history(thread, ss - 2, best_move, cont_bonus);
-      update_continuation_history(thread, ss - 4, best_move, cont_bonus);
+      update_continuation_history(thread, ss - 2, best_move, cont_bonus2);
+      update_continuation_history(thread, ss - 4, best_move, cont_bonus4);
       update_pawn_history(thread, best_move, pawn_bonus);
       update_quiet_history(thread, best_move, quiet_bonus);
     } else {
       update_continuation_history(thread, ss - 1, move, cont_malus);
-      update_continuation_history(thread, ss - 2, move, cont_malus);
-      update_continuation_history(thread, ss - 4, move, cont_malus);
+      update_continuation_history(thread, ss - 2, move, cont_malus2);
+      update_continuation_history(thread, ss - 4, move, cont_malus4);
       update_pawn_history(thread, move, pawn_malus);
       update_quiet_history(thread, move, quiet_malus);
     }
