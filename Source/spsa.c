@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 
-spsa_t spsa[100];
+spsa_t spsa[500];
 
 uint8_t spsa_index = 0;
 
@@ -360,7 +360,7 @@ void print_spsa_table(void) {
 
 void handle_spsa_change(char input[10000]) {
   for (int i = 0; i < spsa_index; i++) {
-    char option[100] = "setoption name ";
+    char option[500] = "setoption name ";
     strcat(option, spsa[i].name);
     strcat(option, " value ");
     if (!strncmp(input, option, strlen(option))) {
