@@ -626,10 +626,11 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   // moves seen counter
   uint16_t moves_seen = 0;
 
+  if ((ss - 1)->reduction >= 3 && !opponent_worsening) {
+    depth++;
+  }
+
   if (!pv_node && !in_check && !ss->excluded_move) {
-    if ((ss - 1)->reduction >= 3 && !opponent_worsening) {
-      ++depth;
-    }
     // Reverse Futility Pruning
     if (depth <= RFP_DEPTH) {
       // get static evaluation score
