@@ -9,15 +9,31 @@
 
 int QUIET_HISTORY_MALUS_MAX = 1127;
 int QUIET_HISTORY_BONUS_MAX = 1351;
+int QUIET_HISTORY_BASE_BONUS = 10;
+int QUIET_HISTORY_FACTOR_BONUS = 200;
+int QUIET_HISTORY_BASE_MALUS = 10;
+int QUIET_HISTORY_FACTOR_MALUS = 200;
 
 int CAPTURE_HISTORY_MALUS_MAX = 1042;
 int CAPTURE_HISTORY_BONUS_MAX = 1386;
+int CAPTURE_HISTORY_BASE_BONUS = 10;
+int CAPTURE_HISTORY_FACTOR_BONUS = 200;
+int CAPTURE_HISTORY_BASE_MALUS = 10;
+int CAPTURE_HISTORY_FACTOR_MALUS = 200;
 
 int CONT_HISTORY_MALUS_MAX = 1448;
 int CONT_HISTORY_BONUS_MAX = 1531;
+int CONT_HISTORY_BASE_BONUS = 10;
+int CONT_HISTORY_FACTOR_BONUS = 200;
+int CONT_HISTORY_BASE_MALUS = 10;
+int CONT_HISTORY_FACTOR_MALUS = 200;
 
 int PAWN_HISTORY_MALUS_MAX = 1127;
 int PAWN_HISTORY_BONUS_MAX = 1351;
+int PAWN_HISTORY_BASE_BONUS = 10;
+int PAWN_HISTORY_FACTOR_BONUS = 200;
+int PAWN_HISTORY_BASE_MALUS = 10;
+int PAWN_HISTORY_FACTOR_MALUS = 200;
 
 int CORR_HISTORY_MINMAX = 136;
 int PAWN_CORR_HISTORY_MULTIPLIER = 22;
@@ -153,9 +169,12 @@ static inline void update_pawn_history(thread_t *thread, int move, int bonus) {
 
 void update_capture_history_moves(thread_t *thread, moves *capture_moves,
                                   int best_move, uint8_t depth) {
-  int value = 10 + 200 * depth;
-  int capt_bonus = MIN(value, CAPTURE_HISTORY_BONUS_MAX);
-  int capt_malus = -MIN(value, CAPTURE_HISTORY_MALUS_MAX);
+  int capt_bonus =
+      MIN(CAPTURE_HISTORY_BASE_BONUS + CAPTURE_HISTORY_FACTOR_BONUS * depth,
+          CAPTURE_HISTORY_BONUS_MAX);
+  int capt_malus =
+      -MIN(CAPTURE_HISTORY_BASE_MALUS + CAPTURE_HISTORY_FACTOR_MALUS * depth,
+           CAPTURE_HISTORY_MALUS_MAX);
   for (uint32_t i = 0; i < capture_moves->count; ++i) {
     if (capture_moves->entry[i].move == best_move) {
       update_capture_history(thread, best_move, capt_bonus);
@@ -173,14 +192,25 @@ int16_t get_conthist_score(thread_t *thread, searchstack_t *ss, int move) {
 
 void update_quiet_histories(thread_t *thread, searchstack_t *ss,
                             moves *quiet_moves, int best_move, uint8_t depth) {
-  int value = 10 + 200 * depth;
-  int cont_bonus = MIN(value, CONT_HISTORY_BONUS_MAX);
-  int quiet_bonus = MIN(value, QUIET_HISTORY_BONUS_MAX);
-  int pawn_bonus = MIN(value, PAWN_HISTORY_BONUS_MAX);
+  int cont_bonus =
+      MIN(CONT_HISTORY_BASE_BONUS + CONT_HISTORY_FACTOR_BONUS * depth,
+          CONT_HISTORY_BONUS_MAX);
+  int quiet_bonus =
+      MIN(QUIET_HISTORY_BASE_BONUS + QUIET_HISTORY_FACTOR_BONUS * depth,
+          QUIET_HISTORY_BONUS_MAX);
+  int pawn_bonus =
+      MIN(PAWN_HISTORY_BASE_BONUS + PAWN_HISTORY_FACTOR_BONUS * depth,
+          PAWN_HISTORY_BONUS_MAX);
 
-  int cont_malus = -MIN(value, CONT_HISTORY_MALUS_MAX);
-  int quiet_malus = -MIN(value, QUIET_HISTORY_MALUS_MAX);
-  int pawn_malus = -MIN(value, PAWN_HISTORY_MALUS_MAX);
+  int cont_malus =
+      -MIN(CONT_HISTORY_BASE_MALUS + CONT_HISTORY_FACTOR_MALUS * depth,
+           CONT_HISTORY_MALUS_MAX);
+  int quiet_malus =
+      -MIN(QUIET_HISTORY_BASE_MALUS + QUIET_HISTORY_FACTOR_MALUS * depth,
+           QUIET_HISTORY_MALUS_MAX);
+  int pawn_malus =
+      -MIN(PAWN_HISTORY_BASE_MALUS + PAWN_HISTORY_FACTOR_MALUS * depth,
+           PAWN_HISTORY_MALUS_MAX);
   for (uint32_t i = 0; i < quiet_moves->count; ++i) {
     uint16_t move = quiet_moves->entry[i].move;
     if (move == best_move) {
