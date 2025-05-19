@@ -153,7 +153,7 @@ static inline void update_pawn_history(thread_t *thread, int move, int bonus) {
 
 void update_capture_history_moves(thread_t *thread, moves *capture_moves,
                                   int best_move, uint8_t depth) {
-  int value = 16 * depth * depth + 32 * depth + 16;
+  int value = 10 + 200 * depth;
   int capt_bonus = MIN(value, CAPTURE_HISTORY_BONUS_MAX);
   int capt_malus = -MIN(value, CAPTURE_HISTORY_MALUS_MAX);
   for (uint32_t i = 0; i < capture_moves->count; ++i) {
@@ -173,7 +173,7 @@ int16_t get_conthist_score(thread_t *thread, searchstack_t *ss, int move) {
 
 void update_quiet_histories(thread_t *thread, searchstack_t *ss,
                             moves *quiet_moves, int best_move, uint8_t depth) {
-  int value = 16 * depth * depth + 32 * depth + 16;
+  int value = 10 + 200 * depth;
   int cont_bonus = MIN(value, CONT_HISTORY_BONUS_MAX);
   int quiet_bonus = MIN(value, QUIET_HISTORY_BONUS_MAX);
   int pawn_bonus = MIN(value, PAWN_HISTORY_BONUS_MAX);
