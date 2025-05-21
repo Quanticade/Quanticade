@@ -626,12 +626,12 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   // moves seen counter
   uint16_t moves_seen = 0;
 
-  if (!pv_node && !in_check && !ss->excluded_move) {
+  if (!in_check && !ss->excluded_move) {
     if ((ss - 1)->reduction >= 3 && !opponent_worsening) {
       ++depth;
     }
     // Reverse Futility Pruning
-    if (depth <= RFP_DEPTH) {
+    if (!ss->tt_pv && depth <= RFP_DEPTH) {
       // get static evaluation score
 
       // define evaluation margin
@@ -644,7 +644,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     }
 
     // null move pruning
-    if (!ss->null_move && ss->eval >= beta && depth >= NMP_DEPTH &&
+    if (!pv_node && !ss->null_move && ss->eval >= beta && depth >= NMP_DEPTH &&
         !only_pawns(pos)) {
       int R = MIN((ss->eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) +
               depth / NMP_DIVISER + NMP_BASE_REDUCTION;
@@ -708,7 +708,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
         return current_score;
     }
 
-    if (depth <= RAZOR_DEPTH &&
+    if (!pv_node && depth <= RAZOR_DEPTH &&
         ss->static_eval + RAZOR_MARGIN * depth < alpha) {
       const int16_t razor_score =
           quiescence(pos, thread, ss, alpha, beta, NON_PV);
