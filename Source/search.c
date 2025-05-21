@@ -248,6 +248,9 @@ static inline void score_move(position_t *pos, thread_t *thread,
           thread->pawn_history[pos->hash_keys.pawn_key % 32767]
                               [pos->mailbox[get_move_source(move)]]
                               [get_move_target(move)];
+      if (pos->ply < 5) {
+        move_entry->score += 8 * thread->low_ply_history[pos->ply][get_move_source(move)][get_move_target(move)] / (1 + 2 * pos->ply);
+      }
     }
 
     return;
@@ -981,7 +984,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
         if (alpha >= beta) {
           // on quiet moves
           if (quiet) {
-            update_quiet_histories(thread, ss, quiet_list, best_move, depth);
+            update_quiet_histories(thread, ss, quiet_list, best_move, depth, pos->ply);
             thread->killer_moves[pos->ply] = move;
           }
 
