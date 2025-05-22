@@ -631,14 +631,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       ++depth;
     }
     // Reverse Futility Pruning
-    if (depth <= RFP_DEPTH) {
-      // get static evaluation score
-
-      // define evaluation margin
-      uint16_t eval_margin = RFP_MARGIN * depth - 59 * improving;
-
-      // evaluation margin substracted from static evaluation score fails high
-      if (ss->eval - eval_margin >= beta)
+    if (depth <= RFP_DEPTH && ss->eval >= beta + RFP_MARGIN * depth - 59 * improving) {
         // evaluation margin substracted from static evaluation score
         return beta + (ss->eval - beta) / 3;
     }
