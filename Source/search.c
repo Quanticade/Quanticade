@@ -891,10 +891,6 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
     prefetch_hash_entry(pos->hash_keys.hash_key);
 
-    if (in_check) {
-      extensions++;
-    }
-
     uint64_t nodes_before_search = thread->nodes;
 
     // PVS & LMR
