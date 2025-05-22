@@ -739,7 +739,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   while (move_index < move_list->count) {
     uint16_t move = pick_next_best_move(move_list, &move_index).move;
     uint8_t quiet =
-        (get_move_capture(move) == 0 && is_move_promotion(move) == 0);
+        (get_move_capture(move) == 0 && (is_move_promotion(move) != Q || is_move_promotion(move) != q));
 
     if (move == ss->excluded_move) {
       continue;
