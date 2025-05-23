@@ -565,6 +565,9 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     return quiescence(pos, thread, ss, alpha, beta, pv_node);
   }
 
+  // In case depth is -1 we have to make it 0
+  depth = MAX(0, depth);
+
   tt_entry_t *tt_entry = read_hash_entry(pos, &tt_hit);
 
   if (tt_hit) {
