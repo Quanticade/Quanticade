@@ -375,28 +375,39 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     return tt_score;
   }
 
-  raw_static_eval = tt_static_eval != NO_SCORE
-                        ? tt_static_eval
-                        : evaluate(pos, &thread->accumulator[pos->ply]);
-  ss->static_eval = adjust_static_eval(thread, pos, raw_static_eval);
+  // is king in check
+  uint8_t in_check = is_square_attacked(
+      pos,
+      (pos->side == white) ? __builtin_ctzll(pos->bitboards[K])
+                           : __builtin_ctzll(pos->bitboards[k]),
+      pos->side ^ 1);
 
-  if (tt_hit && can_use_score(best_score, best_score, tt_score, tt_flag)) {
-    best_score = tt_score;
+  if (in_check) {
+    raw_static_eval = ss->static_eval = NO_SCORE;
   } else {
-    best_score = ss->static_eval;
-  }
+    raw_static_eval = tt_static_eval != NO_SCORE
+                          ? tt_static_eval
+                          : evaluate(pos, &thread->accumulator[pos->ply]);
+    ss->static_eval = adjust_static_eval(thread, pos, raw_static_eval);
 
-  // fail-hard beta cutoff
-  if (best_score >= beta) {
-    if (abs(best_score) < MATE_SCORE && abs(beta) < MATE_SCORE) {
-      best_score = (best_score + beta) / 2;
+    if (tt_hit && can_use_score(best_score, best_score, tt_score, tt_flag)) {
+      best_score = tt_score;
+    } else {
+      best_score = ss->static_eval;
     }
-    // node (position) fails high
-    return best_score;
-  }
 
-  // found a better move
-  alpha = MAX(alpha, best_score);
+    // fail-hard beta cutoff
+    if (best_score >= beta) {
+      if (abs(best_score) < MATE_SCORE && abs(beta) < MATE_SCORE) {
+        best_score = (best_score + beta) / 2;
+      }
+      // node (position) fails high
+      return best_score;
+    }
+
+    // found a better move
+    alpha = MAX(alpha, best_score);
+  }
 
   // create move list instance
   moves move_list[1];
@@ -404,13 +415,18 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   capture_list->count = 0;
 
   // generate moves
-  generate_noisy(pos, move_list);
+  if (!in_check) {
+    generate_noisy(pos, move_list);
+  } else {
+    generate_moves(pos, move_list);
+  }
 
   for (uint32_t count = 0; count < move_list->count; count++) {
     score_move(pos, thread, ss, &move_list->entry[count], best_move);
   }
 
   uint16_t move_index = 0;
+  uint16_t moves_seen = 0;
 
   // loop over moves within a movelist
 
@@ -442,6 +458,8 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
       // skip to next move
       continue;
     }
+
+    moves_seen++;
 
     update_nnue(pos, thread, pos_copy.mailbox, move);
 
@@ -497,6 +515,15 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 
   write_hash_entry(tt_entry, pos, best_score, raw_static_eval, 0, best_move,
                    hash_flag, tt_was_pv);
+
+  // we don't have any legal moves to make in the current postion
+  if (moves_seen == 0) {
+    // king is in check
+    if (in_check) {
+      // return mating score (assuming closest distance to mating position)
+      return -MATE_VALUE + pos->ply;
+    }
+  }
 
   return best_score;
 }
@@ -560,7 +587,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       pos->side ^ 1);
 
   // recursion escape condition
-  if (!in_check && depth <= 0) {
+  if (depth <= 0) {
     // run quiescence search
     return quiescence(pos, thread, ss, alpha, beta, pv_node);
   }
@@ -902,7 +929,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     R = R / 1024;
     int reduced_depth = MAX(1, MIN(new_depth - R, new_depth));
 
-    //LMR
+    // LMR
     if (depth >= 2 && moves_seen > 2 + 2 * pv_node) {
       ss->reduction = R;
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
@@ -919,7 +946,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
                                    new_depth, !cutnode, NON_PV);
         }
       }
-    // Full Depth Search
+      // Full Depth Search
     } else if (!pv_node || moves_seen > 1) {
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                new_depth, !cutnode, NON_PV);
