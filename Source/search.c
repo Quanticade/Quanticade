@@ -912,7 +912,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
                                reduced_depth, 1, NON_PV);
       ss->reduction = 0;
 
-      if (current_score > alpha && R != 0) {
+      if (current_score > alpha && new_depth > reduced_depth) {
         new_depth +=
             (current_score > best_score + LMR_DEEPER_MARGIN + 2 * new_depth);
         new_depth -= (current_score < best_score + LMR_SHALLOWER_MARGIN);
