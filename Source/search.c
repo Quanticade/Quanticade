@@ -524,7 +524,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   uint8_t root_node = pos->ply == 0;
 
   // Limit depth to MAX_PLY - 1 in case extensions make it too big
-  depth = MIN(depth, MAX_PLY - 1);
+  depth = clamp(depth, 0, MAX_PLY - 1);
 
   if (depth == 0 && pos->ply > thread->seldepth) {
     thread->seldepth = pos->ply;
@@ -564,9 +564,6 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     // run quiescence search
     return quiescence(pos, thread, ss, alpha, beta, pv_node);
   }
-
-  // In case depth is -1 we have to make it 0
-  depth = MAX(0, depth);
 
   tt_entry_t *tt_entry = read_hash_entry(pos, &tt_hit);
 
