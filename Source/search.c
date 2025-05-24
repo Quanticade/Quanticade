@@ -634,9 +634,10 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       ++depth;
     }
     // Reverse Futility Pruning
-    if (depth <= RFP_DEPTH && ss->eval >= beta + RFP_MARGIN * depth - 59 * improving) {
-        // evaluation margin substracted from static evaluation score
-        return beta + (ss->eval - beta) / 3;
+    if (depth <= RFP_DEPTH &&
+        ss->eval >= beta + RFP_MARGIN * depth - 59 * improving) {
+      // evaluation margin substracted from static evaluation score
+      return beta + (ss->eval - beta) / 3;
     }
 
     // null move pruning
@@ -904,6 +905,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     R = R / 1024;
     int reduced_depth = MAX(1, MIN(new_depth - R, new_depth));
 
+    //LMR
     if (depth >= 2 && moves_seen > 2 + 2 * pv_node) {
       ss->reduction = R;
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
@@ -915,14 +917,18 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
             (current_score > best_score + LMR_DEEPER_MARGIN + 2 * new_depth);
         new_depth -= (current_score < best_score + LMR_SHALLOWER_MARGIN);
 
-        current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
-                                 new_depth, !cutnode, NON_PV);
+        if (new_depth > reduced_depth) {
+          current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
+                                   new_depth, !cutnode, NON_PV);
+        }
       }
+    // Full Depth Search
     } else if (!pv_node || moves_seen > 1) {
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                new_depth, !cutnode, NON_PV);
     }
 
+    // Principal Variation Search
     if (pv_node && (moves_seen == 1 || current_score > alpha)) {
       current_score =
           -negamax(pos, thread, ss + 1, -beta, -alpha, new_depth, 0, PV_NODE);
