@@ -152,7 +152,7 @@ static inline void update_capture_history(thread_t *thread, int move,
           abs(bonus) / HISTORY_MAX;
 }
 
-static inline void update_continuation_history(thread_t *thread,
+void update_continuation_history(thread_t *thread,
                                                searchstack_t *ss, int move,
                                                int bonus) {
   int prev_piece = ss->piece;

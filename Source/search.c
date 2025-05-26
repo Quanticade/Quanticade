@@ -902,7 +902,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     R = R / 1024;
     int reduced_depth = MAX(1, MIN(new_depth - R, new_depth));
 
-    //LMR
+    // LMR
     if (depth >= 2 && moves_seen > 2 + 2 * pv_node) {
       ss->reduction = R;
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
@@ -917,9 +917,16 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
         if (new_depth > reduced_depth) {
           current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                    new_depth, !cutnode, NON_PV);
+
+          if (quiet) {
+            int bonus = MIN(-300 + 190 * depth, 1050);
+            update_continuation_history(thread, ss - 1, move, bonus);
+            update_continuation_history(thread, ss - 2, move, bonus);
+            update_continuation_history(thread, ss - 4, move, bonus);
+          }
         }
       }
-    // Full Depth Search
+      // Full Depth Search
     } else if (!pv_node || moves_seen > 1) {
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                new_depth, !cutnode, NON_PV);
