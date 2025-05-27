@@ -9,7 +9,8 @@ Since Fenrir release Quanticade is top 18th engine from the CCRL blitz rating li
 
 |         | CCRL Blitz    | CCRL 40/15 | CEGT 40/20 |
 |---------|---------------|------------|------------|
-| Fenrir  | 3669 (Top 18) | Est 3560   | Untested   |
+| Orion   | Est 3685      | Est 3565   | Untested   |
+| Fenrir  | 3669 (Top 18) | 3559       | Untested   |
 | Chimera | 3619          | 3515       | Untested   |
 | Electra | 3552          | 3487       | 3410       |
 | Aurora  | 3465          | 3406       | Untested   |
