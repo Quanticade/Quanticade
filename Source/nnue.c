@@ -123,16 +123,30 @@ static inline void transpose() {
 int nnue_init_incbin(void) {
   uint64_t memoryIndex = 0;
   memcpy(net.feature_weights, &gEVALData[memoryIndex],
-         INPUT_WEIGHTS * L1_SIZE * KING_BUCKETS * sizeof(int16_t));
-  memoryIndex += INPUT_WEIGHTS * L1_SIZE * KING_BUCKETS * sizeof(int16_t);
-  memcpy(net.feature_bias, &gEVALData[memoryIndex], L1_SIZE * sizeof(int16_t));
-  memoryIndex += L1_SIZE * sizeof(int16_t);
+         sizeof(net.feature_weights));
+  memoryIndex += sizeof(net.feature_weights);
+  memcpy(net.feature_bias, &gEVALData[memoryIndex], sizeof(net.feature_bias));
+  memoryIndex += sizeof(net.feature_bias);
 
   memcpy(&net.l1_weights, &gEVALData[memoryIndex],
-         L1_SIZE * sizeof(int16_t) * 2 * OUTPUT_BUCKETS);
-  memoryIndex += L1_SIZE * sizeof(int16_t) * 2 * OUTPUT_BUCKETS;
+    sizeof(net.l1_weights));
+  memoryIndex += sizeof(net.l1_weights);
   memcpy(&net.l1_bias, &gEVALData[memoryIndex],
-         OUTPUT_BUCKETS * sizeof(int16_t));
+    sizeof(net.l1_bias));
+  memoryIndex += sizeof(net.l1_bias);
+
+  memcpy(&net.l2_weights, &gEVALData[memoryIndex],
+    sizeof(net.l2_weights));
+  memoryIndex += sizeof(net.l2_weights);
+  memcpy(&net.l2_bias, &gEVALData[memoryIndex],
+    sizeof(net.l2_bias));
+  memoryIndex += sizeof(net.l2_bias);
+
+  memcpy(&net.l3_weights, &gEVALData[memoryIndex],
+    sizeof(net.l3_weights));
+  memoryIndex += sizeof(net.l3_weights);
+  memcpy(&net.l3_bias, &gEVALData[memoryIndex],
+    sizeof(net.l3_bias));
   return 1;
 }
 
@@ -180,6 +194,7 @@ void nnue_init(const char *nnue_file_name) {
     // after reading the config we can close the file
     fclose(nn);
   } else {
+    printf("NNUE file not found. Loading from incbin\n");
     if (nnue_init_incbin() == 0) {
       printf("Failed to load network from incbin. Exiting\n");
       exit(1);
