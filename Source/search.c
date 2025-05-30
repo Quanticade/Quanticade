@@ -919,7 +919,12 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
                                    new_depth, !cutnode, NON_PV);
 
           if (quiet) {
-            int bonus = MIN(-300 + 190 * depth, 1050);
+            int bonus = 0;
+            if (current_score >= beta) {
+              bonus = MIN(-300 + 190 * depth, 1200);
+            } else if (current_score <= alpha) {
+              bonus = -MIN(-260 + 190 * depth, 1100);
+            }
             update_continuation_history(thread, ss - 1, move, bonus);
             update_continuation_history(thread, ss - 2, move, bonus);
             update_continuation_history(thread, ss - 4, move, bonus);
