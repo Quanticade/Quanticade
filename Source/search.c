@@ -626,6 +626,10 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   // moves seen counter
   uint16_t moves_seen = 0;
 
+  uint8_t potential_singularity =
+      depth >= SE_DEPTH && tt_depth >= depth - SE_DEPTH_REDUCTION &&
+      tt_flag != HASH_FLAG_UPPER_BOUND && abs(tt_score) < MATE_SCORE;
+
   if (!pv_node && !in_check && !ss->excluded_move) {
     if ((ss - 1)->reduction >= 3 && !opponent_worsening) {
       ++depth;
@@ -639,7 +643,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
     // null move pruning
     if (!ss->null_move && ss->eval >= beta && depth >= NMP_DEPTH &&
-        !only_pawns(pos)) {
+        !only_pawns(pos) && !potential_singularity) {
       int R = MIN((ss->eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) +
               depth / NMP_DIVISER + NMP_BASE_REDUCTION;
       R = MIN(R, depth);
@@ -792,10 +796,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     // A rather simple idea that if our TT move is accurate we run a reduced
     // search to see if we can beat this score. If not we extend the TT move
     // search
-    if (pos->ply < thread->depth * 2 && !root_node && depth >= SE_DEPTH &&
-        move == tt_move && !ss->excluded_move &&
-        tt_depth >= depth - SE_DEPTH_REDUCTION &&
-        tt_flag != HASH_FLAG_UPPER_BOUND && abs(tt_score) < MATE_SCORE) {
+    if (pos->ply < thread->depth * 2 && !root_node && !ss->excluded_move &&
+        move == tt_move && potential_singularity) {
       const int s_beta = tt_score - depth;
       const int s_depth = 3 * (depth - 1) / 8;
 
@@ -902,7 +904,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     R = R / 1024;
     int reduced_depth = MAX(1, MIN(new_depth - R, new_depth));
 
-    //LMR
+    // LMR
     if (depth >= 2 && moves_seen > 2 + 2 * pv_node) {
       ss->reduction = R;
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
@@ -919,7 +921,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
                                    new_depth, !cutnode, NON_PV);
         }
       }
-    // Full Depth Search
+      // Full Depth Search
     } else if (!pv_node || moves_seen > 1) {
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                new_depth, !cutnode, NON_PV);
