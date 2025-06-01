@@ -983,6 +983,9 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
           update_capture_history_moves(thread, capture_list, best_move, depth);
           break;
         }
+        if (depth > 2 && depth < 16 && abs(current_score) < MATE_SCORE) {
+          depth--;
+        }
       }
     }
   }
