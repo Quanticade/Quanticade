@@ -128,25 +128,19 @@ int nnue_init_incbin(void) {
   memcpy(net.feature_bias, &gEVALData[memoryIndex], sizeof(net.feature_bias));
   memoryIndex += sizeof(net.feature_bias);
 
-  memcpy(&net.l1_weights, &gEVALData[memoryIndex],
-    sizeof(net.l1_weights));
+  memcpy(&net.l1_weights, &gEVALData[memoryIndex], sizeof(net.l1_weights));
   memoryIndex += sizeof(net.l1_weights);
-  memcpy(&net.l1_bias, &gEVALData[memoryIndex],
-    sizeof(net.l1_bias));
+  memcpy(&net.l1_bias, &gEVALData[memoryIndex], sizeof(net.l1_bias));
   memoryIndex += sizeof(net.l1_bias);
 
-  memcpy(&net.l2_weights, &gEVALData[memoryIndex],
-    sizeof(net.l2_weights));
+  memcpy(&net.l2_weights, &gEVALData[memoryIndex], sizeof(net.l2_weights));
   memoryIndex += sizeof(net.l2_weights);
-  memcpy(&net.l2_bias, &gEVALData[memoryIndex],
-    sizeof(net.l2_bias));
+  memcpy(&net.l2_bias, &gEVALData[memoryIndex], sizeof(net.l2_bias));
   memoryIndex += sizeof(net.l2_bias);
 
-  memcpy(&net.l3_weights, &gEVALData[memoryIndex],
-    sizeof(net.l3_weights));
+  memcpy(&net.l3_weights, &gEVALData[memoryIndex], sizeof(net.l3_weights));
   memoryIndex += sizeof(net.l3_weights);
-  memcpy(&net.l3_bias, &gEVALData[memoryIndex],
-    sizeof(net.l3_bias));
+  memcpy(&net.l3_bias, &gEVALData[memoryIndex], sizeof(net.l3_bias));
   return 1;
 }
 
@@ -472,6 +466,7 @@ int nnue_evaluate(position_t *pos, accumulator_t *accumulator) {
     float l2Result = (float)(l2Neurons[l2]) * L1_NORMALISATION +
                      (nnue.l1_bias[out_bucket][l2]);
     float l2Activated = crelu_float(l2Result);
+    l2Activated *= l2Activated;
 
     for (int l3 = 0; l3 < L3_SIZE; l3++) {
       l3Neurons[l3] += l2Activated * nnue.l2_weights[out_bucket][l2][l3];
@@ -481,6 +476,7 @@ int nnue_evaluate(position_t *pos, accumulator_t *accumulator) {
   float result = nnue.l3_bias[out_bucket];
   for (int l3 = 0; l3 < L3_SIZE; l3++) {
     float l3Activated = crelu_float(l3Neurons[l3]);
+    l3Activated *= l3Activated;
     result += l3Activated * nnue.l3_weights[out_bucket][l3];
   }
   // TODO reduce add
