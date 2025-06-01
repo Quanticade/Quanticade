@@ -638,8 +638,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     }
 
     // null move pruning
-    if (!ss->null_move && ss->eval >= beta && depth >= NMP_DEPTH &&
-        !only_pawns(pos)) {
+    if (!ss->null_move && depth >= NMP_DEPTH && ss->eval >= beta &&
+        ss->eval >= ss->static_eval && !only_pawns(pos)) {
       int R = MIN((ss->eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) +
               depth / NMP_DIVISER + NMP_BASE_REDUCTION;
       R = MIN(R, depth);
@@ -902,7 +902,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     R = R / 1024;
     int reduced_depth = MAX(1, MIN(new_depth - R, new_depth));
 
-    //LMR
+    // LMR
     if (depth >= 2 && moves_seen > 2 + 2 * pv_node) {
       ss->reduction = R;
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
@@ -919,7 +919,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
                                    new_depth, !cutnode, NON_PV);
         }
       }
-    // Full Depth Search
+      // Full Depth Search
     } else if (!pv_node || moves_seen > 1) {
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                new_depth, !cutnode, NON_PV);
