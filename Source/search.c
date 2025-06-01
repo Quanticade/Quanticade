@@ -412,6 +412,12 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 
   uint16_t move_index = 0;
 
+  uint16_t previous_square = 0;
+
+  if ((ss - 1)->move != 0) {
+    previous_square = get_move_target((ss - 1)->move);
+  }
+
   // loop over moves within a movelist
 
   while (move_index < move_list->count) {
@@ -419,6 +425,12 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 
     if (!SEE(pos, move, -QS_SEE_THRESHOLD))
       continue;
+
+    if (best_score > -MATE_SCORE && get_move_target(move) != previous_square) {
+      if (move_index >= 3) {
+        continue;
+      }
+    }
 
     // preserve board state
     position_t pos_copy = *pos;
@@ -902,7 +914,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     R = R / 1024;
     int reduced_depth = MAX(1, MIN(new_depth - R, new_depth));
 
-    //LMR
+    // LMR
     if (depth >= 2 && moves_seen > 2 + 2 * pv_node) {
       ss->reduction = R;
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
@@ -919,7 +931,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
                                    new_depth, !cutnode, NON_PV);
         }
       }
-    // Full Depth Search
+      // Full Depth Search
     } else if (!pv_node || moves_seen > 1) {
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                new_depth, !cutnode, NON_PV);
