@@ -828,8 +828,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       // Multicut: Singular search failed high so if singular beta beats our
       // beta we can assume the main search will also fail high and thus we can
       // just cutoff here
-      else if (s_beta >= beta) {
-        return s_beta;
+      else if (s_score >= beta) {
+        return s_score;
       }
 
       // Negative Extensions
