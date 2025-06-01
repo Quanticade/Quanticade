@@ -1073,6 +1073,8 @@ static inline uint8_t aspiration_windows(thread_t *thread, position_t *pos,
     }
 
     if (thread->depth >= ASP_DEPTH) {
+      window += thread->score * thread->score / 32768;
+
       alpha = MAX(-INF, thread->score - window);
       beta = MIN(INF, thread->score + window);
     }
@@ -1104,7 +1106,7 @@ static inline uint8_t aspiration_windows(thread_t *thread, position_t *pos,
       break;
     }
 
-    window *= ASP_MULTIPLIER;
+    window += window / 2;
   }
   return 0;
 }
