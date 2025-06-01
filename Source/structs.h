@@ -97,6 +97,7 @@ typedef struct searchinfo {
   uint64_t starttime;
   uint64_t repetition_table[1000];
   uint32_t repetition_index;
+  int32_t root_delta;
   uint16_t killer_moves[MAX_PLY];
   uint16_t index;
   int16_t score;
