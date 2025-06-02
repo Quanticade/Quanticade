@@ -79,6 +79,11 @@ static inline int32_t screlu(int16_t value) {
   return clipped * clipped;
 }
 
+static inline float screlu_float(float value) {
+  const float clipped = clamp_float(value, 0.0f, 1.0f);
+  return clipped * clipped;
+}
+
 static inline int16_t crelu(int16_t value) {
   return clamp_int32((int32_t)value, 0, INPUT_QUANT);
 }
@@ -413,7 +418,7 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
   for (int l2 = 0; l2 < L2_SIZE; l2++) {
     float l2Result = (float)(l2Neurons[l2]) * L1_NORMALISATION +
                      (nnue.l1_bias[out_bucket][l2]);
-    float l2Activated = crelu_float(l2Result);
+    float l2Activated = screlu_float(l2Result);
 
     for (int l3 = 0; l3 < L3_SIZE; l3++) {
       l3Neurons[l3] += l2Activated * nnue.l2_weights[out_bucket][l2][l3];
@@ -422,7 +427,7 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
 
   float result = nnue.l3_bias[out_bucket];
   for (int l3 = 0; l3 < L3_SIZE; l3++) {
-    float l3Activated = crelu_float(l3Neurons[l3]);
+    float l3Activated = screlu_float(l3Neurons[l3]);
     result += l3Activated * nnue.l3_weights[out_bucket][l3];
   }
   // TODO reduce add
