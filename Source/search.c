@@ -412,6 +412,12 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 
   uint16_t move_index = 0;
 
+  uint16_t previous_square = 0;
+
+  if ((ss - 1)->move != 0) {
+    previous_square = get_move_target((ss - 1)->move);
+  }
+
   // loop over moves within a movelist
 
   while (move_index < move_list->count) {
@@ -419,6 +425,12 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 
     if (!SEE(pos, move, -QS_SEE_THRESHOLD))
       continue;
+
+    if (best_score > -MATE_SCORE && get_move_target(move) != previous_square) {
+      if (move_index >= 3) {
+        continue;
+      }
+    }
 
     // preserve board state
     position_t pos_copy = *pos;
