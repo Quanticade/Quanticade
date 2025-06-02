@@ -650,8 +650,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     }
 
     // null move pruning
-    if (!ss->null_move && ss->eval >= beta && depth >= NMP_DEPTH &&
-        !only_pawns(pos)) {
+    if (!ss->null_move && depth >= NMP_DEPTH && ss->eval >= beta &&
+        ss->eval >= ss->static_eval && !only_pawns(pos)) {
       int R = MIN((ss->eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) +
               depth / NMP_DIVISER + NMP_BASE_REDUCTION;
       R = MIN(R, depth);
