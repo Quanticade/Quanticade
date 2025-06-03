@@ -101,7 +101,7 @@ static inline void transpose() {
   for (int b = 0; b < OUTPUT_BUCKETS; b++) {
     for (int l1 = 0; l1 < L1_SIZE; l1++) {
       for (int l2 = 0; l2 < L2_SIZE; l2++) {
-        nnue.l1_weights[b][l1][l2] = net.l1_weights[b][l2][l1] * L1_QUANT;
+        nnue.l1_weights[b][l1][l2] = round(net.l1_weights[b][l2][l1] * L1_QUANT);
       }
     }
   }
