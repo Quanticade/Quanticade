@@ -1073,6 +1073,7 @@ static inline uint8_t aspiration_windows(thread_t *thread, position_t *pos,
   uint16_t window = ASP_WINDOW;
 
   uint8_t fail_high_count = 0;
+  int16_t average = NO_SCORE;
 
   while (true) {
 
@@ -1086,10 +1087,10 @@ static inline uint8_t aspiration_windows(thread_t *thread, position_t *pos,
     }
 
     if (thread->depth >= ASP_DEPTH) {
-      window += thread->score * thread->score / 32768;
+      window += average* average / 32768;
 
-      alpha = MAX(-INF, thread->score - window);
-      beta = MIN(INF, thread->score + window);
+      alpha = MAX(-INF, average - window);
+      beta = MIN(INF, average + window);
     }
 
     // find best move within a given position
@@ -1116,6 +1117,7 @@ static inline uint8_t aspiration_windows(thread_t *thread, position_t *pos,
         ++fail_high_count;
       }
     } else {
+      average = average == NO_SCORE ? thread->score : (average + thread->score) / 2;
       break;
     }
 
