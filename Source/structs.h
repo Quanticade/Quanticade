@@ -133,6 +133,7 @@ typedef struct searchthread {
 } searchthreadinfo_t;
 
 typedef struct searchstack {
+  int32_t cutoff_cnt;
   uint16_t excluded_move;
   uint16_t move;
   int16_t static_eval;

@@ -629,6 +629,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     opponent_worsening = ss->static_eval + (ss - 1)->static_eval > 1;
   }
 
+  (ss + 2)->cutoff_cnt = 0;
+
   // Check on time
   if (check_time(thread)) {
     stop_threads(thread, thread_count);
@@ -912,6 +914,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     R -= (tt_depth >= depth) * LMR_TT_DEPTH;
     R -= ss->tt_pv * LMR_TT_PV;
     R += (ss->tt_pv && tt_hit && tt_score <= alpha) * LMR_TT_SCORE;
+    R += (ss->cutoff_cnt > 3) * 1024;
     R = R / 1024;
     int reduced_depth = MAX(1, MIN(new_depth - R, new_depth));
 
@@ -994,6 +997,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
           }
 
           update_capture_history_moves(thread, capture_list, best_move, depth);
+
+          ss->cutoff_cnt += 1;
           break;
         }
       }
@@ -1145,8 +1150,9 @@ void *iterative_deepening(void *thread_void) {
     int16_t alpha = -INF;
     int16_t beta = INF;
 
-    searchstack_t ss[MAX_PLY + 4];
-    for (int i = 0; i < MAX_PLY + 4; ++i) {
+    searchstack_t ss[MAX_PLY + 12];
+    for (int i = 0; i < MAX_PLY + 12; ++i) {
+      ss[i].cutoff_cnt = 0;
       ss[i].excluded_move = 0;
       ss[i].static_eval = NO_SCORE;
       ss[i].eval = NO_SCORE;
