@@ -13,6 +13,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <arm_neon.h>
+
 nnue_t nnue;
 
 struct raw_net {
@@ -101,7 +103,8 @@ static inline void transpose() {
   for (int b = 0; b < OUTPUT_BUCKETS; b++) {
     for (int l1 = 0; l1 < L1_SIZE; l1++) {
       for (int l2 = 0; l2 < L2_SIZE; l2++) {
-        nnue.l1_weights[b][l1][l2] = round(net.l1_weights[b][l2][l1] * L1_QUANT);
+        nnue.l1_weights[b][l1][l2] =
+            round(net.l1_weights[b][l2][l1] * L1_QUANT);
       }
     }
   }
@@ -435,58 +438,126 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
   return (int16_t)(result * SCALE);
 }
 
-int nnue_evaluate(position_t *pos, accumulator_t *accumulator) {
-  uint8_t out_bucket = calculate_output_bucket(pos);
+static inline int16_t nnue_evaluate_neon(accumulator_t *accumulator,
+                                         position_t *pos, int out_bucket) {
   int16_t *stmAcc = accumulator->accumulator[pos->side];
   int16_t *oppAcc = accumulator->accumulator[1 - pos->side];
 
   int8_t l1Neurons[L1_SIZE];
-  for (int l1 = 0; l1 < L1_SIZE / 2; l1++) {
-    int16_t stmClipped1 = clamp((int)(stmAcc[l1]), 0, INPUT_QUANT);
-    int16_t stmClipped2 =
-        clamp((int)(stmAcc[l1 + L1_SIZE / 2]), 0, INPUT_QUANT);
-    l1Neurons[l1] = (stmClipped1 * stmClipped2) >> INPUT_SHIFT;
+  const int16x8_t input_quant_vec = vdupq_n_s16(INPUT_QUANT);
+  const int16x8_t zero_vec = vdupq_n_s16(0);
 
-    int16_t oppClipped1 = clamp((int)(oppAcc[l1]), 0, INPUT_QUANT);
-    int16_t oppClipped2 =
-        clamp((int)(oppAcc[l1 + L1_SIZE / 2]), 0, INPUT_QUANT);
-    l1Neurons[l1 + L1_SIZE / 2] = (oppClipped1 * oppClipped2) >> INPUT_SHIFT;
+  // L1: Pairwise screlu operation, 16-wide unrolled
+  for (int i = 0; i < L1_SIZE / 2; i += 16) {
+    int16x8_t sa1 = vld1q_s16(&stmAcc[i]);
+    int16x8_t sb1 = vld1q_s16(&stmAcc[i + L1_SIZE / 2]);
+    int16x8_t sa2 = vld1q_s16(&stmAcc[i + 8]);
+    int16x8_t sb2 = vld1q_s16(&stmAcc[i + L1_SIZE / 2 + 8]);
+
+    sa1 = vmaxq_s16(zero_vec, vminq_s16(sa1, input_quant_vec));
+    sb1 = vmaxq_s16(zero_vec, vminq_s16(sb1, input_quant_vec));
+    sa2 = vmaxq_s16(zero_vec, vminq_s16(sa2, input_quant_vec));
+    sb2 = vmaxq_s16(zero_vec, vminq_s16(sb2, input_quant_vec));
+
+    int32x4_t p1_lo = vmull_s16(vget_low_s16(sa1), vget_low_s16(sb1));
+    int32x4_t p1_hi = vmull_high_s16(sa1, sb1);
+    int32x4_t p2_lo = vmull_s16(vget_low_s16(sa2), vget_low_s16(sb2));
+    int32x4_t p2_hi = vmull_high_s16(sa2, sb2);
+
+    int16x4_t r1_lo = vshrn_n_s32(p1_lo, INPUT_SHIFT);
+    int16x4_t r1_hi = vshrn_n_s32(p1_hi, INPUT_SHIFT);
+    int16x4_t r2_lo = vshrn_n_s32(p2_lo, INPUT_SHIFT);
+    int16x4_t r2_hi = vshrn_n_s32(p2_hi, INPUT_SHIFT);
+
+    vst1_s8(&l1Neurons[i], vmovn_s16(vcombine_s16(r1_lo, r1_hi)));
+    vst1_s8(&l1Neurons[i + 8], vmovn_s16(vcombine_s16(r2_lo, r2_hi)));
+
+    // Opponent side
+    int16x8_t oa1 = vld1q_s16(&oppAcc[i]);
+    int16x8_t ob1 = vld1q_s16(&oppAcc[i + L1_SIZE / 2]);
+    int16x8_t oa2 = vld1q_s16(&oppAcc[i + 8]);
+    int16x8_t ob2 = vld1q_s16(&oppAcc[i + L1_SIZE / 2 + 8]);
+
+    oa1 = vmaxq_s16(zero_vec, vminq_s16(oa1, input_quant_vec));
+    ob1 = vmaxq_s16(zero_vec, vminq_s16(ob1, input_quant_vec));
+    oa2 = vmaxq_s16(zero_vec, vminq_s16(oa2, input_quant_vec));
+    ob2 = vmaxq_s16(zero_vec, vminq_s16(ob2, input_quant_vec));
+
+    int32x4_t q1_lo = vmull_s16(vget_low_s16(oa1), vget_low_s16(ob1));
+    int32x4_t q1_hi = vmull_high_s16(oa1, ob1);
+    int32x4_t q2_lo = vmull_s16(vget_low_s16(oa2), vget_low_s16(ob2));
+    int32x4_t q2_hi = vmull_high_s16(oa2, ob2);
+
+    int16x4_t s1_lo = vshrn_n_s32(q1_lo, INPUT_SHIFT);
+    int16x4_t s1_hi = vshrn_n_s32(q1_hi, INPUT_SHIFT);
+    int16x4_t s2_lo = vshrn_n_s32(q2_lo, INPUT_SHIFT);
+    int16x4_t s2_hi = vshrn_n_s32(q2_hi, INPUT_SHIFT);
+
+    vst1_s8(&l1Neurons[i + L1_SIZE / 2], vmovn_s16(vcombine_s16(s1_lo, s1_hi)));
+    vst1_s8(&l1Neurons[i + L1_SIZE / 2 + 8],
+            vmovn_s16(vcombine_s16(s2_lo, s2_hi)));
   }
 
-  int l2Neurons[L2_SIZE] = {0};
-
-  for (int l1 = 0; l1 < L1_SIZE; l1++) {
-    for (int l2 = 0; l2 < L2_SIZE; l2++) {
-      l2Neurons[l2] += l1Neurons[l1] * nnue.l1_weights[out_bucket][l1][l2];
-    }
+  // L2: Weighted sum over L1Neurons
+  _Alignas(16) int32_t l2Neurons[L2_SIZE] = {0};
+  for (int l1 = 0; l1 < L1_SIZE; ++l1) {
+    int8_t val = l1Neurons[l1];
+    const int8_t *w = nnue.l1_weights[out_bucket][l1];
+    for (int l2 = 0; l2 < L2_SIZE; ++l2)
+      l2Neurons[l2] += val * w[l2];
   }
 
-  float l3Neurons[L3_SIZE];
+  // L3 input init (copy l2_bias)
+  _Alignas(16) float l3Neurons[L3_SIZE];
   memcpy(l3Neurons, nnue.l2_bias[out_bucket], sizeof(l3Neurons));
 
   const float L1_NORMALISATION =
       (float)(1 << INPUT_SHIFT) / (float)(INPUT_QUANT * INPUT_QUANT * L1_QUANT);
 
-  for (int l2 = 0; l2 < L2_SIZE; l2++) {
-    float l2Result = (float)(l2Neurons[l2]) * L1_NORMALISATION +
-                     (nnue.l1_bias[out_bucket][l2]);
-    float l2Activated = crelu_float(l2Result);
-    l2Activated *= l2Activated;
+  // L2 → L3 processing
+  for (int l2 = 0; l2 < L2_SIZE; ++l2) {
+    float val =
+        (float)l2Neurons[l2] * L1_NORMALISATION + nnue.l1_bias[out_bucket][l2];
 
-    for (int l3 = 0; l3 < L3_SIZE; l3++) {
-      l3Neurons[l3] += l2Activated * nnue.l2_weights[out_bucket][l2][l3];
+    // screlu activation
+    if (val < 0.0f)
+      val = 0.0f;
+    else if (val > 1.0f)
+      val = 1.0f;
+    val *= val;
+
+    float32x4_t val_vec = vdupq_n_f32(val);
+    for (int l3 = 0; l3 < L3_SIZE; l3 += 4) {
+      float32x4_t l3v = vld1q_f32(&l3Neurons[l3]);
+      float32x4_t wv = vld1q_f32(&nnue.l2_weights[out_bucket][l2][l3]);
+      vst1q_f32(&l3Neurons[l3], vfmaq_f32(l3v, val_vec, wv));
     }
   }
 
+  // Final layer: L3 → scalar output
   float result = nnue.l3_bias[out_bucket];
-  for (int l3 = 0; l3 < L3_SIZE; l3++) {
-    float l3Activated = crelu_float(l3Neurons[l3]);
-    l3Activated *= l3Activated;
-    result += l3Activated * nnue.l3_weights[out_bucket][l3];
-  }
-  // TODO reduce add
+  float32x4_t result_vec = vdupq_n_f32(0.0f);
+  float32x4_t zero_f = vdupq_n_f32(0.0f);
+  float32x4_t one_f = vdupq_n_f32(1.0f);
 
+  for (int l3 = 0; l3 < L3_SIZE; l3 += 4) {
+    float32x4_t lv = vld1q_f32(&l3Neurons[l3]);
+    float32x4_t wv = vld1q_f32(&nnue.l3_weights[out_bucket][l3]);
+
+    lv = vmaxq_f32(lv, zero_f);
+    lv = vminq_f32(lv, one_f);
+    lv = vmulq_f32(lv, lv);
+
+    result_vec = vfmaq_f32(result_vec, lv, wv);
+  }
+
+  result += vaddvq_f32(result_vec);
   return (int16_t)(result * SCALE);
+}
+
+int nnue_evaluate(position_t *pos, accumulator_t *accumulator) {
+  uint8_t out_bucket = calculate_output_bucket(pos);
+  return nnue_evaluate_neon(accumulator, pos, out_bucket);
 }
 
 static inline void
