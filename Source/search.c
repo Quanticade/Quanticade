@@ -1112,7 +1112,7 @@ static inline uint8_t aspiration_windows(thread_t *thread, position_t *pos,
     else if (thread->score >= beta) {
       beta = MIN(INF, beta + window);
 
-      if (alpha < 2000 && fail_high_count < 2) {
+      if (alpha < 2000) {
         ++fail_high_count;
       }
     } else {
