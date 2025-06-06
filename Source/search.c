@@ -1120,7 +1120,7 @@ static inline uint8_t aspiration_windows(thread_t *thread, position_t *pos,
       break;
     }
 
-    window += window / 2;
+    window += window * (3 + fail_high_count) / 8;
   }
   return 0;
 }
