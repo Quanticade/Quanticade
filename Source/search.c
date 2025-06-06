@@ -643,14 +643,15 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       ++depth;
     }
     // Reverse Futility Pruning
-    if (depth <= RFP_DEPTH &&
-        ss->eval >= beta + RFP_MARGIN * depth - 59 * improving + 25 - 12 * opponent_worsening) {
+    if (depth <= RFP_DEPTH && ss->eval >= beta + RFP_MARGIN * depth -
+                                              59 * improving + 25 -
+                                              12 * opponent_worsening) {
       // evaluation margin substracted from static evaluation score
       return beta + (ss->eval - beta) / 3;
     }
 
     // null move pruning
-    if (!ss->null_move && depth >= NMP_DEPTH && ss->eval >= beta &&
+    if (!ss->null_move && ss->eval >= beta &&
         ss->static_eval >= beta - 20 * depth + 180 &&
         ss->eval >= ss->static_eval && !only_pawns(pos)) {
       int R = MIN((ss->eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) +
