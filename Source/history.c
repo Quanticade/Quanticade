@@ -144,11 +144,16 @@ static inline void update_capture_history(thread_t *thread, int move,
                                           int bonus) {
   int from = get_move_source(move);
   int target = get_move_target(move);
+  int prev_target_piece =
+      get_move_enpassant(move) == 0 ? thread->pos.mailbox[get_move_target(move)]
+      : thread->pos.side ? thread->pos.mailbox[get_move_target(move) - 8]
+                         : thread->pos.mailbox[get_move_target(move) + 8];
+
   thread->capture_history[thread->pos.mailbox[from]]
-                         [thread->pos.mailbox[target]][from][target] +=
+                         [prev_target_piece][from][target] +=
       bonus -
       thread->capture_history[thread->pos.mailbox[from]]
-                             [thread->pos.mailbox[target]][from][target] *
+                             [prev_target_piece][from][target] *
           abs(bonus) / HISTORY_MAX;
 }
 
