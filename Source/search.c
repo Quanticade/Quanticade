@@ -615,6 +615,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     }
   }
 
+  int16_t correction_value = abs(get_correction_value(thread, pos)) / 1024;
+
   uint8_t improving = 0;
   uint8_t opponent_worsening = 0;
 
@@ -630,8 +632,6 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     stop_threads(thread, thread_count);
     return 0;
   }
-
-  int16_t correction_value = get_correction_value(thread, pos);
 
   // moves seen counter
   uint16_t moves_seen = 0;
@@ -911,6 +911,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     R -= (tt_depth >= depth) * LMR_TT_DEPTH;
     R -= ss->tt_pv * LMR_TT_PV;
     R += (ss->tt_pv && tt_hit && tt_score <= alpha) * LMR_TT_SCORE;
+    R -= (correction_value > 14) * 1024;
     R = R / 1024;
     int reduced_depth = MAX(1, MIN(new_depth - R, new_depth));
 
