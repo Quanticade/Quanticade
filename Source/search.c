@@ -909,6 +909,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     R -= (tt_depth >= depth) * LMR_TT_DEPTH;
     R -= ss->tt_pv * LMR_TT_PV;
     R += (ss->tt_pv && tt_hit && tt_score <= alpha) * LMR_TT_SCORE;
+    R -= moves_seen * 54;
+    R += 254;
     R = R / 1024;
     int reduced_depth = MAX(1, MIN(new_depth - R, new_depth));
 
