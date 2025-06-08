@@ -177,7 +177,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
     switch (piece) {
     case q:
     case Q:
-      move_entry->score = 1400000001;
+      move_entry->score = 1410000000;
       break;
     case n:
     case N:
@@ -216,7 +216,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
 
     // score move by MVV LVA lookup [source piece][target piece]
     move_entry->score +=
-        2000 * mvv[target_piece > 5 ? target_piece - 6 : target_piece] / 128;
+        1024 * mvv[target_piece > 5 ? target_piece - 6 : target_piece] / 1024;
     move_entry->score +=
         1024 *
         thread
@@ -243,9 +243,9 @@ static inline void score_move(position_t *pos, thread_t *thread,
                                    [get_move_source(move)]
                                    [get_move_target(move)] /
               1024 +
-          900 * get_conthist_score(thread, ss - 1, move) / 1024 +
-          900 * get_conthist_score(thread, ss - 2, move) / 1024 +
-          900 * get_conthist_score(thread, ss - 4, move) / 1024 +
+          1024 * get_conthist_score(thread, ss - 1, move) / 1024 +
+          1024 * get_conthist_score(thread, ss - 2, move) / 1024 +
+          1024 * get_conthist_score(thread, ss - 4, move) / 1024 +
           1024 *
               thread->pawn_history[pos->hash_keys.pawn_key % 32767]
                                   [pos->mailbox[get_move_source(move)]]
