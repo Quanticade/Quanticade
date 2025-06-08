@@ -216,11 +216,13 @@ static inline void score_move(position_t *pos, thread_t *thread,
 
     // score move by MVV LVA lookup [source piece][target piece]
     move_entry->score +=
-        mvv[target_piece > 5 ? target_piece - 6 : target_piece];
+        2000 * mvv[target_piece > 5 ? target_piece - 6 : target_piece] / 128;
     move_entry->score +=
+        1024 *
         thread
             ->capture_history[pos->mailbox[get_move_source(move)]][target_piece]
-                             [get_move_source(move)][get_move_target(move)];
+                             [get_move_source(move)][get_move_target(move)] /
+        1024;
     move_entry->score +=
         SEE(pos, move, -MO_SEE_THRESHOLD) ? 1000000000 : -1000000;
     return;
@@ -236,14 +238,19 @@ static inline void score_move(position_t *pos, thread_t *thread,
     // score history move
     else {
       move_entry->score =
-          thread->quiet_history[pos->mailbox[get_move_source(move)]]
-                               [get_move_source(move)][get_move_target(move)] +
-          get_conthist_score(thread, ss - 1, move) +
-          get_conthist_score(thread, ss - 2, move) +
-          get_conthist_score(thread, ss - 4, move) +
-          thread->pawn_history[pos->hash_keys.pawn_key % 32767]
-                              [pos->mailbox[get_move_source(move)]]
-                              [get_move_target(move)];
+          1024 *
+              thread->quiet_history[pos->mailbox[get_move_source(move)]]
+                                   [get_move_source(move)]
+                                   [get_move_target(move)] /
+              1024 +
+          900 * get_conthist_score(thread, ss - 1, move) / 1024 +
+          900 * get_conthist_score(thread, ss - 2, move) / 1024 +
+          900 * get_conthist_score(thread, ss - 4, move) / 1024 +
+          1024 *
+              thread->pawn_history[pos->hash_keys.pawn_key % 32767]
+                                  [pos->mailbox[get_move_source(move)]]
+                                  [get_move_target(move)] /
+              1024;
     }
 
     return;
