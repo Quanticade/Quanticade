@@ -160,70 +160,77 @@ uint8_t check_time(thread_t *thread) {
   return 0;
 }
 
-// score moves
+/*Score Moves
+This move ordering assumes few things.
+All promotions are noisy and only Q, N promotions are good
+
+Promotions are not checked for SEE (only if not capture) and MVV.
+MVV doesnt make sense for promotions as it would be first random and also would
+screw up with the ordering we want.
+
+Captures have MVV, SEE, Capture history scoring where MVV and CH have its own
+weight Quiets have Butterfly, Continuation, Pawn history each with its own
+weight
+
+Ordering:
+1. TT move
+2. Good Promotion Captures (Q, N)
+3. Promotions (Q, N)
+4. Good Captures
+5. Quiets
+6. Bad Promotion Captures (Q, R, N, B)
+7. Bad Promotions (R, B)
+8. Bad Captures*/
 static inline void score_move(position_t *pos, thread_t *thread,
                               searchstack_t *ss, move_t *move_entry,
                               uint16_t hash_move) {
   uint16_t move = move_entry->move;
-  uint8_t piece = get_move_promoted(pos->side, move);
+  uint8_t promoted_piece = get_move_promoted(pos->side, move);
+  uint8_t capture = get_move_capture(move);
+  uint8_t promotion = is_move_promotion(move);
 
   if (move == hash_move) {
     move_entry->score = 2000000000;
     return;
   }
 
-  if (piece) {
-    // We have a promotion
-    switch (piece) {
-    case q:
-    case Q:
-      move_entry->score = 1400000001;
-      break;
-    case n:
-    case N:
-      move_entry->score = 1400000000;
-      break;
-    default:
-      move_entry->score = -1000000;
-      break;
-    }
-    if (get_move_capture(move)) {
-      // The promotion is a capture and we check SEE score
-      if (SEE(pos, move, -MO_SEE_THRESHOLD)) {
-        return;
-      } else {
-        // Capture failed SEE and thus gets ordered at the bottom of the list
-        move_entry->score = -1000000;
-        return;
-      }
-    } else {
-      // We have a promotion that is not a capture. Order it below good capture
-      // promotions.
-      move_entry->score -= 100000;
-      return;
-    }
-  }
+  if (promotion || capture) {
+    uint8_t target_piece =
+        get_move_enpassant(move) == 0 ? pos->mailbox[get_move_target(move)]
+        : pos->side                   ? pos->mailbox[get_move_target(move) - 8]
+                                      : pos->mailbox[get_move_target(move) + 8];
+    move_entry->score = (promotion && !capture)             ? 1500000000
+                        : SEE(pos, move, -MO_SEE_THRESHOLD) ? 1500000000
+                                                            : -1500000000;
 
-  move_entry->score = 0;
-
-  // score capture move
-  if (get_move_capture(move)) {
-    // init target piece
-    int target_piece = get_move_enpassant(move) == 0
-                           ? pos->mailbox[get_move_target(move)]
-                       : pos->side ? pos->mailbox[get_move_target(move) - 8]
-                                   : pos->mailbox[get_move_target(move) + 8];
-
-    // score move by MVV LVA lookup [source piece][target piece]
     move_entry->score +=
-        mvv[target_piece > 5 ? target_piece - 6 : target_piece];
-    move_entry->score +=
+        1024 *
         thread
             ->capture_history[pos->mailbox[get_move_source(move)]][target_piece]
-                             [get_move_source(move)][get_move_target(move)];
-    move_entry->score +=
-        SEE(pos, move, -MO_SEE_THRESHOLD) ? 1000000000 : -1000000;
-    return;
+                             [get_move_source(move)][get_move_target(move)] /
+        1024;
+    if (promotion) {
+      move_entry->score += 100000000;
+      if (capture) {
+        move_entry->score += 100000000;
+      }
+      switch (promoted_piece) {
+      case q:
+      case Q:
+        move_entry->score += 10000000;
+        break;
+      case n:
+      case N:
+        move_entry->score += 8000000;
+        break;
+      default:
+        move_entry->score += move_entry->score < -1 ? 1000000 : -3000000000;
+        break;
+      }
+    } else {
+      move_entry->score +=
+          2000 * mvv[target_piece > 5 ? target_piece - 6 : target_piece] / 128;
+    }
   }
 
   // score quiet move
@@ -236,14 +243,19 @@ static inline void score_move(position_t *pos, thread_t *thread,
     // score history move
     else {
       move_entry->score =
-          thread->quiet_history[pos->mailbox[get_move_source(move)]]
-                               [get_move_source(move)][get_move_target(move)] +
-          get_conthist_score(thread, ss - 1, move) +
-          get_conthist_score(thread, ss - 2, move) +
-          get_conthist_score(thread, ss - 4, move) +
-          thread->pawn_history[pos->hash_keys.pawn_key % 32767]
-                              [pos->mailbox[get_move_source(move)]]
-                              [get_move_target(move)];
+          1024 *
+              thread->quiet_history[pos->mailbox[get_move_source(move)]]
+                                   [get_move_source(move)]
+                                   [get_move_target(move)] /
+              1024 +
+          1024 * get_conthist_score(thread, ss - 1, move) / 1024 +
+          1024 * get_conthist_score(thread, ss - 2, move) / 1024 +
+          1024 * get_conthist_score(thread, ss - 4, move) / 1024 +
+          1024 *
+              thread->pawn_history[pos->hash_keys.pawn_key % 32767]
+                                  [pos->mailbox[get_move_source(move)]]
+                                  [get_move_target(move)] /
+              1024;
     }
 
     return;
