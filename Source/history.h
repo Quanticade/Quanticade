@@ -14,5 +14,5 @@ void update_capture_history_moves(thread_t *thread, moves *capture_moves,
 int16_t get_conthist_score(thread_t *thread, searchstack_t *ss, int move);
 void update_quiet_histories(thread_t *thread, searchstack_t *ss,
                             moves *quiet_moves, int best_move, uint8_t depth);
-
+int16_t get_correction_value(thread_t *thread, position_t *pos);
 #endif

@@ -89,6 +89,12 @@ uint64_t generate_pawn_key(position_t *pos) {
   return final_key;
 }
 
+int16_t get_correction_value(thread_t *thread, position_t *pos) {
+  return thread
+             ->correction_history[pos->side][pos->hash_keys.pawn_key & 16383] *
+         PAWN_CORR_HISTORY_MULTIPLIER;
+}
+
 int16_t calculate_corrhist_bonus(int16_t static_eval, int16_t search_score,
                                  uint8_t depth) {
   return clamp((search_score - static_eval) * depth / 8, -CORR_HISTORY_MINMAX,
@@ -149,12 +155,11 @@ static inline void update_capture_history(thread_t *thread, int move,
       : thread->pos.side ? thread->pos.mailbox[get_move_target(move) - 8]
                          : thread->pos.mailbox[get_move_target(move) + 8];
 
-  thread->capture_history[thread->pos.mailbox[from]]
-                         [prev_target_piece][from][target] +=
-      bonus -
-      thread->capture_history[thread->pos.mailbox[from]]
-                             [prev_target_piece][from][target] *
-          abs(bonus) / HISTORY_MAX;
+  thread->capture_history[thread->pos.mailbox[from]][prev_target_piece][from]
+                         [target] +=
+      bonus - thread->capture_history[thread->pos.mailbox[from]]
+                                     [prev_target_piece][from][target] *
+                  abs(bonus) / HISTORY_MAX;
 }
 
 static inline void update_continuation_history(thread_t *thread,

@@ -631,6 +631,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     return 0;
   }
 
+  int16_t correction_value = get_correction_value(thread, pos);
+
   // moves seen counter
   uint16_t moves_seen = 0;
 
