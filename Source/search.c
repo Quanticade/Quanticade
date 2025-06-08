@@ -209,14 +209,10 @@ static inline void score_move(position_t *pos, thread_t *thread,
   // score capture move
   if (get_move_capture(move)) {
     // init target piece
-    int target_piece = P;
-
-    uint8_t bb_piece = pos->mailbox[get_move_target(move)];
-    // if there's a piece on the target square
-    if (bb_piece != NO_PIECE &&
-        get_bit(pos->bitboards[bb_piece], get_move_target(move))) {
-      target_piece = bb_piece;
-    }
+    int target_piece = get_move_enpassant(move) == 0
+                           ? pos->mailbox[get_move_target(move)]
+                       : pos->side ? pos->mailbox[get_move_target(move) - 8]
+                                   : pos->mailbox[get_move_target(move) + 8];
 
     // score move by MVV LVA lookup [source piece][target piece]
     move_entry->score +=
