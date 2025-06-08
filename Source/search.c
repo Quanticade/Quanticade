@@ -135,7 +135,7 @@ void init_reductions(void) {
 }
 
 void scale_time(thread_t *thread, uint8_t best_move_stability,
-                uint8_t eval_stability, uint16_t move) {
+                uint8_t eval_stability, uint16_t move, int16_t ply) {
   double not_bm_nodes_fraction =
       1 - (double)nodes_spent_table[move >> 4] / (double)thread->nodes;
   double node_scaling_factor =
@@ -144,7 +144,7 @@ void scale_time(thread_t *thread, uint8_t best_move_stability,
   limits.soft_limit =
       MIN(thread->starttime +
               limits.base_soft * bestmove_scale[best_move_stability] *
-                  eval_scale[eval_stability] * node_scaling_factor,
+                  eval_scale[eval_stability] * node_scaling_factor + 0.05 * (1.0 - exp(-0.017 * ply)),
           limits.max_time + thread->starttime);
 }
 
@@ -1182,7 +1182,7 @@ void *iterative_deepening(void *thread_void) {
 
       if (limits.timeset && thread->depth > 7) {
         scale_time(thread, best_move_stability, eval_stability,
-                   thread->pv.pv_table[0][0]);
+                   thread->pv.pv_table[0][0], pos->ply);
       }
     }
 
