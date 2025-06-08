@@ -165,26 +165,26 @@ static inline void score_move(position_t *pos, thread_t *thread,
                               searchstack_t *ss, move_t *move_entry,
                               uint16_t hash_move) {
   uint16_t move = move_entry->move;
-  uint8_t piece = get_move_promoted(pos->side, move);
+  uint8_t promoted_piece = get_move_promoted(pos->side, move);
 
   if (move == hash_move) {
     move_entry->score = 2000000000;
     return;
   }
 
-  if (piece) {
+  if (promoted_piece) {
     // We have a promotion
-    switch (piece) {
+    switch (promoted_piece) {
     case q:
     case Q:
-      move_entry->score = 1400000001;
+      move_entry->score = 1410000000;
       break;
     case n:
     case N:
       move_entry->score = 1400000000;
       break;
     default:
-      move_entry->score = -1000000;
+      move_entry->score = -800000000;
       break;
     }
     if (get_move_capture(move)) {
@@ -193,7 +193,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
         return;
       } else {
         // Capture failed SEE and thus gets ordered at the bottom of the list
-        move_entry->score = -1000000;
+        move_entry->score = -700000000;
         return;
       }
     } else {
@@ -222,7 +222,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
             ->capture_history[pos->mailbox[get_move_source(move)]][target_piece]
                              [get_move_source(move)][get_move_target(move)];
     move_entry->score +=
-        SEE(pos, move, -MO_SEE_THRESHOLD) ? 1000000000 : -1000000;
+        SEE(pos, move, -MO_SEE_THRESHOLD) ? 1000000000 : -1000000000;
     return;
   }
 
