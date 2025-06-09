@@ -682,7 +682,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       prefetch_hash_entry(pos->hash_keys.hash_key);
 
       ss->move = 0;
-      ss->piece = 0;
+      ss->piece = NO_PIECE;
       (ss + 1)->null_move = 1;
 
       /* search moves with reduced depth to find beta cutoffs
@@ -1149,7 +1149,7 @@ void *iterative_deepening(void *thread_void) {
       ss[i].eval = NO_SCORE;
       ss[i].history_score = 0;
       ss[i].move = 0;
-      ss[i].piece = 0;
+      ss[i].piece = NO_PIECE;
       ss[i].null_move = 0;
       ss[i].reduction = 0;
       ss[i].tt_pv = 0;

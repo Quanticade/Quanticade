@@ -149,17 +149,19 @@ static inline void update_capture_history(thread_t *thread, int move,
       : thread->pos.side ? thread->pos.mailbox[get_move_target(move) - 8]
                          : thread->pos.mailbox[get_move_target(move) + 8];
 
-  thread->capture_history[thread->pos.mailbox[from]]
-                         [prev_target_piece][from][target] +=
-      bonus -
-      thread->capture_history[thread->pos.mailbox[from]]
-                             [prev_target_piece][from][target] *
-          abs(bonus) / HISTORY_MAX;
+  thread->capture_history[thread->pos.mailbox[from]][prev_target_piece][from]
+                         [target] +=
+      bonus - thread->capture_history[thread->pos.mailbox[from]]
+                                     [prev_target_piece][from][target] *
+                  abs(bonus) / HISTORY_MAX;
 }
 
 static inline void update_continuation_history(thread_t *thread,
                                                searchstack_t *ss, int move,
                                                int bonus) {
+  if (ss->piece == NO_PIECE || ss->move == 0) {
+    return;
+  }
   int prev_piece = ss->piece;
   int prev_target = get_move_target(ss->move);
   int piece = thread->pos.mailbox[get_move_source(move)];
