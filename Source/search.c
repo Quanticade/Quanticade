@@ -244,6 +244,9 @@ static inline void score_move(position_t *pos, thread_t *thread,
           thread->pawn_history[pos->hash_keys.pawn_key % 32767]
                               [pos->mailbox[get_move_source(move)]]
                               [get_move_target(move)];
+      if (move_entry->score < -8192) {
+        move_entry->score -= 1800000000;
+      }
     }
 
     return;
