@@ -32,7 +32,7 @@ extern keys_t keys;
 
 int LMP_BASE = 1;
 int RAZOR_DEPTH = 7;
-int RAZOR_MARGIN = 278;
+int RAZOR_MARGIN = 260;
 int RFP_DEPTH = 7;
 int RFP_MARGIN = 59;
 int FP_DEPTH = 10;
@@ -712,13 +712,9 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
         return current_score;
     }
 
-    if (depth <= RAZOR_DEPTH &&
-        ss->static_eval + RAZOR_MARGIN * depth < alpha) {
-      const int16_t razor_score =
-          quiescence(pos, thread, ss, alpha, beta, NON_PV);
-      if (razor_score <= alpha) {
-        return razor_score;
-      }
+    if (!pv_node && !in_check &&
+        ss->eval + 303 +  RAZOR_MARGIN * depth * depth < alpha) {
+      return quiescence(pos, thread, ss, alpha, beta, NON_PV);
     }
   }
 
