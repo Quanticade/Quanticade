@@ -3,14 +3,14 @@
 ## Overview
 
 Quanticade is a strong uci command-line chess engine written in C in development since late 2023 with NNUE trained on Lc0 Data.
-Since Fenrir release Quanticade is top 18th engine from the CCRL blitz rating list.
+Quanticade usually ranks around the 15th place in the world.
 
 ## Playing Strength
 
 |         | CCRL Blitz    | CCRL 40/15 | CEGT 40/20 |
 |---------|---------------|------------|------------|
-| Orion   | Est 3685      | Est 3565   | Untested   |
-| Fenrir  | 3669 (Top 18) | 3559       | Untested   |
+| Orion   | 3685 (Top 15) | 3557       | Untested   |
+| Fenrir  | 3669 (Top 18) | 3561       | Untested   |
 | Chimera | 3619          | 3515       | Untested   |
 | Electra | 3552          | 3487       | 3410       |
 | Aurora  | 3465          | 3406       | Untested   |
@@ -25,6 +25,7 @@ While some of the code still remains, nearly all parts of original engine have b
 
 * **Hash** (int) Sets the size of hash table in MB
 * **Threads** (int) Sets the number of threads to search with
+* **MoveOverhead** (int) Milliseconds to account for UCI->GUI->UCI communication overhead
 * **EvalFile** (string) Path to the NNUE network
 * **ClearHash** (button) Clears the hash table
 
