@@ -772,7 +772,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
                                        [get_move_target(move)];
 
     // Late Move Pruning
-    if (!pv_node && quiet && moves_seen >= LMP_MARGIN[depth][improving] &&
+    if (!pv_node && quiet &&
+        moves_seen >= LMP_MARGIN[depth][improving || ss->static_eval >= beta] &&
         !only_pawns(pos)) {
       skip_quiets = 1;
     }
