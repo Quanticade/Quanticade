@@ -779,6 +779,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
     int r = lmr[quiet][MIN(63, depth)][MIN(63, moves_seen)];
     r += !pv_node;
+    r += quiet * ss->history_score / 7700;
     int lmr_depth = MAX(1, depth - 1 - MAX(r, 1));
 
     // Futility Pruning
