@@ -30,11 +30,13 @@ extern int thread_count;
 
 extern keys_t keys;
 
-int LMP_BASE = 1;
 int RAZOR_DEPTH = 7;
 int RAZOR_MARGIN = 278;
 int RFP_DEPTH = 7;
 int RFP_MARGIN = 59;
+int RFP_BASE_MARGIN = 25;
+int RFP_IMPROVING = 59;
+int RFP_OPP_WORSENING = 12;
 int FP_DEPTH = 10;
 int FP_MULTIPLIER = 184;
 int FP_ADDITION = 179;
@@ -43,6 +45,8 @@ int NMP_DIVISER = 3;
 int NMP_RED_DIVISER = 173;
 int NMP_RED_MIN = 6;
 int NMP_DEPTH = 3;
+int NMP_BASE_ADD = 180;
+int NMP_MULTIPLIER = 20;
 int IIR_DEPTH = 4;
 int IIR_DEPTH_REDUCTION = 3;
 int SEE_QUIET = 55;
@@ -60,6 +64,7 @@ int LMR_IN_CHECK = 850;
 int LMR_CUTNODE = 913;
 int LMR_TT_DEPTH = 1138;
 int LMR_TT_PV = 960;
+int LMR_TT_PV_CUTNODE = 768;
 int LMR_TT_SCORE = 1083;
 int LMR_DEEPER_MARGIN = 33;
 int LMR_SHALLOWER_MARGIN = 6;
@@ -70,6 +75,9 @@ int QS_SEE_THRESHOLD = 7;
 int MO_SEE_THRESHOLD = 117;
 int LMR_QUIET_HIST_DIV = 7706;
 int LMR_CAPT_HIST_DIV = 6944;
+int ASP_WINDOW_DIVISER = 32768;
+int ASP_WINDOW_MULTIPLIER = 512;
+int EVAL_STABILITY_VAR = 10;
 
 double LMP_MARGIN_WORSENING_BASE = 1.932336729298966f;
 double LMP_MARGIN_WORSENING_FACTOR = 0.4372991933478511f;
@@ -78,7 +86,6 @@ double LMP_MARGIN_IMPROVING_BASE = 2.7242843289961067f;
 double LMP_MARGIN_IMPROVING_FACTOR = 0.8277962583165434f;
 double LMP_MARGIN_IMPROVING_POWER = 1.9124128409053007f;
 
-double ASP_MULTIPLIER = 1.672500911158661;
 double LMR_OFFSET_QUIET = 0.7850124125307294;
 double LMR_DIVISOR_QUIET = 1.669870647511874;
 double LMR_OFFSET_NOISY = -0.17488885536548365;
@@ -639,16 +646,16 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       ++depth;
     }
     // Reverse Futility Pruning
-    if (depth <= RFP_DEPTH && ss->eval >= beta + RFP_MARGIN * depth -
-                                              59 * improving + 25 -
-                                              12 * opponent_worsening) {
+    if (depth <= RFP_DEPTH && ss->eval >= beta + RFP_BASE_MARGIN + RFP_MARGIN * depth -
+                                              RFP_IMPROVING * improving -
+                                              RFP_OPP_WORSENING * opponent_worsening) {
       // evaluation margin substracted from static evaluation score
       return beta + (ss->eval - beta) / 3;
     }
 
     // null move pruning
     if (!ss->null_move && ss->eval >= beta &&
-        ss->static_eval >= beta - 20 * depth + 180 &&
+        ss->static_eval >= beta - NMP_MULTIPLIER * depth + NMP_BASE_ADD &&
         ss->eval >= ss->static_eval && !only_pawns(pos)) {
       int R = MIN((ss->eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) +
               depth / NMP_DIVISER + NMP_BASE_REDUCTION;
@@ -910,7 +917,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     R -= (tt_depth >= depth) * LMR_TT_DEPTH;
     R -= ss->tt_pv * LMR_TT_PV;
     R += (ss->tt_pv && tt_hit && tt_score <= alpha) * LMR_TT_SCORE;
-    R -= (ss->tt_pv && cutnode) * 768;
+    R -= (ss->tt_pv && cutnode) * LMR_TT_PV_CUTNODE;
     R = R / 1024;
     int reduced_depth = MAX(1, MIN(new_depth - R, new_depth));
 
@@ -1085,7 +1092,7 @@ static inline uint8_t aspiration_windows(thread_t *thread, position_t *pos,
     }
 
     if (thread->depth >= ASP_DEPTH) {
-      window += thread->score * thread->score / 32768;
+      window += thread->score * thread->score / ASP_WINDOW_DIVISER;
 
       alpha = MAX(-INF, thread->score - window);
       beta = MIN(INF, thread->score + window);
@@ -1118,7 +1125,7 @@ static inline uint8_t aspiration_windows(thread_t *thread, position_t *pos,
       break;
     }
 
-    window += window / 2;
+    window += ASP_WINDOW_MULTIPLIER * window / 1024;
   }
   return 0;
 }
@@ -1175,8 +1182,8 @@ void *iterative_deepening(void *thread_void) {
         best_move_stability = 0;
       }
 
-      if (thread->score > average_score - 10 &&
-          thread->score < average_score + 10) {
+      if (thread->score > average_score - EVAL_STABILITY_VAR &&
+          thread->score < average_score + EVAL_STABILITY_VAR) {
         eval_stability = MIN(eval_stability + 1, 4);
       } else {
         eval_stability = 0;

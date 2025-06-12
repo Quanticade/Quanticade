@@ -13,11 +13,13 @@ spsa_t spsa[500];
 uint8_t spsa_index = 0;
 
 // search.c
-extern int LMP_BASE;
 extern int RAZOR_DEPTH;
 extern int RAZOR_MARGIN;
 extern int RFP_DEPTH;
 extern int RFP_MARGIN;
+extern int RFP_BASE_MARGIN;
+extern int RFP_IMPROVING;
+extern int RFP_OPP_WORSENING;
 extern int FP_DEPTH;
 extern int FP_MULTIPLIER;
 extern int FP_ADDITION;
@@ -26,6 +28,8 @@ extern int NMP_DIVISER;
 extern int NMP_RED_DIVISER;
 extern int NMP_RED_MIN;
 extern int NMP_DEPTH;
+extern int NMP_BASE_ADD;
+extern int NMP_MULTIPLIER;
 extern int IIR_DEPTH;
 extern int IIR_DEPTH_REDUCTION;
 extern int SEE_QUIET;
@@ -43,6 +47,7 @@ extern int LMR_IN_CHECK;
 extern int LMR_CUTNODE;
 extern int LMR_TT_DEPTH;
 extern int LMR_TT_PV;
+extern int LMR_TT_PV_CUTNODE;
 extern int LMR_TT_SCORE;
 extern int LMR_DEEPER_MARGIN;
 extern int LMR_SHALLOWER_MARGIN;
@@ -51,9 +56,19 @@ extern int ASP_WINDOW;
 extern int ASP_DEPTH;
 extern int QS_SEE_THRESHOLD;
 extern int MO_SEE_THRESHOLD;
-extern double ASP_MULTIPLIER;
 extern int LMR_QUIET_HIST_DIV;
 extern int LMR_CAPT_HIST_DIV;
+extern int ASP_WINDOW_DIVISER;
+extern int ASP_WINDOW_MULTIPLIER;
+extern int EVAL_STABILITY_VAR;
+
+extern double LMP_MARGIN_WORSENING_BASE;
+extern double LMP_MARGIN_WORSENING_FACTOR;
+extern double LMP_MARGIN_WORSENING_POWER;
+extern double LMP_MARGIN_IMPROVING_BASE;
+extern double LMP_MARGIN_IMPROVING_FACTOR;
+extern double LMP_MARGIN_IMPROVING_POWER;
+
 extern double LMR_OFFSET_QUIET;
 extern double LMR_DIVISOR_QUIET;
 extern double LMR_OFFSET_NOISY;
@@ -165,11 +180,13 @@ void add_int_spsa(char name[], int *value, int min, int max, double rate,
                TUNABLE)
 
 void init_spsa_table(void) {
-  SPSA_INT(LMP_BASE, 1);
   SPSA_INT_POISON(RAZOR_DEPTH, 0);
   SPSA_INT(RAZOR_MARGIN, 1);
   SPSA_INT_POISON(RFP_DEPTH, 0);
   SPSA_INT(RFP_MARGIN, 1);
+  SPSA_INT(RFP_BASE_MARGIN, 1);
+  SPSA_INT(RFP_IMPROVING, 1);
+  SPSA_INT(RFP_OPP_WORSENING, 1);
   SPSA_INT_POISON(FP_DEPTH, 0);
   SPSA_INT(FP_MULTIPLIER, 1);
   SPSA_INT(FP_ADDITION, 1);
@@ -178,6 +195,8 @@ void init_spsa_table(void) {
   SPSA_INT(NMP_RED_DIVISER, 1);
   SPSA_INT_POISON(NMP_RED_MIN, 0);
   SPSA_INT_POISON(NMP_DEPTH, 0);
+  SPSA_INT(NMP_BASE_ADD, 1);
+  SPSA_INT(NMP_MULTIPLIER, 1);
   SPSA_INT_POISON(IIR_DEPTH, 0);
   SPSA_INT_POISON(IIR_DEPTH_REDUCTION, 1);
   SPSA_INT_FUNC(SEE_QUIET, init_reductions, 1);
@@ -195,6 +214,7 @@ void init_spsa_table(void) {
   SPSA_INT(LMR_CUTNODE, 1);
   SPSA_INT(LMR_TT_DEPTH, 1);
   SPSA_INT(LMR_TT_PV, 1);
+  SPSA_INT(LMR_TT_PV_CUTNODE, 1);
   SPSA_INT(LMR_TT_SCORE, 1);
   SPSA_INT(LMR_DEEPER_MARGIN, 1);
   SPSA_INT(LMR_SHALLOWER_MARGIN, 1);
@@ -205,6 +225,9 @@ void init_spsa_table(void) {
   SPSA_INT(MO_SEE_THRESHOLD, 1);
   SPSA_INT(LMR_QUIET_HIST_DIV, 1);
   SPSA_INT(LMR_CAPT_HIST_DIV, 1);
+  SPSA_INT(ASP_WINDOW_DIVISER, 1);
+  SPSA_INT(ASP_WINDOW_MULTIPLIER, 1);
+  SPSA_INT(EVAL_STABILITY_VAR, 1);
 
   SPSA_INT(QUIET_HISTORY_MALUS_MAX, 1);
   SPSA_INT(QUIET_HISTORY_BONUS_MAX, 1);
@@ -255,9 +278,32 @@ void init_spsa_table(void) {
   SPSA_INT_NAME("MVV_BISHOP", mvv[BISHOP], 1);
   SPSA_INT_NAME("MVV_ROOK", mvv[ROOK], 1);
   SPSA_INT_NAME("MVV_QUEEN", mvv[QUEEN], 1);
-  add_double_spsa(STRINGIFY(ASP_MULTIPLIER), &ASP_MULTIPLIER, 1,
-                  SPSA_MAX(ASP_MULTIPLIER), RATE_DOUBLE(ASP_MULTIPLIER), NULL,
-                  1);
+
+  add_double_spsa(STRINGIFY(LMP_MARGIN_WORSENING_BASE),
+                  &LMP_MARGIN_WORSENING_BASE, 1.0,
+                  SPSA_MAX(LMP_MARGIN_WORSENING_BASE),
+                  RATE_DOUBLE(LMP_MARGIN_WORSENING_BASE), init_reductions, 1);
+  add_double_spsa(STRINGIFY(LMP_MARGIN_WORSENING_FACTOR),
+                  &LMP_MARGIN_WORSENING_FACTOR, 0.1,
+                  SPSA_MAX(LMP_MARGIN_WORSENING_FACTOR),
+                  RATE_DOUBLE(LMP_MARGIN_WORSENING_FACTOR), init_reductions, 1);
+  add_double_spsa(STRINGIFY(LMP_MARGIN_WORSENING_POWER),
+                  &LMP_MARGIN_WORSENING_POWER, 1.0,
+                  SPSA_MAX(LMP_MARGIN_WORSENING_POWER),
+                  RATE_DOUBLE(LMP_MARGIN_WORSENING_POWER), init_reductions, 1);
+  add_double_spsa(STRINGIFY(LMP_MARGIN_IMPROVING_BASE),
+                  &LMP_MARGIN_IMPROVING_BASE, 1.0,
+                  SPSA_MAX(LMP_MARGIN_IMPROVING_BASE),
+                  RATE_DOUBLE(LMP_MARGIN_IMPROVING_BASE), init_reductions, 1);
+  add_double_spsa(STRINGIFY(LMP_MARGIN_IMPROVING_FACTOR),
+                  &LMP_MARGIN_IMPROVING_FACTOR, 0.1,
+                  SPSA_MAX(LMP_MARGIN_IMPROVING_FACTOR),
+                  RATE_DOUBLE(LMP_MARGIN_IMPROVING_FACTOR), init_reductions, 1);
+  add_double_spsa(STRINGIFY(LMP_MARGIN_IMPROVING_POWER),
+                  &LMP_MARGIN_IMPROVING_POWER, 1.0,
+                  SPSA_MAX(LMP_MARGIN_IMPROVING_POWER),
+                  RATE_DOUBLE(LMP_MARGIN_IMPROVING_POWER), init_reductions, 1);
+
   add_double_spsa(STRINGIFY(LMR_OFFSET_QUIET), &LMR_OFFSET_QUIET, 0.1,
                   SPSA_MAX(LMR_OFFSET_QUIET), RATE_DOUBLE(LMR_OFFSET_QUIET),
                   init_reductions, 1);
