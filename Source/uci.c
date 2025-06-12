@@ -640,7 +640,7 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
              nnue_settings.nnue_file);
       printf("option name Clear Hash type button\n");
       // SPSA
-      //print_spsa_table_uci();
+      print_spsa_table_uci();
       // uciok
       printf("uciok\n");
     } else if (strncmp(input, "spsa", 4) == 0) {
