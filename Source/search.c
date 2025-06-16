@@ -520,6 +520,13 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 static inline int16_t negamax(position_t *pos, thread_t *thread,
                               searchstack_t *ss, int16_t alpha, int16_t beta,
                               int depth, uint8_t cutnode, uint8_t pv_node) {
+  // we are too deep, hence there's an overflow of arrays relying on max ply
+  // constant
+  if (pos->ply > MAX_PLY - 1) {
+    // evaluate position
+    return evaluate(pos, &thread->accumulator[pos->ply]);
+  }
+
   // init PV length
   thread->pv.pv_length[pos->ply] = pos->ply;
 
@@ -551,13 +558,6 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
         is_material_draw(pos)) {
       // return draw score
       return 1 - (thread->nodes & 2);
-    }
-
-    // we are too deep, hence there's an overflow of arrays relying on max ply
-    // constant
-    if (pos->ply > MAX_PLY - 1) {
-      // evaluate position
-      return evaluate(pos, &thread->accumulator[pos->ply]);
     }
 
     // Mate distance pruning
@@ -646,9 +646,10 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       ++depth;
     }
     // Reverse Futility Pruning
-    if (depth <= RFP_DEPTH && ss->eval >= beta + RFP_BASE_MARGIN + RFP_MARGIN * depth -
-                                              RFP_IMPROVING * improving -
-                                              RFP_OPP_WORSENING * opponent_worsening) {
+    if (depth <= RFP_DEPTH &&
+        ss->eval >= beta + RFP_BASE_MARGIN + RFP_MARGIN * depth -
+                        RFP_IMPROVING * improving -
+                        RFP_OPP_WORSENING * opponent_worsening) {
       // evaluation margin substracted from static evaluation score
       return beta + (ss->eval - beta) / 3;
     }
@@ -1151,8 +1152,8 @@ void *iterative_deepening(void *thread_void) {
     int16_t alpha = -INF;
     int16_t beta = INF;
 
-    searchstack_t ss[MAX_PLY + 4];
-    for (int i = 0; i < MAX_PLY + 4; ++i) {
+    searchstack_t ss[MAX_PLY + 10];
+    for (int i = 0; i < MAX_PLY + 10; ++i) {
       ss[i].excluded_move = 0;
       ss[i].static_eval = NO_SCORE;
       ss[i].eval = NO_SCORE;

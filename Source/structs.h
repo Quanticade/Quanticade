@@ -89,7 +89,7 @@ typedef struct PV {
 } PV_t;
 
 typedef struct searchinfo {
-  accumulator_t accumulator[MAX_PLY + 4];
+  accumulator_t accumulator[MAX_PLY + 10];
   finny_table_t finny_tables[2][13];
   position_t pos;
   PV_t pv;
