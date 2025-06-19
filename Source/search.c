@@ -37,7 +37,6 @@ int FP_DEPTH = 10;
 int NMP_BASE_REDUCTION = 4;
 int NMP_DIVISER = 3;
 int NMP_RED_MIN = 6;
-int NMP_DEPTH = 3;
 int IIR_DEPTH = 4;
 int SEE_DEPTH = 10;
 int ASP_DEPTH = 4;

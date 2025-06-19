@@ -27,7 +27,6 @@ extern int NMP_BASE_REDUCTION;
 extern int NMP_DIVISER;
 extern int NMP_RED_DIVISER;
 extern int NMP_RED_MIN;
-extern int NMP_DEPTH;
 extern int NMP_BASE_ADD;
 extern int NMP_MULTIPLIER;
 extern int IIR_DEPTH;
@@ -194,7 +193,6 @@ void init_spsa_table(void) {
   SPSA_INT(NMP_DIVISER, 0);
   SPSA_INT(NMP_RED_DIVISER, 1);
   SPSA_INT_POISON(NMP_RED_MIN, 0);
-  SPSA_INT_POISON(NMP_DEPTH, 0);
   SPSA_INT(NMP_BASE_ADD, 1);
   SPSA_INT(NMP_MULTIPLIER, 1);
   SPSA_INT_POISON(IIR_DEPTH, 0);
