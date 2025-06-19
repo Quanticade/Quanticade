@@ -8,7 +8,7 @@ CFLAGS       := -g -std=gnu11 -funroll-loops -O3 -flto -fno-exceptions -DIS_64BI
 NATIVE       = -march=native
 AVX2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi
 BMI2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi -mbmi2
-AVX512FLAGS  = -DUSE_AVX512 -DUSE_SIMD -mavx512f -mavx512bw
+AVX512FLAGS  = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi
 NEONFLAGS    = -DUSE_NEON -DUSE_SIMD -flax-vector-conversions
 
 # engine name
