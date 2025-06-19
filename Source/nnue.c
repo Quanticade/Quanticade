@@ -37,6 +37,8 @@ struct raw_net {
 
 struct raw_net net;
 
+const int INT8_PER_INT32 = sizeof(int) / sizeof(int8_t);
+
 uint8_t buckets[64] = {12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
                        12, 12, 12, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11,
                        11, 11, 11, 11, 11, 11, 10, 10, 10, 10, 10, 10, 10,
@@ -107,13 +109,26 @@ static inline uint8_t calculate_output_bucket(position_t *pos) {
 }
 
 static inline void transpose() {
+#if defined(USE_AVX2)
   for (int b = 0; b < OUTPUT_BUCKETS; b++) {
-    for (int l1 = 0; l1 < L1_SIZE; l1++) {
+    for (int l1 = 0; l1 < L1_SIZE / INT8_PER_INT32; l1++) {
       for (int l2 = 0; l2 < L2_SIZE; l2++) {
-        nnue.l1_weights[b][l1][l2] = round(net.l1_weights[b][l2][l1] * L1_QUANT);
+        for (int c = 0; c < INT8_PER_INT32; c++) {
+          nnue.l1_weights[b][l1 * INT8_PER_INT32 * L2_SIZE + l2 * INT8_PER_INT32 + c] =
+              round(net.l1_weights[b][l2][l1 * INT8_PER_INT32 + c] * L1_QUANT);
+        }
       }
     }
   }
+#else
+  for (int b = 0; b < OUTPUT_BUCKETS; b++) {
+    for (int l1 = 0; l1 < L1_SIZE; l1++) {
+      for (int l2 = 0; l2 < L2_SIZE; l2++) {
+        nnue.l1_weights[b][l1 * L2_SIZE + l2] = round(net.l1_weights[b][l2][l1] * L1_QUANT);
+      }
+    }
+  }
+#endif
   for (int b = 0; b < OUTPUT_BUCKETS; b++) {
     for (int l2 = 0; l2 < L2_SIZE; l2++) {
       for (int l3 = 0; l3 < L3_SIZE; l3++) {
@@ -414,7 +429,7 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
 
   for (int l1 = 0; l1 < L1_SIZE; l1++) {
     for (int l2 = 0; l2 < L2_SIZE; l2++) {
-      l2Neurons[l2] += l1Neurons[l1] * nnue.l1_weights[out_bucket][l1][l2];
+      l2Neurons[l2] += l1Neurons[l1] * nnue.l1_weights[out_bucket][l1 * L2_SIZE + l2];
     }
   }
 
@@ -456,10 +471,8 @@ int nnue_evaluate(position_t *pos, accumulator_t *accumulator) {
   const float L1_NORMALISATION =
       (float)(1 << INPUT_SHIFT) / (float)(INPUT_QUANT * INPUT_QUANT * L1_QUANT);
 
-  const int INT8_PER_INT32 = sizeof(int) / sizeof(int8_t);
-
-  #if defined(USE_AVX512) 
-  //const int FLOAT_VEC_SIZE = sizeof(__m256) / sizeof(float);
+  #if defined(USE_AVX2) 
+  const int FLOAT_VEC_SIZE = sizeof(__m256) / sizeof(float);
   for (int l1 = 0; l1 < L1_SIZE / 2; l1 += 2 * sizeof(__m256i) / sizeof(int16_t)) {
     // STM
     __m256i clipped1 = _mm256_min_epi16(_mm256_max_epi16(*((__m256i*) & stmAcc[l1]), _mm256_set1_epi16(0)), _mm256_set1_epi16(INPUT_QUANT));
@@ -494,10 +507,10 @@ int nnue_evaluate(position_t *pos, accumulator_t *accumulator) {
 
   int* l1Packs = (int*)l1Neurons;
 
-    for (int l1 = 0; l1 < L1_SIZE; l1 += 1) {
+    for (int l1 = 0; l1 < L1_SIZE; l1 += INT8_PER_INT32) {
         for (int l2 = 0; l2 < L2_SIZE; l2 += 256 / 32) {
             __m256i u8 = _mm256_set1_epi32(l1Packs[l1 / INT8_PER_INT32]);
-            __m256i i8 = *((__m256i*) &nnue.l1_weights[out_bucket][l1][l2]);
+            __m256i i8 = *((__m256i*) &nnue.l1_weights[out_bucket][l1 * L2_SIZE + INT8_PER_INT32 * l2]);
             __m256i tmp = _mm256_maddubs_epi16(u8, i8);
             __m256i sum = _mm256_madd_epi16(tmp, _mm256_set1_epi16(1));
             
@@ -505,7 +518,7 @@ int nnue_evaluate(position_t *pos, accumulator_t *accumulator) {
         }
     }
 
-    /*memcpy(l3Neurons, nnue.l2_bias[out_bucket], sizeof(l3Neurons));
+    memcpy(l3Neurons, nnue.l2_bias[out_bucket], sizeof(l3Neurons));
     _Alignas(64) float l2Floats[L2_SIZE];
 
     for (int l2 = 0; l2 < L2_SIZE / FLOAT_VEC_SIZE; l2++) {
@@ -542,31 +555,6 @@ int nnue_evaluate(position_t *pos, accumulator_t *accumulator) {
     __m128 sum64 = _mm_add_ps(sum, high64);
 
     float result = nnue.l3_bias[out_bucket] + ((float*)&sum64)[0] + ((float*)&sum64)[1];
-    for (int l1 = 0; l1 < L1_SIZE; l1++) {
-      for (int l2 = 0; l2 < L2_SIZE; l2++) {
-        l2Neurons[l2] += l1Neurons[l1] * nnue.l1_weights[out_bucket][l1][l2];
-      }
-    }*/
-  
-    memcpy(l3Neurons, nnue.l2_bias[out_bucket], sizeof(l3Neurons));
-  
-    for (int l2 = 0; l2 < L2_SIZE; l2++) {
-      float l2Result = (float)(l2Neurons[l2]) * L1_NORMALISATION +
-                       (nnue.l1_bias[out_bucket][l2]);
-      float l2Activated = crelu_float(l2Result);
-      l2Activated *= l2Activated;
-  
-      for (int l3 = 0; l3 < L3_SIZE; l3++) {
-        l3Neurons[l3] += l2Activated * nnue.l2_weights[out_bucket][l2][l3];
-      }
-    }
-  
-    float result = nnue.l3_bias[out_bucket];
-    for (int l3 = 0; l3 < L3_SIZE; l3++) {
-      float l3Activated = crelu_float(l3Neurons[l3]);
-      l3Activated *= l3Activated;
-      result += l3Activated * nnue.l3_weights[out_bucket][l3];
-    }
   #else 
   
   for (int l1 = 0; l1 < L1_SIZE / 2; l1++) {
@@ -583,7 +571,7 @@ int nnue_evaluate(position_t *pos, accumulator_t *accumulator) {
 
   for (int l1 = 0; l1 < L1_SIZE; l1++) {
     for (int l2 = 0; l2 < L2_SIZE; l2++) {
-      l2Neurons[l2] += l1Neurons[l1] * nnue.l1_weights[out_bucket][l1][l2];
+      l2Neurons[l2] += l1Neurons[l1] * nnue.l1_weights[out_bucket][l1 * L2_SIZE + l2];
     }
   }
 
