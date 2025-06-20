@@ -13,15 +13,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if defined(USE_SIMD)
-#if defined(USE_AVX2) || defined(USE_AVX512)
-#include <immintrin.h>
-#elif defined(USE_NEON)
-#include <arm_neon.h>
-#define vmull_low_s16(a, b) vmull_s16(vget_low_s16(a), vget_low_s16(b))
-#endif
-#endif
-
 nnue_t nnue;
 
 struct raw_net {
@@ -109,7 +100,7 @@ static inline uint8_t calculate_output_bucket(position_t *pos) {
 }
 
 static inline void transpose() {
-#if defined(USE_AVX2)
+#if defined(USE_SIMD)
   for (int b = 0; b < OUTPUT_BUCKETS; b++) {
     for (int l1 = 0; l1 < L1_SIZE / INT8_PER_INT32; l1++) {
       for (int l2 = 0; l2 < L2_SIZE; l2++) {
@@ -471,50 +462,50 @@ int nnue_evaluate(position_t *pos, accumulator_t *accumulator) {
   const float L1_NORMALISATION =
       (float)(1 << INPUT_SHIFT) / (float)(INPUT_QUANT * INPUT_QUANT * L1_QUANT);
 
-  #if defined(USE_AVX2) 
-  const int FLOAT_VEC_SIZE = sizeof(__m256) / sizeof(float);
-  for (int l1 = 0; l1 < L1_SIZE / 2; l1 += 2 * sizeof(__m256i) / sizeof(int16_t)) {
+  #if defined(USE_SIMD) 
+  const int FLOAT_VEC_SIZE = sizeof(veci_t) / sizeof(float);
+  const int I16_VEC_SIZE = sizeof(veci_t) / sizeof(int16_t);
+
+  veci_t i16_zero = zero();
+  veci_t i16_quant = set_epi16((int16_t)INPUT_QUANT);
+
+  for (int l1 = 0; l1 < L1_SIZE / 2; l1 += 2 * I16_VEC_SIZE) {
     // STM
-    __m256i clipped1 = _mm256_min_epi16(_mm256_max_epi16(*((__m256i*) & stmAcc[l1]), _mm256_set1_epi16(0)), _mm256_set1_epi16(INPUT_QUANT));
-    __m256i clipped2 = _mm256_min_epi16(_mm256_max_epi16(*((__m256i*) & stmAcc[l1 + L1_SIZE / 2]), _mm256_set1_epi16(0)), _mm256_set1_epi16(INPUT_QUANT));
-    __m256i shift = _mm256_slli_epi16(clipped1, 16 - INPUT_SHIFT);
-    __m256i mul1 = _mm256_mulhi_epi16(shift, clipped2);
+    veci_t clipped1 = clip(*((veci_t*) & stmAcc[l1]), i16_zero, i16_quant);
+    veci_t clipped2 = clip(*((veci_t*) & stmAcc[l1 + L1_SIZE / 2]), i16_zero, i16_quant);
+    veci_t shift = slli_epi16(clipped1, 16 - INPUT_SHIFT);
+    veci_t mul1 = mulhi_epi16(shift, clipped2);
 
-    clipped1 = _mm256_min_epi16(_mm256_max_epi16(*((__m256i*) & stmAcc[l1 + sizeof(__m256i) / sizeof(int16_t)]), _mm256_set1_epi16(0)), _mm256_set1_epi16(INPUT_QUANT));
-    clipped2 = _mm256_min_epi16(_mm256_max_epi16(*((__m256i*) & stmAcc[l1 + sizeof(__m256i) / sizeof(int16_t) + L1_SIZE / 2]), _mm256_set1_epi16(0)), _mm256_set1_epi16(INPUT_QUANT));
-    shift = _mm256_slli_epi16(clipped1, 16 - INPUT_SHIFT);
-    __m256i mul2 = _mm256_mulhi_epi16(shift, clipped2);
+    clipped1 = clip(*((veci_t*) & stmAcc[l1 + I16_VEC_SIZE]), i16_zero, i16_quant);
+    clipped2 = clip(*((veci_t*) & stmAcc[l1 + I16_VEC_SIZE + L1_SIZE / 2]), i16_zero, i16_quant);
+    shift = slli_epi16(clipped1, 16 - INPUT_SHIFT);
+    veci_t mul2 = mulhi_epi16(shift, clipped2);
 
-    __m256i u8s = _mm256_packus_epi16(mul1, mul2);
-    u8s = _mm256_permute4x64_epi64(u8s, _MM_SHUFFLE(3, 1, 2, 0));
-    _mm256_store_si256((__m256i*) & l1Neurons[l1], u8s);
+    veci_t u8s = packus_epi16(mul1, mul2);
+    vec_store_i((veci_t*) & l1Neurons[l1], u8s);
 
     // NSTM
-    clipped1 = _mm256_min_epi16(_mm256_max_epi16(*((__m256i*) & oppAcc[l1]), _mm256_set1_epi16(0)), _mm256_set1_epi16(INPUT_QUANT));
-    clipped2 = _mm256_min_epi16(_mm256_max_epi16(*((__m256i*) & oppAcc[l1 + L1_SIZE / 2]), _mm256_set1_epi16(0)), _mm256_set1_epi16(INPUT_QUANT));
-    shift = _mm256_slli_epi16(clipped1, 16 - INPUT_SHIFT);
-    mul1 = _mm256_mulhi_epi16(shift, clipped2);
+    clipped1 = clip(*((veci_t*) & oppAcc[l1]), i16_zero, i16_quant);
+    clipped2 = clip(*((veci_t*) & oppAcc[l1 + L1_SIZE / 2]), i16_zero, i16_quant);
+    shift = slli_epi16(clipped1, 16 - INPUT_SHIFT);
+    mul1 = mulhi_epi16(shift, clipped2);
 
-    clipped1 = _mm256_min_epi16(_mm256_max_epi16(*((__m256i*) & oppAcc[l1 + sizeof(__m256i) / sizeof(int16_t)]), _mm256_set1_epi16(0)), _mm256_set1_epi16(INPUT_QUANT));
-    clipped2 = _mm256_min_epi16(_mm256_max_epi16(*((__m256i*) & oppAcc[l1 + sizeof(__m256i) / sizeof(int16_t) + L1_SIZE / 2]), _mm256_set1_epi16(0)), _mm256_set1_epi16(INPUT_QUANT));
-    shift = _mm256_slli_epi16(clipped1, 16 - INPUT_SHIFT);
-    mul2 = _mm256_mulhi_epi16(shift, clipped2);
+    clipped1 = clip(*((veci_t*) & oppAcc[l1 + I16_VEC_SIZE]), i16_zero, i16_quant);
+    clipped2 = clip(*((veci_t*) & oppAcc[l1 + I16_VEC_SIZE + L1_SIZE / 2]), i16_zero, i16_quant);
+    shift = slli_epi16(clipped1, 16 - INPUT_SHIFT);
+    mul2 = mulhi_epi16(shift, clipped2);
 
-    u8s = _mm256_packus_epi16(mul1, mul2);
-    u8s = _mm256_permute4x64_epi64(u8s, _MM_SHUFFLE(3, 1, 2, 0));
-    _mm256_store_si256((__m256i*) & l1Neurons[l1 + L1_SIZE / 2], u8s);
+    u8s = packus_epi16(mul1, mul2);
+    vec_store_i((veci_t*) & l1Neurons[l1 + L1_SIZE / 2], u8s);
   }
 
   int* l1Packs = (int*)l1Neurons;
 
     for (int l1 = 0; l1 < L1_SIZE; l1 += INT8_PER_INT32) {
-        for (int l2 = 0; l2 < L2_SIZE; l2 += 256 / 32) {
-            __m256i u8 = _mm256_set1_epi32(l1Packs[l1 / INT8_PER_INT32]);
-            __m256i i8 = *((__m256i*) &nnue.l1_weights[out_bucket][l1 * L2_SIZE + INT8_PER_INT32 * l2]);
-            __m256i tmp = _mm256_maddubs_epi16(u8, i8);
-            __m256i sum = _mm256_madd_epi16(tmp, _mm256_set1_epi16(1));
-            
-            *((__m256i*) &l2Neurons[l2]) = _mm256_add_epi32(*((__m256i*) &l2Neurons[l2]), sum);
+        for (int l2 = 0; l2 < L2_SIZE; l2 += sizeof(veci_t) / sizeof(int32_t)) {
+            veci_t u8 = set_epi32(l1Packs[l1 / INT8_PER_INT32]);
+            veci_t i8 = *((veci_t*) &nnue.l1_weights[out_bucket][l1 * L2_SIZE + INT8_PER_INT32 * l2]);
+            *((veci_t*) &l2Neurons[l2]) = dpbusd_epi32(*((veci_t*) &l2Neurons[l2]), u8, i8);
         }
     }
 

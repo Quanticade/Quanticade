@@ -11,8 +11,8 @@
 #endif
 
 #if defined(USE_AVX512)
-typedef __m512i vepi16;
-typedef __m512i vepi32;
+typedef __m512i veci_t;
+typedef __m512i vecf_t;
 
 static inline vepi16 zero_epi16(void) { return _mm512_setzero_si512(); }
 static inline vepi32 zero_epi32(void) { return _mm512_setzero_si512(); }
@@ -48,40 +48,51 @@ static inline int reduce_add_epi32(vepi32 v) {
 }
 
 #elif defined(USE_AVX2)
-typedef __m256i vepi16;
-typedef __m256i vepi32;
+typedef __m256i veci_t;
+typedef __m256i vecf_t;
 
-static inline vepi16 zero_epi16(void) { return _mm256_setzero_si256(); }
-static inline vepi32 zero_epi32(void) { return _mm256_setzero_si256(); }
-static inline vepi16 load_epi16(const int16_t *memory_address) {
-  return _mm256_loadu_si256((const __m256i *)memory_address);
+static inline veci_t zero(void) { return _mm256_setzero_si256(); }
+static inline veci_t load(const int16_t *memory_address) {
+  return _mm256_loadu_si256((const veci_t *)memory_address);
 }
-static inline vepi32 load_epi32(const int32_t *memory_address) {
-  return _mm256_load_si256((const __m256i *)memory_address);
-}
-static inline vepi16 load_epi16_broadcast(int num) {
+static inline veci_t set_epi16(int num) {
   return _mm256_set1_epi16(num);
 }
-static inline vepi32 load_epi32_broadcast(int num) {
+static inline veci_t set_epi32(int num) {
   return _mm256_set1_epi32(num);
 }
-// static inline void store_epi16(void *memory_address, vepi16 vector) {
-// _mm256_store_si256(memory_address, vector); }
-static inline vepi32 add_epi32(vepi32 v1, vepi32 v2) {
+static inline veci_t slli_epi16(veci_t vector, int shift) {
+  return _mm256_slli_epi16(vector, shift);
+}
+static inline veci_t mulhi_epi16(veci_t shift, veci_t vector) {
+  return _mm256_mulhi_epi16(shift, vector);
+}
+static inline veci_t packus_epi16(veci_t vec1, veci_t vec2) {
+  veci_t temp = _mm256_packus_epi16(vec1, vec2);
+  return _mm256_permute4x64_epi64(temp, _MM_SHUFFLE(3, 1, 2, 0));
+}
+static inline void vec_store_i(veci_t* scalar, veci_t integer) {
+  _mm256_store_si256(scalar, integer);
+}
+static inline veci_t dpbusd_epi32(veci_t sum, veci_t u, veci_t i) {
+  veci_t sum32 = _mm256_madd_epi16(_mm256_maddubs_epi16(u, i), _mm256_set1_epi16(1));          
+  return _mm256_add_epi32(sum, sum32);
+}
+static inline veci_t add_epi32(veci_t v1, veci_t v2) {
   return _mm256_add_epi32(v1, v2);
 }
-static inline vepi16 multiply_epi16(vepi16 v1, vepi16 v2) {
+static inline veci_t multiply_epi16(veci_t v1, veci_t v2) {
   return _mm256_mullo_epi16(v1, v2);
 }
-static inline vepi32 multiply_add_epi16(vepi16 v1, vepi16 v2) {
+static inline veci_t multiply_add_epi16(veci_t v1, veci_t v2) {
   return _mm256_madd_epi16(v1, v2);
 }
-static inline vepi16 clip(vepi16 vector, int l1q) {
-  return _mm256_min_epi16(_mm256_max_epi16(vector, zero_epi16()),
-                          load_epi16_broadcast(l1q));
+static inline veci_t clip(veci_t vector, veci_t zero, veci_t quant) {
+  return _mm256_min_epi16(_mm256_max_epi16(vector, zero),
+                          quant);
 }
 
-static inline int reduce_add_epi32(vepi32 vector) {
+static inline int reduce_add_epi32(veci_t vector) {
   __m128i high128 = _mm256_extracti128_si256(vector, 1);
   __m128i low128 = _mm256_castsi256_si128(vector);
 
