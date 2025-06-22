@@ -105,7 +105,8 @@ static inline void transpose() {
     for (int l1 = 0; l1 < L1_SIZE / INT8_PER_INT32; l1++) {
       for (int l2 = 0; l2 < L2_SIZE; l2++) {
         for (int c = 0; c < INT8_PER_INT32; c++) {
-          nnue.l1_weights[b][l1 * INT8_PER_INT32 * L2_SIZE + l2 * INT8_PER_INT32 + c] =
+          nnue.l1_weights[b][l1 * INT8_PER_INT32 * L2_SIZE +
+                             l2 * INT8_PER_INT32 + c] =
               round(net.l1_weights[b][l2][l1 * INT8_PER_INT32 + c] * L1_QUANT);
         }
       }
@@ -115,7 +116,8 @@ static inline void transpose() {
   for (int b = 0; b < OUTPUT_BUCKETS; b++) {
     for (int l1 = 0; l1 < L1_SIZE; l1++) {
       for (int l2 = 0; l2 < L2_SIZE; l2++) {
-        nnue.l1_weights[b][l1 * L2_SIZE + l2] = round(net.l1_weights[b][l2][l1] * L1_QUANT);
+        nnue.l1_weights[b][l1 * L2_SIZE + l2] =
+            round(net.l1_weights[b][l2][l1] * L1_QUANT);
       }
     }
   }
@@ -420,7 +422,8 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
 
   for (int l1 = 0; l1 < L1_SIZE; l1++) {
     for (int l2 = 0; l2 < L2_SIZE; l2++) {
-      l2Neurons[l2] += l1Neurons[l1] * nnue.l1_weights[out_bucket][l1 * L2_SIZE + l2];
+      l2Neurons[l2] +=
+          l1Neurons[l1] * nnue.l1_weights[out_bucket][l1 * L2_SIZE + l2];
     }
   }
 
@@ -451,18 +454,18 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
 }
 
 int nnue_evaluate(position_t *pos, accumulator_t *accumulator) {
-  uint8_t out_bucket = calculate_output_bucket(pos);
-  int16_t *stmAcc = accumulator->accumulator[pos->side];
-  int16_t *oppAcc = accumulator->accumulator[1 - pos->side];
+  const uint8_t out_bucket = calculate_output_bucket(pos);
+  const int16_t *stmAcc = accumulator->accumulator[pos->side];
+  const int16_t *oppAcc = accumulator->accumulator[1 - pos->side];
 
-  _Alignas(64) int8_t l1Neurons[L1_SIZE];
-  _Alignas(64) int l2Neurons[L2_SIZE] = {0};
-  _Alignas(64) float l3Neurons[L3_SIZE];
+  _Alignas(64) int8_t l1_neurons[L1_SIZE];
+  _Alignas(64) int l2_neurons[L2_SIZE] = {0};
+  _Alignas(64) float l3_neurons[L3_SIZE];
 
   const float L1_NORMALISATION =
       (float)(1 << INPUT_SHIFT) / (float)(INPUT_QUANT * INPUT_QUANT * L1_QUANT);
 
-  #if defined(USE_SIMD) 
+#if defined(USE_SIMD)
   const int FLOAT_VEC_SIZE = sizeof(veci_t) / sizeof(float);
   const int I16_VEC_SIZE = sizeof(veci_t) / sizeof(int16_t);
 
@@ -471,123 +474,143 @@ int nnue_evaluate(position_t *pos, accumulator_t *accumulator) {
 
   for (int l1 = 0; l1 < L1_SIZE / 2; l1 += 2 * I16_VEC_SIZE) {
     // STM
-    veci_t clipped1 = clip(*((veci_t*) & stmAcc[l1]), i16_zero, i16_quant);
-    veci_t clipped2 = clip(*((veci_t*) & stmAcc[l1 + L1_SIZE / 2]), i16_zero, i16_quant);
+    veci_t clipped1 = clip_epi16(*((veci_t *)&stmAcc[l1]), i16_zero, i16_quant);
+    veci_t clipped2 =
+        min_epi16(*((veci_t *)&stmAcc[l1 + L1_SIZE / 2]), i16_quant);
     veci_t shift = slli_epi16(clipped1, 16 - INPUT_SHIFT);
     veci_t mul1 = mulhi_epi16(shift, clipped2);
 
-    clipped1 = clip(*((veci_t*) & stmAcc[l1 + I16_VEC_SIZE]), i16_zero, i16_quant);
-    clipped2 = clip(*((veci_t*) & stmAcc[l1 + I16_VEC_SIZE + L1_SIZE / 2]), i16_zero, i16_quant);
+    clipped1 = clip_epi16(*((veci_t *)&stmAcc[l1 + I16_VEC_SIZE]), i16_zero,
+                          i16_quant);
+    clipped2 = min_epi16(*((veci_t *)&stmAcc[l1 + I16_VEC_SIZE + L1_SIZE / 2]),
+                         i16_quant);
     shift = slli_epi16(clipped1, 16 - INPUT_SHIFT);
     veci_t mul2 = mulhi_epi16(shift, clipped2);
 
     veci_t u8s = packus_epi16(mul1, mul2);
-    vec_store_i((veci_t*) & l1Neurons[l1], u8s);
+    vec_store_i((veci_t *)&l1_neurons[l1], u8s);
 
     // NSTM
-    clipped1 = clip(*((veci_t*) & oppAcc[l1]), i16_zero, i16_quant);
-    clipped2 = clip(*((veci_t*) & oppAcc[l1 + L1_SIZE / 2]), i16_zero, i16_quant);
+    clipped1 = clip_epi16(*((veci_t *)&oppAcc[l1]), i16_zero, i16_quant);
+    clipped2 = min_epi16(*((veci_t *)&oppAcc[l1 + L1_SIZE / 2]), i16_quant);
     shift = slli_epi16(clipped1, 16 - INPUT_SHIFT);
     mul1 = mulhi_epi16(shift, clipped2);
 
-    clipped1 = clip(*((veci_t*) & oppAcc[l1 + I16_VEC_SIZE]), i16_zero, i16_quant);
-    clipped2 = clip(*((veci_t*) & oppAcc[l1 + I16_VEC_SIZE + L1_SIZE / 2]), i16_zero, i16_quant);
+    clipped1 = clip_epi16(*((veci_t *)&oppAcc[l1 + I16_VEC_SIZE]), i16_zero,
+                          i16_quant);
+    clipped2 = min_epi16(*((veci_t *)&oppAcc[l1 + I16_VEC_SIZE + L1_SIZE / 2]),
+                         i16_quant);
     shift = slli_epi16(clipped1, 16 - INPUT_SHIFT);
     mul2 = mulhi_epi16(shift, clipped2);
 
     u8s = packus_epi16(mul1, mul2);
-    vec_store_i((veci_t*) & l1Neurons[l1 + L1_SIZE / 2], u8s);
+    vec_store_i((veci_t *)&l1_neurons[l1 + L1_SIZE / 2], u8s);
   }
 
-  int* l1Packs = (int*)l1Neurons;
+  int *l1Packs = (int *)l1_neurons;
 
-    for (int l1 = 0; l1 < L1_SIZE; l1 += INT8_PER_INT32) {
-        for (int l2 = 0; l2 < L2_SIZE; l2 += sizeof(veci_t) / sizeof(int32_t)) {
-            veci_t u8 = set_epi32(l1Packs[l1 / INT8_PER_INT32]);
-            veci_t i8 = *((veci_t*) &nnue.l1_weights[out_bucket][l1 * L2_SIZE + INT8_PER_INT32 * l2]);
-            *((veci_t*) &l2Neurons[l2]) = dpbusd_epi32(*((veci_t*) &l2Neurons[l2]), u8, i8);
-        }
+  for (int l1 = 0; l1 < L1_SIZE; l1 += INT8_PER_INT32) {
+    for (int l2 = 0; l2 < L2_SIZE; l2 += sizeof(veci_t) / sizeof(int32_t)) {
+      veci_t u8 = set_epi32(l1Packs[l1 / INT8_PER_INT32]);
+      veci_t i8 =
+          *((veci_t *)&nnue
+                .l1_weights[out_bucket][l1 * L2_SIZE + INT8_PER_INT32 * l2]);
+      *((veci_t *)&l2_neurons[l2]) =
+          dpbusd_epi32(*((veci_t *)&l2_neurons[l2]), u8, i8);
     }
+  }
 
-    memcpy(l3Neurons, nnue.l2_bias[out_bucket], sizeof(l3Neurons));
-    _Alignas(64) float l2Floats[L2_SIZE];
+  memcpy(l3_neurons, nnue.l2_bias[out_bucket], sizeof(l3_neurons));
+  _Alignas(64) float l2_floats[L2_SIZE];
 
-    for (int l2 = 0; l2 < L2_SIZE / FLOAT_VEC_SIZE; l2++) {
-      __m256 converted = _mm256_cvtepi32_ps(*((__m256i*) & l2Neurons[l2 * FLOAT_VEC_SIZE]));
-      __m256 l2Result = _mm256_add_ps(_mm256_mul_ps(converted, _mm256_set1_ps(L1_NORMALISATION)), *((__m256*) & nnue.l1_bias[out_bucket][l2 * FLOAT_VEC_SIZE]));
-      __m256 l2Clipped = _mm256_max_ps(_mm256_min_ps(l2Result, _mm256_set1_ps(1.0f)), _mm256_set1_ps(0.0f));
-      *((__m256*) & l2Floats[l2 * FLOAT_VEC_SIZE]) = _mm256_mul_ps(l2Clipped, l2Clipped);
+  vecf_t norm_ps = set_ps1(L1_NORMALISATION);
+  vecf_t one_ps = set_ps1(1.0f);
+  vecf_t zero_ps = set_ps1(0.0f);
+
+  for (int l2 = 0; l2 < L2_SIZE / FLOAT_VEC_SIZE; l2++) {
+    vecf_t converted =
+        cvtepi32_ps(*((veci_t *)&l2_neurons[l2 * FLOAT_VEC_SIZE]));
+    vecf_t l2_result =
+        add_ps(mul_ps(converted, norm_ps),
+               *((vecf_t *)&nnue.l1_bias[out_bucket][l2 * FLOAT_VEC_SIZE]));
+    vecf_t l2_clipped = clip_ps(l2_result, one_ps, zero_ps);
+    *((vecf_t *)&l2_floats[l2 * FLOAT_VEC_SIZE]) =
+        mul_ps(l2_clipped, l2_clipped);
   }
 
   for (int l2 = 0; l2 < L2_SIZE; l2++) {
-      for (int l3 = 0; l3 < L3_SIZE / FLOAT_VEC_SIZE; l3++) {
-          *((__m256*) & l3Neurons[l3 * FLOAT_VEC_SIZE]) = _mm256_fmadd_ps(_mm256_set1_ps(l2Floats[l2]), *((__m256*) & nnue.l2_weights[out_bucket][l2][l3 * FLOAT_VEC_SIZE]), *((__m256*) & l3Neurons[l3 * FLOAT_VEC_SIZE]));
-      }
+    for (int l3 = 0; l3 < L3_SIZE / FLOAT_VEC_SIZE; l3++) {
+      *((vecf_t *)&l3_neurons[l3 * FLOAT_VEC_SIZE]) = fmadd_ps(
+          set_ps1(l2_floats[l2]),
+          *((vecf_t *)&nnue.l2_weights[out_bucket][l2][l3 * FLOAT_VEC_SIZE]),
+          *((vecf_t *)&l3_neurons[l3 * FLOAT_VEC_SIZE]));
+    }
   }
 
-  __m256 resultSums[2];
-    resultSums[0] = _mm256_set1_ps(0.0f);
-    resultSums[1] = _mm256_set1_ps(0.0f);
+  const uint8_t chunks = 64 / sizeof(vecf_t);
 
-    for (int l3 = 0; l3 < L3_SIZE / FLOAT_VEC_SIZE; l3 += 2) {
-        __m256 l3Clipped1 = _mm256_max_ps(_mm256_min_ps(*((__m256*) & l3Neurons[l3 * FLOAT_VEC_SIZE]), _mm256_set1_ps(1.0f)), _mm256_set1_ps(0.0f));
-        __m256 l3Clipped2 = _mm256_max_ps(_mm256_min_ps(*((__m256*) & l3Neurons[(l3 + 1) * FLOAT_VEC_SIZE]), _mm256_set1_ps(1.0f)), _mm256_set1_ps(0.0f));
-        __m256 l3Activated1 = _mm256_mul_ps(l3Clipped1, l3Clipped1);
-        __m256 l3Activated2 = _mm256_mul_ps(l3Clipped2, l3Clipped2);
-        resultSums[0] = _mm256_fmadd_ps(l3Activated1, *((__m256*) & nnue.l3_weights[out_bucket][l3 * FLOAT_VEC_SIZE]), resultSums[0]);
-        resultSums[1] = _mm256_fmadd_ps(l3Activated2, *((__m256*) & nnue.l3_weights[out_bucket][(l3 + 1) * FLOAT_VEC_SIZE]), resultSums[1]);
+  vecf_t result_sums[chunks];
+  for (int i = 0; i < chunks; i++) {
+    result_sums[i] = zero_ps;
+  }
+
+  for (int l3 = 0; l3 < L3_SIZE / FLOAT_VEC_SIZE; l3 += chunks) {
+    for (int chunk = 0; chunk < chunks; chunk++) {
+      vecf_t l3_clipped =
+          clip_ps(*((vecf_t *)&l3_neurons[(l3 + chunk) * FLOAT_VEC_SIZE]),
+                  one_ps, zero_ps);
+      vecf_t l3_activated = mul_ps(l3_clipped, l3_clipped);
+      result_sums[chunk] = fmadd_ps(
+          l3_activated,
+          *((vecf_t *)&nnue
+                .l3_weights[out_bucket][(l3 + chunk) * FLOAT_VEC_SIZE]),
+          result_sums[chunk]);
     }
+  }
 
-    resultSums[0] = _mm256_add_ps(resultSums[0], resultSums[1]);
-    __m128 high = _mm256_extractf128_ps(resultSums[0], 1);
-    __m128 low = _mm256_castps256_ps128(resultSums[0]);
-    __m128 sum = _mm_add_ps(high, low);
-    __m128 high64 = _mm_movehl_ps(sum, sum);
-    __m128 sum64 = _mm_add_ps(sum, high64);
+  float result = nnue.l3_bias[out_bucket] + reduce_add_ps(result_sums);
+#else
 
-    float result = nnue.l3_bias[out_bucket] + ((float*)&sum64)[0] + ((float*)&sum64)[1];
-  #else 
-  
   for (int l1 = 0; l1 < L1_SIZE / 2; l1++) {
     int16_t stmClipped1 = clamp((int)(stmAcc[l1]), 0, INPUT_QUANT);
     int16_t stmClipped2 =
         clamp((int)(stmAcc[l1 + L1_SIZE / 2]), 0, INPUT_QUANT);
-    l1Neurons[l1] = (stmClipped1 * stmClipped2) >> INPUT_SHIFT;
+    l1_neurons[l1] = (stmClipped1 * stmClipped2) >> INPUT_SHIFT;
 
     int16_t oppClipped1 = clamp((int)(oppAcc[l1]), 0, INPUT_QUANT);
     int16_t oppClipped2 =
         clamp((int)(oppAcc[l1 + L1_SIZE / 2]), 0, INPUT_QUANT);
-    l1Neurons[l1 + L1_SIZE / 2] = (oppClipped1 * oppClipped2) >> INPUT_SHIFT;
+    l1_neurons[l1 + L1_SIZE / 2] = (oppClipped1 * oppClipped2) >> INPUT_SHIFT;
   }
 
   for (int l1 = 0; l1 < L1_SIZE; l1++) {
     for (int l2 = 0; l2 < L2_SIZE; l2++) {
-      l2Neurons[l2] += l1Neurons[l1] * nnue.l1_weights[out_bucket][l1 * L2_SIZE + l2];
+      l2_neurons[l2] +=
+          l1_neurons[l1] * nnue.l1_weights[out_bucket][l1 * L2_SIZE + l2];
     }
   }
 
-  memcpy(l3Neurons, nnue.l2_bias[out_bucket], sizeof(l3Neurons));
+  memcpy(l3_neurons, nnue.l2_bias[out_bucket], sizeof(l3_neurons));
 
   for (int l2 = 0; l2 < L2_SIZE; l2++) {
-    float l2Result = (float)(l2Neurons[l2]) * L1_NORMALISATION +
+    float l2Result = (float)(l2_neurons[l2]) * L1_NORMALISATION +
                      (nnue.l1_bias[out_bucket][l2]);
     float l2Activated = crelu_float(l2Result);
     l2Activated *= l2Activated;
 
     for (int l3 = 0; l3 < L3_SIZE; l3++) {
-      l3Neurons[l3] += l2Activated * nnue.l2_weights[out_bucket][l2][l3];
+      l3_neurons[l3] += l2Activated * nnue.l2_weights[out_bucket][l2][l3];
     }
   }
 
   float result = nnue.l3_bias[out_bucket];
   for (int l3 = 0; l3 < L3_SIZE; l3++) {
-    float l3Activated = crelu_float(l3Neurons[l3]);
+    float l3Activated = crelu_float(l3_neurons[l3]);
     l3Activated *= l3Activated;
     result += l3Activated * nnue.l3_weights[out_bucket][l3];
   }
-  // TODO reduce add
-  
-  #endif
+
+#endif
   return (int16_t)(result * SCALE);
 }
 
