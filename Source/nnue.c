@@ -99,7 +99,7 @@ static inline uint8_t calculate_output_bucket(position_t *pos) {
   return (pieces - 2) / 4;
 }
 
-static inline void transpose() {
+static inline void transpose(void) {
 #if defined(USE_SIMD)
   for (int b = 0; b < OUTPUT_BUCKETS; b++) {
     for (int l1 = 0; l1 < L1_SIZE / INT8_PER_INT32; l1++) {
