@@ -116,7 +116,7 @@ void init_all(void) {
   // init hash table with default size
   init_hash_table(default_hash_size);
 
-  nnue_init("garmr.nnue");
+  nnue_init("hati.nnue");
 }
 
 /**********************************\
@@ -136,7 +136,7 @@ int main(int argc, char *argv[]) {
   tt.hash_entry = NULL;
   tt.num_of_entries = 0;
   nnue_settings.nnue_file = calloc(21, 1);
-  strcpy(nnue_settings.nnue_file, "garmr.nnue");
+  strcpy(nnue_settings.nnue_file, "hati.nnue");
   // init all
   init_all();
 

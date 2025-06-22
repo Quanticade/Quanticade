@@ -1,4 +1,4 @@
-NETWORK_NAME = garmr.nnue
+NETWORK_NAME = hati.nnue
 _THIS       := $(realpath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 _ROOT       := $(_THIS)
 EVALFILE     = $(NETWORK_NAME)
@@ -9,7 +9,7 @@ NATIVE       = -march=native
 AVX2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi
 BMI2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi -mbmi2
 AVX512FLAGS  = -DUSE_AVX512 -DUSE_SIMD -mavx512f -mavx512bw
-NEONFLAGS    = -DUSE_NEON -DUSE_SIMD -flax-vector-conversions
+NEONFLAGS    = -DU#SE_NEON -DUSE_SIMD -flax-vector-conversions
 
 # engine name
 NAME        := Quanticade

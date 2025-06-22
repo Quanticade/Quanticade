@@ -11,87 +11,143 @@
 #endif
 
 #if defined(USE_AVX512)
-typedef __m512i vepi16;
-typedef __m512i vepi32;
+typedef __m512i veci_t;
+typedef __m512 vecf_t;
 
-static inline vepi16 zero_epi16(void) { return _mm512_setzero_si512(); }
-static inline vepi32 zero_epi32(void) { return _mm512_setzero_si512(); }
-static inline vepi16 load_epi16(const int16_t *memory_address) {
-  return _mm512_loadu_si512((const __m512i *)memory_address);
+static inline veci_t zero(void) { return _mm512_setzero_si512(); }
+static inline veci_t load(const int16_t *memory_address) {
+  return _mm512_loadu_si512((const veci_t *)memory_address);
 }
-static inline vepi32 load_epi32(const int32_t *memory_address) {
-  return _mm512_load_si512((const __m512i *)memory_address);
+static inline veci_t set_epi16(int num) { return _mm512_set1_epi16(num); }
+static inline veci_t set_epi32(int num) { return _mm512_set1_epi32(num); }
+static inline vecf_t set_ps1(float num) { return _mm512_set1_ps(num); }
+static inline veci_t slli_epi16(veci_t vector, int shift) {
+  return _mm512_slli_epi16(vector, shift);
 }
-static inline vepi16 load_epi16_broadcast(int num) {
-  return _mm512_set1_epi16(num);
+static inline veci_t mulhi_epi16(veci_t shift, veci_t vector) {
+  return _mm512_mulhi_epi16(shift, vector);
 }
-static inline vepi32 load_epi32_broadcast(int num) {
-  return _mm512_set1_epi32(num);
+static inline veci_t packus_epi16(veci_t vec1, veci_t vec2) {
+  veci_t temp = _mm512_packus_epi16(vec1, vec2);
+  return _mm512_permutexvar_epi64(_mm512_setr_epi64(0, 2, 4, 6, 1, 3, 5, 7),
+                                    temp);
 }
-// static inline void store_epi16(void *memory_address, vepi16 vector) {
-// _mm512_store_si512(memory_address, vector); }
-static inline vepi32 add_epi32(vepi32 v1, vepi32 v2) {
+static inline void vec_store_i(veci_t *scalar, veci_t integer) {
+  _mm512_store_si512(scalar, integer);
+}
+#if defined(__AVX512VNNI__)
+inline veci_t dpbusd_epi32(veci_t sum, veci_t u, veci_t i) {
+  // On Zen4 VNNI is slower so lets disable it by default
+  //return _mm512_dpbusd_epi32(sum, u, i);
+  veci_t sum32 = _mm512_madd_epi16(_mm512_maddubs_epi16(u, i), _mm512_set1_epi16(1));
+  return _mm512_add_epi32(sum32, sum);
+}
+#else
+inline veci_t dpbusd_epi32(veci_t sum, veci_t u, veci_t i) {
+  veci_t sum32 = _mm512_madd_epi16(_mm512_maddubs_epi16(u, i), _mm512_set1_epi16(1));
+  return _mm512_add_epi32(sum32, sum);
+}
+#endif
+static inline veci_t add_epi32(veci_t v1, veci_t v2) {
   return _mm512_add_epi32(v1, v2);
 }
-static inline vepi16 multiply_epi16(vepi16 v1, vepi16 v2) {
+static inline veci_t multiply_epi16(veci_t v1, veci_t v2) {
   return _mm512_mullo_epi16(v1, v2);
 }
-static inline vepi32 multiply_add_epi16(vepi16 v1, vepi16 v2) {
+static inline veci_t multiply_add_epi16(veci_t v1, veci_t v2) {
   return _mm512_madd_epi16(v1, v2);
 }
-static inline vepi16 clip(vepi16 vector, int l1q) {
-  return _mm512_min_epi16(_mm512_max_epi16(vector, zero_epi16()),
-                          load_epi16_broadcast(l1q));
+static inline veci_t min_epi16(veci_t vector, veci_t quant) {
+  return _mm512_min_epi16(vector, quant);
 }
-static inline int reduce_add_epi32(vepi32 v) {
-  return _mm512_reduce_add_epi32(v);
+static inline veci_t clip_epi16(veci_t vector, veci_t zero, veci_t quant) {
+  return _mm512_min_epi16(_mm512_max_epi16(vector, zero), quant);
+}
+static inline vecf_t cvtepi32_ps(veci_t vec) { return _mm512_cvtepi32_ps(vec); }
+static inline vecf_t add_ps(vecf_t vec, vecf_t vec1) {
+  return _mm512_add_ps(vec, vec1);
+}
+static inline vecf_t mul_ps(vecf_t vec, vecf_t vec1) {
+  return _mm512_mul_ps(vec, vec1);
+}
+static inline vecf_t clip_ps(vecf_t vec, vecf_t max, vecf_t min) {
+  return _mm512_max_ps(_mm512_min_ps(vec, max), min);
+}
+static inline vecf_t fmadd_ps(vecf_t a, vecf_t b, vecf_t c) {
+  return _mm512_fmadd_ps(a, b, c);
+}
+
+static inline float reduce_add_ps(vecf_t *v) {
+  return _mm512_reduce_add_ps(v[0]);
 }
 
 #elif defined(USE_AVX2)
-typedef __m256i vepi16;
-typedef __m256i vepi32;
+typedef __m256i veci_t;
+typedef __m256 vecf_t;
 
-static inline vepi16 zero_epi16(void) { return _mm256_setzero_si256(); }
-static inline vepi32 zero_epi32(void) { return _mm256_setzero_si256(); }
-static inline vepi16 load_epi16(const int16_t *memory_address) {
-  return _mm256_loadu_si256((const __m256i *)memory_address);
+static inline veci_t zero(void) { return _mm256_setzero_si256(); }
+static inline veci_t load(const int16_t *memory_address) {
+  return _mm256_loadu_si256((const veci_t *)memory_address);
 }
-static inline vepi32 load_epi32(const int32_t *memory_address) {
-  return _mm256_load_si256((const __m256i *)memory_address);
+static inline veci_t set_epi16(int num) { return _mm256_set1_epi16(num); }
+static inline veci_t set_epi32(int num) { return _mm256_set1_epi32(num); }
+static inline vecf_t set_ps1(float num) { return _mm256_set1_ps(num); }
+static inline veci_t slli_epi16(veci_t vector, int shift) {
+  return _mm256_slli_epi16(vector, shift);
 }
-static inline vepi16 load_epi16_broadcast(int num) {
-  return _mm256_set1_epi16(num);
+static inline veci_t mulhi_epi16(veci_t shift, veci_t vector) {
+  return _mm256_mulhi_epi16(shift, vector);
 }
-static inline vepi32 load_epi32_broadcast(int num) {
-  return _mm256_set1_epi32(num);
+static inline veci_t packus_epi16(veci_t vec1, veci_t vec2) {
+  veci_t temp = _mm256_packus_epi16(vec1, vec2);
+  return _mm256_permute4x64_epi64(temp, _MM_SHUFFLE(3, 1, 2, 0));
 }
-// static inline void store_epi16(void *memory_address, vepi16 vector) {
-// _mm256_store_si256(memory_address, vector); }
-static inline vepi32 add_epi32(vepi32 v1, vepi32 v2) {
+static inline void vec_store_i(veci_t *scalar, veci_t integer) {
+  _mm256_store_si256(scalar, integer);
+}
+static inline veci_t dpbusd_epi32(veci_t sum, veci_t u, veci_t i) {
+  veci_t sum32 =
+      _mm256_madd_epi16(_mm256_maddubs_epi16(u, i), _mm256_set1_epi16(1));
+  return _mm256_add_epi32(sum, sum32);
+}
+static inline veci_t add_epi32(veci_t v1, veci_t v2) {
   return _mm256_add_epi32(v1, v2);
 }
-static inline vepi16 multiply_epi16(vepi16 v1, vepi16 v2) {
+static inline veci_t multiply_epi16(veci_t v1, veci_t v2) {
   return _mm256_mullo_epi16(v1, v2);
 }
-static inline vepi32 multiply_add_epi16(vepi16 v1, vepi16 v2) {
+static inline veci_t multiply_add_epi16(veci_t v1, veci_t v2) {
   return _mm256_madd_epi16(v1, v2);
 }
-static inline vepi16 clip(vepi16 vector, int l1q) {
-  return _mm256_min_epi16(_mm256_max_epi16(vector, zero_epi16()),
-                          load_epi16_broadcast(l1q));
+static inline veci_t min_epi16(veci_t vector, veci_t quant) {
+  return _mm256_min_epi16(vector, quant);
+}
+static inline veci_t clip_epi16(veci_t vector, veci_t zero, veci_t quant) {
+  return _mm256_min_epi16(_mm256_max_epi16(vector, zero), quant);
+}
+static inline vecf_t cvtepi32_ps(veci_t vec) { return _mm256_cvtepi32_ps(vec); }
+static inline vecf_t add_ps(vecf_t vec, vecf_t vec1) {
+  return _mm256_add_ps(vec, vec1);
+}
+static inline vecf_t mul_ps(vecf_t vec, vecf_t vec1) {
+  return _mm256_mul_ps(vec, vec1);
+}
+static inline vecf_t clip_ps(vecf_t vec, vecf_t max, vecf_t min) {
+  return _mm256_max_ps(_mm256_min_ps(vec, max), min);
+}
+static inline vecf_t fmadd_ps(vecf_t a, vecf_t b, vecf_t c) {
+  return _mm256_fmadd_ps(a, b, c);
 }
 
-static inline int reduce_add_epi32(vepi32 vector) {
-  __m128i high128 = _mm256_extracti128_si256(vector, 1);
-  __m128i low128 = _mm256_castsi256_si128(vector);
+static inline float reduce_add_ps(vecf_t *v) {
+  v[0] = _mm256_add_ps(v[0], v[1]);
+  __m128 high = _mm256_extractf128_ps(v[0], 1);
+  __m128 low = _mm256_castps256_ps128(v[0]);
+  __m128 sum = _mm_add_ps(high, low);
+  __m128 high64 = _mm_movehl_ps(sum, sum);
+  __m128 sum64 = _mm_add_ps(sum, high64);
 
-  __m128i sum128 = _mm_add_epi32(high128, low128);
-  __m128i high64 = _mm_unpackhi_epi64(sum128, sum128);
-  __m128i sum64 = _mm_add_epi32(sum128, high64);
-  __m128i high32 = _mm_shuffle_epi32(sum64, _MM_SHUFFLE(2, 3, 0, 1));
-  __m128i sum32 = _mm_add_epi32(sum64, high32);
-
-  return _mm_cvtsi128_si32(sum32);
+  return ((float *)&sum64)[0] + ((float *)&sum64)[1];
 }
 
 #elif defined(USE_NEON)
@@ -122,8 +178,7 @@ static inline vepi32 multiply_add_epi16(vepi16 v1, vepi16 v2) {
   return vpaddq_s32(low, high);
 }
 static inline vepi16 clip(vepi16 vector, int l1q) {
-  return vminq_s16(vmaxq_s16(vector, zero_epi16()),
-                   load_epi16_broadcast(l1q));
+  return vminq_s16(vmaxq_s16(vector, zero_epi16()), load_epi16_broadcast(l1q));
 }
 static inline int reduce_add_epi32(vepi32 v) {
   int32x2_t sum1 = vpadd_s32(vget_low_s32(v), vget_high_s32(v));

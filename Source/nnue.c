@@ -5,12 +5,30 @@
 #include "move.h"
 #include "simd.h"
 #include "structs.h"
+#include "uci.h"
+#include "utils.h"
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 nnue_t nnue;
+
+struct raw_net {
+  int16_t feature_weights[KING_BUCKETS][INPUT_WEIGHTS][L1_SIZE];
+  int16_t feature_bias[L1_SIZE];
+  float l1_weights[OUTPUT_BUCKETS][L2_SIZE][L1_SIZE];
+  float l1_bias[OUTPUT_BUCKETS][L2_SIZE];
+  float l2_weights[OUTPUT_BUCKETS][L3_SIZE][L2_SIZE];
+  float l2_bias[OUTPUT_BUCKETS][L3_SIZE];
+  float l3_weights[OUTPUT_BUCKETS][L3_SIZE];
+  float l3_bias[OUTPUT_BUCKETS];
+};
+
+struct raw_net net;
+
+const int INT8_PER_INT32 = sizeof(int) / sizeof(int8_t);
 
 uint8_t buckets[64] = {12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
                        12, 12, 12, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11,
@@ -53,9 +71,27 @@ static int32_t clamp_int32(int32_t d, int32_t min, int32_t max) {
   return t > max ? max : t;
 }
 
+static float clamp_float(float d, float min, float max) {
+  const float t = d < min ? min : d;
+  return t > max ? max : t;
+}
+
 static inline int32_t screlu(int16_t value) {
-  const int32_t clipped = clamp_int32((int32_t)value, 0, L1Q);
+  const int32_t clipped = clamp_int32((int32_t)value, 0, INPUT_QUANT);
   return clipped * clipped;
+}
+
+static inline float screlu_float(float value) {
+  const float clipped = clamp_float(value, 0.0f, 1.0f);
+  return clipped * clipped;
+}
+
+static inline int16_t crelu(int16_t value) {
+  return clamp_int32((int32_t)value, 0, INPUT_QUANT);
+}
+
+static inline float crelu_float(float value) {
+  return clamp_float(value, 0.0f, 1.0f);
 }
 
 static inline uint8_t calculate_output_bucket(position_t *pos) {
@@ -63,27 +99,70 @@ static inline uint8_t calculate_output_bucket(position_t *pos) {
   return (pieces - 2) / 4;
 }
 
+static inline void transpose() {
+#if defined(USE_SIMD)
+  for (int b = 0; b < OUTPUT_BUCKETS; b++) {
+    for (int l1 = 0; l1 < L1_SIZE / INT8_PER_INT32; l1++) {
+      for (int l2 = 0; l2 < L2_SIZE; l2++) {
+        for (int c = 0; c < INT8_PER_INT32; c++) {
+          nnue.l1_weights[b][l1 * INT8_PER_INT32 * L2_SIZE +
+                             l2 * INT8_PER_INT32 + c] =
+              round(net.l1_weights[b][l2][l1 * INT8_PER_INT32 + c] * L1_QUANT);
+        }
+      }
+    }
+  }
+#else
+  for (int b = 0; b < OUTPUT_BUCKETS; b++) {
+    for (int l1 = 0; l1 < L1_SIZE; l1++) {
+      for (int l2 = 0; l2 < L2_SIZE; l2++) {
+        nnue.l1_weights[b][l1 * L2_SIZE + l2] =
+            round(net.l1_weights[b][l2][l1] * L1_QUANT);
+      }
+    }
+  }
+#endif
+  for (int b = 0; b < OUTPUT_BUCKETS; b++) {
+    for (int l2 = 0; l2 < L2_SIZE; l2++) {
+      for (int l3 = 0; l3 < L3_SIZE; l3++) {
+        nnue.l2_weights[b][l2][l3] = net.l2_weights[b][l3][l2];
+      }
+    }
+  }
+  for (int b = 0; b < OUTPUT_BUCKETS; b++) {
+    for (int l3 = 0; l3 < L3_SIZE; l3++) {
+      nnue.l3_weights[b][l3] = net.l3_weights[b][l3];
+    }
+  }
+  memcpy(nnue.feature_weights, net.feature_weights,
+         sizeof(net.feature_weights));
+  memcpy(nnue.feature_bias, net.feature_bias, sizeof(net.feature_bias));
+  memcpy(nnue.l1_bias, net.l1_bias, sizeof(net.l1_bias));
+  memcpy(nnue.l2_bias, net.l2_bias, sizeof(net.l2_bias));
+  memcpy(nnue.l3_bias, net.l3_bias, sizeof(net.l3_bias));
+}
+
 int nnue_init_incbin(void) {
   uint64_t memoryIndex = 0;
-  char version_string[21];
-  memcpy(version_string, &gEVALData[memoryIndex], 20 * sizeof(char));
-  version_string[20] = '\0';
-  if (strcmp(version_string, "4275636B657432303438") != 0) {
-    return 0;
-  }
-  memoryIndex += 20 * sizeof(char);
-  memcpy(nnue.feature_weights, &gEVALData[memoryIndex],
-         INPUT_WEIGHTS * HIDDEN_SIZE * KING_BUCKETS * sizeof(int16_t));
-  memoryIndex += INPUT_WEIGHTS * HIDDEN_SIZE * KING_BUCKETS * sizeof(int16_t);
-  memcpy(nnue.feature_bias, &gEVALData[memoryIndex],
-         HIDDEN_SIZE * sizeof(int16_t));
-  memoryIndex += HIDDEN_SIZE * sizeof(int16_t);
+  memcpy(net.feature_weights, &gEVALData[memoryIndex],
+         sizeof(net.feature_weights));
+  memoryIndex += sizeof(net.feature_weights);
+  memcpy(net.feature_bias, &gEVALData[memoryIndex], sizeof(net.feature_bias));
+  memoryIndex += sizeof(net.feature_bias);
 
-  memcpy(&nnue.output_weights, &gEVALData[memoryIndex],
-         HIDDEN_SIZE * sizeof(int16_t) * 2 * OUTPUT_BUCKETS);
-  memoryIndex += HIDDEN_SIZE * sizeof(int16_t) * 2 * OUTPUT_BUCKETS;
-  memcpy(&nnue.output_bias, &gEVALData[memoryIndex],
-         OUTPUT_BUCKETS * sizeof(int16_t));
+  memcpy(&net.l1_weights, &gEVALData[memoryIndex], sizeof(net.l1_weights));
+  memoryIndex += sizeof(net.l1_weights);
+  memcpy(&net.l1_bias, &gEVALData[memoryIndex], sizeof(net.l1_bias));
+  memoryIndex += sizeof(net.l1_bias);
+
+  memcpy(&net.l2_weights, &gEVALData[memoryIndex], sizeof(net.l2_weights));
+  memoryIndex += sizeof(net.l2_weights);
+  memcpy(&net.l2_bias, &gEVALData[memoryIndex], sizeof(net.l2_bias));
+  memoryIndex += sizeof(net.l2_bias);
+
+  memcpy(&net.l3_weights, &gEVALData[memoryIndex], sizeof(net.l3_weights));
+  memoryIndex += sizeof(net.l3_weights);
+  memcpy(&net.l3_bias, &gEVALData[memoryIndex], sizeof(net.l3_bias));
   return 1;
 }
 
@@ -95,45 +174,49 @@ void nnue_init(const char *nnue_file_name) {
   if (nn) {
     // initialize an accumulator for every input of the second layer
     size_t read = 0;
-    size_t fileSize = sizeof(nnue_t);
-    size_t objectsExpected = (fileSize / sizeof(int16_t)) + 20 -
-                             24; // Due to alligment we deduct 24 from it
-    char version_string[21];
-    read += fread(version_string, sizeof(char), 20, nn);
-    version_string[20] = '\0';
-    (void)version_string;
+    size_t objectsExpected = 0;
+    objectsExpected += sizeof(net.feature_weights) / sizeof(int16_t);
+    objectsExpected += sizeof(net.feature_bias) / sizeof(int16_t);
+    objectsExpected += sizeof(net.l1_weights) / sizeof(float);
+    objectsExpected += sizeof(net.l1_bias) / sizeof(float);
+    objectsExpected += sizeof(net.l2_weights) / sizeof(float);
+    objectsExpected += sizeof(net.l2_bias) / sizeof(float);
+    objectsExpected += sizeof(net.l3_weights) / sizeof(float);
+    objectsExpected += sizeof(net.l3_bias) / sizeof(float);
 
-    if (strcmp(version_string, "4275636B657432303438") != 0) {
-      printf("Imcompatible NNUE file. Trying to load NNUE from binary\n");
-      fclose(nn);
-      if (nnue_init_incbin() == 0) {
-        printf("Failed to load network from incbin. Exiting\n");
-        exit(1);
-      }
-    } else {
+    read += fread(net.feature_weights, sizeof(int16_t),
+                  sizeof(net.feature_weights) / sizeof(int16_t), nn);
+    read += fread(net.feature_bias, sizeof(int16_t),
+                  sizeof(net.feature_bias) / sizeof(int16_t), nn);
+    read += fread(net.l1_weights, sizeof(float),
+                  sizeof(net.l1_weights) / sizeof(float), nn);
+    read += fread(&net.l1_bias, sizeof(float),
+                  sizeof(net.l1_bias) / sizeof(float), nn);
+    read += fread(net.l2_weights, sizeof(float),
+                  sizeof(net.l2_weights) / sizeof(float), nn);
+    read += fread(&net.l2_bias, sizeof(float),
+                  sizeof(net.l2_bias) / sizeof(float), nn);
+    read += fread(net.l3_weights, sizeof(float),
+                  sizeof(net.l3_weights) / sizeof(float), nn);
+    read += fread(&net.l3_bias, sizeof(float),
+                  sizeof(net.l3_bias) / sizeof(float), nn);
 
-      read += fread(nnue.feature_weights, sizeof(int16_t),
-                    INPUT_WEIGHTS * HIDDEN_SIZE * KING_BUCKETS, nn);
-      read += fread(nnue.feature_bias, sizeof(int16_t), HIDDEN_SIZE, nn);
-      read += fread(nnue.output_weights, sizeof(int16_t),
-                    HIDDEN_SIZE * 2 * OUTPUT_BUCKETS, nn);
-      read += fread(&nnue.output_bias, sizeof(int16_t), OUTPUT_BUCKETS, nn);
-
-      if (read != objectsExpected) {
-        printf("We read: %zu but the expected is %zu\n", read, objectsExpected);
-        printf("Error loading the net, aborting\n");
-        exit(1);
-      }
-
-      // after reading the config we can close the file
-      fclose(nn);
+    if (read != objectsExpected) {
+      printf("We read: %zu but the expected is %zu\n", read, objectsExpected);
+      printf("Error loading the net, aborting\n");
+      exit(1);
     }
+
+    // after reading the config we can close the file
+    fclose(nn);
   } else {
+    printf("NNUE file not found. Loading from incbin\n");
     if (nnue_init_incbin() == 0) {
       printf("Failed to load network from incbin. Exiting\n");
       exit(1);
     }
   }
+  transpose();
 }
 
 static inline int16_t get_idx(uint8_t side, uint8_t piece, uint8_t square,
@@ -183,7 +266,7 @@ static inline void refresh_accumulator(thread_t *thread, position_t *pos,
       size_t removed_index =
           get_idx(side, piece, removed_square, king_square, 0, 0);
 
-      for (int i = 0; i < HIDDEN_SIZE; ++i)
+      for (int i = 0; i < L1_SIZE; ++i)
         finny_accumulator->accumulator[side][i] +=
             nnue.feature_weights[bucket][added_index][i] -
             nnue.feature_weights[bucket][removed_index][i];
@@ -194,7 +277,7 @@ static inline void refresh_accumulator(thread_t *thread, position_t *pos,
       pop_bit(added, square);
       size_t index = get_idx(side, piece, square, king_square, 0, 0);
 
-      for (int i = 0; i < HIDDEN_SIZE; ++i)
+      for (int i = 0; i < L1_SIZE; ++i)
         finny_accumulator->accumulator[side][i] +=
             nnue.feature_weights[bucket][index][i];
     }
@@ -204,20 +287,20 @@ static inline void refresh_accumulator(thread_t *thread, position_t *pos,
       pop_bit(removed, square);
       size_t index = get_idx(side, piece, square, king_square, 0, 0);
 
-      for (int i = 0; i < HIDDEN_SIZE; ++i)
+      for (int i = 0; i < L1_SIZE; ++i)
         finny_accumulator->accumulator[side][i] -=
             nnue.feature_weights[bucket][index][i];
     }
   }
   memcpy(accumulator->accumulator[side], finny_accumulator->accumulator[side],
-         HIDDEN_SIZE * sizeof(int16_t));
+         L1_SIZE * sizeof(int16_t));
   memcpy(finny_bitboards, pos->bitboards, 12 * sizeof(uint64_t));
 }
 
 void init_accumulator(position_t *pos, accumulator_t *accumulator) {
   uint8_t white_bucket = get_king_bucket(white, get_lsb(pos->bitboards[K]));
   uint8_t black_bucket = get_king_bucket(black, get_lsb(pos->bitboards[k]));
-  for (int i = 0; i < HIDDEN_SIZE; ++i) {
+  for (int i = 0; i < L1_SIZE; ++i) {
     accumulator->accumulator[0][i] = nnue.feature_bias[i];
     accumulator->accumulator[1][i] = nnue.feature_bias[i];
   }
@@ -232,11 +315,11 @@ void init_accumulator(position_t *pos, accumulator_t *accumulator) {
           get_idx(black, piece, square, get_lsb(pos->bitboards[k]), 0, 0);
 
       // updates all the pieces in the accumulators
-      for (int i = 0; i < HIDDEN_SIZE; ++i)
+      for (int i = 0; i < L1_SIZE; ++i)
         accumulator->accumulator[white][i] +=
             nnue.feature_weights[white_bucket][white_idx][i];
 
-      for (int i = 0; i < HIDDEN_SIZE; ++i)
+      for (int i = 0; i < L1_SIZE; ++i)
         accumulator->accumulator[black][i] +=
             nnue.feature_weights[black_bucket][black_idx][i];
 
@@ -247,7 +330,7 @@ void init_accumulator(position_t *pos, accumulator_t *accumulator) {
 
 void init_accumulator_bucket(position_t *pos, accumulator_t *accumulator,
                              uint8_t bucket, uint8_t do_hm) {
-  for (int i = 0; i < HIDDEN_SIZE; ++i) {
+  for (int i = 0; i < L1_SIZE; ++i) {
     accumulator->accumulator[0][i] = nnue.feature_bias[i];
     accumulator->accumulator[1][i] = nnue.feature_bias[i];
   }
@@ -260,11 +343,11 @@ void init_accumulator_bucket(position_t *pos, accumulator_t *accumulator,
       size_t black_idx = get_idx(black, piece, square, 0, 1, do_hm);
 
       // updates all the pieces in the accumulators
-      for (int i = 0; i < HIDDEN_SIZE; ++i)
+      for (int i = 0; i < L1_SIZE; ++i)
         accumulator->accumulator[white][i] +=
             nnue.feature_weights[bucket][white_idx][i];
 
-      for (int i = 0; i < HIDDEN_SIZE; ++i)
+      for (int i = 0; i < L1_SIZE; ++i)
         accumulator->accumulator[black][i] +=
             nnue.feature_weights[bucket][black_idx][i];
 
@@ -290,10 +373,12 @@ void init_finny_tables(thread_t *thread, position_t *pos) {
 int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
   uint8_t white_bucket = get_king_bucket(white, get_lsb(pos->bitboards[K]));
   uint8_t black_bucket = get_king_bucket(black, get_lsb(pos->bitboards[k]));
-  for (int i = 0; i < HIDDEN_SIZE; ++i) {
+  for (int i = 0; i < L1_SIZE; ++i) {
     accumulator->accumulator[0][i] = nnue.feature_bias[i];
     accumulator->accumulator[1][i] = nnue.feature_bias[i];
   }
+
+  uint8_t out_bucket = calculate_output_bucket(pos);
 
   for (int piece = P; piece <= k; ++piece) {
     uint64_t bitboard = pos->bitboards[piece];
@@ -305,11 +390,11 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
           get_idx(black, piece, square, get_lsb(pos->bitboards[k]), 0, 0);
 
       // updates all the pieces in the accumulators
-      for (int i = 0; i < HIDDEN_SIZE; ++i)
+      for (int i = 0; i < L1_SIZE; ++i)
         accumulator->accumulator[white][i] +=
             nnue.feature_weights[white_bucket][white_idx][i];
 
-      for (int i = 0; i < HIDDEN_SIZE; ++i)
+      for (int i = 0; i < L1_SIZE; ++i)
         accumulator->accumulator[black][i] +=
             nnue.feature_weights[black_bucket][black_idx][i];
 
@@ -317,85 +402,216 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
     }
   }
 
-  int eval = 0;
-  uint8_t bucket = calculate_output_bucket(pos);
-  // feed everything forward to get the final value
-  for (int i = 0; i < HIDDEN_SIZE; ++i)
-    eval += screlu(accumulator->accumulator[pos->side][i]) *
-            nnue.output_weights[bucket][0][i];
+  int16_t *stmAcc = accumulator->accumulator[pos->side];
+  int16_t *oppAcc = accumulator->accumulator[1 - pos->side];
 
-  for (int i = 0; i < HIDDEN_SIZE; ++i)
-    eval += screlu(accumulator->accumulator[pos->side ^ 1][i]) *
-            nnue.output_weights[bucket][1][i];
+  int8_t l1Neurons[L1_SIZE];
+  for (int l1 = 0; l1 < L1_SIZE / 2; l1++) {
+    int16_t stmClipped1 = clamp((int)(stmAcc[l1]), 0, INPUT_QUANT);
+    int16_t stmClipped2 =
+        clamp((int)(stmAcc[l1 + L1_SIZE / 2]), 0, INPUT_QUANT);
+    l1Neurons[l1] = (stmClipped1 * stmClipped2) >> INPUT_SHIFT;
 
-  eval /= L1Q;
-  eval += nnue.output_bias[bucket];
-  eval = (eval * SCALE) / (L1Q * OutputQ);
+    int16_t oppClipped1 = clamp((int)(oppAcc[l1]), 0, INPUT_QUANT);
+    int16_t oppClipped2 =
+        clamp((int)(oppAcc[l1 + L1_SIZE / 2]), 0, INPUT_QUANT);
+    l1Neurons[l1 + L1_SIZE / 2] = (oppClipped1 * oppClipped2) >> INPUT_SHIFT;
+  }
 
-  return eval;
+  int l2Neurons[L2_SIZE] = {0};
+
+  for (int l1 = 0; l1 < L1_SIZE; l1++) {
+    for (int l2 = 0; l2 < L2_SIZE; l2++) {
+      l2Neurons[l2] +=
+          l1Neurons[l1] * nnue.l1_weights[out_bucket][l1 * L2_SIZE + l2];
+    }
+  }
+
+  float l3Neurons[L3_SIZE];
+  memcpy(l3Neurons, nnue.l2_bias[out_bucket], sizeof(l3Neurons));
+
+  const float L1_NORMALISATION =
+      (float)(1 << INPUT_SHIFT) / (float)(INPUT_QUANT * INPUT_QUANT * L1_QUANT);
+
+  for (int l2 = 0; l2 < L2_SIZE; l2++) {
+    float l2Result = (float)(l2Neurons[l2]) * L1_NORMALISATION +
+                     (nnue.l1_bias[out_bucket][l2]);
+    float l2Activated = screlu_float(l2Result);
+
+    for (int l3 = 0; l3 < L3_SIZE; l3++) {
+      l3Neurons[l3] += l2Activated * nnue.l2_weights[out_bucket][l2][l3];
+    }
+  }
+
+  float result = nnue.l3_bias[out_bucket];
+  for (int l3 = 0; l3 < L3_SIZE; l3++) {
+    float l3Activated = screlu_float(l3Neurons[l3]);
+    result += l3Activated * nnue.l3_weights[out_bucket][l3];
+  }
+  // TODO reduce add
+
+  return (int16_t)(result * SCALE);
 }
 
 int nnue_evaluate(position_t *pos, accumulator_t *accumulator) {
-  int eval = 0;
-  uint8_t side = pos->side;
-  uint8_t bucket = calculate_output_bucket(pos);
+  const uint8_t out_bucket = calculate_output_bucket(pos);
+  const int16_t *stmAcc = accumulator->accumulator[pos->side];
+  const int16_t *oppAcc = accumulator->accumulator[1 - pos->side];
+
+  _Alignas(64) int8_t l1_neurons[L1_SIZE];
+  _Alignas(64) int l2_neurons[L2_SIZE] = {0};
+  _Alignas(64) float l3_neurons[L3_SIZE];
+
+  const float L1_NORMALISATION =
+      (float)(1 << INPUT_SHIFT) / (float)(INPUT_QUANT * INPUT_QUANT * L1_QUANT);
+
 #if defined(USE_SIMD)
-  #define INFERENCE_UNROLL 4
-  vepi32 sums[INFERENCE_UNROLL];
-  memset(sums, 0, sizeof(sums));
-  const int chunk_size = sizeof(vepi16) / sizeof(int16_t);
+  const int FLOAT_VEC_SIZE = sizeof(veci_t) / sizeof(float);
+  const int I16_VEC_SIZE = sizeof(veci_t) / sizeof(int16_t);
 
-  for (int i = 0; i < HIDDEN_SIZE; ) {
-    for (int k = 0; k < INFERENCE_UNROLL; ++k, i += chunk_size) {
-      const vepi16 accumulator_data =
-          load_epi16(&accumulator->accumulator[side][i]);
-      const vepi16 weights = load_epi16(&nnue.output_weights[bucket][0][i]);
+  veci_t i16_zero = zero();
+  veci_t i16_quant = set_epi16((int16_t)INPUT_QUANT);
 
-      const vepi16 clipped_accumulator = clip(accumulator_data, L1Q);
+  for (int l1 = 0; l1 < L1_SIZE / 2; l1 += 2 * I16_VEC_SIZE) {
+    // STM
+    veci_t clipped1 = clip_epi16(*((veci_t *)&stmAcc[l1]), i16_zero, i16_quant);
+    veci_t clipped2 =
+        min_epi16(*((veci_t *)&stmAcc[l1 + L1_SIZE / 2]), i16_quant);
+    veci_t shift = slli_epi16(clipped1, 16 - INPUT_SHIFT);
+    veci_t mul1 = mulhi_epi16(shift, clipped2);
 
-      const vepi16 intermediate = multiply_epi16(clipped_accumulator, weights);
+    clipped1 = clip_epi16(*((veci_t *)&stmAcc[l1 + I16_VEC_SIZE]), i16_zero,
+                          i16_quant);
+    clipped2 = min_epi16(*((veci_t *)&stmAcc[l1 + I16_VEC_SIZE + L1_SIZE / 2]),
+                         i16_quant);
+    shift = slli_epi16(clipped1, 16 - INPUT_SHIFT);
+    veci_t mul2 = mulhi_epi16(shift, clipped2);
 
-      const vepi32 result = multiply_add_epi16(intermediate, clipped_accumulator);
+    veci_t u8s = packus_epi16(mul1, mul2);
+    vec_store_i((veci_t *)&l1_neurons[l1], u8s);
 
-      sums[k] = add_epi32(sums[k], result);
+    // NSTM
+    clipped1 = clip_epi16(*((veci_t *)&oppAcc[l1]), i16_zero, i16_quant);
+    clipped2 = min_epi16(*((veci_t *)&oppAcc[l1 + L1_SIZE / 2]), i16_quant);
+    shift = slli_epi16(clipped1, 16 - INPUT_SHIFT);
+    mul1 = mulhi_epi16(shift, clipped2);
+
+    clipped1 = clip_epi16(*((veci_t *)&oppAcc[l1 + I16_VEC_SIZE]), i16_zero,
+                          i16_quant);
+    clipped2 = min_epi16(*((veci_t *)&oppAcc[l1 + I16_VEC_SIZE + L1_SIZE / 2]),
+                         i16_quant);
+    shift = slli_epi16(clipped1, 16 - INPUT_SHIFT);
+    mul2 = mulhi_epi16(shift, clipped2);
+
+    u8s = packus_epi16(mul1, mul2);
+    vec_store_i((veci_t *)&l1_neurons[l1 + L1_SIZE / 2], u8s);
+  }
+
+  int *l1Packs = (int *)l1_neurons;
+
+  for (int l1 = 0; l1 < L1_SIZE; l1 += INT8_PER_INT32) {
+    for (int l2 = 0; l2 < L2_SIZE; l2 += sizeof(veci_t) / sizeof(int32_t)) {
+      veci_t u8 = set_epi32(l1Packs[l1 / INT8_PER_INT32]);
+      veci_t i8 =
+          *((veci_t *)&nnue
+                .l1_weights[out_bucket][l1 * L2_SIZE + INT8_PER_INT32 * l2]);
+      *((veci_t *)&l2_neurons[l2]) =
+          dpbusd_epi32(*((veci_t *)&l2_neurons[l2]), u8, i8);
     }
   }
 
-  for (int i = 0; i < HIDDEN_SIZE; ) {
-    for (int k = 0; k < INFERENCE_UNROLL; ++k, i += chunk_size) {
-      const vepi16 accumulator_data =
-          load_epi16(&accumulator->accumulator[side^1][i]);
-      const vepi16 weights = load_epi16(&nnue.output_weights[bucket][1][i]);
+  memcpy(l3_neurons, nnue.l2_bias[out_bucket], sizeof(l3_neurons));
+  _Alignas(64) float l2_floats[L2_SIZE];
 
-      const vepi16 clipped_accumulator = clip(accumulator_data, L1Q);
+  vecf_t norm_ps = set_ps1(L1_NORMALISATION);
+  vecf_t one_ps = set_ps1(1.0f);
+  vecf_t zero_ps = set_ps1(0.0f);
 
-      const vepi16 intermediate = multiply_epi16(clipped_accumulator, weights);
+  for (int l2 = 0; l2 < L2_SIZE / FLOAT_VEC_SIZE; l2++) {
+    vecf_t converted =
+        cvtepi32_ps(*((veci_t *)&l2_neurons[l2 * FLOAT_VEC_SIZE]));
+    vecf_t l2_result =
+        add_ps(mul_ps(converted, norm_ps),
+               *((vecf_t *)&nnue.l1_bias[out_bucket][l2 * FLOAT_VEC_SIZE]));
+    vecf_t l2_clipped = clip_ps(l2_result, one_ps, zero_ps);
+    *((vecf_t *)&l2_floats[l2 * FLOAT_VEC_SIZE]) =
+        mul_ps(l2_clipped, l2_clipped);
+  }
 
-      const vepi32 result = multiply_add_epi16(intermediate, clipped_accumulator);
-
-      sums[k] = add_epi32(sums[k], result);
+  for (int l2 = 0; l2 < L2_SIZE; l2++) {
+    for (int l3 = 0; l3 < L3_SIZE / FLOAT_VEC_SIZE; l3++) {
+      *((vecf_t *)&l3_neurons[l3 * FLOAT_VEC_SIZE]) = fmadd_ps(
+          set_ps1(l2_floats[l2]),
+          *((vecf_t *)&nnue.l2_weights[out_bucket][l2][l3 * FLOAT_VEC_SIZE]),
+          *((vecf_t *)&l3_neurons[l3 * FLOAT_VEC_SIZE]));
     }
   }
-  vepi32 sum = sums[0];
-  for (int k = 1; k < INFERENCE_UNROLL; ++k) {
-    sum = add_epi32(sum, sums[k]);
+
+  const uint8_t chunks = 64 / sizeof(vecf_t);
+
+  vecf_t result_sums[chunks];
+  for (int i = 0; i < chunks; i++) {
+    result_sums[i] = zero_ps;
   }
-  eval = reduce_add_epi32(sum);
+
+  for (int l3 = 0; l3 < L3_SIZE / FLOAT_VEC_SIZE; l3 += chunks) {
+    for (int chunk = 0; chunk < chunks; chunk++) {
+      vecf_t l3_clipped =
+          clip_ps(*((vecf_t *)&l3_neurons[(l3 + chunk) * FLOAT_VEC_SIZE]),
+                  one_ps, zero_ps);
+      vecf_t l3_activated = mul_ps(l3_clipped, l3_clipped);
+      result_sums[chunk] = fmadd_ps(
+          l3_activated,
+          *((vecf_t *)&nnue
+                .l3_weights[out_bucket][(l3 + chunk) * FLOAT_VEC_SIZE]),
+          result_sums[chunk]);
+    }
+  }
+
+  float result = nnue.l3_bias[out_bucket] + reduce_add_ps(result_sums);
 #else
-  // feed everything forward to get the final value
-  for (int i = 0; i < HIDDEN_SIZE; ++i)
-    eval += screlu(accumulator->accumulator[side][i]) *
-            nnue.output_weights[bucket][0][i];
 
-  for (int i = 0; i < HIDDEN_SIZE; ++i)
-    eval += screlu(accumulator->accumulator[side ^ 1][i]) *
-            nnue.output_weights[bucket][1][i];
+  for (int l1 = 0; l1 < L1_SIZE / 2; l1++) {
+    int16_t stmClipped1 = clamp((int)(stmAcc[l1]), 0, INPUT_QUANT);
+    int16_t stmClipped2 =
+        clamp((int)(stmAcc[l1 + L1_SIZE / 2]), 0, INPUT_QUANT);
+    l1_neurons[l1] = (stmClipped1 * stmClipped2) >> INPUT_SHIFT;
+
+    int16_t oppClipped1 = clamp((int)(oppAcc[l1]), 0, INPUT_QUANT);
+    int16_t oppClipped2 =
+        clamp((int)(oppAcc[l1 + L1_SIZE / 2]), 0, INPUT_QUANT);
+    l1_neurons[l1 + L1_SIZE / 2] = (oppClipped1 * oppClipped2) >> INPUT_SHIFT;
+  }
+
+  for (int l1 = 0; l1 < L1_SIZE; l1++) {
+    for (int l2 = 0; l2 < L2_SIZE; l2++) {
+      l2_neurons[l2] +=
+          l1_neurons[l1] * nnue.l1_weights[out_bucket][l1 * L2_SIZE + l2];
+    }
+  }
+
+  memcpy(l3_neurons, nnue.l2_bias[out_bucket], sizeof(l3_neurons));
+
+  for (int l2 = 0; l2 < L2_SIZE; l2++) {
+    float l2Result = (float)(l2_neurons[l2]) * L1_NORMALISATION +
+                     (nnue.l1_bias[out_bucket][l2]);
+    float l2Activated = crelu_float(l2Result);
+    l2Activated *= l2Activated;
+
+    for (int l3 = 0; l3 < L3_SIZE; l3++) {
+      l3_neurons[l3] += l2Activated * nnue.l2_weights[out_bucket][l2][l3];
+    }
+  }
+
+  float result = nnue.l3_bias[out_bucket];
+  for (int l3 = 0; l3 < L3_SIZE; l3++) {
+    float l3Activated = crelu_float(l3_neurons[l3]);
+    l3Activated *= l3Activated;
+    result += l3Activated * nnue.l3_weights[out_bucket][l3];
+  }
+
 #endif
-  eval /= L1Q;
-  eval += nnue.output_bias[bucket];
-  eval = (eval * SCALE) / (L1Q * OutputQ);
-
-  return eval;
+  return (int16_t)(result * SCALE);
 }
 
 static inline void
@@ -411,7 +627,7 @@ accumulator_addsub(accumulator_t *accumulator, accumulator_t *prev_accumulator,
   size_t white_idx_to = get_idx(white, piece2, to2, white_king_square, 0, 0);
   size_t black_idx_to = get_idx(black, piece2, to2, black_king_square, 0, 0);
 
-  for (int i = 0; i < HIDDEN_SIZE; ++i) {
+  for (int i = 0; i < L1_SIZE; ++i) {
     if (color_flag == 0 || color_flag == 2) {
       accumulator->accumulator[white][i] =
           prev_accumulator->accumulator[white][i] -
@@ -443,7 +659,7 @@ static inline void accumulator_addsubsub(
   size_t white_idx_to = get_idx(white, piece3, to3, white_king_square, 0, 0);
   size_t black_idx_to = get_idx(black, piece3, to3, black_king_square, 0, 0);
 
-  for (int i = 0; i < HIDDEN_SIZE; ++i) {
+  for (int i = 0; i < L1_SIZE; ++i) {
     if (color_flag == 0 || color_flag == 2) {
       accumulator->accumulator[white][i] =
           prev_accumulator->accumulator[white][i] -
@@ -480,7 +696,7 @@ static inline void accumulator_addaddsubsub(
   size_t white_idx_to2 = get_idx(white, piece4, to4, white_king_square, 0, 0);
   size_t black_idx_to2 = get_idx(black, piece4, to4, black_king_square, 0, 0);
 
-  for (int i = 0; i < HIDDEN_SIZE; ++i) {
+  for (int i = 0; i < L1_SIZE; ++i) {
     if (color_flag == 0 || color_flag == 2) {
       accumulator->accumulator[white][i] =
           prev_accumulator->accumulator[white][i] -
