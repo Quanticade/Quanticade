@@ -1,4 +1,4 @@
-NETWORK_NAME = garmr.nnue
+NETWORK_NAME = hati.nnue
 _THIS       := $(realpath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 _ROOT       := $(_THIS)
 EVALFILE     = $(NETWORK_NAME)
