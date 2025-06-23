@@ -546,6 +546,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   ss->tt_pv = ss->excluded_move ? ss->tt_pv : pv_node;
 
   uint8_t root_node = pos->ply == 0;
+  const uint8_t all_node = !(pv_node || cutnode);
 
   // Limit depth to MAX_PLY - 1 in case extensions make it too big
   depth = clamp(depth, 0, MAX_PLY - 1);
@@ -922,7 +923,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     R += (ss->tt_pv && tt_hit && tt_score <= alpha) * LMR_TT_SCORE;
     R -= (ss->tt_pv && cutnode) * LMR_TT_PV_CUTNODE;
     R = R / 1024;
-    int reduced_depth = MAX(1, MIN(new_depth - R, new_depth));
+    int reduced_depth = MAX(1, MIN(new_depth - R, new_depth + !all_node));
 
     // LMR
     if (depth >= 2 && moves_seen > 2 + 2 * pv_node) {
