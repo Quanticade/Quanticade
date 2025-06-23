@@ -441,17 +441,17 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     position_t pos_copy = *pos;
 
     // increment ply
-    pos->ply++;
+    pos_copy.ply++;
 
     // increment repetition index & store hash key
     thread->repetition_index++;
     thread->repetition_table[thread->repetition_index] =
-        pos->hash_keys.hash_key;
+        pos_copy.hash_keys.hash_key;
 
     // make sure to make only legal moves
-    if (make_move(pos, move) == 0) {
+    if (make_move(&pos_copy, move) == 0) {
       // decrement ply
-      pos->ply--;
+      pos_copy.ply--;
 
       // decrement repetition index
       thread->repetition_index--;
@@ -460,10 +460,10 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
       continue;
     }
 
-    update_nnue(pos, thread, pos_copy.mailbox, move);
+    update_nnue(&pos_copy, thread, pos->mailbox, move);
 
     ss->move = move;
-    ss->piece = pos_copy.mailbox[get_move_source(move)];
+    ss->piece = pos->mailbox[get_move_source(move)];
 
     thread->nodes++;
 
@@ -471,19 +471,19 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
       add_move(capture_list, move);
     }
 
-    prefetch_hash_entry(pos->hash_keys.hash_key);
+    prefetch_hash_entry(pos_copy.hash_keys.hash_key);
 
     // score current move
-    score = -quiescence(pos, thread, ss + 1, -beta, -alpha, pv_node);
+    score = -quiescence(&pos_copy, thread, ss + 1, -beta, -alpha, pv_node);
 
     // decrement ply
-    pos->ply--;
+    pos_copy.ply--;
 
     // decrement repetition index
     thread->repetition_index--;
 
     // take move back
-    *pos = pos_copy;
+    //*pos = pos_copy;
 
     // return 0 if time is up
     if (thread->stopped == 1) {
