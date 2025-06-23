@@ -822,11 +822,9 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
       position_t pos_copy = *pos;
 
-      if (make_move(pos, move) == 0) {
+      if (make_move(&pos_copy, move) == 0) {
         continue;
       }
-
-      *pos = pos_copy;
 
       ss->excluded_move = move;
 
