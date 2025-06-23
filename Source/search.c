@@ -666,30 +666,30 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       // preserve board state
       position_t pos_copy = *pos;
 
-      thread->accumulator[pos->ply + 1] = thread->accumulator[pos->ply];
+      thread->accumulator[pos_copy.ply + 1] = thread->accumulator[pos_copy.ply];
 
       // increment ply
-      pos->ply++;
+      pos_copy.ply++;
 
       // increment repetition index & store hash key
       thread->repetition_index++;
       thread->repetition_table[thread->repetition_index] =
-          pos->hash_keys.hash_key;
+          pos_copy.hash_keys.hash_key;
 
       // hash enpassant if available
-      if (pos->enpassant != no_sq)
-        pos->hash_keys.hash_key ^= keys.enpassant_keys[pos->enpassant];
+      if (pos_copy.enpassant != no_sq)
+        pos_copy.hash_keys.hash_key ^= keys.enpassant_keys[pos_copy.enpassant];
 
       // reset enpassant capture square
-      pos->enpassant = no_sq;
+      pos_copy.enpassant = no_sq;
 
       // switch the side, literally giving opponent an extra move to make
-      pos->side ^= 1;
+      pos_copy.side ^= 1;
 
       // hash the side
-      pos->hash_keys.hash_key ^= keys.side_key;
+      pos_copy.hash_keys.hash_key ^= keys.side_key;
 
-      prefetch_hash_entry(pos->hash_keys.hash_key);
+      prefetch_hash_entry(pos_copy.hash_keys.hash_key);
 
       ss->move = 0;
       ss->piece = 0;
@@ -697,19 +697,19 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
       /* search moves with reduced depth to find beta cutoffs
          depth - 1 - R where R is a reduction limit */
-      current_score = -negamax(pos, thread, ss + 1, -beta, -beta + 1, depth - R,
+      current_score = -negamax(&pos_copy, thread, ss + 1, -beta, -beta + 1, depth - R,
                                !cutnode, NON_PV);
 
       (ss + 1)->null_move = 0;
 
       // decrement ply
-      pos->ply--;
+      pos_copy.ply--;
 
       // decrement repetition index
       thread->repetition_index--;
 
       // restore board state
-      *pos = pos_copy;
+      //*pos = pos_copy;
 
       // return 0 if time is up
       if (thread->stopped == 1) {
