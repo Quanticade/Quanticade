@@ -66,23 +66,25 @@ uint8_t need_refresh(uint8_t *mailbox, uint16_t move) {
   return 0;
 }
 
-static int32_t clamp_int32(int32_t d, int32_t min, int32_t max) {
-  const int32_t t = d < min ? min : d;
-  return t > max ? max : t;
-}
-
 static float clamp_float(float d, float min, float max) {
   const float t = d < min ? min : d;
   return t > max ? max : t;
 }
 
-static inline int32_t screlu(int16_t value) {
-  const int32_t clipped = clamp_int32((int32_t)value, 0, INPUT_QUANT);
+static inline float screlu_float(float value) {
+  const float clipped = clamp_float(value, 0.0f, 1.0f);
   return clipped * clipped;
 }
 
-static inline float screlu_float(float value) {
-  const float clipped = clamp_float(value, 0.0f, 1.0f);
+#ifndef USE_SIMD
+
+static int32_t clamp_int32(int32_t d, int32_t min, int32_t max) {
+  const int32_t t = d < min ? min : d;
+  return t > max ? max : t;
+}
+
+static inline int32_t screlu(int16_t value) {
+  const int32_t clipped = clamp_int32((int32_t)value, 0, INPUT_QUANT);
   return clipped * clipped;
 }
 
@@ -93,6 +95,8 @@ static inline int16_t crelu(int16_t value) {
 static inline float crelu_float(float value) {
   return clamp_float(value, 0.0f, 1.0f);
 }
+
+#endif
 
 static inline uint8_t calculate_output_bucket(position_t *pos) {
   uint8_t pieces = popcount(pos->occupancies[2]);
