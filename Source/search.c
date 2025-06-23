@@ -771,15 +771,24 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     }
 
     ss->history_score =
-        quiet ? thread->quiet_history[pos->mailbox[get_move_source(move)]]
-                                     [get_move_source(move)]
-                                     [get_move_target(move)] +
-                    get_conthist_score(thread, ss - 1, move) +
+        quiet ? get_conthist_score(thread, ss - 1, move) +
                     get_conthist_score(thread, ss - 2, move)
               : thread->capture_history[pos->mailbox[get_move_source(move)]]
                                        [pos->mailbox[get_move_target(move)]]
                                        [get_move_source(move)]
                                        [get_move_target(move)];
+
+    // prune
+    if (quiet && ss->history_score < -4000 * depth) {
+      continue;
+    }
+
+    ss->history_score +=
+        quiet
+            ? thread
+                  ->quiet_history[pos->mailbox[get_move_source(move)]]
+                                 [get_move_source(move)][get_move_target(move)]
+            : 0;
 
     // Late Move Pruning
     if (!pv_node && quiet &&
