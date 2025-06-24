@@ -36,14 +36,14 @@ static inline void vec_store_i(veci_t *scalar, veci_t integer) {
   _mm512_store_si512(scalar, integer);
 }
 #if defined(__AVX512VNNI__)
-inline veci_t dpbusd_epi32(veci_t sum, veci_t u, veci_t i) {
+static inline veci_t dpbusd_epi32(veci_t sum, veci_t u, veci_t i) {
   // On Zen4 VNNI is slower so lets disable it by default
   //return _mm512_dpbusd_epi32(sum, u, i);
   veci_t sum32 = _mm512_madd_epi16(_mm512_maddubs_epi16(u, i), _mm512_set1_epi16(1));
   return _mm512_add_epi32(sum32, sum);
 }
 #else
-inline veci_t dpbusd_epi32(veci_t sum, veci_t u, veci_t i) {
+static inline veci_t dpbusd_epi32(veci_t sum, veci_t u, veci_t i) {
   veci_t sum32 = _mm512_madd_epi16(_mm512_maddubs_epi16(u, i), _mm512_set1_epi16(1));
   return _mm512_add_epi32(sum32, sum);
 }
