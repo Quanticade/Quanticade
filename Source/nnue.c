@@ -16,8 +16,8 @@
 nnue_t nnue;
 
 struct raw_net {
-  int16_t feature_weights[KING_BUCKETS][INPUT_WEIGHTS][L1_SIZE];
-  int16_t feature_bias[L1_SIZE];
+  float feature_weights[KING_BUCKETS][INPUT_WEIGHTS][L1_SIZE];
+  float feature_bias[L1_SIZE];
   float l1_weights[OUTPUT_BUCKETS][L2_SIZE][L1_SIZE];
   float l1_bias[OUTPUT_BUCKETS][L2_SIZE];
   float l2_weights[OUTPUT_BUCKETS][L3_SIZE][L2_SIZE];
@@ -126,6 +126,17 @@ static inline void transpose(void) {
     }
   }
 #endif
+  for (int b = 0; b < KING_BUCKETS; b++) {
+    for (int input = 0; input < INPUT_WEIGHTS; input++) {
+      for (int l1 = 0; l1 < L1_SIZE; l1++) {
+        nnue.feature_weights[b][input][l1] =
+            round(net.feature_weights[b][input][l1] * INPUT_QUANT);
+      }
+    }
+  }
+  for (int l1 = 0; l1 < L1_SIZE; l1++) {
+    nnue.feature_bias[l1] = round(net.feature_bias[l1] * INPUT_QUANT);
+  }
   for (int b = 0; b < OUTPUT_BUCKETS; b++) {
     for (int l2 = 0; l2 < L2_SIZE; l2++) {
       for (int l3 = 0; l3 < L3_SIZE; l3++) {
@@ -138,9 +149,6 @@ static inline void transpose(void) {
       nnue.l3_weights[b][l3] = net.l3_weights[b][l3];
     }
   }
-  memcpy(nnue.feature_weights, net.feature_weights,
-         sizeof(net.feature_weights));
-  memcpy(nnue.feature_bias, net.feature_bias, sizeof(net.feature_bias));
   memcpy(nnue.l1_bias, net.l1_bias, sizeof(net.l1_bias));
   memcpy(nnue.l2_bias, net.l2_bias, sizeof(net.l2_bias));
   memcpy(nnue.l3_bias, net.l3_bias, sizeof(net.l3_bias));
@@ -179,8 +187,8 @@ void nnue_init(const char *nnue_file_name) {
     // initialize an accumulator for every input of the second layer
     size_t read = 0;
     size_t objectsExpected = 0;
-    objectsExpected += sizeof(net.feature_weights) / sizeof(int16_t);
-    objectsExpected += sizeof(net.feature_bias) / sizeof(int16_t);
+    objectsExpected += sizeof(net.feature_weights) / sizeof(float);
+    objectsExpected += sizeof(net.feature_bias) / sizeof(float);
     objectsExpected += sizeof(net.l1_weights) / sizeof(float);
     objectsExpected += sizeof(net.l1_bias) / sizeof(float);
     objectsExpected += sizeof(net.l2_weights) / sizeof(float);
@@ -188,10 +196,10 @@ void nnue_init(const char *nnue_file_name) {
     objectsExpected += sizeof(net.l3_weights) / sizeof(float);
     objectsExpected += sizeof(net.l3_bias) / sizeof(float);
 
-    read += fread(net.feature_weights, sizeof(int16_t),
-                  sizeof(net.feature_weights) / sizeof(int16_t), nn);
-    read += fread(net.feature_bias, sizeof(int16_t),
-                  sizeof(net.feature_bias) / sizeof(int16_t), nn);
+    read += fread(net.feature_weights, sizeof(float),
+                  sizeof(net.feature_weights) / sizeof(float), nn);
+    read += fread(net.feature_bias, sizeof(float),
+                  sizeof(net.feature_bias) / sizeof(float), nn);
     read += fread(net.l1_weights, sizeof(float),
                   sizeof(net.l1_weights) / sizeof(float), nn);
     read += fread(&net.l1_bias, sizeof(float),
