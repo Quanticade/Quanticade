@@ -697,8 +697,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
       /* search moves with reduced depth to find beta cutoffs
          depth - 1 - R where R is a reduction limit */
-      current_score = -negamax(&pos_copy, thread, ss + 1, -beta, -beta + 1, depth - R,
-                               !cutnode, NON_PV);
+      current_score = -negamax(&pos_copy, thread, ss + 1, -beta, -beta + 1,
+                               depth - R, !cutnode, NON_PV);
 
       (ss + 1)->null_move = 0;
 
@@ -788,9 +788,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       skip_quiets = 1;
     }
 
-    int r = lmr[quiet][MIN(63, depth)][MIN(63, moves_seen)];
-    r += !pv_node;
-    int lmr_depth = MAX(1, depth - 1 - MAX(r, 1));
+    int R = lmr[quiet][depth][MIN(255, moves_seen)] * 1024;
+    int lmr_depth = MAX(1, depth - 1 - MAX(R / 1024 + !pv_node, 1));
 
     // Futility Pruning
     if (!root_node && current_score > -MATE_SCORE && lmr_depth <= FP_DEPTH &&
@@ -909,7 +908,6 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     // PVS & LMR
     int new_depth = depth + extensions - 1;
 
-    int R = lmr[quiet][depth][MIN(255, moves_seen)] * 1024;
     R += !pv_node * LMR_PV_NODE;
     R -= ss->history_score * (quiet ? LMR_HISTORY_QUIET : LMR_HISTORY_NOISY) /
          (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
