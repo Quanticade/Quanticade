@@ -697,8 +697,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
       /* search moves with reduced depth to find beta cutoffs
          depth - 1 - R where R is a reduction limit */
-      current_score = -negamax(&pos_copy, thread, ss + 1, -beta, -beta + 1, depth - R,
-                               !cutnode, NON_PV);
+      current_score = -negamax(&pos_copy, thread, ss + 1, -beta, -beta + 1,
+                               depth - R, !cutnode, NON_PV);
 
       (ss + 1)->null_move = 0;
 
@@ -923,7 +923,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     int reduced_depth = MAX(1, MIN(new_depth - R, new_depth));
 
     // LMR
-    if (depth >= 2 && moves_seen > 2 + 2 * pv_node) {
+    if (depth >= 3 && moves_seen > 2 + 2 * root_node &&
+        (!get_move_capture(move) || !ss->tt_pv || cutnode)) {
       ss->reduction = R;
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                reduced_depth, 1, NON_PV);
