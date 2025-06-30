@@ -500,10 +500,7 @@ void make_move(position_t *pos, uint16_t move) {
 // add move to the move list
 void add_move(moves *move_list, int move) {
   // store move
-  move_list->entry[move_list->count].move = move;
-
-  // increment move count
-  move_list->count++;
+  move_list->entry[move_list->count++].move = move;
 }
 
 // generate all moves

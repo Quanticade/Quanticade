@@ -88,4 +88,6 @@ enum { PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING };
 
 enum { NON_PV, PV_NODE };
 
+enum { TT_MOVE_STAGE, GEN_MOVES_STAGE, PLAY_MOVES_STAGE };
+
 #endif
