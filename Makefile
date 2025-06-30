@@ -4,7 +4,7 @@ _ROOT       := $(_THIS)
 EVALFILE     = $(NETWORK_NAME)
 TARGET      := Quanticade
 WARNINGS     = -Wall -Werror -Wextra -Wno-error=vla -Wpedantic -Wno-unused-command-line-argument
-CFLAGS       := -g -std=gnu11 -funroll-loops -O3 -flto -fno-exceptions -DIS_64BIT -DNDEBUG $(WARNINGS)
+CFLAGS       := -g -std=gnu11 -funroll-loops -O3 -fsanitize=undefined,address -flto -fno-exceptions -DIS_64BIT -DNDEBUG $(WARNINGS)
 NATIVE       = -march=native
 AVX2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi
 BMI2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi -mbmi2

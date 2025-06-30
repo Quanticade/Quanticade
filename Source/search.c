@@ -262,26 +262,59 @@ static inline void score_move(position_t *pos, thread_t *thread,
   return;
 }
 
-static inline move_t pick_next_best_move(moves *move_list, uint16_t *index) {
-  if (*index >= move_list->count)
-    return (move_t){0}; // Return dummy if we're out of bounds
-
-  uint16_t best = *index;
-
-  for (uint16_t i = *index + 1; i < move_list->count; ++i) {
-    if (move_list->entry[i].score > move_list->entry[best].score)
-      best = i;
+static inline uint8_t pick_next_best_move(position_t *pos, thread_t *thread,
+                                          searchstack_t *ss, moves *move_list,
+                                          uint16_t *index, uint8_t *stage,
+                                          uint16_t tt_move,
+                                          uint16_t *ret_move) {
+  switch (*stage) {
+  case TT_MOVE_STAGE: {
+    moves list[1];
+    generate_moves(pos, list);
+    for (uint32_t count = 0; count < list->count; count++) {
+      if (list->entry[count].move == tt_move) {
+        *ret_move = tt_move;
+        *stage = GEN_MOVES_STAGE;
+        return 1;
+      }
+    }
+    __attribute__((fallthrough));
   }
 
-  // Swap best with current index
-  if (best != *index) {
-    move_t temp = move_list->entry[*index];
-    move_list->entry[*index] = move_list->entry[best];
-    move_list->entry[best] = temp;
+  case GEN_MOVES_STAGE: {
+    generate_moves(pos, move_list);
+
+    for (uint32_t count = 0; count < move_list->count; count++) {
+      score_move(pos, thread, ss, &move_list->entry[count], tt_move);
+    }
+    *stage = PLAY_MOVES_STAGE;
+    __attribute__((fallthrough));
   }
 
-  // Return and increment index for next call
-  return move_list->entry[(*index)++];
+  case PLAY_MOVES_STAGE: {
+    if (*index >= move_list->count)
+      return 0;
+
+    uint16_t best = *index;
+
+    for (uint16_t i = *index + 1; i < move_list->count; ++i) {
+      if (move_list->entry[i].score > move_list->entry[best].score)
+        best = i;
+    }
+
+    // Swap best with current index
+    if (best != *index) {
+      move_t temp = move_list->entry[*index];
+      move_list->entry[*index] = move_list->entry[best];
+      move_list->entry[best] = temp;
+    }
+
+    // Return and increment index for next call
+    *ret_move = move_list->entry[(*index)++].move;
+    return 1;
+  }
+  }
+  return 0;
 }
 
 // position repetition detection
@@ -304,9 +337,9 @@ static inline uint8_t is_material_draw(position_t *pos) {
   if (piece_count == 2) {
     return 1;
   }
-  // Initialize knight and bishop count only after we check that piece count is
-  // higher then 2 as there cannot be a knight or bishop with 2 pieces on the
-  // board
+  // Initialize knight and bishop count only after we check that piece count
+  // is higher then 2 as there cannot be a knight or bishop with 2 pieces on
+  // the board
   uint8_t knight_count =
       __builtin_popcountll(pos->bitboards[n] | pos->bitboards[N]);
   // KN v K || KB v K
@@ -425,8 +458,11 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 
   // loop over moves within a movelist
 
-  while (move_index < move_list->count) {
-    uint16_t move = pick_next_best_move(move_list, &move_index).move;
+  uint8_t stage = PLAY_MOVES_STAGE;
+  uint16_t move = 0;
+
+  while (pick_next_best_move(pos, thread, ss, move_list, &move_index, &stage, 0,
+                             &move)) {
 
     if (!SEE(pos, move, -QS_SEE_THRESHOLD))
       continue;
@@ -593,8 +629,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     tt_move = tt_entry->move;
   }
 
-  // If we arent in excluded move or PV node and we hit requirements for cutoff
-  // we can return early from search
+  // If we arent in excluded move or PV node and we hit requirements for
+  // cutoff we can return early from search
   if (!ss->excluded_move && !pv_node && tt_depth >= depth &&
       can_use_score(alpha, beta, tt_score, tt_flag)) {
     return tt_score;
@@ -697,8 +733,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
       /* search moves with reduced depth to find beta cutoffs
          depth - 1 - R where R is a reduction limit */
-      current_score = -negamax(&pos_copy, thread, ss + 1, -beta, -beta + 1, depth - R,
-                               !cutnode, NON_PV);
+      current_score = -negamax(&pos_copy, thread, ss + 1, -beta, -beta + 1,
+                               depth - R, !cutnode, NON_PV);
 
       (ss + 1)->null_move = 0;
 
@@ -739,26 +775,25 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   quiet_list->count = 0;
   capture_list->count = 0;
 
-  // generate moves
-  generate_moves(pos, move_list);
-
   int16_t best_score = NO_SCORE;
   current_score = NO_SCORE;
 
   uint16_t best_move = 0;
-  for (uint32_t count = 0; count < move_list->count; count++) {
-    score_move(pos, thread, ss, &move_list->entry[count], tt_move);
-  }
-
   uint8_t skip_quiets = 0;
 
   const int16_t original_alpha = alpha;
 
   uint16_t move_index = 0;
+  uint16_t move = 0;
+
+  uint8_t stage = TT_MOVE_STAGE;
 
   // loop over moves within a movelist
-  while (move_index < move_list->count) {
-    uint16_t move = pick_next_best_move(move_list, &move_index).move;
+  while (pick_next_best_move(pos, thread, ss, move_list, &move_index, &stage,
+                             tt_move, &move)) {
+    if (tt_move == move && move_index != 0) {
+      continue;
+    }
     uint8_t quiet =
         (get_move_capture(move) == 0 && is_move_promotion(move) == 0);
 
@@ -845,8 +880,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       }
 
       // Multicut: Singular search failed high so if singular beta beats our
-      // beta we can assume the main search will also fail high and thus we can
-      // just cutoff here
+      // beta we can assume the main search will also fail high and thus we
+      // can just cutoff here
       else if (s_beta >= beta) {
         return s_beta;
       }
