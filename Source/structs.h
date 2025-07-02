@@ -56,6 +56,13 @@ typedef struct keys {
   uint64_t side_key;
 } keys_t;
 
+typedef struct simd {
+ _Alignas(64) int8_t l1_neurons[1536];
+ _Alignas(64) int l2_neurons[16];
+ _Alignas(64) float l3_neurons[32];
+ _Alignas(64) float l2_floats[16];
+} simd_t;
+
 typedef struct accumulator {
   _Alignas(64) int16_t accumulator[2][1536]; // This is very cursed but for now
                                              // lets have it this way
@@ -89,21 +96,22 @@ typedef struct PV {
 } PV_t;
 
 typedef struct searchinfo {
-  accumulator_t accumulator[MAX_PLY + 10];
+  simd_t neurons;
   finny_table_t finny_tables[2][13];
-  position_t pos;
-  PV_t pv;
+  accumulator_t accumulator[MAX_PLY + 10];
   uint64_t nodes;
   uint64_t starttime;
+  position_t pos;
   uint64_t repetition_table[1000];
   uint32_t repetition_index;
-  uint16_t killer_moves[MAX_PLY];
+  PV_t pv;
   uint16_t index;
   int16_t score;
-  int16_t quiet_history[12][64][64];
-  int16_t capture_history[12][13][64][64];
-  int16_t continuation_history[12][64][12][64];
+  uint16_t killer_moves[MAX_PLY];
   int16_t correction_history[2][16384];
+  int16_t quiet_history[12][64][64];
+  int16_t continuation_history[12][64][12][64];
+  int16_t capture_history[12][13][64][64];
   int16_t pawn_history[32768][12][64];
   uint8_t depth;
   uint8_t seldepth;

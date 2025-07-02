@@ -349,7 +349,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   // constant
   if (pos->ply > MAX_PLY - 1) {
     // evaluate position
-    return evaluate(pos, &thread->accumulator[pos->ply]);
+    return evaluate(thread, pos, &thread->accumulator[pos->ply]);
   }
 
   if (pos->ply > thread->seldepth) {
@@ -382,7 +382,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 
   raw_static_eval = tt_static_eval != NO_SCORE
                         ? tt_static_eval
-                        : evaluate(pos, &thread->accumulator[pos->ply]);
+                        : evaluate(thread, pos, &thread->accumulator[pos->ply]);
   ss->static_eval = adjust_static_eval(thread, pos, raw_static_eval);
 
   if (tt_hit && can_use_score(best_score, best_score, tt_score, tt_flag)) {
@@ -526,7 +526,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   // constant
   if (pos->ply > MAX_PLY - 1) {
     // evaluate position
-    return evaluate(pos, &thread->accumulator[pos->ply]);
+    return evaluate(thread, pos, &thread->accumulator[pos->ply]);
   }
 
   // init PV length
@@ -611,7 +611,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   } else if (!ss->excluded_move) {
     raw_static_eval = tt_static_eval != NO_SCORE
                           ? tt_static_eval
-                          : evaluate(pos, &thread->accumulator[pos->ply]);
+                          : evaluate(thread, pos, &thread->accumulator[pos->ply]);
 
     // adjust static eval with corrhist
     static_eval = ss->static_eval =

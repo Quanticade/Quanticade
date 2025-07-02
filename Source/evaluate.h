@@ -3,5 +3,5 @@
 
 #include "structs.h"
 
-int16_t evaluate(position_t *pos, accumulator_t *accumulator);
+int16_t evaluate(thread_t *thread, position_t *pos, accumulator_t *accumulator);
 #endif

@@ -27,6 +27,7 @@ thread_t *init_threads(int thread_count) {
 
     for (int thread = 0; thread < thread_count; ++thread) {
         threads[thread].index = thread;
+        memset(&threads[thread].neurons, 0, sizeof(threads[thread].neurons));
     }
 
     return threads;
