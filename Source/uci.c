@@ -513,6 +513,7 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
   int max_hash = 524288;
 
   pthread_t search_thread;
+  uint8_t started = 0;
   searchthreadinfo_t sti;
   sti.threads = threads;
   sti.pos = pos;
@@ -609,21 +610,33 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
     }
     // parse UCI "go" command
     else if (strncmp(input, "go", 2) == 0) {
+      if (started) {
+        printf("thread was cleared");
+        pthread_join(search_thread, NULL);
+        started = 0;
+      }
       // call parse go function
       printf("info string NNUE evaluation using %s\n", nnue_settings.nnue_file);
       strncpy(sti.line, input, 10000);
       pthread_create(&search_thread, NULL, &parse_go, &sti);
+      started = 1;
     }
 
     else if (strncmp(input, "stop", 4) == 0) {
       stop_threads(threads, thread_count);
-      pthread_join(search_thread, NULL);
+      if (started) {
+        pthread_join(search_thread, NULL);
+        started = 0;
+      }
     }
     // parse UCI "quit" command
     else if (strncmp(input, "quit", 4) == 0) {
       // quit from the UCI loop (terminate program)
       stop_threads(threads, thread_count);
-      pthread_join(search_thread, NULL);
+      if (started) {
+        pthread_join(search_thread, NULL);
+        started = 0;
+      }
       break;
     }
 
