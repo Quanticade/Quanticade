@@ -611,9 +611,7 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
     // parse UCI "go" command
     else if (strncmp(input, "go", 2) == 0) {
       if (started) {
-        printf("thread was cleared");
         pthread_join(search_thread, NULL);
-        started = 0;
       }
       // call parse go function
       printf("info string NNUE evaluation using %s\n", nnue_settings.nnue_file);
@@ -635,7 +633,6 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
       stop_threads(threads, thread_count);
       if (started) {
         pthread_join(search_thread, NULL);
-        started = 0;
       }
       break;
     }
