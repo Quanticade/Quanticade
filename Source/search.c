@@ -805,6 +805,12 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       continue;
     }
 
+    // Quiet History Pruning
+    if (!root_node && quiet && ss->history_score < -4000 * depth) {
+      skip_quiets = 1;
+      continue;
+    }
+
     // SEE PVS Pruning
     if (depth <= SEE_DEPTH && moves_seen > 0 &&
         !SEE(pos, move,
