@@ -135,8 +135,10 @@ static inline void update_quiet_history(thread_t *thread, position_t *pos,
                                         int move, int bonus) {
   int target = get_move_target(move);
   int source = get_move_source(move);
-  thread->quiet_history[pos->mailbox[source]][source][target] +=
-      bonus - thread->quiet_history[pos->mailbox[source]][source][target] *
+  const uint8_t cpiece = pos->mailbox[source];
+  const uint8_t piece = cpiece > 5 ? cpiece - 6 : cpiece;
+  thread->quiet_history[pos->side][piece][source][target] +=
+      bonus - thread->quiet_history[pos->side][piece][source][target] *
                   abs(bonus) / HISTORY_MAX;
 }
 

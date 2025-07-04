@@ -244,9 +244,11 @@ static inline void score_move(position_t *pos, thread_t *thread,
 
     // score history move
     else {
+      const uint8_t cpiece = pos->mailbox[get_move_source(move)];
+      const uint8_t piece = cpiece > 5 ? cpiece - 6 : cpiece;
       move_entry->score =
-          thread->quiet_history[pos->mailbox[get_move_source(move)]]
-                               [get_move_source(move)][get_move_target(move)] +
+          thread->quiet_history[pos->side][piece][get_move_source(move)]
+                               [get_move_target(move)] +
           get_conthist_score(thread, pos, ss - 1, move) +
           get_conthist_score(thread, pos, ss - 2, move) +
           get_conthist_score(thread, pos, ss - 4, move) +
@@ -609,9 +611,10 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   if (in_check) {
     static_eval = ss->static_eval = NO_SCORE;
   } else if (!ss->excluded_move) {
-    raw_static_eval = tt_static_eval != NO_SCORE
-                          ? tt_static_eval
-                          : evaluate(thread, pos, &thread->accumulator[pos->ply]);
+    raw_static_eval =
+        tt_static_eval != NO_SCORE
+            ? tt_static_eval
+            : evaluate(thread, pos, &thread->accumulator[pos->ply]);
 
     // adjust static eval with corrhist
     static_eval = ss->static_eval =
@@ -697,8 +700,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
       /* search moves with reduced depth to find beta cutoffs
          depth - 1 - R where R is a reduction limit */
-      current_score = -negamax(&pos_copy, thread, ss + 1, -beta, -beta + 1, depth - R,
-                               !cutnode, NON_PV);
+      current_score = -negamax(&pos_copy, thread, ss + 1, -beta, -beta + 1,
+                               depth - R, !cutnode, NON_PV);
 
       (ss + 1)->null_move = 0;
 
@@ -770,9 +773,11 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       continue;
     }
 
+    const uint8_t cpiece = pos->mailbox[get_move_source(move)];
+    const uint8_t piece = cpiece > 5 ? cpiece - 6 : cpiece;
+
     ss->history_score =
-        quiet ? thread->quiet_history[pos->mailbox[get_move_source(move)]]
-                                     [get_move_source(move)]
+        quiet ? thread->quiet_history[pos->side][piece][get_move_source(move)]
                                      [get_move_target(move)] +
                     get_conthist_score(thread, pos, ss - 1, move) +
                     get_conthist_score(thread, pos, ss - 2, move)
