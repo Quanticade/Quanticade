@@ -14,7 +14,7 @@ extern nnue_settings_t nnue_settings;
 #define KING_BUCKETS 13
 #define SCALE 400
 #define INPUT_QUANT 255
-#define L1_QUANT 64
+#define L1_QUANT 128
 #define INPUT_SHIFT 10
 
 typedef struct nnue {
