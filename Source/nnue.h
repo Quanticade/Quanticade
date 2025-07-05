@@ -7,7 +7,7 @@
 extern nnue_settings_t nnue_settings;
 
 #define INPUT_WEIGHTS 768
-#define L1_SIZE 1536
+#define L1_SIZE 128
 #define L2_SIZE 16
 #define L3_SIZE 32
 #define OUTPUT_BUCKETS 8
