@@ -465,14 +465,10 @@ static inline void time_control(position_t *pos, thread_t *threads,
       }
 
       limits.max_time = MAX(1, limits.time * MAX_TIME_MULTIPLIER);
+      limits.hard_limit = threads->starttime + limits.max_time;
       limits.base_soft =
           MIN(base_time * SOFT_LIMIT_MULTIPLIER, limits.max_time);
-      limits.hard_limit =
-          threads->starttime +
-          MIN(base_time * HARD_LIMIT_MULTIPLIER, limits.max_time);
-      limits.soft_limit =
-          threads->starttime +
-          MIN(base_time * SOFT_LIMIT_MULTIPLIER, limits.max_time);
+      limits.soft_limit = threads->starttime + limits.base_soft;
     }
   }
 }
@@ -651,7 +647,7 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
              nnue_settings.nnue_file);
       printf("option name Clear Hash type button\n");
       // SPSA
-      //print_spsa_table_uci();
+      // print_spsa_table_uci();
       // uciok
       printf("uciok\n");
     } else if (strncmp(input, "spsa", 4) == 0) {
