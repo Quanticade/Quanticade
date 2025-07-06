@@ -43,7 +43,7 @@ int PAWN_HISTORY_FACTOR_BONUS = 189;
 int PAWN_HISTORY_BASE_MALUS = 10;
 int PAWN_HISTORY_FACTOR_MALUS = 220;
 
-int CORR_HISTORY_MINMAX = 131;
+int CORR_HISTORY_MINMAX = 256;
 int PAWN_CORR_HISTORY_MULTIPLIER = 25;
 int HISTORY_MAX = 8192;
 
@@ -112,8 +112,8 @@ int16_t adjust_static_eval(thread_t *thread, position_t *pos,
   const int pawn_correction =
       thread->correction_history[pos->side][pos->hash_keys.pawn_key & 16383] *
       PAWN_CORR_HISTORY_MULTIPLIER;
-  const int adjusted_score = static_eval + pawn_correction / 1024;
-  // printf("%d %d %d\n", pawn_correction / 1024, adjusted_score, static_eval);
+  int correction = pawn_correction;
+  const int adjusted_score = static_eval + correction / 2048;
   return clamp(adjusted_score, -MATE_SCORE + 1, MATE_SCORE - 1);
 }
 
