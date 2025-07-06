@@ -456,18 +456,23 @@ static inline void time_control(position_t *pos, thread_t *threads,
     if (limits.timeset) {
       // Engine <--> GUI communication safety margin
       limits.time -= MIN(limits.time / 2, move_overhead);
-      int64_t base_time = 0;
-      if (limits.movestogo > 0) {
-        base_time = (limits.time / limits.movestogo) + limits.inc;
+      double opt_scale = 0.0f;
+      const uint8_t cyclic_tc = limits.movestogo > 0;
+      const uint8_t moves_to_go = cyclic_tc ? MIN(limits.movestogo, 50) : 50;
+      const int64_t time_left =
+          MAX(1, limits.time + limits.inc * (moves_to_go - 1) -
+                     move_overhead * (2 + moves_to_go));
+      if (cyclic_tc) {
+        opt_scale =
+            MIN(0.9 / moves_to_go, 0.88 * limits.time / (double)time_left);
       } else {
-        base_time =
-            limits.time * DEF_TIME_MULTIPLIER + limits.inc * DEF_INC_MULTIPLIER;
+        opt_scale = MIN(0.025, 0.20 * limits.time / (double)time_left);
       }
 
-      limits.max_time = MAX(1, limits.time * MAX_TIME_MULTIPLIER);
+      limits.max_time =
+          MAX(1, limits.time * MAX_TIME_MULTIPLIER - move_overhead);
       limits.hard_limit = threads->starttime + limits.max_time;
-      limits.base_soft =
-          MIN(base_time * SOFT_LIMIT_MULTIPLIER, limits.max_time);
+      limits.base_soft = time_left * opt_scale;
       limits.soft_limit = threads->starttime + limits.base_soft;
     }
   }
