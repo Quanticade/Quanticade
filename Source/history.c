@@ -44,8 +44,8 @@ int PAWN_HISTORY_BASE_MALUS = 10;
 int PAWN_HISTORY_FACTOR_MALUS = 220;
 
 int CORR_HISTORY_MINMAX = 131;
-int PAWN_CORR_HISTORY_MULTIPLIER = 25;
-int NON_PAWN_CORR_HISTORY_MULTIPLIER = 20;
+int PAWN_CORR_HISTORY_MULTIPLIER = 15;
+int NON_PAWN_CORR_HISTORY_MULTIPLIER = 15;
 int HISTORY_MAX = 8192;
 
 extern keys_t keys;
@@ -172,23 +172,23 @@ int16_t adjust_static_eval(thread_t *thread, position_t *pos,
       thread->correction_history[pos->side][pos->hash_keys.pawn_key & 16383] *
       PAWN_CORR_HISTORY_MULTIPLIER;
   const int white_non_pawn_correction =
-      thread->non_pawn_correction_history[pos->side][white]
-                                         [pos->hash_keys.non_pawn_key[white] &
-                                          16383] *
+      thread->w_non_pawn_correction_history[pos->side]
+                                           [pos->hash_keys.non_pawn_key[white] &
+                                            16383] *
       NON_PAWN_CORR_HISTORY_MULTIPLIER;
   const int black_non_pawn_correction =
-      thread->non_pawn_correction_history[pos->side][black]
-                                         [pos->hash_keys.non_pawn_key[black] &
-                                          16383] *
+      thread->b_non_pawn_correction_history[pos->side]
+                                           [pos->hash_keys.non_pawn_key[black] &
+                                            16383] *
       NON_PAWN_CORR_HISTORY_MULTIPLIER;
   const int correction =
       pawn_correction + white_non_pawn_correction + black_non_pawn_correction;
-  const int adjusted_score = static_eval + correction / 1024;
+  const int adjusted_score = static_eval + (correction / 1024);
   return clamp(adjusted_score, -MATE_SCORE + 1, MATE_SCORE - 1);
 }
 
-void update_corrhist(thread_t *thread, position_t *pos, int16_t static_eval, int16_t score,
-                     uint8_t depth, uint8_t tt_flag) {
+void update_corrhist(thread_t *thread, position_t *pos, int16_t static_eval,
+                     int16_t score, uint8_t depth, uint8_t tt_flag) {
   if (!static_eval_within_bounds(static_eval, score, tt_flag)) {
     return;
   }
@@ -198,16 +198,22 @@ void update_corrhist(thread_t *thread, position_t *pos, int16_t static_eval, int
           thread
               ->correction_history[pos->side][pos->hash_keys.pawn_key & 16383],
           bonus);
-  for (int color = white; color <= black; ++color) {
-    thread->non_pawn_correction_history
-        [thread->pos.side][color]
-        [thread->pos.hash_keys.non_pawn_key[color] & 16383] +=
-        scale_corrhist_bonus(
-            thread->non_pawn_correction_history
-                [thread->pos.side][color]
-                [thread->pos.hash_keys.non_pawn_key[color] & 16383],
-            bonus);
-  }
+
+  thread->w_non_pawn_correction_history
+      [thread->pos.side][thread->pos.hash_keys.non_pawn_key[white] & 16383] +=
+      scale_corrhist_bonus(
+          thread->w_non_pawn_correction_history
+              [thread->pos.side]
+              [thread->pos.hash_keys.non_pawn_key[white] & 16383],
+          bonus);
+
+  thread->b_non_pawn_correction_history
+      [thread->pos.side][thread->pos.hash_keys.non_pawn_key[black] & 16383] +=
+      scale_corrhist_bonus(
+          thread->b_non_pawn_correction_history
+              [thread->pos.side]
+              [thread->pos.hash_keys.non_pawn_key[black] & 16383],
+          bonus);
 }
 
 static inline void update_quiet_history(thread_t *thread, position_t *pos,
