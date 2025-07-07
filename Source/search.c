@@ -616,6 +616,11 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
             ? tt_static_eval
             : evaluate(thread, pos, &thread->accumulator[pos->ply]);
 
+    if (!tt_hit) {
+      write_hash_entry(tt_entry, pos, NO_SCORE, raw_static_eval, 0, 0,
+                       HASH_FLAG_NONE, ss->tt_pv);
+    }
+
     // adjust static eval with corrhist
     static_eval = ss->static_eval =
         adjust_static_eval(thread, pos, raw_static_eval);
@@ -800,7 +805,9 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     // Futility Pruning
     if (!root_node && current_score > -MATE_SCORE && lmr_depth <= FP_DEPTH &&
         !in_check && quiet &&
-        ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION + ss->history_score / 32 <= alpha) {
+        ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION +
+                ss->history_score / 32 <=
+            alpha) {
       skip_quiets = 1;
       continue;
     }
