@@ -800,7 +800,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     // Futility Pruning
     if (!root_node && current_score > -MATE_SCORE && lmr_depth <= FP_DEPTH &&
         !in_check && quiet &&
-        ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION <= alpha) {
+        ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION + ss->history_score / 32 <= alpha) {
       skip_quiets = 1;
       continue;
     }
