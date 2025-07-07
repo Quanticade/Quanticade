@@ -875,6 +875,10 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       else if (cutnode) {
         extensions -= 2;
       }
+
+      else if (tt_score <= alpha) {
+        extensions -= 1;
+      }
     }
 
     // preserve board state
