@@ -395,6 +395,10 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 
   // fail-hard beta cutoff
   if (best_score >= beta) {
+    if (!tt_hit) {
+      write_hash_entry(tt_entry, pos, NO_SCORE, raw_static_eval, 0, 0,
+                   HASH_FLAG_NONE, tt_was_pv);
+    }
     if (abs(best_score) < MATE_SCORE && abs(beta) < MATE_SCORE) {
       best_score = (best_score + beta) / 2;
     }
