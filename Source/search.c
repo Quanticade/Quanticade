@@ -627,6 +627,15 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     }
   }
 
+  if ((ss - 1)->static_eval != NO_SCORE &&
+      !(is_move_promotion((ss - 1)->move) ||
+        get_move_capture((ss - 1)->move))) {
+    int bonus =
+        clamp(-10 * ((ss - 1)->static_eval + ss->static_eval), -1830, 1427) +
+        624;
+    update_opp_quiet_history(thread, pos, (ss - 1)->move, bonus);
+  }
+
   uint8_t improving = 0;
   uint8_t opponent_worsening = 0;
 

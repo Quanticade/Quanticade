@@ -18,5 +18,7 @@ int16_t get_conthist_score(thread_t *thread, position_t *pos, searchstack_t *ss,
 void update_quiet_histories(thread_t *thread, position_t *pos,
                             searchstack_t *ss, moves *quiet_moves,
                             int best_move, uint8_t depth);
+void update_opp_quiet_history(thread_t *thread, position_t *pos, int move,
+                              int bonus);
 
 #endif
