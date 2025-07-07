@@ -1,4 +1,4 @@
-## <p align="center"><img src=Quanticade.png alt="Quanticade Chess Engine" width="25%" height="25%"/></p>
+## <p align="center"><img src=Quanticade.png alt="Quanticade Chess Engine" width="25%"/></p>
 
 ## Overview
 
