@@ -397,7 +397,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   if (best_score >= beta) {
     if (!tt_hit) {
       write_hash_entry(tt_entry, pos, NO_SCORE, raw_static_eval, 0, 0,
-                   HASH_FLAG_NONE, tt_was_pv);
+                       HASH_FLAG_NONE, tt_was_pv);
     }
     if (abs(best_score) < MATE_SCORE && abs(beta) < MATE_SCORE) {
       best_score = (best_score + beta) / 2;
@@ -1036,6 +1036,11 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     else
       // return stalemate score
       return 0;
+  }
+
+  if (best_score >= beta && abs(best_score) < MATE_SCORE &&
+      abs(alpha) < MATE_SCORE) {
+    best_score = (best_score * depth + beta) / (depth + 1);
   }
 
   if (!ss->excluded_move) {
