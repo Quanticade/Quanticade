@@ -110,7 +110,7 @@ uint8_t static_eval_within_bounds(int16_t static_eval, int16_t score,
 int16_t adjust_static_eval(thread_t *thread, position_t *pos,
                            int16_t static_eval) {
   const int pawn_correction =
-      thread->correction_history[pos->side][pos->hash_keys.pawn_key & 16383] *
+      thread->correction_history[pos->side][pos->hash_keys.pawn_key & 32767] *
       PAWN_CORR_HISTORY_MULTIPLIER;
   const int adjusted_score = static_eval + pawn_correction / 1024;
   // printf("%d %d %d\n", pawn_correction / 1024, adjusted_score, static_eval);
@@ -124,10 +124,10 @@ void update_pawn_corrhist(thread_t *thread, position_t *pos,
     return;
   }
   int16_t bonus = calculate_corrhist_bonus(static_eval, score, depth);
-  thread->correction_history[pos->side][pos->hash_keys.pawn_key & 16383] +=
+  thread->correction_history[pos->side][pos->hash_keys.pawn_key & 32767] +=
       scale_corrhist_bonus(
           thread
-              ->correction_history[pos->side][pos->hash_keys.pawn_key & 16383],
+              ->correction_history[pos->side][pos->hash_keys.pawn_key & 32767],
           bonus);
 }
 
