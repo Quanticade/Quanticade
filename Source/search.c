@@ -594,6 +594,12 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   // we can return early from search
   if (!ss->excluded_move && !pv_node && tt_depth >= depth &&
       can_use_score(alpha, beta, tt_score, tt_flag)) {
+    if (tt_move != 0 &&
+        !(get_move_capture(tt_move) || is_move_promotion(tt_move)) &&
+        tt_score >= beta) {
+      int bonus = MAX(133 * depth - 65, 1270);
+      update_quiet_history(thread, pos, tt_move, bonus);
+    }
     return tt_score;
   }
 

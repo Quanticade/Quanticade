@@ -131,7 +131,7 @@ void update_pawn_corrhist(thread_t *thread, position_t *pos,
           bonus);
 }
 
-static inline void update_quiet_history(thread_t *thread, position_t *pos,
+void update_quiet_history(thread_t *thread, position_t *pos,
                                         int move, int bonus) {
   int target = get_move_target(move);
   int source = get_move_source(move);
