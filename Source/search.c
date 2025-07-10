@@ -237,29 +237,20 @@ static inline void score_move(position_t *pos, thread_t *thread,
 
   // score quiet move
   else {
-    // score 1st killer move
-    if (thread->killer_moves[pos->ply] == move) {
-      move_entry->score = 900000000;
-    }
-
     // score history move
-    else {
-      const uint8_t cpiece = pos->mailbox[get_move_source(move)];
-      const uint8_t piece = cpiece > 5 ? cpiece - 6 : cpiece;
-      move_entry->score =
-          thread->quiet_history[pos->side][piece][get_move_source(move)]
-                               [get_move_target(move)] +
-          get_conthist_score(thread, pos, ss - 1, move) +
-          get_conthist_score(thread, pos, ss - 2, move) +
-          get_conthist_score(thread, pos, ss - 4, move) +
-          thread->pawn_history[pos->hash_keys.pawn_key % 32767]
-                              [pos->mailbox[get_move_source(move)]]
-                              [get_move_target(move)];
-    }
-
+    const uint8_t cpiece = pos->mailbox[get_move_source(move)];
+    const uint8_t piece = cpiece > 5 ? cpiece - 6 : cpiece;
+    move_entry->score =
+        thread->quiet_history[pos->side][piece][get_move_source(move)]
+                             [get_move_target(move)] +
+        get_conthist_score(thread, pos, ss - 1, move) +
+        get_conthist_score(thread, pos, ss - 2, move) +
+        get_conthist_score(thread, pos, ss - 4, move) +
+        thread->pawn_history[pos->hash_keys.pawn_key % 32767]
+                            [pos->mailbox[get_move_source(move)]]
+                            [get_move_target(move)];
     return;
   }
-
   move_entry->score = 0;
   return;
 }
@@ -397,7 +388,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   if (best_score >= beta) {
     if (!tt_hit) {
       write_hash_entry(tt_entry, pos, NO_SCORE, raw_static_eval, 0, 0,
-                   HASH_FLAG_NONE, tt_was_pv);
+                       HASH_FLAG_NONE, tt_was_pv);
     }
     if (abs(best_score) < MATE_SCORE && abs(beta) < MATE_SCORE) {
       best_score = (best_score + beta) / 2;
@@ -1014,7 +1005,6 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
           if (quiet) {
             update_quiet_histories(thread, pos, ss, quiet_list, best_move,
                                    depth);
-            thread->killer_moves[pos->ply] = move;
           }
 
           update_capture_history_moves(thread, pos, capture_list, best_move,
@@ -1242,7 +1232,6 @@ void search_position(position_t *pos, thread_t *threads) {
   for (int i = 0; i < thread_count; ++i) {
     threads[i].nodes = 0;
     threads[i].stopped = 0;
-    memset(threads[i].killer_moves, 0, sizeof(threads[i].killer_moves));
     memcpy(&threads[i].pos, pos, sizeof(position_t));
     init_accumulator(pos, threads[i].accumulator);
     init_finny_tables(&threads[i], pos);
