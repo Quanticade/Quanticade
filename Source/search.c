@@ -1013,7 +1013,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
           // on quiet moves
           if (quiet) {
             update_quiet_histories(thread, pos, ss, quiet_list, best_move,
-                                   depth);
+                                   depth, cutnode);
             thread->killer_moves[pos->ply] = move;
           }
 
