@@ -225,7 +225,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
 
     // score move by MVV LVA lookup [source piece][target piece]
     move_entry->score +=
-        mvv[target_piece > 5 ? target_piece - 6 : target_piece];
+        mvv[target_piece > 5 ? target_piece - 6 : target_piece] * 10;
     move_entry->score +=
         thread
             ->capture_history[pos->mailbox[get_move_source(move)]][target_piece]
