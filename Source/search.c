@@ -807,6 +807,13 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       continue;
     }
 
+    // Bad Noisy Pruning
+    if (!pv_node && !in_check && lmr_depth < 6 &&
+        move_list->entry[move_index - 1].score < 0 &&
+        ss->static_eval + 128 * lmr_depth <= alpha) {
+      break;
+    }
+
     // SEE PVS Pruning
     if (depth <= SEE_DEPTH && moves_seen > 0 &&
         !SEE(pos, move,
