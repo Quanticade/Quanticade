@@ -350,6 +350,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   }
 
   uint16_t best_move = 0;
+  uint16_t tt_move = 0;
   int16_t score = NO_SCORE, best_score = NO_SCORE;
   int16_t raw_static_eval = NO_SCORE;
   int16_t tt_score = NO_SCORE;
@@ -361,6 +362,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   tt_entry_t *tt_entry = read_hash_entry(pos, &tt_hit);
 
   if (tt_hit) {
+    tt_move = tt_entry->move;
     tt_was_pv |= tt_entry->tt_pv;
     tt_score = score_from_tt(pos, tt_entry->score);
     tt_static_eval = tt_entry->static_eval;
@@ -409,7 +411,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   generate_noisy(pos, move_list);
 
   for (uint32_t count = 0; count < move_list->count; count++) {
-    score_move(pos, thread, ss, &move_list->entry[count], best_move);
+    score_move(pos, thread, ss, &move_list->entry[count], tt_move);
   }
 
   uint16_t move_index = 0;
