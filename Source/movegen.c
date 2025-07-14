@@ -4,6 +4,10 @@
 #include "enums.h"
 #include "move.h"
 #include "structs.h"
+<<<<<<< HEAD
+=======
+#include <math.h>
+>>>>>>> ce50e45 (WIP)
 #include <stdio.h>
 #include <string.h>
 
@@ -15,6 +19,34 @@ const uint8_t castling_rights[64] = {
     15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
     15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
     15, 15, 15, 15, 15, 15, 15, 15, 13, 15, 15, 15, 12, 15, 15, 14};
+
+uint8_t is_pseudo_legal(position_t *pos, uint16_t move) {
+  uint8_t origin = get_move_source(move);
+  uint8_t target = get_move_target(move);
+  uint8_t piece = pos->mailbox[origin];
+
+  // Source square needs to have a piece for us to move or we cannot move
+  // opponent piece
+  if (piece == NO_PIECE || pos->side != floor((double)piece / 6)) {
+    return 0;
+  }
+  // uint64_t origin_bb = pos->bitboards[piece];
+
+  if (get_move_capture(move) && !get_move_enpassant(move)) {
+    uint8_t opponent_piece = pos->mailbox[target];
+    if (opponent_piece == NO_PIECE ||
+        pos->side == floor((double)opponent_piece / 6)) {
+      return 0;
+    }
+  }
+  
+  // We cannot have a turn if opponent is in check
+  if (is_square_attacked(pos, get_lsb(pos->bitboards[pos->side ? K : k]), pos->side)) {
+    return 0;
+  }
+
+  return 1;
+}
 
 uint8_t make_move(position_t *pos, uint16_t move) {
   // preserve board state

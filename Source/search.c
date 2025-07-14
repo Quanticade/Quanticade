@@ -787,6 +787,9 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     uint16_t move = pick_next_best_move(move_list, &move_index).move;
     uint8_t quiet =
         (get_move_capture(move) == 0 && is_move_promotion(move) == 0);
+    if (is_pseudo_legal(pos, move) != 1) {
+      exit(-1);
+    }
 
     if (move == ss->excluded_move) {
       continue;
