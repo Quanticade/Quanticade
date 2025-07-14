@@ -32,7 +32,7 @@ extern keys_t keys;
 
 // Depths and untunable values (SPSA poison)
 int RAZOR_DEPTH = 7;
-int RFP_DEPTH = 7;
+int RFP_DEPTH = 9;
 int FP_DEPTH = 10;
 int NMP_BASE_REDUCTION = 4;
 int NMP_DIVISER = 3;
