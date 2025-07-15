@@ -91,4 +91,6 @@ static inline uint64_t get_knight_attacks(int square) {
 
 static inline uint64_t get_king_attacks(int square) { return king_attacks[square]; }
 
+uint64_t attackers_to(position_t *pos, int square, uint64_t occupancy);
+
 #endif

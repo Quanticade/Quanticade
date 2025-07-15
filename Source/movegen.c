@@ -39,9 +39,10 @@ uint8_t is_pseudo_legal(position_t *pos, uint16_t move) {
       return 0;
     }
   }
-  
+
   // We cannot have a turn if opponent is in check
-  if (is_square_attacked(pos, get_lsb(pos->bitboards[pos->side ? K : k]), pos->side)) {
+  if (is_square_attacked(pos, get_lsb(pos->bitboards[pos->side ? K : k]),
+                         pos->side)) {
     return 0;
   }
 
@@ -286,6 +287,14 @@ uint8_t make_move(position_t *pos, uint16_t move) {
   pos->occupancies[both] |= pos->occupancies[white];
   pos->occupancies[both] |= pos->occupancies[black];
 
+  pos->checkers =
+      attackers_to(pos,
+                   (pos->side == white) ? get_lsb(pos->bitboards[K])
+                                        : get_lsb(pos->bitboards[k]),
+                   pos->occupancies[both]) &
+      pos->occupancies[pos->side ^ 1];
+  pos->checker_count = popcount(pos->checkers);
+
   // change side
   pos->side ^= 1;
 
@@ -293,11 +302,7 @@ uint8_t make_move(position_t *pos, uint16_t move) {
   pos->hash_keys.hash_key ^= keys.side_key;
 
   // make sure that king has not been exposed into a check
-  if (is_square_attacked(pos,
-                         (pos->side == white)
-                             ? __builtin_ctzll(pos->bitboards[k])
-                             : __builtin_ctzll(pos->bitboards[K]),
-                         pos->side)) {
+  if (pos->checkers) {
     // take move back
     *pos = pos_copy;
 

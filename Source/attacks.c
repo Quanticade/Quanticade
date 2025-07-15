@@ -449,6 +449,7 @@ int is_square_attacked(position_t *pos, int square, int side) {
   return 0;
 }
 
+<<<<<<< HEAD
 // Returns 1 if the move might give check
 uint8_t might_give_check(position_t *pos, uint16_t mv) {
     uint8_t from = get_move_source(mv);
@@ -494,4 +495,32 @@ uint8_t stm_in_check(position_t *pos) {
     (pos->side == white) ? __builtin_ctzll(pos->bitboards[K])
                          : __builtin_ctzll(pos->bitboards[k]),
     pos->side ^ 1);
+=======
+uint64_t attackers_to(position_t *pos, int square, uint64_t occupancy) {
+  uint64_t attackers = 0;
+
+  // Pawns
+  attackers |= pawn_attacks[black][square] & pos->bitboards[P];  // white pawns
+  attackers |= pawn_attacks[white][square] & pos->bitboards[p];  // black pawns
+
+  // Knights
+  attackers |= knight_attacks[square] & (pos->bitboards[N] | pos->bitboards[n]);
+
+  // Bishops
+  attackers |= get_bishop_attacks(square, occupancy) &
+               (pos->bitboards[B] | pos->bitboards[b]);
+
+  // Rooks
+  attackers |= get_rook_attacks(square, occupancy) &
+               (pos->bitboards[R] | pos->bitboards[r]);
+
+  // Queens
+  attackers |= get_queen_attacks(square, occupancy) &
+               (pos->bitboards[Q] | pos->bitboards[q]);
+
+  // Kings
+  attackers |= king_attacks[square] & (pos->bitboards[K] | pos->bitboards[k]);
+
+  return attackers;
+>>>>>>> ffe78b2 (checkers)
 }

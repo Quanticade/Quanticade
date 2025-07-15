@@ -719,6 +719,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
       ss->move = 0;
       ss->piece = 0;
+      pos_copy.checkers = 0;
+      pos_copy.checker_count = 0;
       (ss + 1)->null_move = 1;
 
       /* search moves with reduced depth to find beta cutoffs

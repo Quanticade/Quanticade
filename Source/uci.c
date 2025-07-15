@@ -177,6 +177,8 @@ static inline void reset_board(position_t *pos, thread_t *thread) {
   pos->side = 0;
   pos->enpassant = no_sq;
   pos->castle = 0;
+  pos->checkers = 0;
+  pos->checker_count = 0;
 
   // reset repetition index
   thread->repetition_index = 0;
@@ -315,8 +317,18 @@ static inline void parse_fen(position_t *pos, thread_t *thread, char *fen) {
   // init hash key
   pos->hash_keys.hash_key = generate_hash_key(pos);
   pos->hash_keys.pawn_key = generate_pawn_key(pos);
+<<<<<<< HEAD
   pos->hash_keys.non_pawn_key[white] = generate_white_non_pawn_key(pos);
   pos->hash_keys.non_pawn_key[black] = generate_black_non_pawn_key(pos);
+=======
+  pos->checkers =
+      attackers_to(pos,
+                   (pos->side == white) ? get_lsb(pos->bitboards[K])
+                                        : get_lsb(pos->bitboards[k]),
+                   pos->occupancies[both]) &
+      pos->occupancies[pos->side ^ 1];
+  pos->checker_count = popcount(pos->checkers);
+>>>>>>> ffe78b2 (checkers)
 }
 
 // parse UCI "position" command
