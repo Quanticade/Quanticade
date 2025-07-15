@@ -447,3 +447,31 @@ int is_square_attacked(position_t *pos, int square, int side) {
   // by default return false
   return 0;
 }
+
+uint64_t attackers_to(position_t *pos, int square, uint64_t occupancy) {
+  uint64_t attackers = 0;
+
+  // Pawns
+  attackers |= pawn_attacks[black][square] & pos->bitboards[P];  // white pawns
+  attackers |= pawn_attacks[white][square] & pos->bitboards[p];  // black pawns
+
+  // Knights
+  attackers |= knight_attacks[square] & (pos->bitboards[N] | pos->bitboards[n]);
+
+  // Bishops
+  attackers |= get_bishop_attacks(square, occupancy) &
+               (pos->bitboards[B] | pos->bitboards[b]);
+
+  // Rooks
+  attackers |= get_rook_attacks(square, occupancy) &
+               (pos->bitboards[R] | pos->bitboards[r]);
+
+  // Queens
+  attackers |= get_queen_attacks(square, occupancy) &
+               (pos->bitboards[Q] | pos->bitboards[q]);
+
+  // Kings
+  attackers |= king_attacks[square] & (pos->bitboards[K] | pos->bitboards[k]);
+
+  return attackers;
+}

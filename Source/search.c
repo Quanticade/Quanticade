@@ -567,11 +567,11 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   }
 
   // is king in check
-  uint8_t in_check = is_square_attacked(
-      pos,
-      (pos->side == white) ? __builtin_ctzll(pos->bitboards[K])
-                           : __builtin_ctzll(pos->bitboards[k]),
-      pos->side ^ 1);
+  uint8_t in_check =
+      is_square_attacked(pos,
+                         (pos->side == white) ? get_lsb(pos->bitboards[K])
+                                              : get_lsb(pos->bitboards[k]),
+                         pos->side ^ 1);
 
   // recursion escape condition
   if (!in_check && depth <= 0) {
@@ -696,6 +696,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
       ss->move = 0;
       ss->piece = 0;
+      pos_copy.checkers = 0;
+      pos_copy.checker_count = 0;
       (ss + 1)->null_move = 1;
 
       /* search moves with reduced depth to find beta cutoffs
