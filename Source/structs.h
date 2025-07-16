@@ -107,6 +107,7 @@ typedef struct searchinfo {
   PV_t pv;
   uint16_t index;
   int16_t score;
+  int16_t root_delta;
   int16_t correction_history[2][16384];
   int16_t quiet_history[2][6][64][64];
   int16_t continuation_history[12][64][12][64];
