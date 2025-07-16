@@ -587,7 +587,6 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
       parse_position(pos, threads, input);
       init_accumulator(pos, &threads->accumulator[pos->ply]);
       init_finny_tables(threads, pos);
-      printf("cp: %d\n", nnue_eval_pos(pos, &threads->accumulator[pos->ply]));
     }
     // parse UCI "ucinewgame" command
     else if (strncmp(input, "ucinewgame", 10) == 0) {
