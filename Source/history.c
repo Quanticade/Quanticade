@@ -161,8 +161,7 @@ static inline void update_capture_history(thread_t *thread, position_t *pos,
 static inline void update_continuation_history(thread_t *thread,
                                                position_t *pos,
                                                searchstack_t *ss, int move,
-                                               int bonus,
-                                              uint8_t ply) {
+                                               int bonus) {
   if (ss == NULL || ss->move == 0) {
     return;
   }
@@ -250,15 +249,15 @@ void update_quiet_histories(thread_t *thread, position_t *pos,
   for (uint32_t i = 0; i < quiet_moves->count; ++i) {
     uint16_t move = quiet_moves->entry[i].move;
     if (move == best_move) {
-      update_continuation_history(thread, pos, ss - 1, best_move, cont_bonus, 1);
-      update_continuation_history(thread, pos, ss - 2, best_move, cont_bonus2, 2);
-      update_continuation_history(thread, pos, ss - 4, best_move, cont_bonus4, 4);
+      update_continuation_history(thread, pos, ss - 1, best_move, cont_bonus);
+      update_continuation_history(thread, pos, ss - 2, best_move, cont_bonus2);
+      update_continuation_history(thread, pos, ss - 4, best_move, cont_bonus4);
       update_pawn_history(thread, pos, best_move, pawn_bonus);
       update_quiet_history(thread, pos, best_move, quiet_bonus);
     } else {
-      update_continuation_history(thread, pos, ss - 1, move, cont_malus, 1);
-      update_continuation_history(thread, pos, ss - 2, move, cont_malus2, 2);
-      update_continuation_history(thread, pos, ss - 4, move, cont_malus4, 4);
+      update_continuation_history(thread, pos, ss - 1, move, cont_malus);
+      update_continuation_history(thread, pos, ss - 2, move, cont_malus2);
+      update_continuation_history(thread, pos, ss - 4, move, cont_malus4);
       update_pawn_history(thread, pos, move, pawn_malus);
       update_quiet_history(thread, pos, move, quiet_malus);
     }
