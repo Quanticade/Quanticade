@@ -200,17 +200,16 @@ static inline void score_move(position_t *pos, thread_t *thread,
     if (get_move_capture(move)) {
       // The promotion is a capture and we check SEE score
       if (SEE(pos, move, -MO_SEE_THRESHOLD, &see_balance)) {
-        move_entry->score += see_balance;
         return;
       } else {
         // Capture failed SEE and thus gets ordered at the bottom of the list
-        move_entry->score = -700000000 + see_balance;
+        move_entry->score = -700000000;
         return;
       }
     } else {
       // We have a promotion that is not a capture. Order it below good capture
       // promotions.
-      move_entry->score -= 1000000 + see_balance;
+      move_entry->score -= 1000000;
       return;
     }
   }
@@ -234,7 +233,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
                              [get_move_source(move)][get_move_target(move)];
     move_entry->score +=
         SEE(pos, move, -MO_SEE_THRESHOLD, &see_balance) ? 1000000000 : -1000000000;
-    move_entry->score += see_balance;
+    move_entry->score += 5 * see_balance;
     return;
   }
 
