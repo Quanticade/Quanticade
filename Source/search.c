@@ -175,6 +175,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
                               uint16_t hash_move) {
   uint16_t move = move_entry->move;
   uint8_t promoted_piece = get_move_promoted(pos->side, move);
+  int see_balance = 0;
 
   if (move == hash_move) {
     move_entry->score = 2000000000;
@@ -198,17 +199,18 @@ static inline void score_move(position_t *pos, thread_t *thread,
     }
     if (get_move_capture(move)) {
       // The promotion is a capture and we check SEE score
-      if (SEE(pos, move, -MO_SEE_THRESHOLD)) {
+      if (SEE(pos, move, -MO_SEE_THRESHOLD, &see_balance)) {
+        move_entry->score += see_balance;
         return;
       } else {
         // Capture failed SEE and thus gets ordered at the bottom of the list
-        move_entry->score = -700000000;
+        move_entry->score = -700000000 + see_balance;
         return;
       }
     } else {
       // We have a promotion that is not a capture. Order it below good capture
       // promotions.
-      move_entry->score -= 100000;
+      move_entry->score -= 1000000 + see_balance;
       return;
     }
   }
@@ -231,7 +233,8 @@ static inline void score_move(position_t *pos, thread_t *thread,
             ->capture_history[pos->mailbox[get_move_source(move)]][target_piece]
                              [get_move_source(move)][get_move_target(move)];
     move_entry->score +=
-        SEE(pos, move, -MO_SEE_THRESHOLD) ? 1000000000 : -1000000000;
+        SEE(pos, move, -MO_SEE_THRESHOLD, &see_balance) ? 1000000000 : -1000000000;
+    move_entry->score += see_balance;
     return;
   }
 
@@ -426,8 +429,9 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 
   while (move_index < move_list->count) {
     uint16_t move = pick_next_best_move(move_list, &move_index).move;
+    int see_balance = 0;
 
-    if (!SEE(pos, move, -QS_SEE_THRESHOLD))
+    if (!SEE(pos, move, -QS_SEE_THRESHOLD, &see_balance))
       continue;
 
     if (best_score > -MATE_SCORE && get_move_target(move) != previous_square) {
@@ -766,6 +770,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     uint16_t move = pick_next_best_move(move_list, &move_index).move;
     uint8_t quiet =
         (get_move_capture(move) == 0 && is_move_promotion(move) == 0);
+    int see_balance = 0;
 
     if (move == ss->excluded_move) {
       continue;
@@ -813,7 +818,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     if (depth <= SEE_DEPTH && moves_seen > 0 &&
         !SEE(pos, move,
              SEE_MARGIN[depth][quiet] -
-                 ss->history_score / SEE_HISTORY_DIVISOR))
+                 ss->history_score / SEE_HISTORY_DIVISOR, &see_balance))
       continue;
 
     int extensions = 0;

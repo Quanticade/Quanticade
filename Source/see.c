@@ -50,9 +50,9 @@ static inline uint64_t all_attackers_to_square(position_t *pos, uint64_t occupie
          (get_king_attacks(sq) & (pos->bitboards[k] | pos->bitboards[K]));
 }
 
-int SEE(position_t *pos, int move, int threshold) {
+int SEE(position_t *pos, int move, int threshold, int *balance) {
 
-  int from, to, enpassant, promotion, colour, balance, nextVictim;
+  int from, to, enpassant, promotion, colour, nextVictim;
   uint64_t bishops, rooks, occupied, attackers, myAttackers;
 
   // Unpack move information
@@ -67,18 +67,18 @@ int SEE(position_t *pos, int move, int threshold) {
 
   // Balance is the value of the move minus threshold. Function
   // call takes care for Enpass, Promotion and Castling moves.
-  balance = move_estimated_value(pos, move) - threshold;
+  *balance = move_estimated_value(pos, move) - threshold;
 
   // Best case still fails to beat the threshold
-  if (balance < 0)
+  if (*balance < 0)
     return 0;
 
   // Worst case is losing the moved piece
-  balance -= SEEPieceValues[nextVictim];
+  *balance -= SEEPieceValues[nextVictim];
 
   // If the balance is positive even if losing the moved piece,
   // the exchange is guaranteed to beat the threshold.
-  if (balance >= 0)
+  if (*balance >= 0)
     return 1;
 
   // Grab sliders for updating revealed attackers
@@ -136,10 +136,10 @@ int SEE(position_t *pos, int move, int threshold) {
     colour = !colour;
 
     // Negamax the balance and add the value of the next victim
-    balance = -balance - 1 - SEEPieceValues[nextVictim];
+    *balance = -(*balance) - 1 - SEEPieceValues[nextVictim];
 
     // If the balance is non negative after giving away our piece then we win
-    if (balance >= 0) {
+    if (*balance >= 0) {
 
       // As a slide speed up for move legality checking, if our last attacking
       // piece is a king, and our opponent still has attackers, then we've
