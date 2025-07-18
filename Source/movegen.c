@@ -4,10 +4,8 @@
 #include "enums.h"
 #include "move.h"
 #include "structs.h"
-<<<<<<< HEAD
-=======
 #include <math.h>
->>>>>>> ce50e45 (WIP)
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -24,6 +22,7 @@ uint8_t is_pseudo_legal(position_t *pos, uint16_t move) {
   uint8_t origin = get_move_source(move);
   uint8_t target = get_move_target(move);
   uint8_t piece = pos->mailbox[origin];
+  uint8_t noc_piece = piece % 6;
 
   // Source square needs to have a piece for us to move or we cannot move
   // opponent piece
@@ -32,11 +31,14 @@ uint8_t is_pseudo_legal(position_t *pos, uint16_t move) {
   }
   // uint64_t origin_bb = pos->bitboards[piece];
 
-  if (get_move_capture(move) && !get_move_enpassant(move)) {
-    uint8_t opponent_piece = pos->mailbox[target];
-    if (opponent_piece == NO_PIECE ||
-        pos->side == floor((double)opponent_piece / 6)) {
-      return 0;
+  if (get_move_capture(move)) {
+    // uint64_t target_bb = pos->bitboards[pos->mailbox[target]];
+    if (!get_move_enpassant(move)) {
+      uint8_t opponent_piece = pos->mailbox[target];
+      if (opponent_piece == NO_PIECE ||
+          pos->side == floor((double)opponent_piece / 6)) {
+        return 0;
+      }
     }
   }
 
@@ -44,6 +46,59 @@ uint8_t is_pseudo_legal(position_t *pos, uint16_t move) {
   if (is_square_attacked(pos, get_lsb(pos->bitboards[pos->side ? K : k]),
                          pos->side)) {
     return 0;
+  }
+
+  if (get_move_castling(move)) {
+    // We cannot castle if the moved piece is not king or we are in check
+    if (noc_piece != KING || pos->checkers) {
+      return 0;
+    }
+    uint8_t squares[4] = {0};
+    switch (target) {
+    case g1: {
+      squares[0] = e1;
+      squares[1] = f1;
+      squares[2] = g1;
+      squares[3] = h1;
+      break;
+    }
+    case c1: {
+      squares[0] = e1;
+      squares[1] = d1;
+      squares[2] = c1;
+      squares[3] = a1;
+      break;
+    }
+    case g8: {
+      squares[0] = e8;
+      squares[1] = f8;
+      squares[2] = g8;
+      squares[3] = h8;
+      break;
+    }
+    case c8: {
+      squares[0] = e8;
+      squares[1] = d8;
+      squares[2] = c8;
+      squares[3] = a8;
+      break;
+    }
+    }
+    if (pos->mailbox[squares[0]] == NO_PIECE ||
+        pos->mailbox[squares[1]] != NO_PIECE ||
+        pos->mailbox[squares[2]] != NO_PIECE ||
+        pos->mailbox[squares[3]] == NO_PIECE) {
+      return 0;
+    }
+    return 1;
+  } else if (get_move_enpassant(move)) {
+    if (noc_piece != PAWN && pos->checker_count > 1) {
+      return 0;
+    }
+    if (pos->checkers &&
+        !(get_lsb(pos->checkers) == target - (pos->side ? -8 : 8))) {
+      return 0;
+    }
   }
 
   return 1;
