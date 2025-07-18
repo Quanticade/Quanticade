@@ -15,7 +15,7 @@ extern nnue_settings_t nnue_settings;
 #define SCALE 400
 #define INPUT_QUANT 255
 #define L1_QUANT 128
-#define INPUT_SHIFT 10
+#define INPUT_SHIFT 9
 
 typedef struct nnue {
   _Alignas(64) int16_t
