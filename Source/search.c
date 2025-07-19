@@ -1012,6 +1012,9 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
           update_capture_history_moves(thread, pos, capture_list, best_move,
                                        depth);
           break;
+        } else if (depth > 4 && depth < 10 && beta < MATE_SCORE &&
+                   alpha > -MATE_SCORE) {
+          --depth;
         }
       }
     }
