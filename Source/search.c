@@ -39,7 +39,7 @@ int NMP_DIVISER = 3;
 int NMP_RED_MIN = 6;
 int IIR_DEPTH = 4;
 int SEE_DEPTH = 10;
-int ASP_DEPTH = 4;
+int ASP_DEPTH = 2;
 int SE_DEPTH = 6;
 
 // SPSA Tuned params
