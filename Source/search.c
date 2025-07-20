@@ -73,7 +73,7 @@ int LMR_DEEPER_MARGIN = 34;
 int LMR_SHALLOWER_MARGIN = 6;
 int LMP_DEPTH_DIVISOR = 3;
 int ASP_WINDOW = 12;
-int QS_SEE_THRESHOLD = 7;
+int QS_SEE_THRESHOLD = 70;
 int MO_SEE_THRESHOLD = 115;
 int LMR_QUIET_HIST_DIV = 6869;
 int LMR_CAPT_HIST_DIV = 6600;
@@ -172,7 +172,7 @@ uint8_t check_time(thread_t *thread) {
 // score moves
 static inline void score_move(position_t *pos, thread_t *thread,
                               searchstack_t *ss, move_t *move_entry,
-                              uint16_t hash_move) {
+                              uint16_t hash_move, uint8_t only_captures) {
   uint16_t move = move_entry->move;
   uint8_t promoted_piece = get_move_promoted(pos->side, move);
 
@@ -198,7 +198,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
     }
     if (get_move_capture(move)) {
       // The promotion is a capture and we check SEE score
-      if (SEE(pos, move, -MO_SEE_THRESHOLD)) {
+      if (only_captures || SEE(pos, move, -MO_SEE_THRESHOLD)) {
         return;
       } else {
         // Capture failed SEE and thus gets ordered at the bottom of the list
@@ -229,8 +229,9 @@ static inline void score_move(position_t *pos, thread_t *thread,
         thread
             ->capture_history[pos->mailbox[get_move_source(move)]][target_piece]
                              [get_move_source(move)][get_move_target(move)];
-    move_entry->score +=
-        SEE(pos, move, -MO_SEE_THRESHOLD) ? 1000000000 : -1000000000;
+    move_entry->score += (only_captures || SEE(pos, move, -MO_SEE_THRESHOLD))
+                             ? 1000000000
+                             : -1000000000;
     return;
   }
 
@@ -409,7 +410,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   generate_noisy(pos, move_list);
 
   for (uint32_t count = 0; count < move_list->count; count++) {
-    score_move(pos, thread, ss, &move_list->entry[count], tt_move);
+    score_move(pos, thread, ss, &move_list->entry[count], tt_move, 1);
   }
 
   uint16_t move_index = 0;
@@ -750,7 +751,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
   uint16_t best_move = 0;
   for (uint32_t count = 0; count < move_list->count; count++) {
-    score_move(pos, thread, ss, &move_list->entry[count], tt_move);
+    score_move(pos, thread, ss, &move_list->entry[count], tt_move, 0);
   }
 
   uint8_t skip_quiets = 0;
