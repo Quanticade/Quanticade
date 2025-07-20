@@ -224,8 +224,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
                                    : pos->mailbox[get_move_target(move) + 8];
 
     // score move by MVV LVA lookup [source piece][target piece]
-    move_entry->score +=
-        mvv[target_piece > 5 ? target_piece - 6 : target_piece];
+    move_entry->score += mvv[target_piece % 6];
     move_entry->score +=
         thread
             ->capture_history[pos->mailbox[get_move_source(move)]][target_piece]
@@ -238,11 +237,10 @@ static inline void score_move(position_t *pos, thread_t *thread,
   // score quiet move
   else {
     // score history move
-    const uint8_t cpiece = pos->mailbox[get_move_source(move)];
-    const uint8_t piece = cpiece > 5 ? cpiece - 6 : cpiece;
     move_entry->score =
-        thread->quiet_history[pos->side][piece][get_move_source(move)]
-                             [get_move_target(move)] +
+        thread
+            ->quiet_history[pos->side][pos->mailbox[get_move_source(move)] % 6]
+                           [get_move_source(move)][get_move_target(move)] +
         get_conthist_score(thread, pos, ss - 1, move) +
         get_conthist_score(thread, pos, ss - 2, move) +
         get_conthist_score(thread, pos, ss - 4, move) +
@@ -775,11 +773,10 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       continue;
     }
 
-    const uint8_t cpiece = pos->mailbox[get_move_source(move)];
-    const uint8_t piece = cpiece > 5 ? cpiece - 6 : cpiece;
-
     ss->history_score =
-        quiet ? thread->quiet_history[pos->side][piece][get_move_source(move)]
+        quiet ? thread->quiet_history[pos->side]
+                                     [pos->mailbox[get_move_source(move)] % 6]
+                                     [get_move_source(move)]
                                      [get_move_target(move)] +
                     get_conthist_score(thread, pos, ss - 1, move) +
                     get_conthist_score(thread, pos, ss - 2, move)
