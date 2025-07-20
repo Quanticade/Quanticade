@@ -553,10 +553,13 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
   if (!root_node) {
     // if position repetition occurs
-    if (is_repetition(pos, thread) || pos->fifty >= 100 ||
-        is_material_draw(pos)) {
+    if (alpha < 0 && (is_repetition(pos, thread) || pos->fifty >= 100 ||
+        is_material_draw(pos))) {
       // return draw score
-      return 1 - (thread->nodes & 2);
+      alpha = 1 - (thread->nodes & 2);
+      if (alpha >= beta) {
+        return alpha;
+      }
     }
 
     // Mate distance pruning
