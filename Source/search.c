@@ -347,6 +347,12 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     thread->seldepth = pos->ply;
   }
 
+  if (is_repetition(pos, thread) || pos->fifty >= 100 ||
+      is_material_draw(pos)) {
+    // return draw score
+    return 1 - (thread->nodes & 2);
+  }
+
   uint16_t best_move = 0;
   uint16_t tt_move = 0;
   int16_t score = NO_SCORE, best_score = NO_SCORE;
@@ -551,6 +557,19 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     thread->seldepth = pos->ply;
   }
 
+  // is king in check
+  uint8_t in_check = is_square_attacked(
+      pos,
+      (pos->side == white) ? __builtin_ctzll(pos->bitboards[K])
+                           : __builtin_ctzll(pos->bitboards[k]),
+      pos->side ^ 1);
+
+  // recursion escape condition
+  if (!in_check && depth <= 0) {
+    // run quiescence search
+    return quiescence(pos, thread, ss, alpha, beta, pv_node);
+  }
+
   if (!root_node) {
     // if position repetition occurs
     if (is_repetition(pos, thread) || pos->fifty >= 100 ||
@@ -564,19 +583,6 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     beta = MIN(beta, MATE_VALUE - (int)pos->ply - 1);
     if (alpha >= beta)
       return alpha;
-  }
-
-  // is king in check
-  uint8_t in_check = is_square_attacked(
-      pos,
-      (pos->side == white) ? __builtin_ctzll(pos->bitboards[K])
-                           : __builtin_ctzll(pos->bitboards[k]),
-      pos->side ^ 1);
-
-  // recursion escape condition
-  if (!in_check && depth <= 0) {
-    // run quiescence search
-    return quiescence(pos, thread, ss, alpha, beta, pv_node);
   }
 
   tt_entry_t *tt_entry = read_hash_entry(pos, &tt_hit);
