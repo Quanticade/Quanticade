@@ -1,6 +1,7 @@
 #include "attacks.h"
 #include "bitboards.h"
 #include "enums.h"
+#include "move.h"
 #include "structs.h"
 #include <stdint.h>
 
@@ -446,4 +447,43 @@ int is_square_attacked(position_t *pos, int square, int side) {
 
   // by default return false
   return 0;
+}
+
+// Returns 1 if the move might give check
+uint8_t might_give_check(position_t *pos, uint16_t mv) {
+    uint8_t from = get_move_source(mv);
+    uint8_t to = get_move_target(mv);
+    uint8_t side = pos->side;
+    uint8_t them = side ^ 1;
+
+    // Simulate the occupancy after the move
+    uint64_t new_occ = pos->occupancies[both];
+    new_occ ^= (1ULL << from);
+    new_occ ^= (1ULL << to);
+
+    uint8_t piece = pos->mailbox[from] % 6;
+    uint8_t king_sq = get_lsb(pos->bitboards[them == white ? K : k]);
+    uint64_t attacks = 0ULL;
+
+    switch (piece) {
+        case PAWN:
+            attacks = pawn_attacks[side][to];
+            break;
+        case KNIGHT:
+            attacks = knight_attacks[to];
+            break;
+        case BISHOP:
+            attacks = get_bishop_attacks(to, new_occ);
+            break;
+        case ROOK:
+            attacks = get_rook_attacks(to, new_occ);
+            break;
+        case QUEEN:
+            attacks = get_queen_attacks(to, new_occ);
+            break;
+        default:
+            return 0;
+    }
+
+    return (attacks >> king_sq) & 1ULL;
 }
