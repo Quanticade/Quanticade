@@ -40,7 +40,7 @@ int NMP_RED_MIN = 6;
 int IIR_DEPTH = 4;
 int SEE_DEPTH = 10;
 int ASP_DEPTH = 4;
-int SE_DEPTH = 6;
+int SE_DEPTH = 5;
 
 // SPSA Tuned params
 int RAZOR_MARGIN = 261;
