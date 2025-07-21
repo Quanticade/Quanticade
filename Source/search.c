@@ -801,7 +801,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
         !in_check && quiet &&
         ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION +
                 ss->history_score / 32 <=
-            alpha) {
+            alpha &&
+        !might_give_check(pos, move)) {
       skip_quiets = 1;
       continue;
     }
