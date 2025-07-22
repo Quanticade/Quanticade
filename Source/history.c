@@ -176,9 +176,9 @@ static inline void update_pawn_history(thread_t *thread, position_t *pos,
                                        int move, int bonus) {
   int target = get_move_target(move);
   int source = get_move_source(move);
-  thread->pawn_history[pos->hash_keys.pawn_key % 32767][pos->mailbox[source]]
+  thread->pawn_history[pos->hash_keys.pawn_key % 2048][pos->mailbox[source]]
                       [target] +=
-      bonus - thread->pawn_history[pos->hash_keys.pawn_key % 32767]
+      bonus - thread->pawn_history[pos->hash_keys.pawn_key % 2048]
                                   [pos->mailbox[source]][target] *
                   abs(bonus) / HISTORY_MAX;
 }

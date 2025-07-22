@@ -111,7 +111,7 @@ typedef struct searchinfo {
   int16_t quiet_history[2][6][64][64];
   int16_t continuation_history[12][64][12][64];
   int16_t capture_history[12][13][64][64];
-  int16_t pawn_history[32768][12][64];
+  int16_t pawn_history[2048][12][64];
   uint8_t depth;
   uint8_t seldepth;
   uint8_t stopped;
