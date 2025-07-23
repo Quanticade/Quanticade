@@ -10,14 +10,43 @@ nnue_t nnue_data;
 extern nnue_settings_t nnue_settings;
 
 int16_t evaluate(thread_t *thread, position_t *pos, accumulator_t *accumulator) {
-  int eval = nnue_evaluate(thread, pos, accumulator);
+  (void)thread;
+  (void)accumulator;
+  int eval = 0;
+  for (uint8_t sq = 0; sq < 64; sq++) {
+    if (pos->side == 0) {
+      switch (pos->mailbox[sq]) {
+        case P: eval += 100; break;
+        case p: eval -= 100; break;
+        case N: eval += 300; break;
+        case n: eval -= 300; break;
+        case B: eval += 330; break;
+        case b: eval -= 330; break;
+        case R: eval += 500; break;
+        case r: eval -= 500; break;
+        case Q: eval += 900; break;
+        case q: eval -= 900; break;
+        default: break;
+      }
+    }
+    else {
+      switch (pos->mailbox[sq]) {
+        case P: eval -= 100; break;
+        case p: eval += 100; break;
+        case N: eval -= 300; break;
+        case n: eval += 300; break;
+        case B: eval -= 330; break;
+        case b: eval += 330; break;
+        case R: eval -= 500; break;
+        case r: eval += 500; break;
+        case Q: eval -= 900; break;
+        case q: eval += 900; break;
+        default: break;
+      }
+    }
+  }
 
-  int phase = 3 * popcount(pos->bitboards[n] | pos->bitboards[N]) +
-              3 * popcount(pos->bitboards[b] | pos->bitboards[B]) +
-              5 * popcount(pos->bitboards[r] | pos->bitboards[R]) +
-              10 * popcount(pos->bitboards[q] | pos->bitboards[Q]);
 
-  eval = eval * (200 + phase) / 256;
   float fifty_move_scaler = (float)((100 - (float)pos->fifty) / 100);
   fifty_move_scaler = MAX(fifty_move_scaler, 0.5f);
   int final_eval = eval * fifty_move_scaler;
