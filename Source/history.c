@@ -1,3 +1,4 @@
+#include "attacks.h"
 #include "bitboards.h"
 #include "enums.h"
 #include "move.h"
@@ -183,6 +184,15 @@ static inline void update_pawn_history(thread_t *thread, position_t *pos,
                   abs(bonus) / HISTORY_MAX;
 }
 
+static inline void update_mobility_history(thread_t *thread, position_t *pos,
+                                           int move, int bonus) {
+  int target = get_move_target(move);
+  int piece = pos->mailbox[get_move_source(move)];
+  thread->mobility_history[piece][target] +=
+      bonus -
+      thread->mobility_history[piece][target] * abs(bonus) / HISTORY_MAX;
+}
+
 void update_capture_history_moves(thread_t *thread, position_t *pos,
                                   moves *capture_moves, int best_move,
                                   uint8_t depth) {
@@ -245,18 +255,55 @@ void update_quiet_histories(thread_t *thread, position_t *pos,
            PAWN_HISTORY_MALUS_MAX);
   for (uint32_t i = 0; i < quiet_moves->count; ++i) {
     uint16_t move = quiet_moves->entry[i].move;
+    const uint8_t source = get_move_source(move);
+    uint8_t piece = pos->mailbox[source];
+    uint64_t mobility_bitboard = 0ULL;
+    switch (piece % 6) {
+    case KNIGHT: {
+      mobility_bitboard = get_knight_attacks(source) &
+                          ((pos->side == white) ? ~pos->occupancies[white]
+                                                : ~pos->occupancies[black]);
+      break;
+    }
+    case BISHOP: {
+      mobility_bitboard = get_bishop_attacks(source, pos->occupancies[both]) &
+                          ((pos->side == white) ? ~pos->occupancies[white]
+                                                : ~pos->occupancies[black]);
+      break;
+    }
+    case ROOK: {
+      mobility_bitboard = get_rook_attacks(source, pos->occupancies[both]) &
+                          ((pos->side == white) ? ~pos->occupancies[white]
+                                                : ~pos->occupancies[black]);
+      break;
+    }
+    case QUEEN: {
+      mobility_bitboard = get_queen_attacks(source, pos->occupancies[both]) &
+                          ((pos->side == white) ? ~pos->occupancies[white]
+                                                : ~pos->occupancies[black]);
+      break;
+    }
+    default:
+      break;
+    }
+    uint8_t mobility = popcount(mobility_bitboard);
+
+    int16_t mobility_bonus = MIN(2 * mobility * (depth / 2), 1300);
+    int16_t mobility_malus = MIN(2 * mobility * (depth / 2), 1100);
     if (move == best_move) {
       update_continuation_history(thread, pos, ss - 1, best_move, cont_bonus);
       update_continuation_history(thread, pos, ss - 2, best_move, cont_bonus2);
       update_continuation_history(thread, pos, ss - 4, best_move, cont_bonus4);
       update_pawn_history(thread, pos, best_move, pawn_bonus);
       update_quiet_history(thread, pos, best_move, quiet_bonus);
+      update_mobility_history(thread, pos, best_move, mobility_bonus);
     } else {
       update_continuation_history(thread, pos, ss - 1, move, cont_malus);
       update_continuation_history(thread, pos, ss - 2, move, cont_malus2);
       update_continuation_history(thread, pos, ss - 4, move, cont_malus4);
       update_pawn_history(thread, pos, move, pawn_malus);
       update_quiet_history(thread, pos, move, quiet_malus);
+      update_mobility_history(thread, pos, move, mobility_malus);
     }
   }
 }

@@ -246,7 +246,9 @@ static inline void score_move(position_t *pos, thread_t *thread,
         get_conthist_score(thread, pos, ss - 4, move) +
         thread->pawn_history[pos->hash_keys.pawn_key % 2048]
                             [pos->mailbox[get_move_source(move)]]
-                            [get_move_target(move)];
+                            [get_move_target(move)] +
+        thread->mobility_history[pos->mailbox[get_move_source(move)]]
+                                [get_move_target(move)];
     return;
   }
   move_entry->score = 0;
