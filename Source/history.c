@@ -289,7 +289,7 @@ void update_quiet_histories(thread_t *thread, position_t *pos,
     uint8_t mobility = popcount(mobility_bitboard);
 
     int16_t mobility_bonus = MIN(2 * mobility * (depth / 2), 1300);
-    int16_t mobility_malus = MIN(2 * mobility * (depth / 2), 1100);
+    int16_t mobility_malus = -MIN(2 * mobility * (depth / 2), 1100);
     if (move == best_move) {
       update_continuation_history(thread, pos, ss - 1, best_move, cont_bonus);
       update_continuation_history(thread, pos, ss - 2, best_move, cont_bonus2);
