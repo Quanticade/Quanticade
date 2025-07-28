@@ -77,6 +77,7 @@ typedef struct hash_keys {
   uint64_t hash_key;
   uint64_t pawn_key;
   uint64_t non_pawn_key[2];
+  uint64_t major_key;
 } hash_keys_t;
 
 typedef struct position {
@@ -111,6 +112,7 @@ typedef struct searchinfo {
   int16_t correction_history[2][16384];
   int16_t b_non_pawn_correction_history[2][16384];
   int16_t w_non_pawn_correction_history[2][16384];
+  int16_t major_correction_history[2][16384];
   int16_t quiet_history[2][6][64][64];
   int16_t continuation_history[12][64][12][64];
   int16_t capture_history[12][13][64][64];
