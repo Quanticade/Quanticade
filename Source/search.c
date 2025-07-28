@@ -795,7 +795,6 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     int r = lmr[quiet][MIN(63, depth)][MIN(63, moves_seen)];
     r += !pv_node;
     int lmr_depth = MAX(1, depth - 1 - MAX(r, 1));
-
     // Futility Pruning
     if (!root_node && current_score > -MATE_SCORE && lmr_depth <= FP_DEPTH &&
         !in_check && quiet &&
@@ -1042,7 +1041,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     if (!in_check && (!best_move || !(is_move_promotion(best_move) ||
                                       get_move_capture(best_move)))) {
       update_pawn_corrhist(thread, pos, raw_static_eval, best_score, depth,
-                           tt_flag);
+                           hash_flag);
     }
   }
 
