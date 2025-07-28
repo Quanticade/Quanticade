@@ -44,7 +44,8 @@ int PAWN_HISTORY_BASE_MALUS = 10;
 int PAWN_HISTORY_FACTOR_MALUS = 220;
 
 int CORR_HISTORY_MINMAX = 131;
-int PAWN_CORR_HISTORY_MULTIPLIER = 25;
+int PAWN_CORR_HISTORY_MULTIPLIER = 15;
+int NON_PAWN_CORR_HISTORY_MULTIPLIER = 15;
 int HISTORY_MAX = 8192;
 
 extern keys_t keys;
@@ -89,6 +90,64 @@ uint64_t generate_pawn_key(position_t *pos) {
   return final_key;
 }
 
+uint64_t generate_white_non_pawn_key(position_t *pos) {
+  // final hash key
+  uint64_t final_key = 0ULL;
+
+  // temp piece bitboard copy
+  uint64_t bitboard;
+
+  for (int piece = N; piece <= K; ++piece) {
+
+    // init piece bitboard copy
+    bitboard = pos->bitboards[piece];
+
+    // loop over the pieces within a bitboard
+    while (bitboard) {
+      // init square occupied by the piece
+      int square = __builtin_ctzll(bitboard);
+
+      // hash piece
+      final_key ^= keys.piece_keys[piece][square];
+
+      // pop LS1B
+      pop_bit(bitboard, square);
+    }
+  }
+
+  // return generated hash key
+  return final_key;
+}
+
+uint64_t generate_black_non_pawn_key(position_t *pos) {
+  // final hash key
+  uint64_t final_key = 0ULL;
+
+  // temp piece bitboard copy
+  uint64_t bitboard;
+
+  for (int piece = n; piece <= k; ++piece) {
+
+    // init piece bitboard copy
+    bitboard = pos->bitboards[piece];
+
+    // loop over the pieces within a bitboard
+    while (bitboard) {
+      // init square occupied by the piece
+      int square = __builtin_ctzll(bitboard);
+
+      // hash piece
+      final_key ^= keys.piece_keys[piece][square];
+
+      // pop LS1B
+      pop_bit(bitboard, square);
+    }
+  }
+
+  // return generated hash key
+  return final_key;
+}
+
 int16_t calculate_corrhist_bonus(int16_t static_eval, int16_t search_score,
                                  uint8_t depth) {
   return clamp((search_score - static_eval) * depth / 8, -CORR_HISTORY_MINMAX,
@@ -112,14 +171,24 @@ int16_t adjust_static_eval(thread_t *thread, position_t *pos,
   const int pawn_correction =
       thread->correction_history[pos->side][pos->hash_keys.pawn_key & 16383] *
       PAWN_CORR_HISTORY_MULTIPLIER;
-  const int adjusted_score = static_eval + pawn_correction / 1024;
-  // printf("%d %d %d\n", pawn_correction / 1024, adjusted_score, static_eval);
+  const int white_non_pawn_correction =
+      thread->w_non_pawn_correction_history[pos->side]
+                                           [pos->hash_keys.non_pawn_key[white] &
+                                            16383] *
+      NON_PAWN_CORR_HISTORY_MULTIPLIER;
+  const int black_non_pawn_correction =
+      thread->b_non_pawn_correction_history[pos->side]
+                                           [pos->hash_keys.non_pawn_key[black] &
+                                            16383] *
+      NON_PAWN_CORR_HISTORY_MULTIPLIER;
+  const int correction =
+      pawn_correction + white_non_pawn_correction + black_non_pawn_correction;
+  const int adjusted_score = static_eval + (correction / 1024);
   return clamp(adjusted_score, -MATE_SCORE + 1, MATE_SCORE - 1);
 }
 
-void update_pawn_corrhist(thread_t *thread, position_t *pos,
-                          int16_t static_eval, int16_t score, uint8_t depth,
-                          uint8_t tt_flag) {
+void update_corrhist(thread_t *thread, position_t *pos, int16_t static_eval,
+                     int16_t score, uint8_t depth, uint8_t tt_flag) {
   if (!static_eval_within_bounds(static_eval, score, tt_flag)) {
     return;
   }
@@ -128,6 +197,22 @@ void update_pawn_corrhist(thread_t *thread, position_t *pos,
       scale_corrhist_bonus(
           thread
               ->correction_history[pos->side][pos->hash_keys.pawn_key & 16383],
+          bonus);
+
+  thread->w_non_pawn_correction_history
+      [thread->pos.side][thread->pos.hash_keys.non_pawn_key[white] & 16383] +=
+      scale_corrhist_bonus(
+          thread->w_non_pawn_correction_history
+              [thread->pos.side]
+              [thread->pos.hash_keys.non_pawn_key[white] & 16383],
+          bonus);
+
+  thread->b_non_pawn_correction_history
+      [thread->pos.side][thread->pos.hash_keys.non_pawn_key[black] & 16383] +=
+      scale_corrhist_bonus(
+          thread->b_non_pawn_correction_history
+              [thread->pos.side]
+              [thread->pos.hash_keys.non_pawn_key[black] & 16383],
           bonus);
 }
 
