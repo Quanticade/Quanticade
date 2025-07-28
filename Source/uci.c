@@ -316,6 +316,8 @@ static inline void parse_fen(position_t *pos, thread_t *thread, char *fen) {
   // init hash key
   pos->hash_keys.hash_key = generate_hash_key(pos);
   pos->hash_keys.pawn_key = generate_pawn_key(pos);
+  pos->hash_keys.non_pawn_key[white] = generate_white_non_pawn_key(pos);
+  pos->hash_keys.non_pawn_key[black] = generate_black_non_pawn_key(pos);
 }
 
 // parse UCI "position" command
@@ -601,6 +603,10 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
         memset(threads[i].correction_history, 0,
                sizeof(threads[i].correction_history));
         memset(threads[i].pawn_history, 0, sizeof(threads[i].pawn_history));
+        memset(threads[i].w_non_pawn_correction_history, 0,
+               sizeof(threads[i].w_non_pawn_correction_history));
+        memset(threads[i].b_non_pawn_correction_history, 0,
+               sizeof(threads[i].b_non_pawn_correction_history));
       }
     }
     // parse UCI "go" command

@@ -1040,8 +1040,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
     if (!in_check && (!best_move || !(is_move_promotion(best_move) ||
                                       get_move_capture(best_move)))) {
-      update_pawn_corrhist(thread, pos, raw_static_eval, best_score, depth,
-                           hash_flag);
+      update_corrhist(thread, pos, raw_static_eval, best_score, depth, hash_flag);
     }
   }
 
