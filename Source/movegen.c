@@ -23,6 +23,12 @@ const uint8_t castling_rights[64] = {
 uint64_t between[64][64] = {0};
 uint64_t line[64][64] = {0};
 
+static const uint8_t major_table[13] = {
+    0, 0, 0, 1, 1, 1, // P, N, B, R, Q, K
+    0, 0, 0, 1, 1, 1, // p, n, b, r, q, k
+    0                 // NO_PIECE
+};
+
 void init_between_bitboards(void) {
   for (int from = 0; from < 64; ++from) {
     for (int to = 0; to < 64; ++to) {
@@ -371,6 +377,9 @@ void make_move(position_t *pos, uint16_t move) {
       if (bb_piece == p || bb_piece == P) {
         pos->hash_keys.pawn_key ^= keys.piece_keys[bb_piece][target_square];
       } else {
+        if (major_table[bb_piece]) {
+          pos->hash_keys.major_key ^= keys.piece_keys[bb_piece][target_square];
+        }
         pos->hash_keys.non_pawn_key[pos->side ^ 1] ^=
             keys.piece_keys[bb_piece][target_square];
       }
@@ -403,6 +412,9 @@ void make_move(position_t *pos, uint16_t move) {
     pos->hash_keys.pawn_key ^= keys.piece_keys[piece][source_square];
     pos->hash_keys.pawn_key ^= keys.piece_keys[piece][target_square];
   } else {
+    if (major_table[piece]) {
+      pos->hash_keys.major_key ^= keys.piece_keys[piece][target_square];
+    }
     pos->hash_keys.non_pawn_key[pos->side] ^=
         keys.piece_keys[piece][source_square];
     pos->hash_keys.non_pawn_key[pos->side] ^=
@@ -420,6 +432,9 @@ void make_move(position_t *pos, uint16_t move) {
     set_bit(pos->bitboards[promoted_piece], target_square);
     pos->mailbox[target_square] = promoted_piece;
     pos->hash_keys.hash_key ^= keys.piece_keys[promoted_piece][target_square];
+    if (major_table[piece]) {
+      pos->hash_keys.major_key ^= keys.piece_keys[piece][target_square];
+    }
     pos->hash_keys.non_pawn_key[pos->side] ^=
         keys.piece_keys[promoted_piece][target_square];
   }
@@ -457,7 +472,10 @@ void make_move(position_t *pos, uint16_t move) {
 
         pos->hash_keys.hash_key ^= keys.piece_keys[piece][r_start];
         pos->hash_keys.hash_key ^= keys.piece_keys[piece][r_end];
-        pos->hash_keys.non_pawn_key[pos->side] ^=
+        if (major_table[piece]) {
+          pos->hash_keys.major_key ^= keys.piece_keys[piece][target_square];
+        }
+         pos->hash_keys.non_pawn_key[pos->side] ^=
             keys.piece_keys[piece][r_start];
         pos->hash_keys.non_pawn_key[pos->side] ^= keys.piece_keys[piece][r_end];
         break;
