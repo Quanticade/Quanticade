@@ -43,7 +43,7 @@ int PAWN_HISTORY_FACTOR_BONUS = 186;
 int PAWN_HISTORY_BASE_MALUS = 10;
 int PAWN_HISTORY_FACTOR_MALUS = 216;
 
-int CORR_HISTORY_MINMAX = 131;
+int CORR_HISTORY_MINMAX = 256;
 int PAWN_CORR_HISTORY_MULTIPLIER = 15;
 int NON_PAWN_CORR_HISTORY_MULTIPLIER = 15;
 int HISTORY_MAX = 8192;
@@ -155,7 +155,7 @@ int16_t calculate_corrhist_bonus(int16_t static_eval, int16_t search_score,
 }
 
 int16_t scale_corrhist_bonus(int16_t score, int16_t bonus) {
-  return bonus - score * abs(bonus) / 1024;
+  return bonus - score * abs(bonus) / 512;
 }
 
 uint8_t static_eval_within_bounds(int16_t static_eval, int16_t score,
