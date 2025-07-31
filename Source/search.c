@@ -911,21 +911,22 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     // PVS & LMR
     int new_depth = depth + extensions - 1;
 
-    int R = lmr[quiet][depth][MIN(255, moves_seen)] * 1024;
-    R += !pv_node * LMR_PV_NODE;
-    R -= ss->history_score * (quiet ? LMR_HISTORY_QUIET : LMR_HISTORY_NOISY) /
-         (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
-    R -= in_check * LMR_IN_CHECK;
-    R += cutnode * LMR_CUTNODE;
-    R -= (tt_depth >= depth) * LMR_TT_DEPTH;
-    R -= ss->tt_pv * LMR_TT_PV;
-    R += (ss->tt_pv && tt_hit && tt_score <= alpha) * LMR_TT_SCORE;
-    R -= (ss->tt_pv && cutnode) * LMR_TT_PV_CUTNODE;
-    R = R / 1024;
-    int reduced_depth = MAX(1, MIN(new_depth - R, new_depth));
-
     // LMR
     if (depth >= 2 && moves_seen > 2 + 2 * pv_node) {
+      int R = lmr[quiet][depth][MIN(255, moves_seen)] * 1024;
+      R += !pv_node * LMR_PV_NODE;
+      R -= ss->history_score * (quiet ? LMR_HISTORY_QUIET : LMR_HISTORY_NOISY) /
+          (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
+      R -= in_check * LMR_IN_CHECK;
+      R += cutnode * LMR_CUTNODE;
+      R -= (tt_depth >= depth) * LMR_TT_DEPTH;
+      R -= ss->tt_pv * LMR_TT_PV;
+      R += (ss->tt_pv && tt_hit && tt_score <= alpha) * LMR_TT_SCORE;
+      R -= (ss->tt_pv && cutnode) * LMR_TT_PV_CUTNODE;
+      R -= stm_in_check(pos) * 1024;
+      R = R / 1024;
+      int reduced_depth = MAX(1, MIN(new_depth - R, new_depth));
+
       ss->reduction = R;
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                reduced_depth, 1, NON_PV);
