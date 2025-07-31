@@ -17,8 +17,8 @@ const uint8_t castling_rights[64] = {
     15, 15, 15, 15, 15, 15, 15, 15, 13, 15, 15, 15, 12, 15, 15, 14};
 
 static const uint8_t major_table[13] = {
-    0, 0, 0, 1, 1, 1, // P, N, B, R, Q, K
-    0, 0, 0, 1, 1, 1, // p, n, b, r, q, k
+    0, 1, 1, 0, 0, 1, // P, N, B, R, Q, K
+    0, 1, 1, 0, 0, 1, // p, n, b, r, q, k
     0                 // NO_PIECE
 
 };
