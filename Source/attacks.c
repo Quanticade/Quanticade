@@ -487,3 +487,11 @@ uint8_t might_give_check(position_t *pos, uint16_t mv) {
 
     return (attacks >> king_sq) & 1ULL;
 }
+
+uint8_t stm_in_check(position_t *pos) {
+  return is_square_attacked(
+    pos,
+    (pos->side == white) ? __builtin_ctzll(pos->bitboards[K])
+                         : __builtin_ctzll(pos->bitboards[k]),
+    pos->side ^ 1);
+}

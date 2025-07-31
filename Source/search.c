@@ -567,11 +567,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   }
 
   // is king in check
-  uint8_t in_check = is_square_attacked(
-      pos,
-      (pos->side == white) ? __builtin_ctzll(pos->bitboards[K])
-                           : __builtin_ctzll(pos->bitboards[k]),
-      pos->side ^ 1);
+  uint8_t in_check = stm_in_check(pos);
 
   // recursion escape condition
   if (!in_check && depth <= 0) {
