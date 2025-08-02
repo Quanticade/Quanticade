@@ -373,32 +373,41 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     return tt_score;
   }
 
-  raw_static_eval = tt_static_eval != NO_SCORE
-                        ? tt_static_eval
-                        : evaluate(thread, pos, &thread->accumulator[pos->ply]);
-  ss->static_eval = adjust_static_eval(thread, pos, raw_static_eval);
+  const uint8_t in_check = stm_in_check(pos);
 
-  if (tt_hit && can_use_score(best_score, best_score, tt_score, tt_flag)) {
-    best_score = tt_score;
+  if (in_check) {
+    ss->static_eval = NO_SCORE;
+    raw_static_eval = NO_SCORE;
   } else {
-    best_score = ss->static_eval;
-  }
 
-  // fail-hard beta cutoff
-  if (best_score >= beta) {
-    if (!tt_hit) {
-      write_hash_entry(tt_entry, pos, NO_SCORE, raw_static_eval, 0, 0,
-                       HASH_FLAG_NONE, tt_was_pv);
-    }
-    if (abs(best_score) < MATE_SCORE && abs(beta) < MATE_SCORE) {
-      best_score = (best_score + beta) / 2;
-    }
-    // node (position) fails high
-    return best_score;
-  }
+    raw_static_eval =
+        tt_static_eval != NO_SCORE
+            ? tt_static_eval
+            : evaluate(thread, pos, &thread->accumulator[pos->ply]);
+    ss->static_eval = adjust_static_eval(thread, pos, raw_static_eval);
 
-  // found a better move
-  alpha = MAX(alpha, best_score);
+    if (tt_hit && can_use_score(best_score, best_score, tt_score, tt_flag)) {
+      best_score = tt_score;
+    } else {
+      best_score = ss->static_eval;
+    }
+
+    // fail-hard beta cutoff
+    if (best_score >= beta) {
+      if (!tt_hit) {
+        write_hash_entry(tt_entry, pos, NO_SCORE, raw_static_eval, 0, 0,
+                         HASH_FLAG_NONE, tt_was_pv);
+      }
+      if (abs(best_score) < MATE_SCORE && abs(beta) < MATE_SCORE) {
+        best_score = (best_score + beta) / 2;
+      }
+      // node (position) fails high
+      return best_score;
+    }
+
+    // found a better move
+    alpha = MAX(alpha, best_score);
+  }
 
   // create move list instance
   moves move_list[1];
@@ -406,7 +415,11 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   capture_list->count = 0;
 
   // generate moves
-  generate_noisy(pos, move_list);
+  if (!in_check) {
+    generate_noisy(pos, move_list);
+  } else {
+    generate_moves(pos, move_list);
+  }
 
   for (uint32_t count = 0; count < move_list->count; count++) {
     score_move(pos, thread, ss, &move_list->entry[count], tt_move);
@@ -415,6 +428,8 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   uint16_t move_index = 0;
 
   uint16_t previous_square = 0;
+
+  uint16_t moves_seen = 0;
 
   if ((ss - 1)->move != 0) {
     previous_square = get_move_target((ss - 1)->move);
@@ -464,6 +479,8 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 
     thread->nodes++;
 
+    moves_seen++;
+
     if (get_move_capture(move)) {
       add_move(capture_list, move);
     }
@@ -500,6 +517,14 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
         }
       }
     }
+  }
+
+  // we don't have any legal moves to make in the current postion
+  if (moves_seen == 0) {
+    // king is in check
+    if (in_check)
+      // return mating score (assuming closest distance to mating position)
+      return -MATE_VALUE + pos->ply;
   }
 
   uint8_t hash_flag = HASH_FLAG_NONE;
@@ -570,7 +595,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   uint8_t in_check = stm_in_check(pos);
 
   // recursion escape condition
-  if (!in_check && depth <= 0) {
+  if (depth <= 0) {
     // run quiescence search
     return quiescence(pos, thread, ss, alpha, beta, pv_node);
   }
@@ -916,7 +941,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       int R = lmr[quiet][depth][MIN(255, moves_seen)] * 1024;
       R += !pv_node * LMR_PV_NODE;
       R -= ss->history_score * (quiet ? LMR_HISTORY_QUIET : LMR_HISTORY_NOISY) /
-          (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
+           (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
       R -= in_check * LMR_IN_CHECK;
       R += cutnode * LMR_CUTNODE;
       R -= (tt_depth >= depth) * LMR_TT_DEPTH;
@@ -1037,7 +1062,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
     if (!in_check && (!best_move || !(is_move_promotion(best_move) ||
                                       get_move_capture(best_move)))) {
-      update_corrhist(thread, pos, raw_static_eval, best_score, depth, hash_flag);
+      update_corrhist(thread, pos, raw_static_eval, best_score, depth,
+                      hash_flag);
     }
   }
 
