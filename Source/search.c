@@ -338,7 +338,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 
   // we are too deep, hence there's an overflow of arrays relying on max ply
   // constant
-  if (pos->ply > MAX_PLY - 1) {
+  if (pos->ply > MAX_PLY - 4) {
     // evaluate position
     return evaluate(thread, pos, &thread->accumulator[pos->ply]);
   }
@@ -521,7 +521,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
                               int depth, uint8_t cutnode, uint8_t pv_node) {
   // we are too deep, hence there's an overflow of arrays relying on max ply
   // constant
-  if (pos->ply > MAX_PLY - 1) {
+  if (pos->ply > MAX_PLY - 4) {
     // evaluate position
     return evaluate(thread, pos, &thread->accumulator[pos->ply]);
   }
