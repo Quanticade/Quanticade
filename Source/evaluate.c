@@ -17,7 +17,7 @@ int16_t evaluate(thread_t *thread, position_t *pos, accumulator_t *accumulator) 
               5 * popcount(pos->bitboards[r] | pos->bitboards[R]) +
               10 * popcount(pos->bitboards[q] | pos->bitboards[Q]);
 
-  eval = eval * (200 + phase) / 256;
+  eval = eval * (25600 + phase) / 32768;
   float fifty_move_scaler = (float)((100 - (float)pos->fifty) / 100);
   fifty_move_scaler = MAX(fifty_move_scaler, 0.5f);
   int final_eval = eval * fifty_move_scaler;
