@@ -168,6 +168,8 @@ uint8_t static_eval_within_bounds(int16_t static_eval, int16_t score,
 
 int16_t adjust_static_eval(thread_t *thread, position_t *pos,
                            int16_t static_eval) {
+  const float fifty_move_scaler = (float)((200 - (float)pos->fifty) / 200);
+  static_eval = static_eval * fifty_move_scaler;
   const int pawn_correction =
       thread->correction_history[pos->side][pos->hash_keys.pawn_key & 16383] *
       PAWN_CORR_HISTORY_MULTIPLIER;
