@@ -519,6 +519,12 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 static inline int16_t negamax(position_t *pos, thread_t *thread,
                               searchstack_t *ss, int16_t alpha, int16_t beta,
                               int depth, uint8_t cutnode, uint8_t pv_node) {
+  // Check on time
+  if (check_time(thread)) {
+    stop_threads(thread, thread_count);
+    return 0;
+  }
+
   // we are too deep, hence there's an overflow of arrays relying on max ply
   // constant
   if (pos->ply > MAX_PLY - 4) {
@@ -916,7 +922,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       int R = lmr[quiet][depth][MIN(255, moves_seen)] * 1024;
       R += !pv_node * LMR_PV_NODE;
       R -= ss->history_score * (quiet ? LMR_HISTORY_QUIET : LMR_HISTORY_NOISY) /
-          (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
+           (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
       R -= in_check * LMR_IN_CHECK;
       R += cutnode * LMR_CUTNODE;
       R -= (tt_depth >= depth) * LMR_TT_DEPTH;
@@ -1037,7 +1043,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
     if (!in_check && (!best_move || !(is_move_promotion(best_move) ||
                                       get_move_capture(best_move)))) {
-      update_corrhist(thread, pos, raw_static_eval, best_score, depth, hash_flag);
+      update_corrhist(thread, pos, raw_static_eval, best_score, depth,
+                      hash_flag);
     }
   }
 
