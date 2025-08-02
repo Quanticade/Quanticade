@@ -183,7 +183,7 @@ int16_t adjust_static_eval(thread_t *thread, position_t *pos,
       NON_PAWN_CORR_HISTORY_MULTIPLIER;
   const int correction =
       pawn_correction + white_non_pawn_correction + black_non_pawn_correction;
-  const int adjusted_score = static_eval + (correction / 1024);
+  const int adjusted_score = static_eval + (correction / 512);
   return clamp(adjusted_score, -MATE_SCORE + 1, MATE_SCORE - 1);
 }
 
