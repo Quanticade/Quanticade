@@ -442,6 +442,11 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   while (move_index < move_list->count) {
     uint16_t move = pick_next_best_move(move_list, &move_index).move;
 
+    if (in_check && !get_move_capture(move) && !is_move_promotion(move) &&
+        best_score > -MATE_SCORE && get_move_target(move) != previous_square) {
+      break;
+    }
+
     if (!SEE(pos, move, -QS_SEE_THRESHOLD))
       continue;
 
