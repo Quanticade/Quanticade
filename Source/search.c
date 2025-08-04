@@ -358,6 +358,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   uint8_t tt_hit = 0;
   uint8_t tt_flag = HASH_FLAG_EXACT;
   uint8_t tt_was_pv = pv_node;
+  int16_t futility_score = NO_SCORE;
 
   tt_entry_t *tt_entry = read_hash_entry(pos, &tt_hit);
 
@@ -409,6 +410,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 
     // found a better move
     alpha = MAX(alpha, best_score);
+    futility_score = ss->static_eval + 123;
   }
 
   // create move list instance
@@ -449,6 +451,11 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
       if (move_index >= 3) {
         continue;
       }
+    }
+    if (!in_check && best_score > -MATE_SCORE && futility_score <= alpha &&
+        !SEE(pos, move, 1)) {
+      best_score = MAX(best_score, futility_score);
+      continue;
     }
 
     // preserve board state
