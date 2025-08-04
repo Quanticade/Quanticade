@@ -951,6 +951,9 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       R += (ss->tt_pv && tt_hit && tt_score <= alpha) * LMR_TT_SCORE;
       R -= (ss->tt_pv && cutnode) * LMR_TT_PV_CUTNODE;
       R -= stm_in_check(pos) * LMR_IN_CHECK;
+      R -= get_move_capture(move)
+               ? mvv[pos_copy.mailbox[get_move_target(move)] % 6] / 3
+               : 0;
       R = R / 1024;
       int reduced_depth = MAX(1, MIN(new_depth - R, new_depth));
 
