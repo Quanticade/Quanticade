@@ -375,8 +375,8 @@ void init_sliders_attacks(void) {
     for (int index = 0; index < bishop_occupancy_indicies; index++) {
       // bishop
       // init current occupancy variation
-      uint64_t occupancy =
-          set_occupancy(index, bishop_relevant_bits_count, bishop_masks[square]);
+      uint64_t occupancy = set_occupancy(index, bishop_relevant_bits_count,
+                                         bishop_masks[square]);
 
       // init magic index
       int magic_index = (occupancy * bishop_magic_numbers[square]) >>
@@ -408,100 +408,94 @@ void init_sliders_attacks(void) {
 // is square current given attacked by the current given side
 int is_square_attacked(position_t *pos, int square, int side) {
   // attacked by white pawns
-  if ((side == white) &&
-      (pawn_attacks[black][square] & pos->bitboards[P]))
+  if ((side == white) && (pawn_attacks[black][square] & pos->bitboards[P]))
     return 1;
 
   // attacked by black pawns
-  if ((side == black) &&
-      (pawn_attacks[white][square] & pos->bitboards[p]))
+  if ((side == black) && (pawn_attacks[white][square] & pos->bitboards[p]))
     return 1;
 
   // attacked by knights
-  if (knight_attacks[square] & ((side == white) ? pos->bitboards[N]
-                                                : pos->bitboards[n]))
+  if (knight_attacks[square] &
+      ((side == white) ? pos->bitboards[N] : pos->bitboards[n]))
     return 1;
 
   // attacked by bishops
   if (get_bishop_attacks(square, pos->occupancies[both]) &
-      ((side == white) ? pos->bitboards[B]
-                       : pos->bitboards[b]))
+      ((side == white) ? pos->bitboards[B] : pos->bitboards[b]))
     return 1;
 
   // attacked by rooks
   if (get_rook_attacks(square, pos->occupancies[both]) &
-      ((side == white) ? pos->bitboards[R]
-                       : pos->bitboards[r]))
+      ((side == white) ? pos->bitboards[R] : pos->bitboards[r]))
     return 1;
 
   // attacked by bishops
   if (get_queen_attacks(square, pos->occupancies[both]) &
-      ((side == white) ? pos->bitboards[Q]
-                       : pos->bitboards[q]))
+      ((side == white) ? pos->bitboards[Q] : pos->bitboards[q]))
     return 1;
 
   // attacked by kings
-  if (king_attacks[square] & ((side == white) ? pos->bitboards[K]
-                                              : pos->bitboards[k]))
+  if (king_attacks[square] &
+      ((side == white) ? pos->bitboards[K] : pos->bitboards[k]))
     return 1;
 
   // by default return false
   return 0;
 }
 
-<<<<<<< HEAD
 // Returns 1 if the move might give check
 uint8_t might_give_check(position_t *pos, uint16_t mv) {
-    uint8_t from = get_move_source(mv);
-    uint8_t to = get_move_target(mv);
-    uint8_t side = pos->side;
-    uint8_t them = side ^ 1;
+  uint8_t from = get_move_source(mv);
+  uint8_t to = get_move_target(mv);
+  uint8_t side = pos->side;
+  uint8_t them = side ^ 1;
 
-    // Simulate the occupancy after the move
-    uint64_t new_occ = pos->occupancies[both];
-    new_occ ^= (1ULL << from);
-    new_occ ^= (1ULL << to);
+  // Simulate the occupancy after the move
+  uint64_t new_occ = pos->occupancies[both];
+  new_occ ^= (1ULL << from);
+  new_occ ^= (1ULL << to);
 
-    uint8_t piece = pos->mailbox[from] % 6;
-    uint8_t king_sq = get_lsb(pos->bitboards[them == white ? K : k]);
-    uint64_t attacks = 0ULL;
+  uint8_t piece = pos->mailbox[from] % 6;
+  uint8_t king_sq = get_lsb(pos->bitboards[them == white ? K : k]);
+  uint64_t attacks = 0ULL;
 
-    switch (piece) {
-        case PAWN:
-            attacks = pawn_attacks[side][to];
-            break;
-        case KNIGHT:
-            attacks = knight_attacks[to];
-            break;
-        case BISHOP:
-            attacks = get_bishop_attacks(to, new_occ);
-            break;
-        case ROOK:
-            attacks = get_rook_attacks(to, new_occ);
-            break;
-        case QUEEN:
-            attacks = get_queen_attacks(to, new_occ);
-            break;
-        default:
-            return 0;
-    }
+  switch (piece) {
+  case PAWN:
+    attacks = pawn_attacks[side][to];
+    break;
+  case KNIGHT:
+    attacks = knight_attacks[to];
+    break;
+  case BISHOP:
+    attacks = get_bishop_attacks(to, new_occ);
+    break;
+  case ROOK:
+    attacks = get_rook_attacks(to, new_occ);
+    break;
+  case QUEEN:
+    attacks = get_queen_attacks(to, new_occ);
+    break;
+  default:
+    return 0;
+  }
 
-    return (attacks >> king_sq) & 1ULL;
+  return (attacks >> king_sq) & 1ULL;
 }
 
 uint8_t stm_in_check(position_t *pos) {
-  return is_square_attacked(
-    pos,
-    (pos->side == white) ? __builtin_ctzll(pos->bitboards[K])
-                         : __builtin_ctzll(pos->bitboards[k]),
-    pos->side ^ 1);
-=======
+  return is_square_attacked(pos,
+                            (pos->side == white)
+                                ? __builtin_ctzll(pos->bitboards[K])
+                                : __builtin_ctzll(pos->bitboards[k]),
+                            pos->side ^ 1);
+}
 uint64_t attackers_to(position_t *pos, int square, uint64_t occupancy) {
   uint64_t attackers = 0;
 
   // Pawns
-  attackers |= pawn_attacks[black][square] & pos->bitboards[P];  // white pawns
-  attackers |= pawn_attacks[white][square] & pos->bitboards[p];  // black pawns
+  attackers |= pawn_attacks[black][square] & pos->bitboards[P]; // white pawns
+  attackers |= pawn_attacks[white][square] & pos->bitboards[p]; // black pawns
 
   // Knights
   attackers |= knight_attacks[square] & (pos->bitboards[N] | pos->bitboards[n]);
@@ -522,5 +516,4 @@ uint64_t attackers_to(position_t *pos, int square, uint64_t occupancy) {
   attackers |= king_attacks[square] & (pos->bitboards[K] | pos->bitboards[k]);
 
   return attackers;
->>>>>>> ffe78b2 (checkers)
 }

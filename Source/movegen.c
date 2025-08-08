@@ -4,6 +4,7 @@
 #include "enums.h"
 #include "move.h"
 #include "structs.h"
+#include "uci.h"
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -17,6 +18,60 @@ const uint8_t castling_rights[64] = {
     15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
     15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
     15, 15, 15, 15, 15, 15, 15, 15, 13, 15, 15, 15, 12, 15, 15, 14};
+
+uint64_t between[64][64] = {0};
+
+void init_between_bitboards(uint64_t between[64][64]) {
+  for (int from = 0; from < 64; ++from) {
+    int from_rank = from / 8;
+    int from_file = from % 8;
+
+    for (int to = 0; to < 64; ++to) {
+      if (from == to) {
+        between[from][to] = 0ULL;
+        continue;
+      }
+
+      int to_rank = to / 8;
+      int to_file = to % 8;
+
+      uint64_t mask = 0ULL;
+
+      int dr = to_rank - from_rank;
+      int df = to_file - from_file;
+
+      int abs_dr = dr > 0 ? dr : -dr;
+      int abs_df = df > 0 ? df : -df;
+
+      int step = 0;
+
+      if (dr == 0 && df != 0)
+        step = (df > 0) ? 1 : -1; // same rank
+      else if (df == 0 && dr != 0)
+        step = (dr > 0) ? 8 : -8; // same file
+      else if (abs_dr == abs_df) {
+        if (dr > 0 && df > 0)
+          step = 9;
+        else if (dr > 0 && df < 0)
+          step = 7;
+        else if (dr < 0 && df > 0)
+          step = -7;
+        else if (dr < 0 && df < 0)
+          step = -9;
+      }
+
+      if (step != 0) {
+        int sq = from + step;
+        while (sq != to) {
+          mask |= BB(sq);
+          sq += step;
+        }
+      }
+
+      between[from][to] = mask;
+    }
+  }
+}
 
 uint8_t is_pseudo_legal(position_t *pos, uint16_t move) {
   uint8_t origin = get_move_source(move);
@@ -96,7 +151,91 @@ uint8_t is_pseudo_legal(position_t *pos, uint16_t move) {
       return 0;
     }
     if (pos->checkers &&
-        !(get_lsb(pos->checkers) == target - (pos->side ? -8 : 8))) {
+        !(get_lsb(pos->checkers) == target - (pos->side ? 8 : -8))) {
+      return 0;
+    }
+    if (target != pos->enpassant &&
+        pos->mailbox[target - (pos->side ? 8 : -8)] % 6 != PAWN) {
+      return 0;
+    }
+    return 1;
+  } else if (is_move_promotion(move)) {
+    if (noc_piece != PAWN) {
+      return 0;
+    }
+    if (pos->checker_count > 1) {
+      return 0;
+    }
+    if (pos->checkers) {
+      uint8_t blocks = BB(target) &
+                       between[get_lsb(pos->checkers)]
+                              [get_lsb(pos->bitboards[KING + (6 * pos->side)])];
+      if (target != get_lsb(pos->checkers) && !blocks) {
+        return 0;
+      }
+    }
+    if (!(get_pawn_attacks(pos->side, origin) & BB(target) &
+          pos->occupancies[pos->side ^ 1]) &&
+        !(origin + (pos->side ? 8 : -8) == target &&
+          pos->mailbox[target] == NO_PIECE)) {
+      return 0;
+    }
+    return 1;
+  }
+  switch (noc_piece) {
+  case PAWN: {
+    if (BB(target) & 0xFF000000000000FF) {
+      return 0;
+    }
+    if (!(get_pawn_attacks(pos->side, origin) & BB(target)) &&
+        !(origin + (pos->side ? 8 : -8) == target &&
+          pos->mailbox[target] == NO_PIECE) &&
+        !(origin + 2 * (pos->side ? 8 : -8) == target &&
+          pos->mailbox[target] == NO_PIECE &&
+          pos->mailbox[target - (pos->side ? 8 : -8)] == NO_PIECE &&
+          BB(target) & 0xFFFF000000)) {
+      return 0;
+    }
+    break;
+  }
+  case KNIGHT: {
+    if (!(knight_attacks[origin] & BB(target))) {
+      return 0;
+    }
+    break;
+  }
+  case BISHOP: {
+    if (!(get_bishop_attacks(origin, pos->occupancies[both]) & BB(target)))
+      return 0;
+    break;
+  }
+  case ROOK: {
+    if (!(get_rook_attacks(origin, pos->occupancies[both]) & BB(target)))
+      return 0;
+    break;
+  }
+  case QUEEN: {
+    if (!(get_queen_attacks(origin, pos->occupancies[both]) & BB(target)))
+      return 0;
+    break;
+  }
+  case KING: {
+    if (!(king_attacks[origin] & BB(target)))
+      return 0;
+    break;
+  }
+  default:
+    break;
+  }
+
+  if (pos->checkers && noc_piece != KING) {
+    if (pos->checker_count > 1) {
+      return 0;
+    }
+    uint8_t blocks = BB(target) &
+                     between[get_lsb(pos->checkers)]
+                            [get_lsb(pos->bitboards[KING + (6 * pos->side)])];
+    if (target != get_lsb(pos->checkers) && !blocks) {
       return 0;
     }
   }
