@@ -20,55 +20,31 @@ const uint8_t castling_rights[64] = {
     15, 15, 15, 15, 15, 15, 15, 15, 13, 15, 15, 15, 12, 15, 15, 14};
 
 uint64_t between[64][64] = {0};
+uint64_t line[64][64] = {0};
 
 void init_between_bitboards(uint64_t between[64][64]) {
   for (int from = 0; from < 64; ++from) {
-    int from_rank = from / 8;
-    int from_file = from % 8;
-
     for (int to = 0; to < 64; ++to) {
       if (from == to) {
         between[from][to] = 0ULL;
         continue;
       }
+      line[from][to] = BB(0);
+      if (get_bishop_attacks(from, BB(0)) & BB(to))
+        line[from][to] |=
+            get_bishop_attacks(from, BB(0)) & get_bishop_attacks(to, BB(0));
+      if (get_rook_attacks(from, BB(0)) & BB(to))
+        line[from][to] |=
+            get_rook_attacks(from, BB(0)) & get_rook_attacks(to, BB(0));
+      line[from][to] |= BB(from) | BB(to);
 
-      int to_rank = to / 8;
-      int to_file = to % 8;
-
-      uint64_t mask = 0ULL;
-
-      int dr = to_rank - from_rank;
-      int df = to_file - from_file;
-
-      int abs_dr = dr > 0 ? dr : -dr;
-      int abs_df = df > 0 ? df : -df;
-
-      int step = 0;
-
-      if (dr == 0 && df != 0)
-        step = (df > 0) ? 1 : -1; // same rank
-      else if (df == 0 && dr != 0)
-        step = (dr > 0) ? 8 : -8; // same file
-      else if (abs_dr == abs_df) {
-        if (dr > 0 && df > 0)
-          step = 9;
-        else if (dr > 0 && df < 0)
-          step = 7;
-        else if (dr < 0 && df > 0)
-          step = -7;
-        else if (dr < 0 && df < 0)
-          step = -9;
-      }
-
-      if (step != 0) {
-        int sq = from + step;
-        while (sq != to) {
-          mask |= BB(sq);
-          sq += step;
-        }
-      }
-
-      between[from][to] = mask;
+      between[from][to] = BB(0);
+      between[from][to] |=
+          get_bishop_attacks(from, BB(to)) & get_bishop_attacks(to, BB(from));
+      between[from][to] |=
+          get_rook_attacks(from, BB(to)) & get_rook_attacks(to, BB(from));
+      between[from][to] |= BB(to);
+      between[from][to] &= line[from][to];
     }
   }
 }
@@ -226,18 +202,6 @@ uint8_t is_pseudo_legal(position_t *pos, uint16_t move) {
   }
   default:
     break;
-  }
-
-  if (pos->checkers && noc_piece != KING) {
-    if (pos->checker_count > 1) {
-      return 0;
-    }
-    uint8_t blocks = BB(target) &
-                     between[get_lsb(pos->checkers)]
-                            [get_lsb(pos->bitboards[KING + (6 * pos->side)])];
-    if (target != get_lsb(pos->checkers) && !blocks) {
-      return 0;
-    }
   }
 
   return 1;
