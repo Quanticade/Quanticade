@@ -277,6 +277,9 @@ static inline uint8_t pick_next_best_move(position_t *pos, thread_t *thread,
       if (list->entry[count].move == tt_move) {
         *ret_move = tt_move;
         *stage = GEN_MOVES_STAGE;
+        if (is_pseudo_legal(pos, tt_move) == 0) {
+          *ret_move = UINT16_MAX;
+        }
         return 1;
       }
     }
@@ -945,6 +948,9 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   // loop over moves within a movelist
   while (pick_next_best_move(pos, thread, ss, move_list, &move_index, &stage,
                              tt_move, &move)) {
+    if (move == UINT16_MAX) {
+      continue;
+    }
     if (tt_move == move && move_index != 0) {
       continue;
     }
