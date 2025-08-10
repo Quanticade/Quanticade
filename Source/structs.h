@@ -83,6 +83,8 @@ typedef struct position {
   uint64_t bitboards[12];
   uint64_t occupancies[3];
   hash_keys_t hash_keys;
+  uint64_t checkers;
+  uint8_t checker_count;
   uint8_t ply;
   uint8_t fifty;
   uint8_t mailbox[64];

@@ -26,5 +26,6 @@ static inline int poplsb(uint64_t *bb) {
 #define set_bit(bitboard, square) ((bitboard) |= (1ULL << (square)))
 #define get_bit(bitboard, square) ((bitboard) & (1ULL << (square)))
 #define pop_bit(bitboard, square) ((bitboard) &= ~(1ULL << (square)))
+#define BB(square) (1ULL << square)
 
 #endif

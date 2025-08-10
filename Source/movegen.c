@@ -4,6 +4,9 @@
 #include "enums.h"
 #include "move.h"
 #include "structs.h"
+#include "uci.h"
+#include <math.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -15,6 +18,194 @@ const uint8_t castling_rights[64] = {
     15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
     15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
     15, 15, 15, 15, 15, 15, 15, 15, 13, 15, 15, 15, 12, 15, 15, 14};
+
+uint64_t between[64][64] = {0};
+uint64_t line[64][64] = {0};
+
+void init_between_bitboards(uint64_t between[64][64]) {
+  for (int from = 0; from < 64; ++from) {
+    for (int to = 0; to < 64; ++to) {
+      if (from == to) {
+        between[from][to] = 0ULL;
+        continue;
+      }
+      line[from][to] = BB(0);
+      if (get_bishop_attacks(from, BB(0)) & BB(to))
+        line[from][to] |=
+            get_bishop_attacks(from, BB(0)) & get_bishop_attacks(to, BB(0));
+      if (get_rook_attacks(from, BB(0)) & BB(to))
+        line[from][to] |=
+            get_rook_attacks(from, BB(0)) & get_rook_attacks(to, BB(0));
+      line[from][to] |= BB(from) | BB(to);
+
+      between[from][to] = BB(0);
+      between[from][to] |=
+          get_bishop_attacks(from, BB(to)) & get_bishop_attacks(to, BB(from));
+      between[from][to] |=
+          get_rook_attacks(from, BB(to)) & get_rook_attacks(to, BB(from));
+      between[from][to] |= BB(to);
+      between[from][to] &= line[from][to];
+    }
+  }
+}
+
+uint8_t is_pseudo_legal(position_t *pos, uint16_t move) {
+  uint8_t origin = get_move_source(move);
+  uint8_t target = get_move_target(move);
+  uint8_t piece = pos->mailbox[origin];
+  uint8_t noc_piece = piece % 6;
+
+  // Source square needs to have a piece for us to move or we cannot move
+  // opponent piece
+  if (piece == NO_PIECE || pos->side != floor((double)piece / 6)) {
+    return 0;
+  }
+  // uint64_t origin_bb = pos->bitboards[piece];
+
+  if (get_move_capture(move)) {
+    // uint64_t target_bb = pos->bitboards[pos->mailbox[target]];
+    if (!get_move_enpassant(move)) {
+      uint8_t opponent_piece = pos->mailbox[target];
+      if (opponent_piece == NO_PIECE ||
+          pos->side == floor((double)opponent_piece / 6)) {
+        return 0;
+      }
+    }
+  }
+
+  // We cannot have a turn if opponent is in check
+  if (is_square_attacked(pos, get_lsb(pos->bitboards[pos->side ? K : k]),
+                         pos->side)) {
+    return 0;
+  }
+
+  if (get_move_castling(move)) {
+    // We cannot castle if the moved piece is not king or we are in check
+    if (noc_piece != KING || pos->checkers) {
+      return 0;
+    }
+    uint8_t squares[4] = {0};
+    switch (target) {
+    case g1: {
+      squares[0] = e1;
+      squares[1] = f1;
+      squares[2] = g1;
+      squares[3] = h1;
+      break;
+    }
+    case c1: {
+      squares[0] = e1;
+      squares[1] = d1;
+      squares[2] = c1;
+      squares[3] = a1;
+      break;
+    }
+    case g8: {
+      squares[0] = e8;
+      squares[1] = f8;
+      squares[2] = g8;
+      squares[3] = h8;
+      break;
+    }
+    case c8: {
+      squares[0] = e8;
+      squares[1] = d8;
+      squares[2] = c8;
+      squares[3] = a8;
+      break;
+    }
+    }
+    if (pos->mailbox[squares[0]] == NO_PIECE ||
+        pos->mailbox[squares[1]] != NO_PIECE ||
+        pos->mailbox[squares[2]] != NO_PIECE ||
+        pos->mailbox[squares[3]] == NO_PIECE) {
+      return 0;
+    }
+    return 1;
+  } else if (get_move_enpassant(move)) {
+    if (noc_piece != PAWN && pos->checker_count > 1) {
+      return 0;
+    }
+    if (pos->checkers &&
+        !(get_lsb(pos->checkers) == target - (pos->side ? 8 : -8))) {
+      return 0;
+    }
+    if (target != pos->enpassant &&
+        pos->mailbox[target - (pos->side ? 8 : -8)] % 6 != PAWN) {
+      return 0;
+    }
+    return 1;
+  } else if (is_move_promotion(move)) {
+    if (noc_piece != PAWN) {
+      return 0;
+    }
+    if (pos->checker_count > 1) {
+      return 0;
+    }
+    if (pos->checkers) {
+      uint8_t blocks = BB(target) &
+                       between[get_lsb(pos->checkers)]
+                              [get_lsb(pos->bitboards[KING + (6 * pos->side)])];
+      if (target != get_lsb(pos->checkers) && !blocks) {
+        return 0;
+      }
+    }
+    if (!(get_pawn_attacks(pos->side, origin) & BB(target) &
+          pos->occupancies[pos->side ^ 1]) &&
+        !(origin + (pos->side ? 8 : -8) == target &&
+          pos->mailbox[target] == NO_PIECE)) {
+      return 0;
+    }
+    return 1;
+  }
+  switch (noc_piece) {
+  case PAWN: {
+    if (BB(target) & 0xFF000000000000FF) {
+      return 0;
+    }
+    if (!(get_pawn_attacks(pos->side, origin) & BB(target)) &&
+        !(origin + (pos->side ? 8 : -8) == target &&
+          pos->mailbox[target] == NO_PIECE) &&
+        !(origin + 2 * (pos->side ? 8 : -8) == target &&
+          pos->mailbox[target] == NO_PIECE &&
+          pos->mailbox[target - (pos->side ? 8 : -8)] == NO_PIECE &&
+          BB(target) & 0xFFFF000000)) {
+      return 0;
+    }
+    break;
+  }
+  case KNIGHT: {
+    if (!(knight_attacks[origin] & BB(target))) {
+      return 0;
+    }
+    break;
+  }
+  case BISHOP: {
+    if (!(get_bishop_attacks(origin, pos->occupancies[both]) & BB(target)))
+      return 0;
+    break;
+  }
+  case ROOK: {
+    if (!(get_rook_attacks(origin, pos->occupancies[both]) & BB(target)))
+      return 0;
+    break;
+  }
+  case QUEEN: {
+    if (!(get_queen_attacks(origin, pos->occupancies[both]) & BB(target)))
+      return 0;
+    break;
+  }
+  case KING: {
+    if (!(king_attacks[origin] & BB(target)))
+      return 0;
+    break;
+  }
+  default:
+    break;
+  }
+
+  return 1;
+}
 
 uint8_t make_move(position_t *pos, uint16_t move) {
   // preserve board state
@@ -254,6 +445,14 @@ uint8_t make_move(position_t *pos, uint16_t move) {
   pos->occupancies[both] |= pos->occupancies[white];
   pos->occupancies[both] |= pos->occupancies[black];
 
+  pos->checkers =
+      attackers_to(pos,
+                   (pos->side == white) ? get_lsb(pos->bitboards[K])
+                                        : get_lsb(pos->bitboards[k]),
+                   pos->occupancies[both]) &
+      pos->occupancies[pos->side ^ 1];
+  pos->checker_count = popcount(pos->checkers);
+
   // change side
   pos->side ^= 1;
 
@@ -261,11 +460,7 @@ uint8_t make_move(position_t *pos, uint16_t move) {
   pos->hash_keys.hash_key ^= keys.side_key;
 
   // make sure that king has not been exposed into a check
-  if (is_square_attacked(pos,
-                         (pos->side == white)
-                             ? __builtin_ctzll(pos->bitboards[k])
-                             : __builtin_ctzll(pos->bitboards[K]),
-                         pos->side)) {
+  if (pos->checkers) {
     // take move back
     *pos = pos_copy;
 
