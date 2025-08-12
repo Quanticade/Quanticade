@@ -82,6 +82,7 @@ int LMR_CAPT_HIST_DIV = 7489;
 int ASP_WINDOW_DIVISER = 33322;
 int ASP_WINDOW_MULTIPLIER = 519;
 int EVAL_STABILITY_VAR = 9;
+double LMR_DEEPER_MULT = 2.0f;
 
 double LMP_MARGIN_WORSENING_BASE = 1.5730643679659169f;
 double LMP_MARGIN_WORSENING_FACTOR = 0.39029972070617547f;
@@ -963,7 +964,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
       if (current_score > alpha && R != 0) {
         new_depth +=
-            (current_score > best_score + LMR_DEEPER_MARGIN + 2 * new_depth);
+            (current_score > best_score + LMR_DEEPER_MARGIN + round(LMR_DEEPER_MULT * new_depth));
         new_depth -= (current_score < best_score + LMR_SHALLOWER_MARGIN);
 
         if (new_depth > reduced_depth) {
