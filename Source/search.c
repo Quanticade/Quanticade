@@ -278,6 +278,55 @@ static inline move_t pick_next_best_move(moves *move_list, uint16_t *index) {
   return move_list->entry[(*index)++];
 }
 
+static inline uint8_t move_picker(position_t *pos, thread_t *thread,
+                                   searchstack_t *ss, moves *move_list,
+                                   uint16_t *index, uint16_t tt_move,
+                                   uint8_t *stage, uint16_t *move) {
+  switch (*stage) {
+  case 0: {
+    (*stage)++;
+    if (is_pseudo_legal(pos, tt_move)) {
+      *move = tt_move;
+      return 1;
+    }
+    __attribute__((fallthrough));
+  }
+
+  case 1: {
+    generate_moves(pos, move_list);
+
+    for (uint32_t count = 0; count < move_list->count; count++) {
+      score_move(pos, thread, ss, &move_list->entry[count], tt_move);
+    }
+    (*stage)++;
+    __attribute__((fallthrough));
+  }
+
+  default: {
+    if (*index >= move_list->count)
+      return 0; // Return dummy if we're out of bounds
+
+    uint16_t best = *index;
+
+    for (uint16_t i = *index + 1; i < move_list->count; ++i) {
+      if (move_list->entry[i].score > move_list->entry[best].score)
+        best = i;
+    }
+
+    // Swap best with current index
+    if (best != *index) {
+      move_t temp = move_list->entry[*index];
+      move_list->entry[*index] = move_list->entry[best];
+      move_list->entry[best] = temp;
+    }
+
+    // Return and increment index for next call
+    (*move) = move_list->entry[(*index)++].move;
+    return 1;
+  }
+  }
+}
+
 // position repetition detection
 static inline uint8_t is_repetition(position_t *pos, thread_t *thread) {
   // loop over repetition indices range
@@ -769,15 +818,15 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   capture_list->count = 0;
 
   // generate moves
-  generate_moves(pos, move_list);
+  // generate_moves(pos, move_list);
 
   int16_t best_score = NO_SCORE;
   current_score = NO_SCORE;
 
   uint16_t best_move = 0;
-  for (uint32_t count = 0; count < move_list->count; count++) {
+  /*for (uint32_t count = 0; count < move_list->count; count++) {
     score_move(pos, thread, ss, &move_list->entry[count], tt_move);
-  }
+  }*/
 
   uint8_t skip_quiets = 0;
 
@@ -785,13 +834,21 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
   uint16_t move_index = 0;
 
+  uint8_t stage = 0;
+
+  uint16_t move = 0;
+
   // loop over moves within a movelist
-  while (move_index < move_list->count) {
-    uint16_t move = pick_next_best_move(move_list, &move_index).move;
+  while (move_picker(pos, thread, ss, move_list, &move_index, tt_move,
+                     &stage, &move)) {
     uint8_t quiet =
         (get_move_capture(move) == 0 && is_move_promotion(move) == 0);
 
     if (move == ss->excluded_move) {
+      continue;
+    }
+
+    if (stage == 1 && tt_move == move) {
       continue;
     }
 
