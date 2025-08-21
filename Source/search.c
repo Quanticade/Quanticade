@@ -834,7 +834,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
   uint16_t move_index = 0;
 
-  uint8_t stage = 0;
+  uint8_t stage = 1;
 
   uint16_t move = 0;
 
@@ -849,7 +849,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     }
 
     if (stage == 1 && tt_move == move) {
-      continue;
+      //continue;
     }
 
     if (skip_quiets && quiet) {
