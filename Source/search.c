@@ -377,6 +377,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   }
 
   const uint8_t in_check = stm_in_check(pos);
+  ss->in_check = in_check;
 
   if (in_check) {
     ss->static_eval = NO_SCORE;
@@ -596,6 +597,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
   // is king in check
   uint8_t in_check = stm_in_check(pos);
+  ss->in_check = in_check;
 
   // recursion escape condition
   if (depth <= 0) {

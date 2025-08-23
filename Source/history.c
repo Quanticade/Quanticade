@@ -170,7 +170,8 @@ uint8_t static_eval_within_bounds(int16_t static_eval, int16_t score,
 
 int16_t adjust_static_eval(thread_t *thread, position_t *pos,
                            int16_t static_eval) {
-  const float fifty_move_scaler = (float)((FIFTY_MOVE_SCALING - (float)pos->fifty) / 200);
+  const float fifty_move_scaler =
+      (float)((FIFTY_MOVE_SCALING - (float)pos->fifty) / 200);
   static_eval = static_eval * fifty_move_scaler;
   const int pawn_correction =
       thread->correction_history[pos->side][pos->hash_keys.pawn_key & 16383] *
@@ -255,9 +256,11 @@ static inline void update_continuation_history(thread_t *thread,
   int prev_target = get_move_target(ss->move);
   int piece = pos->mailbox[get_move_source(move)];
   int target = get_move_target(move);
-  thread->continuation_history[prev_piece][prev_target][piece][target] +=
+  thread->continuation_history[prev_piece][prev_target][piece][target]
+                              [!!get_move_capture(move)][ss->in_check] +=
       bonus -
-      thread->continuation_history[prev_piece][prev_target][piece][target] *
+      thread->continuation_history[prev_piece][prev_target][piece][target]
+                                  [!!get_move_capture(move)][ss->in_check] *
           abs(bonus) / HISTORY_MAX;
 }
 
@@ -294,7 +297,8 @@ void update_capture_history_moves(thread_t *thread, position_t *pos,
 int16_t get_conthist_score(thread_t *thread, position_t *pos, searchstack_t *ss,
                            int move) {
   return thread->continuation_history[ss->piece][get_move_target(
-      ss->move)][pos->mailbox[get_move_source(move)]][get_move_target(move)];
+      ss->move)][pos->mailbox[get_move_source(move)]][get_move_target(move)]
+                                     [!!get_move_capture(move)][ss->in_check];
 }
 
 void update_quiet_histories(thread_t *thread, position_t *pos,

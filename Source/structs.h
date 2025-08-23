@@ -114,7 +114,7 @@ typedef struct searchinfo {
   int16_t b_non_pawn_correction_history[2][16384];
   int16_t w_non_pawn_correction_history[2][16384];
   int16_t quiet_history[2][6][64][64];
-  int16_t continuation_history[12][64][12][64];
+  int16_t continuation_history[12][64][12][64][2][2];
   int16_t capture_history[12][13][64][64];
   int16_t pawn_history[2048][12][64];
   uint8_t depth;
@@ -154,6 +154,7 @@ typedef struct searchstack {
   uint8_t piece;
   uint8_t null_move;
   uint8_t tt_pv;
+  uint8_t in_check;
 } searchstack_t;
 
 typedef struct nnue_settings {
