@@ -1,4 +1,5 @@
 #include "uci.h"
+#include "attacks.h"
 #include "bitboards.h"
 #include "enums.h"
 #include "history.h"
