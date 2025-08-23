@@ -1,3 +1,4 @@
+#include "attacks.h"
 #include "bitboards.h"
 #include "enums.h"
 #include "move.h"
@@ -170,7 +171,8 @@ uint8_t static_eval_within_bounds(int16_t static_eval, int16_t score,
 
 int16_t adjust_static_eval(thread_t *thread, position_t *pos,
                            int16_t static_eval) {
-  const float fifty_move_scaler = (float)((FIFTY_MOVE_SCALING - (float)pos->fifty) / 200);
+  const float fifty_move_scaler =
+      (float)((FIFTY_MOVE_SCALING - (float)pos->fifty) / 200);
   static_eval = static_eval * fifty_move_scaler;
   const int pawn_correction =
       thread->correction_history[pos->side][pos->hash_keys.pawn_key & 16383] *
@@ -221,13 +223,17 @@ void update_corrhist(thread_t *thread, position_t *pos, int16_t static_eval,
 }
 
 static inline void update_quiet_history(thread_t *thread, position_t *pos,
-                                        int move, int bonus) {
+                                        searchstack_t *ss, int move,
+                                        int bonus) {
   int target = get_move_target(move);
   int source = get_move_source(move);
   const uint8_t cpiece = pos->mailbox[source];
   const uint8_t piece = cpiece > 5 ? cpiece - 6 : cpiece;
-  thread->quiet_history[pos->side][piece][source][target] +=
-      bonus - thread->quiet_history[pos->side][piece][source][target] *
+  thread->quiet_history[pos->side][piece][source][target][is_square_threatened(
+      ss, source)][is_square_threatened(ss, target)] +=
+      bonus - thread->quiet_history[pos->side][piece][source][target]
+                                   [is_square_threatened(ss, source)]
+                                   [is_square_threatened(ss, target)] *
                   abs(bonus) / HISTORY_MAX;
 }
 
@@ -339,13 +345,13 @@ void update_quiet_histories(thread_t *thread, position_t *pos,
       update_continuation_history(thread, pos, ss - 2, best_move, cont_bonus2);
       update_continuation_history(thread, pos, ss - 4, best_move, cont_bonus4);
       update_pawn_history(thread, pos, best_move, pawn_bonus);
-      update_quiet_history(thread, pos, best_move, quiet_bonus);
+      update_quiet_history(thread, pos, ss, best_move, quiet_bonus);
     } else {
       update_continuation_history(thread, pos, ss - 1, move, cont_malus);
       update_continuation_history(thread, pos, ss - 2, move, cont_malus2);
       update_continuation_history(thread, pos, ss - 4, move, cont_malus4);
       update_pawn_history(thread, pos, move, pawn_malus);
-      update_quiet_history(thread, pos, move, quiet_malus);
+      update_quiet_history(thread, pos, ss, move, quiet_malus);
     }
   }
 }

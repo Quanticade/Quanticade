@@ -111,11 +111,11 @@ int SEE_MARGIN[MAX_PLY + 1][2];
 int LMP_MARGIN[MAX_PLY + 1][2];
 
 double bestmove_scale[5] = {2.435008962486456f, 1.3514595123975768f,
-  1.0921709375887645f, 0.8799608961420715f,
-  0.7006821873450457f};
+                            1.0921709375887645f, 0.8799608961420715f,
+                            0.7006821873450457f};
 double eval_scale[5] = {1.2553097907287714, 1.1283513678269563f,
-  0.9752319195442376f, 0.9422129907606405f,
-  0.8980687736160886f};
+                        0.9752319195442376f, 0.9422129907606405f,
+                        0.8980687736160886f};
 
 uint64_t nodes_spent_table[4096] = {0};
 
@@ -243,7 +243,9 @@ static inline void score_move(position_t *pos, thread_t *thread,
     move_entry->score =
         thread
             ->quiet_history[pos->side][pos->mailbox[get_move_source(move)] % 6]
-                           [get_move_source(move)][get_move_target(move)] +
+                           [get_move_source(move)][get_move_target(move)]
+                           [is_square_threatened(ss, get_move_source(move))]
+                           [is_square_threatened(ss, get_move_target(move))] +
         get_conthist_score(thread, pos, ss - 1, move) +
         get_conthist_score(thread, pos, ss - 2, move) +
         get_conthist_score(thread, pos, ss - 4, move) +
@@ -804,10 +806,11 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     }
 
     ss->history_score =
-        quiet ? thread->quiet_history[pos->side]
-                                     [pos->mailbox[get_move_source(move)] % 6]
-                                     [get_move_source(move)]
-                                     [get_move_target(move)] +
+        quiet ? thread->quiet_history
+                        [pos->side][pos->mailbox[get_move_source(move)] % 6]
+                        [get_move_source(move)][get_move_target(move)]
+                        [is_square_threatened(ss, get_move_source(move))]
+                        [is_square_threatened(ss, get_move_target(move))] +
                     get_conthist_score(thread, pos, ss - 1, move) +
                     get_conthist_score(thread, pos, ss - 2, move)
               : thread->capture_history[pos->mailbox[get_move_source(move)]]
@@ -969,8 +972,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       ss->reduction = 0;
 
       if (current_score > alpha && R != 0) {
-        new_depth +=
-            (current_score > best_score + LMR_DEEPER_MARGIN + round(LMR_DEEPER_MULT * new_depth));
+        new_depth += (current_score > best_score + LMR_DEEPER_MARGIN +
+                                          round(LMR_DEEPER_MULT * new_depth));
         new_depth -= (current_score < best_score + LMR_SHALLOWER_MARGIN);
 
         if (new_depth > reduced_depth) {
