@@ -490,6 +490,7 @@ uint8_t stm_in_check(position_t *pos) {
                                 : __builtin_ctzll(pos->bitboards[k]),
                             pos->side ^ 1);
 }
+
 uint64_t attackers_to(position_t *pos, int square, uint64_t occupancy) {
   uint64_t attackers = 0;
 
@@ -517,3 +518,71 @@ uint64_t attackers_to(position_t *pos, int square, uint64_t occupancy) {
 
   return attackers;
 }
+
+void calculate_threats(position_t *pos, searchstack_t *ss) {
+  uint64_t occupied = pos->occupancies[both];
+  uint8_t them = pos->side ^ 1;
+
+  threats_t *threats = &ss->threats;
+
+  // Pawns
+  threats->pawn_threats = 0;
+  uint64_t pawns = pos->bitboards[them == white ? P : p];
+  while (pawns) {
+    int sq = poplsb(&pawns);
+    threats->pawn_threats |= pawn_attacks[them][sq];
+  }
+
+  // Knights
+  threats->knight_threats = 0;
+  uint64_t knights = pos->bitboards[them == white ? N : n];
+  while (knights) {
+    int sq = poplsb(&knights);
+    threats->knight_threats |= knight_attacks[sq];
+  }
+
+  // Bishops
+  threats->bishop_threats = 0;
+  uint64_t bishops = pos->bitboards[them == white ? B : b];
+  while (bishops) {
+    int sq = poplsb(&bishops);
+    threats->bishop_threats |= get_bishop_attacks(sq, occupied);
+  }
+
+  // Rooks
+  threats->rook_threats = 0;
+  uint64_t rooks = pos->bitboards[them == white ? R : r];
+  while (rooks) {
+    int sq = poplsb(&rooks);
+    threats->rook_threats |= get_rook_attacks(sq, occupied);
+  }
+
+  // Queens
+  threats->queen_threats = 0;
+  uint64_t queens = pos->bitboards[them == white ? Q : q];
+  while (queens) {
+    int sq = poplsb(&queens);
+    threats->queen_threats |= get_queen_attacks(sq, occupied);
+  }
+
+  // Kings
+  threats->king_threats = 0;
+  uint64_t kings = pos->bitboards[them == white ? K : k];
+  while (kings) {
+    int sq = poplsb(&kings);
+    threats->king_threats |= king_attacks[sq];
+  }
+}
+
+uint8_t is_square_threatened(searchstack_t *ss, int square) {
+    uint64_t square_bb = 1ULL << square;
+    threats_t *threats = &ss->threats;
+
+    return !!(square_bb & (threats->pawn_threats |
+                        threats->knight_threats |
+                        threats->bishop_threats |
+                        threats->rook_threats |
+                        threats->queen_threats |
+                        threats->king_threats));
+}
+

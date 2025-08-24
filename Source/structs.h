@@ -113,7 +113,7 @@ typedef struct searchinfo {
   int16_t correction_history[2][16384];
   int16_t b_non_pawn_correction_history[2][16384];
   int16_t w_non_pawn_correction_history[2][16384];
-  int16_t quiet_history[2][6][64][64];
+  int16_t quiet_history[2][6][64][64][2][2];
   int16_t continuation_history[12][64][12][64];
   int16_t capture_history[12][13][64][64];
   int16_t pawn_history[2048][12][64];
@@ -122,6 +122,15 @@ typedef struct searchinfo {
   uint8_t stopped;
   uint8_t quit;
 } thread_t;
+
+typedef struct threats {
+  uint64_t pawn_threats;
+  uint64_t knight_threats;
+  uint64_t bishop_threats;
+  uint64_t rook_threats;
+  uint64_t queen_threats;
+  uint64_t king_threats;
+} threats_t;
 
 typedef struct limits {
   uint64_t soft_limit;
@@ -145,6 +154,7 @@ typedef struct searchthread {
 } searchthreadinfo_t;
 
 typedef struct searchstack {
+  threats_t threats;
   uint16_t excluded_move;
   uint16_t move;
   int16_t static_eval;
