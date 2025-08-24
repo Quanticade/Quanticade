@@ -238,7 +238,8 @@ static inline void update_quiet_history(thread_t *thread, position_t *pos,
 }
 
 static inline void update_capture_history(thread_t *thread, position_t *pos,
-                                          int move, int bonus) {
+                                          searchstack_t *ss, int move,
+                                          int bonus) {
   int from = get_move_source(move);
   int target = get_move_target(move);
   int prev_target_piece = get_move_enpassant(move) == 0
@@ -246,11 +247,14 @@ static inline void update_capture_history(thread_t *thread, position_t *pos,
                           : pos->side ? pos->mailbox[get_move_target(move) - 8]
                                       : pos->mailbox[get_move_target(move) + 8];
 
-  thread
-      ->capture_history[pos->mailbox[from]][prev_target_piece][from][target] +=
-      bonus - thread->capture_history[pos->mailbox[from]][prev_target_piece]
-                                     [from][target] *
-                  abs(bonus) / HISTORY_MAX;
+  thread->capture_history[pos->mailbox[from]][prev_target_piece][from][target]
+                         [is_square_threatened(ss, from)]
+                         [is_square_threatened(ss, target)] +=
+      bonus -
+      thread->capture_history[pos->mailbox[from]][prev_target_piece][from]
+                             [target][is_square_threatened(ss, from)]
+                             [is_square_threatened(ss, target)] *
+          abs(bonus) / HISTORY_MAX;
 }
 
 static inline void update_continuation_history(thread_t *thread,
@@ -279,8 +283,8 @@ static inline void update_pawn_history(thread_t *thread, position_t *pos,
 }
 
 void update_capture_history_moves(thread_t *thread, position_t *pos,
-                                  moves *capture_moves, int best_move,
-                                  uint8_t depth) {
+                                  searchstack_t *ss, moves *capture_moves,
+                                  int best_move, uint8_t depth) {
   int capt_bonus =
       MIN(CAPTURE_HISTORY_BASE_BONUS + CAPTURE_HISTORY_FACTOR_BONUS * depth,
           CAPTURE_HISTORY_BONUS_MAX);
@@ -289,9 +293,9 @@ void update_capture_history_moves(thread_t *thread, position_t *pos,
            CAPTURE_HISTORY_MALUS_MAX);
   for (uint32_t i = 0; i < capture_moves->count; ++i) {
     if (capture_moves->entry[i].move == best_move) {
-      update_capture_history(thread, pos, best_move, capt_bonus);
+      update_capture_history(thread, pos, ss, best_move, capt_bonus);
     } else {
-      update_capture_history(thread, pos, capture_moves->entry[i].move,
+      update_capture_history(thread, pos, ss, capture_moves->entry[i].move,
                              capt_malus);
     }
   }

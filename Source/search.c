@@ -231,7 +231,9 @@ static inline void score_move(position_t *pos, thread_t *thread,
     move_entry->score +=
         thread
             ->capture_history[pos->mailbox[get_move_source(move)]][target_piece]
-                             [get_move_source(move)][get_move_target(move)];
+                             [get_move_source(move)][get_move_target(move)]
+                             [is_square_threatened(ss, get_move_source(move))]
+                             [is_square_threatened(ss, get_move_target(move))];
     move_entry->score +=
         SEE(pos, move, -MO_SEE_THRESHOLD) ? 1000000000 : -1000000000;
     return;
@@ -519,7 +521,8 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
         alpha = score;
         // fail-hard beta cutoff
         if (alpha >= beta) {
-          update_capture_history_moves(thread, pos, capture_list, best_move, 1);
+          update_capture_history_moves(thread, pos, ss, capture_list, best_move,
+                                       1);
           break;
         }
       }
@@ -813,10 +816,12 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
                         [is_square_threatened(ss, get_move_target(move))] +
                     get_conthist_score(thread, pos, ss - 1, move) +
                     get_conthist_score(thread, pos, ss - 2, move)
-              : thread->capture_history[pos->mailbox[get_move_source(move)]]
-                                       [pos->mailbox[get_move_target(move)]]
-                                       [get_move_source(move)]
-                                       [get_move_target(move)];
+              : thread->capture_history
+                    [pos->mailbox[get_move_source(move)]]
+                    [pos->mailbox[get_move_target(move)]][get_move_source(move)]
+                    [get_move_target(move)]
+                    [is_square_threatened(ss, get_move_source(move))]
+                    [is_square_threatened(ss, get_move_target(move))];
 
     // Late Move Pruning
     if (!pv_node && quiet &&
@@ -1042,7 +1047,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
                                    depth);
           }
 
-          update_capture_history_moves(thread, pos, capture_list, best_move,
+          update_capture_history_moves(thread, pos, ss, capture_list, best_move,
                                        depth);
           break;
         }
