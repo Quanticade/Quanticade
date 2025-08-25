@@ -239,6 +239,36 @@ static inline void score_move(position_t *pos, thread_t *thread,
 
   // score quiet move
   else {
+    uint64_t from_bb = BB(get_move_source(move));
+    uint64_t target_bb = BB(get_move_target(move));
+    uint8_t piece = pos->mailbox[get_move_source(move)] % 6;
+    int16_t threat_score = 0;
+    if (piece == QUEEN) {
+      if (from_bb & (ss->threats.pawn_threats | ss->threats.knight_threats |
+                     ss->threats.bishop_threats | ss->threats.rook_threats)) {
+        threat_score += 10000;
+      }
+      if (target_bb & (ss->threats.pawn_threats | ss->threats.knight_threats |
+                       ss->threats.bishop_threats | ss->threats.rook_threats)) {
+        threat_score -= 10000;
+      }
+    } else if (piece == ROOK) {
+      if (from_bb & (ss->threats.pawn_threats | ss->threats.knight_threats |
+                     ss->threats.bishop_threats)) {
+        threat_score += 6250;
+      }
+      if (target_bb & (ss->threats.pawn_threats | ss->threats.knight_threats |
+                       ss->threats.bishop_threats)) {
+        threat_score -= 6250;
+      }
+    } else if (piece == KNIGHT || piece == BISHOP) {
+      if (from_bb & (ss->threats.pawn_threats)) {
+        threat_score += 3600;
+      }
+      if (target_bb & (ss->threats.pawn_threats)) {
+        threat_score -= 3800;
+      }
+    }
     // score history move
     move_entry->score =
         thread
@@ -251,7 +281,8 @@ static inline void score_move(position_t *pos, thread_t *thread,
         get_conthist_score(thread, pos, ss - 4, move) +
         thread->pawn_history[pos->hash_keys.pawn_key % 2048]
                             [pos->mailbox[get_move_source(move)]]
-                            [get_move_target(move)];
+                            [get_move_target(move)] +
+        threat_score;
     return;
   }
   move_entry->score = 0;
