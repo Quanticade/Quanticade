@@ -7,7 +7,6 @@
 #include "movegen.h"
 #include "nnue.h"
 #include "perft.h"
-#include "pyrrhic/tbprobe.h"
 #include "search.h"
 #include "spsa.h"
 #include "structs.h"
@@ -616,6 +615,8 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
                sizeof(threads[i].w_non_pawn_correction_history));
         memset(threads[i].b_non_pawn_correction_history, 0,
                sizeof(threads[i].b_non_pawn_correction_history));
+        memset(threads[i].contcorr_history, 0,
+               sizeof(threads[i].contcorr_history));
       }
     }
     // parse UCI "go" command
