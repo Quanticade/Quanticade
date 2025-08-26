@@ -28,8 +28,10 @@ extern nnue_settings_t nnue_settings;
 
 static inline int istrncmp(const char *a, const char *b, size_t n) {
   for (size_t i = 0; i < n; i++) {
-    const int diff = tolower((unsigned char)a[i]) - tolower((unsigned char)b[i]);
-    if (diff != 0 || a[i] == '\0') return diff;
+    const int diff =
+        tolower((unsigned char)a[i]) - tolower((unsigned char)b[i]);
+    if (diff != 0 || a[i] == '\0')
+      return diff;
   }
   return 0;
 }
@@ -101,7 +103,7 @@ char *bench_positions[] = {
     "3br1k1/p1pn3p/1p3n2/5pNq/2P1p3/1PN3PP/P2Q1PB1/4R1K1 w - - 0 23",
     "2r2b2/5p2/5k2/p1r1pP2/P2pB3/1P3P2/K1P3R1/7R w - - 23 93"};
 
-#define start_position \
+#define start_position                                                         \
   "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 "
 
 const char *square_to_coordinates[] = {
@@ -113,26 +115,28 @@ const char *square_to_coordinates[] = {
     "h2", "a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1",
 };
 
-int char_pieces[] = {
-    ['P'] = P, ['N'] = N, ['B'] = B, ['R'] = R, ['Q'] = Q, ['K'] = K,
-    ['p'] = p, ['n'] = n, ['b'] = b, ['r'] = r, ['q'] = q, ['k'] = k};
+int char_pieces[] = {['P'] = P, ['N'] = N, ['B'] = B, ['R'] = R,
+                     ['Q'] = Q, ['K'] = K, ['p'] = p, ['n'] = n,
+                     ['b'] = b, ['r'] = r, ['q'] = q, ['k'] = k};
 
-char piece_chars[] = {
-    [P] = 'P', [N] = 'N', [B] = 'B', [R] = 'R', [Q] = 'Q', [K] = 'K',
-    [p] = 'p', [n] = 'n', [b] = 'b', [r] = 'r', [q] = 'q', [k] = 'k'};
+char piece_chars[] = {[P] = 'P', [N] = 'N', [B] = 'B', [R] = 'R',
+                      [Q] = 'Q', [K] = 'K', [p] = 'p', [n] = 'n',
+                      [b] = 'b', [r] = 'r', [q] = 'q', [k] = 'k'};
 
 char promoted_pieces[] = {[Q] = 'q', [R] = 'r', [B] = 'b', [N] = 'n',
                           [q] = 'q', [r] = 'r', [b] = 'b', [n] = 'n'};
 
 static inline int parse_move(position_t *pos, thread_t *thread,
-                              char *move_string) {
+                             char *move_string) {
   moves move_list[1];
   generate_noisy(pos, move_list, 0);
   generate_quiets(pos, move_list, 1);
 
-  const int source_square = (move_string[0] - 'a') + (8 - (move_string[1] - '0')) * 8;
+  const int source_square =
+      (move_string[0] - 'a') + (8 - (move_string[1] - '0')) * 8;
   thread->starttime = 0;
-  const int target_square = (move_string[2] - 'a') + (8 - (move_string[3] - '0')) * 8;
+  const int target_square =
+      (move_string[2] - 'a') + (8 - (move_string[3] - '0')) * 8;
 
   for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
     const int move = move_list->entry[move_count].move;
@@ -143,7 +147,8 @@ static inline int parse_move(position_t *pos, thread_t *thread,
 
     const int promoted_piece = get_move_promoted(pos->side, move);
     if (promoted_piece) {
-      if (move_string[4] && promoted_pieces[promoted_piece] == move_string[4]) return move;
+      if (move_string[4] && promoted_pieces[promoted_piece] == move_string[4])
+        return move;
       continue;
     }
 
@@ -175,15 +180,20 @@ void generate_fen(position_t *pos, char *fen) {
     for (int file = 0; file < 8; file++) {
       const int piece = pos->mailbox[rank * 8 + file];
       if (piece != NO_PIECE) {
-        if (empty > 0) { *ptr++ = '0' + empty; empty = 0; }
+        if (empty > 0) {
+          *ptr++ = '0' + empty;
+          empty = 0;
+        }
         *ptr++ = piece_chars[piece];
       } else {
         empty++;
       }
     }
 
-    if (empty > 0) *ptr++ = '0' + empty;
-    if (rank < 7)  *ptr++ = '/';
+    if (empty > 0)
+      *ptr++ = '0' + empty;
+    if (rank < 7)
+      *ptr++ = '/';
   }
 
   *ptr++ = ' ';
@@ -193,10 +203,14 @@ void generate_fen(position_t *pos, char *fen) {
   if (pos->castle == 0) {
     *ptr++ = '-';
   } else {
-    if (pos->castle & wk) *ptr++ = 'K';
-    if (pos->castle & wq) *ptr++ = 'Q';
-    if (pos->castle & bk) *ptr++ = 'k';
-    if (pos->castle & bq) *ptr++ = 'q';
+    if (pos->castle & wk)
+      *ptr++ = 'K';
+    if (pos->castle & wq)
+      *ptr++ = 'Q';
+    if (pos->castle & bk)
+      *ptr++ = 'k';
+    if (pos->castle & bq)
+      *ptr++ = 'q';
   }
 
   *ptr++ = ' ';
@@ -230,13 +244,15 @@ static inline void parse_fen(position_t *pos, thread_t *thread, char *fen) {
       if (*fen >= '0' && *fen <= '9') {
         const int offset = *fen - '0';
         const uint8_t bb_piece = pos->mailbox[square];
-        if (!(bb_piece != NO_PIECE && get_bit(pos->bitboards[bb_piece], square)))
+        if (!(bb_piece != NO_PIECE &&
+              get_bit(pos->bitboards[bb_piece], square)))
           file--;
         file += offset;
         fen++;
       }
 
-      if (*fen == '/') fen++;
+      if (*fen == '/')
+        fen++;
     }
   }
 
@@ -246,10 +262,18 @@ static inline void parse_fen(position_t *pos, thread_t *thread, char *fen) {
 
   while (*fen && *fen != ' ') {
     switch (*fen++) {
-    case 'K': pos->castle |= wk; break;
-    case 'Q': pos->castle |= wq; break;
-    case 'k': pos->castle |= bk; break;
-    case 'q': pos->castle |= bq; break;
+    case 'K':
+      pos->castle |= wk;
+      break;
+    case 'Q':
+      pos->castle |= wq;
+      break;
+    case 'k':
+      pos->castle |= bk;
+      break;
+    case 'q':
+      pos->castle |= bq;
+      break;
     }
   }
 
@@ -264,11 +288,14 @@ static inline void parse_fen(position_t *pos, thread_t *thread, char *fen) {
 
   fen++;
   pos->fifty = atoi(fen);
-  while (*fen && *fen != ' ') fen++;
+  while (*fen && *fen != ' ')
+    fen++;
   pos->fullmove = (*fen == ' ') ? atoi(fen + 1) : 1;
 
-  for (int piece = P; piece <= K; piece++) pos->occupancies[white] |= pos->bitboards[piece];
-  for (int piece = p; piece <= k; piece++) pos->occupancies[black] |= pos->bitboards[piece];
+  for (int piece = P; piece <= K; piece++)
+    pos->occupancies[white] |= pos->bitboards[piece];
+  for (int piece = p; piece <= k; piece++)
+    pos->occupancies[black] |= pos->bitboards[piece];
   pos->occupancies[both] = pos->occupancies[white] | pos->occupancies[black];
 
   pos->hash_keys.hash_key = generate_hash_key(pos);
@@ -276,11 +303,12 @@ static inline void parse_fen(position_t *pos, thread_t *thread, char *fen) {
   pos->hash_keys.non_pawn_key[white] = generate_white_non_pawn_key(pos);
   pos->hash_keys.non_pawn_key[black] = generate_black_non_pawn_key(pos);
 
-  pos->checkers = attackers_to(pos,
-                               (pos->side == white) ? get_lsb(pos->bitboards[K])
-                                                    : get_lsb(pos->bitboards[k]),
-                               pos->occupancies[both]) &
-                  pos->occupancies[pos->side ^ 1];
+  pos->checkers =
+      attackers_to(pos,
+                   (pos->side == white) ? get_lsb(pos->bitboards[K])
+                                        : get_lsb(pos->bitboards[k]),
+                   pos->occupancies[both]) &
+      pos->occupancies[pos->side ^ 1];
   pos->checker_count = popcount(pos->checkers);
   update_slider_pins(pos, white);
   update_slider_pins(pos, black);
@@ -289,7 +317,8 @@ static inline void parse_fen(position_t *pos, thread_t *thread, char *fen) {
 void parse_position(position_t *pos, thread_t *thread, char *command) {
   command += 9;
 
-  for (int i = 0; i < 64; ++i) pos->mailbox[i] = NO_PIECE;
+  for (int i = 0; i < 64; ++i)
+    pos->mailbox[i] = NO_PIECE;
 
   if (strncmp(command, "startpos", 8) == 0) {
     parse_fen(pos, thread, start_position);
@@ -299,20 +328,26 @@ void parse_position(position_t *pos, thread_t *thread, char *command) {
   }
 
   char *moves = strstr(command, "moves");
-  if (!moves) return;
+  if (!moves)
+    return;
 
   moves += 6;
   while (*moves) {
     const int move = parse_move(pos, thread, moves);
-    if (!move) break;
+    if (!move)
+      break;
 
-    if (thread->repetition_index + 1 < (int)(sizeof(thread->repetition_table) / sizeof(thread->repetition_table[0]))) {
+    if (thread->repetition_index + 1 <
+        (int)(sizeof(thread->repetition_table) /
+              sizeof(thread->repetition_table[0]))) {
       thread->repetition_index++;
-      thread->repetition_table[thread->repetition_index] = pos->hash_keys.hash_key;
+      thread->repetition_table[thread->repetition_index] =
+          pos->hash_keys.hash_key;
     }
     make_move(pos, move);
 
-    while (*moves && *moves != ' ') moves++;
+    while (*moves && *moves != ' ')
+      moves++;
     moves++;
   }
 }
@@ -328,14 +363,23 @@ void time_control(position_t *pos, thread_t *threads, char *line) {
   char *argument = NULL;
 
   if (pos->side == white) {
-    if ((argument = strstr(line, "winc")))  limits.inc  = atoi(argument + 5);
-    if ((argument = strstr(line, "wtime"))) { limits.time = atoi(argument + 6); limits.timeset = 1; }
+    if ((argument = strstr(line, "winc")))
+      limits.inc = atoi(argument + 5);
+    if ((argument = strstr(line, "wtime"))) {
+      limits.time = atoi(argument + 6);
+      limits.timeset = 1;
+    }
   } else {
-    if ((argument = strstr(line, "binc")))  limits.inc  = atoi(argument + 5);
-    if ((argument = strstr(line, "btime"))) { limits.time = atoi(argument + 6); limits.timeset = 1; }
+    if ((argument = strstr(line, "binc")))
+      limits.inc = atoi(argument + 5);
+    if ((argument = strstr(line, "btime"))) {
+      limits.time = atoi(argument + 6);
+      limits.timeset = 1;
+    }
   }
 
-  if ((argument = strstr(line, "movestogo"))) limits.movestogo = atoi(argument + 10);
+  if ((argument = strstr(line, "movestogo")))
+    limits.movestogo = atoi(argument + 10);
 
   if ((argument = strstr(line, "movetime"))) {
     limits.time = atoi(argument + 9);
@@ -357,15 +401,21 @@ void time_control(position_t *pos, thread_t *threads, char *line) {
 
     if (limits.timeset) {
       bool movetime = !!strstr(line, "movetime");
-      if (!movetime) limits.time -= MIN(limits.time / 2, move_overhead);
+      if (!movetime)
+        limits.time -= MIN(limits.time / 2, move_overhead);
 
-      const int64_t base_time = (limits.movestogo > 0)
-          ? (int64_t)((double)limits.time / limits.movestogo + limits.inc)
-          : (int64_t)(limits.time * DEF_TIME_MULTIPLIER + limits.inc * DEF_INC_MULTIPLIER);
+      const int64_t base_time =
+          (limits.movestogo > 0)
+              ? (int64_t)((double)limits.time / limits.movestogo + limits.inc)
+              : (int64_t)(limits.time * DEF_TIME_MULTIPLIER +
+                          limits.inc * DEF_INC_MULTIPLIER);
 
-      limits.max_time   = MAX(1, limits.time * (movetime ? 1.0 : MAX_TIME_MULTIPLIER));
+      limits.max_time =
+          MAX(1, limits.time * (movetime ? 1.0 : MAX_TIME_MULTIPLIER));
       limits.hard_limit = threads->starttime + limits.max_time;
-      limits.base_soft  = movetime ? 0x7fffffff : MIN(base_time * SOFT_LIMIT_MULTIPLIER, limits.max_time);
+      limits.base_soft =
+          movetime ? 0x7fffffff
+                   : MIN(base_time * SOFT_LIMIT_MULTIPLIER, limits.max_time);
       limits.soft_limit = threads->starttime + limits.base_soft;
     }
   }
@@ -397,14 +447,14 @@ void print_move(int move) {
 }
 
 typedef struct {
-  position_t         *pos;
-  thread_t          **threads;
-  int                *thread_count;
-  int                 max_hash;
-  pthread_t          *search_thread;
-  uint8_t            *started;
+  position_t *pos;
+  thread_t **threads;
+  int *thread_count;
+  int max_hash;
+  pthread_t *search_thread;
+  uint8_t *started;
   searchthreadinfo_t *sti;
-  char               *input;
+  char *input;
 } uci_ctx_t;
 
 static void stop_search(uci_ctx_t *ctx) {
@@ -416,14 +466,16 @@ static void stop_search(uci_ctx_t *ctx) {
 }
 
 static void handle_isready(uci_ctx_t *ctx, char *args) {
-  (void)ctx; (void)args;
+  (void)ctx;
+  (void)args;
   printf("readyok\n");
 }
 
 static void handle_position(uci_ctx_t *ctx, char *args) {
   (void)args;
   parse_position(ctx->pos, *ctx->threads, ctx->input);
-  init_accumulator(ctx->pos, &(*ctx->threads)->accumulator[ctx->threads[0]->ply]);
+  init_accumulator(ctx->pos,
+                   &(*ctx->threads)->accumulator[ctx->threads[0]->ply]);
   init_finny_tables(*ctx->threads, ctx->pos);
 }
 
@@ -432,19 +484,23 @@ static void handle_ucinewgame(uci_ctx_t *ctx, char *args) {
   clear_hash_table();
   for (int i = 0; i < *ctx->thread_count; ++i) {
     thread_t *t = &(*ctx->threads)[i];
-    memset(t->quiet_history,                 0, sizeof(t->quiet_history));
-    memset(t->capture_history,               0, sizeof(t->capture_history));
-    memset(t->continuation_history,          0, sizeof(t->continuation_history));
-    memset(t->correction_history,            0, sizeof(t->correction_history));
-    memset(t->pawn_history,                  0, sizeof(t->pawn_history));
-    memset(t->w_non_pawn_correction_history, 0, sizeof(t->w_non_pawn_correction_history));
-    memset(t->b_non_pawn_correction_history, 0, sizeof(t->b_non_pawn_correction_history));
+    memset(t->quiet_history, 0, sizeof(t->quiet_history));
+    memset(t->capture_history, 0, sizeof(t->capture_history));
+    memset(t->continuation_history, 0, sizeof(t->continuation_history));
+    memset(t->correction_history, 0, sizeof(t->correction_history));
+    memset(t->pawn_history, 0, sizeof(t->pawn_history));
+    memset(t->w_non_pawn_correction_history, 0,
+           sizeof(t->w_non_pawn_correction_history));
+    memset(t->b_non_pawn_correction_history, 0,
+           sizeof(t->b_non_pawn_correction_history));
+    memset(t->contcorr_history, 0, sizeof(t->contcorr_history));
   }
 }
 
 static void handle_go(uci_ctx_t *ctx, char *args) {
   (void)args;
-  if (*ctx->started) pthread_join(*ctx->search_thread, NULL);
+  if (*ctx->started)
+    pthread_join(*ctx->search_thread, NULL);
   printf("info string NNUE evaluation using %s\n", nnue_settings.nnue_file);
   strncpy(ctx->sti->line, ctx->input, sizeof(ctx->sti->line) - 1);
   ctx->sti->line[sizeof(ctx->sti->line) - 1] = '\0';
@@ -466,10 +522,13 @@ static void handle_uci(uci_ctx_t *ctx, char *args) {
   (void)args;
   printf("id name Quanticade %s\n", version);
   printf("id author DarkNeutrino\n\n");
-  printf("option name Hash type spin default %d min 4 max %d\n", default_hash_size, ctx->max_hash);
-  printf("option name Threads type spin default %d min %d max %d\n", 1, 1, 1024);
+  printf("option name Hash type spin default %d min 4 max %d\n",
+         default_hash_size, ctx->max_hash);
+  printf("option name Threads type spin default %d min %d max %d\n", 1, 1,
+         1024);
   printf("option name MoveOverhead type spin default 10 min 0 max 5000\n");
-  printf("option name EvalFile type string default %s\n", nnue_settings.nnue_file);
+  printf("option name EvalFile type string default %s\n",
+         nnue_settings.nnue_file);
   printf("option name Clear Hash type button\n");
   printf("option name SoftNodes type check default false\n");
   printf("option name DisableNormalization type check default false\n");
@@ -479,7 +538,8 @@ static void handle_uci(uci_ctx_t *ctx, char *args) {
 }
 
 static void handle_spsa(uci_ctx_t *ctx, char *args) {
-  (void)ctx; (void)args;
+  (void)ctx;
+  (void)args;
   print_spsa_table();
 }
 
@@ -490,14 +550,14 @@ typedef struct {
 } uci_command_t;
 
 static const uci_command_t uci_commands[] = {
-  { "isready",    handle_isready,    0 },
-  { "position",   handle_position,   0 },
-  { "ucinewgame", handle_ucinewgame, 0 },
-  { "go",         handle_go,         0 },
-  { "stop",       handle_stop,       0 },
-  { "quit",       handle_quit,       1 },
-  { "uci",        handle_uci,        0 },
-  { "spsa",       handle_spsa,       0 },
+    {"isready", handle_isready, 0},
+    {"position", handle_position, 0},
+    {"ucinewgame", handle_ucinewgame, 0},
+    {"go", handle_go, 0},
+    {"stop", handle_stop, 0},
+    {"quit", handle_quit, 1},
+    {"uci", handle_uci, 0},
+    {"spsa", handle_spsa, 0},
 };
 
 static void setoption_hash(uci_ctx_t *ctx, char *value) {
@@ -520,14 +580,16 @@ static void setoption_threads(uci_ctx_t *ctx, char *value) {
 static void setoption_eval_file(uci_ctx_t *ctx, char *value) {
   (void)ctx;
   char *new_path = strdup(value);
-  if (!new_path) return;
+  if (!new_path)
+    return;
   free(nnue_settings.nnue_file);
   nnue_settings.nnue_file = new_path;
   nnue_init(nnue_settings.nnue_file);
 }
 
 static void setoption_clear_hash(uci_ctx_t *ctx, char *value) {
-  (void)ctx; (void)value;
+  (void)ctx;
+  (void)value;
   clear_hash_table();
 }
 
@@ -546,14 +608,14 @@ static void setoption_bool(uci_ctx_t *ctx, char *value, uint8_t *target) {
   *target = (istrncmp(value, "true", 5) == 0) ? 1 : 0;
 }
 
-#define SETOPTION_BOOL(name, global) \
-  static void setoption_##name(uci_ctx_t *ctx, char *value) { \
-    setoption_bool(ctx, value, &global); \
+#define SETOPTION_BOOL(name, global)                                           \
+  static void setoption_##name(uci_ctx_t *ctx, char *value) {                  \
+    setoption_bool(ctx, value, &global);                                       \
   }
 
-SETOPTION_BOOL(soft_nodes,   soft_nodes)
+SETOPTION_BOOL(soft_nodes, soft_nodes)
 SETOPTION_BOOL(disable_norm, disable_norm)
-SETOPTION_BOOL(minimal,      minimal)
+SETOPTION_BOOL(minimal, minimal)
 
 static void setoption_move_overhead(uci_ctx_t *ctx, char *value) {
   (void)ctx;
@@ -561,30 +623,35 @@ static void setoption_move_overhead(uci_ctx_t *ctx, char *value) {
 }
 
 static const setoption_entry_t setoption_table[] = {
-  { "Hash",                 setoption_hash          },
-  { "Threads",              setoption_threads       },
-  { "MoveOverhead",         setoption_move_overhead },
-  { "EvalFile",             setoption_eval_file     },
-  { "Clear Hash",           setoption_clear_hash    },
-  { "SyzygyPath",           setoption_syzygy_path   },
-  { "SoftNodes",            setoption_soft_nodes    },
-  { "DisableNormalization", setoption_disable_norm  },
-  { "Minimal",              setoption_minimal       },
+    {"Hash", setoption_hash},
+    {"Threads", setoption_threads},
+    {"MoveOverhead", setoption_move_overhead},
+    {"EvalFile", setoption_eval_file},
+    {"Clear Hash", setoption_clear_hash},
+    {"SyzygyPath", setoption_syzygy_path},
+    {"SoftNodes", setoption_soft_nodes},
+    {"DisableNormalization", setoption_disable_norm},
+    {"Minimal", setoption_minimal},
 };
 
 static void handle_setoption(uci_ctx_t *ctx, char *input) {
   char *name_start = NULL;
   for (char *p = input; *p; p++) {
-    if (istrncmp(p, "name ", 5) == 0) { name_start = p + 5; break; }
+    if (istrncmp(p, "name ", 5) == 0) {
+      name_start = p + 5;
+      break;
+    }
   }
-  if (!name_start) return;
+  if (!name_start)
+    return;
 
   char *value_start = strstr(name_start, " value ");
-  char name[256]  = {0};
+  char name[256] = {0};
   char value[256] = {0};
 
   if (value_start) {
-    const size_t name_len = MIN((size_t)(value_start - name_start), sizeof(name) - 1);
+    const size_t name_len =
+        MIN((size_t)(value_start - name_start), sizeof(name) - 1);
     strncpy(name, name_start, name_len);
     strncpy(value, value_start + 7, sizeof(value) - 1);
     value[strcspn(value, "\r\n")] = '\0';
@@ -611,7 +678,7 @@ void uci_loop(position_t *pos, int argc, char *argv[]) {
 
   pthread_t search_thread;
   uint8_t started = 0;
-  searchthreadinfo_t sti = { .threads = threads, .pos = pos };
+  searchthreadinfo_t sti = {.threads = threads, .pos = pos};
 
 #ifndef WIN64
   setbuf(stdin, NULL);
@@ -627,14 +694,14 @@ void uci_loop(position_t *pos, int argc, char *argv[]) {
   init_finny_tables(threads, pos);
 
   uci_ctx_t ctx = {
-    .pos           = pos,
-    .threads       = &threads,
-    .thread_count  = &thread_count,
-    .max_hash      = max_hash,
-    .search_thread = &search_thread,
-    .started       = &started,
-    .sti           = &sti,
-    .input         = input,
+      .pos = pos,
+      .threads = &threads,
+      .thread_count = &thread_count,
+      .max_hash = max_hash,
+      .search_thread = &search_thread,
+      .started = &started,
+      .sti = &sti,
+      .input = input,
   };
 
   if (argc >= 2) {
@@ -655,8 +722,8 @@ void uci_loop(position_t *pos, int argc, char *argv[]) {
         search_position(pos, threads);
         total_nodes += threads->nodes;
       }
-      printf("\n%" PRIu64 " nodes %" PRIu64 " nps\n",
-             total_nodes, total_nodes / (get_time_ms() - start_time + 1) * 1000);
+      printf("\n%" PRIu64 " nodes %" PRIu64 " nps\n", total_nodes,
+             total_nodes / (get_time_ms() - start_time + 1) * 1000);
       return;
     } else if (strncmp("genfens", argv[1], 7) == 0) {
       minimal = 1;
@@ -664,8 +731,8 @@ void uci_loop(position_t *pos, int argc, char *argv[]) {
       uint64_t seed = 0ULL;
       char book[256];
       int n_of_char_read = 0;
-      sscanf(argv[1], "genfens %d seed %99" SCNu64 " book %s %n",
-             &n_of_fens, &seed, book, &n_of_char_read);
+      sscanf(argv[1], "genfens %d seed %99" SCNu64 " book %s %n", &n_of_fens,
+             &seed, book, &n_of_char_read);
       genfens(pos, threads, seed, n_of_fens, book);
       return;
     }
@@ -677,16 +744,20 @@ void uci_loop(position_t *pos, int argc, char *argv[]) {
     memset(input, 0, sizeof(input));
     fflush(stdout);
 
-    if (!fgets(input, sizeof(input), stdin)) continue;
+    if (!fgets(input, sizeof(input), stdin))
+      continue;
 
-    // If no newline was read, the line was too long — drain the rest and discard
+    // If no newline was read, the line was too long — drain the rest and
+    // discard
     if (!strchr(input, '\n')) {
       int ch;
-      while ((ch = getchar()) != '\n' && ch != EOF);
+      while ((ch = getchar()) != '\n' && ch != EOF)
+        ;
       continue;
     }
 
-    if (input[0] == '\n') continue;
+    if (input[0] == '\n')
+      continue;
 
     if (strncmp(input, "setoption", 9) == 0) {
       handle_setoption(&ctx, input);
@@ -697,7 +768,8 @@ void uci_loop(position_t *pos, int argc, char *argv[]) {
       const size_t len = strlen(uci_commands[i].prefix);
       if (strncmp(input, uci_commands[i].prefix, len) == 0) {
         uci_commands[i].handler(&ctx, input + len);
-        if (uci_commands[i].quit_after) goto done;
+        if (uci_commands[i].quit_after)
+          goto done;
         break;
       }
     }

@@ -58,10 +58,10 @@ typedef struct keys {
 } keys_t;
 
 typedef struct simd {
- _Alignas(64) int8_t l1_neurons[L1_SIZE];
- _Alignas(64) int l2_neurons[L2_SIZE];
- _Alignas(64) float l3_neurons[L3_SIZE];
- _Alignas(64) float l2_floats[2*L2_SIZE];
+  _Alignas(64) int8_t l1_neurons[L1_SIZE];
+  _Alignas(64) int l2_neurons[L2_SIZE];
+  _Alignas(64) float l3_neurons[L3_SIZE];
+  _Alignas(64) float l2_floats[2 * L2_SIZE];
 } simd_t;
 
 typedef struct accumulator {
@@ -80,16 +80,16 @@ typedef struct hash_keys {
 } hash_keys_t;
 
 typedef struct lazy_acc_state {
-  uint8_t  dirty;
-  uint8_t  needs_refresh;
-  uint8_t  side;
-  uint8_t  color_flag;
-  uint8_t  white_king_sq;
-  uint8_t  black_king_sq;
-  uint8_t  white_bucket;
-  uint8_t  black_bucket;
-  uint8_t  moving_piece;
-  uint8_t  captured_piece;
+  uint8_t dirty;
+  uint8_t needs_refresh;
+  uint8_t side;
+  uint8_t color_flag;
+  uint8_t white_king_sq;
+  uint8_t black_king_sq;
+  uint8_t white_bucket;
+  uint8_t black_bucket;
+  uint8_t moving_piece;
+  uint8_t captured_piece;
   uint16_t move;
   uint64_t bitboards[12];
 } lazy_acc_state_t;
@@ -110,7 +110,7 @@ typedef struct position {
 } position_t;
 
 typedef struct PV {
-  uint8_t  pv_length[MAX_PLY + 1];
+  uint8_t pv_length[MAX_PLY + 1];
   uint16_t pv_table[MAX_PLY + 1][MAX_PLY + 1];
 } PV_t;
 
@@ -132,6 +132,7 @@ typedef struct searchinfo {
   int16_t b_non_pawn_correction_history[2][16384];
   int16_t w_non_pawn_correction_history[2][16384];
   int16_t quiet_history[2][64][64][2][2];
+  int16_t contcorr_history[13][64][12][64];
   int16_t continuation_history[13][64][12][64];
   int16_t capture_history[12][13][64][64][2][2];
   int16_t pawn_history[2048][12][64];
