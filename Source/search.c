@@ -389,7 +389,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
         tt_static_eval != NO_SCORE
             ? tt_static_eval
             : evaluate(thread, pos, &thread->accumulator[pos->ply]);
-    ss->static_eval = adjust_static_eval(thread, pos, raw_static_eval);
+    ss->static_eval = adjust_static_eval(thread, pos, ss, raw_static_eval);
 
     if (tt_hit && can_use_score(best_score, best_score, tt_score, tt_flag)) {
       best_score = tt_score;
@@ -652,7 +652,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
     // adjust static eval with corrhist
     static_eval = ss->static_eval =
-        adjust_static_eval(thread, pos, raw_static_eval);
+        adjust_static_eval(thread, pos, ss, raw_static_eval);
 
     if (tt_hit && can_use_score(static_eval, static_eval, tt_score, tt_flag)) {
       ss->eval = tt_score;
@@ -1095,7 +1095,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
     if (!in_check && (!best_move || !(is_move_promotion(best_move) ||
                                       get_move_capture(best_move)))) {
-      update_corrhist(thread, pos, raw_static_eval, best_score, depth,
+      update_corrhist(thread, pos, ss, raw_static_eval, best_score, depth,
                       hash_flag);
     }
   }
