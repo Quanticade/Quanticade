@@ -8,10 +8,10 @@ uint64_t generate_pawn_key(position_t *pos);
 uint64_t generate_white_non_pawn_key(position_t *pos);
 uint64_t generate_black_non_pawn_key(position_t *pos);
 
-void update_corrhist(thread_t *thread, int16_t static_eval, int16_t score,
+void update_corrhist(thread_t *thread, searchstack_t *ss, int16_t static_eval, int16_t score,
                      uint8_t depth);
-int16_t adjust_static_eval(thread_t *thread, int16_t static_eval);
-int16_t correction_value(thread_t *thread);
+int16_t adjust_static_eval(thread_t *thread, searchstack_t *ss, int16_t static_eval);
+int16_t correction_value(thread_t *thread, searchstack_t *ss);
 
 static inline int16_t get_conthist_score(thread_t *thread, searchstack_t *ss,
                                          int move, uint8_t ply) {
@@ -23,6 +23,7 @@ static inline int16_t get_conthist_score(thread_t *thread, searchstack_t *ss,
     return 0;
   }
 }
+
 void update_quiet_history(thread_t *thread, searchstack_t *ss, int move,
                           int bonus);
 void update_capture_history(thread_t *thread, searchstack_t *ss, int move,

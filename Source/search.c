@@ -550,7 +550,7 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
     if (tt_hit && tt_static_eval != NO_SCORE) {
       raw_static_eval = tt_static_eval;
       ss->static_eval = best_score =
-          adjust_static_eval(thread, raw_static_eval);
+          adjust_static_eval(thread, ss, raw_static_eval);
 
       if (tt_score != NO_SCORE && ((tt_flag == HASH_FLAG_EXACT) ||
                                    ((tt_flag == HASH_FLAG_UPPER_BOUND) &&
@@ -562,7 +562,7 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
     } else {
       raw_static_eval = evaluate(thread, pos, &thread->accumulator[ply]);
       ss->static_eval = best_score =
-          adjust_static_eval(thread, raw_static_eval);
+          adjust_static_eval(thread, ss, raw_static_eval);
     }
 
     // fail-hard beta cutoff
@@ -815,7 +815,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     raw_static_eval = tt_static_eval != NO_SCORE
                           ? tt_static_eval
                           : evaluate(thread, pos, &thread->accumulator[ply]);
-    ss->eval = ss->static_eval = adjust_static_eval(thread, raw_static_eval);
+    ss->eval = ss->static_eval =
+        adjust_static_eval(thread, ss, raw_static_eval);
 
     if (tt_score != NO_SCORE &&
         ((tt_flag == HASH_FLAG_UPPER_BOUND && tt_score < ss->eval) ||
@@ -825,13 +826,14 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     }
   } else {
     raw_static_eval = evaluate(thread, pos, &thread->accumulator[ply]);
-    ss->eval = ss->static_eval = adjust_static_eval(thread, raw_static_eval);
+    ss->eval = ss->static_eval =
+        adjust_static_eval(thread, ss, raw_static_eval);
 
     write_hash_entry(tt_entry, pos, ply, NO_SCORE, raw_static_eval, 0, 0,
                      HASH_FLAG_NONE, ss->tt_pv);
   }
 
-  const int16_t correction = correction_value(thread);
+  const int16_t correction = correction_value(thread, ss);
 
   const uint8_t initial_depth = depth;
   int32_t improvement = 0;
@@ -1416,7 +1418,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       !(get_move_capture(best_move) || is_move_promotion(best_move)) &&
       (bound != HASH_FLAG_LOWER_BOUND || best_score > raw_static_eval) &&
       (bound != HASH_FLAG_UPPER_BOUND || best_score <= raw_static_eval)) {
-    update_corrhist(thread, raw_static_eval, best_score, depth);
+    update_corrhist(thread, ss, raw_static_eval, best_score, depth);
   }
 
   // node (position) fails low

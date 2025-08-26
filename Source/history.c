@@ -14,6 +14,7 @@ TUNABLE(int CORR_HISTORY_MINMAX = 357);
 
 TUNABLE(int PAWN_CORR_HISTORY_MULTIPLIER = 3072);
 TUNABLE(int NON_PAWN_CORR_HISTORY_MULTIPLIER = 1820);
+TUNABLE(int CONTINUATION_CORR_HISTORY_MULTIPLIER = 1024);
 
 TUNABLE(int FIFTY_MOVE_SCALING = 214);
 TUNABLE(int CORR_HISTORY_BONUS_SCALER = 134);
@@ -140,7 +141,7 @@ uint8_t static_eval_within_bounds(int16_t static_eval, int16_t score,
          !(failed_low && static_eval < score);
 }
 
-int16_t adjust_static_eval(thread_t *thread, int16_t static_eval) {
+int16_t adjust_static_eval(thread_t *thread, searchstack_t *ss, int16_t static_eval) {
   position_t *pos = &thread->positions[thread->ply];
   const float fifty_move_scaler =
       (float)((FIFTY_MOVE_SCALING - (float)pos->fifty) / FIFTY_MOVE_SCALING);
@@ -158,14 +159,20 @@ int16_t adjust_static_eval(thread_t *thread, int16_t static_eval) {
                                            [pos->hash_keys.non_pawn_key[black] &
                                             16383] *
       NON_PAWN_CORR_HISTORY_MULTIPLIER;
-  const int correction =
-      pawn_correction + white_non_pawn_correction + black_non_pawn_correction;
-
+  int contcorr_correction = 0;
+  if ((ss-1)->move && (ss - 2)->move) {
+    contcorr_correction =
+        thread->contcorr_history[(ss-1)->piece][get_move_target(
+            (ss-1)->move)][(ss - 2)->piece][get_move_target((ss - 2)->move)] *
+        CONTINUATION_CORR_HISTORY_MULTIPLIER;
+  }
+  const int correction = pawn_correction + white_non_pawn_correction +
+                         black_non_pawn_correction + contcorr_correction;
   const int adjusted_score = static_eval + (correction / 65536);
   return clamp(adjusted_score, -MATE_SCORE + 1, MATE_SCORE - 1);
 }
 
-int16_t correction_value(thread_t *thread) {
+int16_t correction_value(thread_t *thread, searchstack_t *ss) {
   position_t *pos = &thread->positions[thread->ply];
   const int pawn_correction =
       thread->correction_history[pos->side][pos->hash_keys.pawn_key & 16383] *
@@ -180,13 +187,18 @@ int16_t correction_value(thread_t *thread) {
                                            [pos->hash_keys.non_pawn_key[black] &
                                             16383] *
       NON_PAWN_CORR_HISTORY_MULTIPLIER;
+  int contcorr_correction = 0;
+  if ((ss - 1)->move && (ss - 2)->move) {
+    contcorr_correction =
+        thread->contcorr_history[(ss - 1)->piece][get_move_target((ss - 1)->move)]
+                                [(ss - 2)->piece][get_move_target((ss - 2)->move)] * CONTINUATION_CORR_HISTORY_MULTIPLIER;
+  }
   const int correction =
-      pawn_correction + white_non_pawn_correction + black_non_pawn_correction;
-      
-  return correction / 65536;
+      pawn_correction + white_non_pawn_correction + black_non_pawn_correction + contcorr_correction;
+  return correction / 65535;
 }
 
-void update_corrhist(thread_t *thread, int16_t static_eval, int16_t score,
+void update_corrhist(thread_t *thread, searchstack_t *ss, int16_t static_eval, int16_t score,
                      uint8_t depth) {
   position_t *pos = &thread->positions[thread->ply];
   int16_t bonus = calculate_corrhist_bonus(static_eval, score, depth);
@@ -212,6 +224,12 @@ void update_corrhist(thread_t *thread, int16_t static_eval, int16_t score,
           thread->b_non_pawn_correction_history
               [pos->side][pos->hash_keys.non_pawn_key[black] & 16383],
           bonus);
+  if ((ss - 1)->move && (ss - 2)->move) {
+    thread->contcorr_history[(ss - 1)->piece][get_move_target((ss - 1)->move)]
+                                [(ss - 2)->piece][get_move_target((ss - 2)->move)] +=
+        scale_corrhist_bonus(thread->contcorr_history[(ss - 1)->piece][get_move_target((ss - 1)->move)]
+                                [(ss - 2)->piece][get_move_target((ss - 2)->move)], bonus);
+}
 }
 
 void update_quiet_history(thread_t *thread, searchstack_t *ss, int move,
