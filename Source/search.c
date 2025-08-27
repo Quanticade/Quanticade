@@ -759,11 +759,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
     if (depth <= RAZOR_DEPTH &&
         ss->static_eval + RAZOR_MARGIN * depth < alpha) {
-      const int16_t razor_score =
-          quiescence(pos, thread, ss, alpha, beta, NON_PV);
-      if (razor_score <= alpha) {
-        return razor_score;
-      }
+          return quiescence(pos, thread, ss, alpha, beta, NON_PV);
     }
   }
 
