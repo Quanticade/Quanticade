@@ -34,7 +34,7 @@ extern keys_t keys;
 int RAZOR_DEPTH = 7;
 int RFP_DEPTH = 7;
 int FP_DEPTH = 10;
-int NMP_BASE_REDUCTION = 4;
+int NMP_BASE_REDUCTION = 5;
 int NMP_DIVISER = 3;
 int NMP_RED_MIN = 3;
 int IIR_DEPTH = 4;
