@@ -686,8 +686,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       ++depth;
     }
 
-    if (depth >= 2 && (ss - 1)->reduction >= 2048 && (ss - 1)->eval != NO_SCORE &&
-        ss->static_eval + (ss - 1)->eval > 96) {
+    if (depth >= 2 && (ss - 1)->reduction >= 2048 &&
+        (ss - 1)->eval != NO_SCORE && ss->static_eval + (ss - 1)->eval > 96) {
       --depth;
     }
 
@@ -771,7 +771,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     }
 
     if (depth <= RAZOR_DEPTH &&
-        ss->static_eval + RAZOR_MARGIN * initial_depth < alpha) {
+        ss->static_eval + RAZOR_MARGIN * depth < alpha) {
       const int16_t razor_score =
           quiescence(pos, thread, ss, alpha, beta, NON_PV);
       if (razor_score <= alpha) {
@@ -998,8 +998,10 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       }
       // Full Depth Search
     } else if (!pv_node || moves_seen > 1) {
+      ss->reduction = 1024 * (initial_depth - 1 - new_depth);
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                new_depth, !cutnode, NON_PV);
+      ss->reduction = 0;
     }
 
     // Principal Variation Search
