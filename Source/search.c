@@ -661,6 +661,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     }
   }
 
+  uint8_t initial_depth = depth;
   uint8_t improving = 0;
   uint8_t opponent_worsening = 0;
 
@@ -770,7 +771,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     }
 
     if (depth <= RAZOR_DEPTH &&
-        ss->static_eval + RAZOR_MARGIN * depth < alpha) {
+        ss->static_eval + RAZOR_MARGIN * initial_depth < alpha) {
       const int16_t razor_score =
           quiescence(pos, thread, ss, alpha, beta, NON_PV);
       if (razor_score <= alpha) {
