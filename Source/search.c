@@ -675,9 +675,15 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   uint16_t moves_seen = 0;
 
   if (!pv_node && !in_check && !ss->excluded_move) {
-    if ((ss - 1)->reduction >= 3 && !opponent_worsening) {
+    if ((ss - 1)->reduction >= 3072 && !opponent_worsening) {
       ++depth;
     }
+
+    if (depth >= 2 && (ss - 1)->reduction >= 2048 && (ss - 1)->eval != NO_SCORE &&
+        ss->static_eval + (ss - 1)->eval > 96) {
+      --depth;
+    }
+
     // Reverse Futility Pruning
     if (!ss->tt_pv && depth <= RFP_DEPTH &&
         ss->eval >= beta + RFP_BASE_MARGIN + RFP_MARGIN * depth -
@@ -963,10 +969,12 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       R += (ss->tt_pv && tt_hit && tt_score <= alpha) * LMR_TT_SCORE;
       R -= (ss->tt_pv && cutnode) * LMR_TT_PV_CUTNODE;
       R -= stm_in_check(pos) * LMR_IN_CHECK;
+
+      ss->reduction = R;
+
       R = R / 1024;
       int reduced_depth = MAX(1, MIN(new_depth - R, new_depth));
 
-      ss->reduction = R;
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                reduced_depth, 1, NON_PV);
       ss->reduction = 0;
