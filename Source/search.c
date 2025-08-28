@@ -1089,6 +1089,11 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     }
   }
 
+  if (best_score >= beta && abs(best_score) < MATE_SCORE &&
+      abs(beta) < MATE_SCORE) {
+    best_score = (best_score * depth + beta) / (depth + 1);
+  }
+
   // node (position) fails low
   return best_score;
 }
