@@ -147,7 +147,7 @@ void init_reductions(void) {
 }
 
 void scale_time(thread_t *thread, uint8_t best_move_stability,
-                uint8_t eval_stability, uint16_t move) {
+                uint8_t eval_stability, int multiplier, uint16_t move) {
   double not_bm_nodes_fraction =
       1 - (double)nodes_spent_table[move >> 4] / (double)thread->nodes;
   double node_scaling_factor =
@@ -156,7 +156,7 @@ void scale_time(thread_t *thread, uint8_t best_move_stability,
   limits.soft_limit =
       MIN(thread->starttime +
               limits.base_soft * bestmove_scale[best_move_stability] *
-                  eval_scale[eval_stability] * node_scaling_factor,
+                  eval_scale[eval_stability] * node_scaling_factor * multiplier,
           limits.max_time + thread->starttime);
 }
 
@@ -685,8 +685,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       ++depth;
     }
 
-    if (depth >= 2 && (ss - 1)->reduction >= 2048 && (ss - 1)->eval != NO_SCORE &&
-        ss->static_eval + (ss - 1)->eval > 96) {
+    if (depth >= 2 && (ss - 1)->reduction >= 2048 &&
+        (ss - 1)->eval != NO_SCORE && ss->static_eval + (ss - 1)->eval > 96) {
       --depth;
     }
 
@@ -1255,9 +1255,12 @@ void *iterative_deepening(void *thread_void) {
         eval_stability = 0;
       }
 
+      int score_multiplier =
+          (800 + 20 * (thread->prev_best_score - thread->score));
+
       if (limits.timeset && thread->depth > 7) {
         scale_time(thread, best_move_stability, eval_stability,
-                   thread->pv.pv_table[0][0]);
+                   score_multiplier, thread->pv.pv_table[0][0]);
       }
     }
 
@@ -1274,6 +1277,8 @@ void *iterative_deepening(void *thread_void) {
         print_thinking(thread, thread->score, thread->depth);
       }
     }
+
+    thread->prev_best_score = thread->score;
 
     if (thread->stopped) {
       return NULL;
