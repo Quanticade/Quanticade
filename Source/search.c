@@ -1139,7 +1139,7 @@ static void print_thinking(thread_t *thread, int16_t score,
 
 static inline uint8_t aspiration_windows(thread_t *thread, position_t *pos,
                                          searchstack_t *ss, int16_t alpha,
-                                         int16_t beta) {
+                                         int16_t beta, int16_t average) {
   uint16_t window = ASP_WINDOW;
 
   uint8_t fail_high_count = 0;
@@ -1156,10 +1156,10 @@ static inline uint8_t aspiration_windows(thread_t *thread, position_t *pos,
     }
 
     if (thread->depth >= ASP_DEPTH) {
-      window += thread->score * thread->score / ASP_WINDOW_DIVISER;
+      window += average * average / ASP_WINDOW_DIVISER;
 
-      alpha = MAX(-INF, thread->score - window);
-      beta = MIN(INF, thread->score + window);
+      alpha = MAX(-INF, average - window);
+      beta = MIN(INF, average + window);
     }
 
     // find best move within a given position
@@ -1232,7 +1232,7 @@ void *iterative_deepening(void *thread_void) {
 
     thread->seldepth = 0;
 
-    if (aspiration_windows(thread, pos, ss, alpha, beta)) {
+    if (aspiration_windows(thread, pos, ss, alpha, beta, average_score)) {
       return NULL;
     }
 
