@@ -43,7 +43,7 @@ int ASP_DEPTH = 4;
 int SE_DEPTH = 6;
 
 // SPSA Tuned params
-int RAZOR_MARGIN = 265;
+int RAZOR_MARGIN = 200;
 int RFP_MARGIN = 56;
 int RFP_BASE_MARGIN = 25;
 int RFP_IMPROVING = 59;
@@ -769,8 +769,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
         return current_score;
     }
 
-    if (depth <= RAZOR_DEPTH &&
-        ss->static_eval + RAZOR_MARGIN * depth < alpha) {
+    if (ss->static_eval + 300 + RAZOR_MARGIN * depth * depth < alpha) {
       const int16_t razor_score =
           quiescence(pos, thread, ss, alpha, beta, NON_PV);
       if (razor_score <= alpha) {
