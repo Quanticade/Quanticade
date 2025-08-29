@@ -163,7 +163,7 @@ void scale_time(thread_t *thread, uint8_t best_move_stability,
 uint8_t check_time(thread_t *thread) {
   // if time is up break here
   if (thread->index == 0 &&
-      ((limits.timeset && get_time_ms() > limits.hard_limit) ||
+      ((limits.timeset && thread->nodes % 4096 && get_time_ms() > limits.hard_limit) ||
        (limits.nodes_set && thread->nodes >= limits.node_limit))) {
     // tell engine to stop calculating
     thread->stopped = 1;
