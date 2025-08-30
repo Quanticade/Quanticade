@@ -637,6 +637,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     depth--;
   }
 
+  int16_t correction = 0;
+
   if (in_check) {
     static_eval = ss->static_eval = NO_SCORE;
   } else if (!ss->excluded_move) {
@@ -659,9 +661,9 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     } else {
       ss->eval = ss->static_eval;
     }
+    correction = correction_value(thread, pos);
   }
 
-  int16_t correction = correction_value(thread, pos);
   (void)correction;
 
   uint8_t initial_depth = depth;
@@ -980,6 +982,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       R += (ss->tt_pv && tt_hit && tt_score <= alpha) * LMR_TT_SCORE;
       R -= (ss->tt_pv && cutnode) * LMR_TT_PV_CUTNODE;
       R -= stm_in_check(pos) * LMR_IN_CHECK;
+      R -= (abs(correction) > 25) * 1024;
 
       ss->reduction = R;
 
