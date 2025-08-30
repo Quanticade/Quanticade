@@ -693,93 +693,93 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   // moves seen counter
   uint16_t moves_seen = 0;
 
-  if (!pv_node && !in_check && !ss->excluded_move) {
-    // Reverse Futility Pruning
-    if (!ss->tt_pv && depth <= RFP_DEPTH &&
-        ss->eval >= beta + RFP_BASE_MARGIN + RFP_MARGIN * depth -
-                        RFP_IMPROVING * improving -
-                        RFP_OPP_WORSENING * opponent_worsening) {
-      // evaluation margin substracted from static evaluation score
-      return beta + (ss->eval - beta) / 3;
+  // Reverse Futility Pruning
+  if (!pv_node && !in_check && !ss->excluded_move && !ss->tt_pv &&
+      depth <= RFP_DEPTH &&
+      ss->eval >= beta + RFP_BASE_MARGIN + RFP_MARGIN * depth -
+                      RFP_IMPROVING * improving -
+                      RFP_OPP_WORSENING * opponent_worsening) {
+    // evaluation margin substracted from static evaluation score
+    return beta + (ss->eval - beta) / 3;
+  }
+
+  // null move pruning
+  if (!pv_node && !in_check && !ss->excluded_move && !ss->null_move &&
+      ss->eval >= beta &&
+      ss->static_eval >= beta - NMP_MULTIPLIER * depth + NMP_BASE_ADD &&
+      ss->eval >= ss->static_eval && !only_pawns(pos)) {
+    int R = MIN((ss->eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) +
+            depth / NMP_DIVISER + NMP_BASE_REDUCTION;
+    R = MIN(R, depth);
+    // preserve board state
+    position_t pos_copy = *pos;
+
+    thread->accumulator[pos_copy.ply + 1] = thread->accumulator[pos_copy.ply];
+
+    // increment ply
+    pos_copy.ply++;
+
+    // increment repetition index & store hash key
+    thread->repetition_index++;
+    thread->repetition_table[thread->repetition_index] =
+        pos_copy.hash_keys.hash_key;
+
+    // hash enpassant if available
+    if (pos_copy.enpassant != no_sq)
+      pos_copy.hash_keys.hash_key ^= keys.enpassant_keys[pos_copy.enpassant];
+
+    // reset enpassant capture square
+    pos_copy.enpassant = no_sq;
+
+    // switch the side, literally giving opponent an extra move to make
+    pos_copy.side ^= 1;
+
+    // hash the side
+    pos_copy.hash_keys.hash_key ^= keys.side_key;
+
+    prefetch_hash_entry(pos_copy.hash_keys.hash_key);
+
+    ss->move = 0;
+    ss->piece = 0;
+    pos_copy.checkers = 0;
+    pos_copy.checker_count = 0;
+    (ss + 1)->null_move = 1;
+
+    calculate_threats(pos, ss + 1);
+
+    /* search moves with reduced depth to find beta cutoffs
+       depth - 1 - R where R is a reduction limit */
+    current_score = -negamax(&pos_copy, thread, ss + 1, -beta, -beta + 1,
+                             depth - R, !cutnode, NON_PV);
+
+    (ss + 1)->null_move = 0;
+
+    // decrement ply
+    pos_copy.ply--;
+
+    // decrement repetition index
+    thread->repetition_index--;
+
+    // restore board state
+    //*pos = pos_copy;
+
+    // return 0 if time is up
+    if (thread->stopped == 1) {
+      return 0;
     }
 
-    // null move pruning
-    if (!ss->null_move && ss->eval >= beta &&
-        ss->static_eval >= beta - NMP_MULTIPLIER * depth + NMP_BASE_ADD &&
-        ss->eval >= ss->static_eval && !only_pawns(pos)) {
-      int R = MIN((ss->eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) +
-              depth / NMP_DIVISER + NMP_BASE_REDUCTION;
-      R = MIN(R, depth);
-      // preserve board state
-      position_t pos_copy = *pos;
+    // fail-hard beta cutoff
+    if (current_score >= beta)
+      // node (position) fails high
+      return current_score;
+  }
 
-      thread->accumulator[pos_copy.ply + 1] = thread->accumulator[pos_copy.ply];
-
-      // increment ply
-      pos_copy.ply++;
-
-      // increment repetition index & store hash key
-      thread->repetition_index++;
-      thread->repetition_table[thread->repetition_index] =
-          pos_copy.hash_keys.hash_key;
-
-      // hash enpassant if available
-      if (pos_copy.enpassant != no_sq)
-        pos_copy.hash_keys.hash_key ^= keys.enpassant_keys[pos_copy.enpassant];
-
-      // reset enpassant capture square
-      pos_copy.enpassant = no_sq;
-
-      // switch the side, literally giving opponent an extra move to make
-      pos_copy.side ^= 1;
-
-      // hash the side
-      pos_copy.hash_keys.hash_key ^= keys.side_key;
-
-      prefetch_hash_entry(pos_copy.hash_keys.hash_key);
-
-      ss->move = 0;
-      ss->piece = 0;
-      pos_copy.checkers = 0;
-      pos_copy.checker_count = 0;
-      (ss + 1)->null_move = 1;
-
-      calculate_threats(pos, ss + 1);
-
-      /* search moves with reduced depth to find beta cutoffs
-         depth - 1 - R where R is a reduction limit */
-      current_score = -negamax(&pos_copy, thread, ss + 1, -beta, -beta + 1,
-                               depth - R, !cutnode, NON_PV);
-
-      (ss + 1)->null_move = 0;
-
-      // decrement ply
-      pos_copy.ply--;
-
-      // decrement repetition index
-      thread->repetition_index--;
-
-      // restore board state
-      //*pos = pos_copy;
-
-      // return 0 if time is up
-      if (thread->stopped == 1) {
-        return 0;
-      }
-
-      // fail-hard beta cutoff
-      if (current_score >= beta)
-        // node (position) fails high
-        return current_score;
-    }
-
-    if (depth <= RAZOR_DEPTH &&
-        ss->static_eval + RAZOR_MARGIN * depth < alpha) {
-      const int16_t razor_score =
-          quiescence(pos, thread, ss, alpha, beta, NON_PV);
-      if (razor_score <= alpha) {
-        return razor_score;
-      }
+  if (!pv_node && !in_check && !ss->excluded_move && depth <= RAZOR_DEPTH &&
+      ss->static_eval + RAZOR_MARGIN * depth < alpha) {
+    const int16_t razor_score =
+        quiescence(pos, thread, ss, alpha, beta, NON_PV);
+    if (razor_score <= alpha) {
+      return razor_score;
     }
   }
 
@@ -836,7 +836,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
     // Late Move Pruning
     if (!pv_node && quiet &&
-        moves_seen >= LMP_MARGIN[initial_depth][improving || ss->static_eval >= beta] &&
+        moves_seen >=
+            LMP_MARGIN[initial_depth][improving || ss->static_eval >= beta] &&
         !only_pawns(pos)) {
       skip_quiets = 1;
     }
