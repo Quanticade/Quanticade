@@ -704,7 +704,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   }
 
   // null move pruning
-  if (!pv_node && !in_check && !ss->excluded_move && !ss->null_move &&
+  if (cutnode && !in_check && !ss->excluded_move && !ss->null_move &&
       ss->eval >= beta &&
       ss->static_eval >= beta - NMP_MULTIPLIER * depth + NMP_BASE_ADD &&
       ss->eval >= ss->static_eval && !only_pawns(pos)) {
@@ -750,7 +750,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     /* search moves with reduced depth to find beta cutoffs
        depth - 1 - R where R is a reduction limit */
     current_score = -negamax(&pos_copy, thread, ss + 1, -beta, -beta + 1,
-                             depth - R, !cutnode, NON_PV);
+                             depth - R, 0, NON_PV);
 
     (ss + 1)->null_move = 0;
 
