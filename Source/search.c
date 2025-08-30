@@ -675,6 +675,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     opponent_worsening = ss->static_eval + (ss - 1)->static_eval > 1;
   }
 
+  (ss + 2)->cutoff_cnt = 0;
+
   // Check on time
   if (check_time(thread)) {
     stop_threads(thread, thread_count);
@@ -980,6 +982,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       R += (ss->tt_pv && tt_hit && tt_score <= alpha) * LMR_TT_SCORE;
       R -= (ss->tt_pv && cutnode) * LMR_TT_PV_CUTNODE;
       R -= stm_in_check(pos) * LMR_IN_CHECK;
+      R += (ss->cutoff_cnt > 3) * 1024;
 
       ss->reduction = R;
 
@@ -1063,6 +1066,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
           update_capture_history_moves(thread, pos, capture_list, best_move,
                                        depth);
+          ss->cutoff_cnt++;
           break;
         }
       }
@@ -1231,6 +1235,7 @@ void *iterative_deepening(void *thread_void) {
       ss[i].null_move = 0;
       ss[i].reduction = 0;
       ss[i].tt_pv = 0;
+      ss[i].cutoff_cnt = 0;
     }
 
     calculate_threats(pos, ss + 7);
