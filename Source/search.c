@@ -980,6 +980,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       R += (ss->tt_pv && tt_hit && tt_score <= alpha) * LMR_TT_SCORE;
       R -= (ss->tt_pv && cutnode) * LMR_TT_PV_CUTNODE;
       R -= stm_in_check(pos) * LMR_IN_CHECK;
+      R -= 1024 * improving;
 
       ss->reduction = R;
 
