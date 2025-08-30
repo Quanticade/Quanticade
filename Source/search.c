@@ -44,7 +44,7 @@ int SE_DEPTH = 6;
 
 // SPSA Tuned params
 int RAZOR_MARGIN = 265;
-int RFP_MARGIN = 56;
+int RFP_MARGIN = 20;
 int RFP_BASE_MARGIN = 25;
 int RFP_IMPROVING = 59;
 int RFP_OPP_WORSENING = 13;
@@ -692,10 +692,10 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
   if (!pv_node && !in_check && !ss->excluded_move) {
     // Reverse Futility Pruning
-    if (!ss->tt_pv && depth <= RFP_DEPTH &&
-        ss->eval >= beta + RFP_BASE_MARGIN + RFP_MARGIN * depth -
-                        RFP_IMPROVING * improving -
-                        RFP_OPP_WORSENING * opponent_worsening) {
+    if (!ss->tt_pv && ss->eval >= beta + RFP_BASE_MARGIN + 10 * depth * depth +
+                                      RFP_MARGIN * depth -
+                                      RFP_IMPROVING * improving -
+                                      RFP_OPP_WORSENING * opponent_worsening) {
       // evaluation margin substracted from static evaluation score
       return beta + (ss->eval - beta) / 3;
     }
@@ -833,7 +833,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
     // Late Move Pruning
     if (!pv_node && quiet &&
-        moves_seen >= LMP_MARGIN[initial_depth][improving || ss->static_eval >= beta] &&
+        moves_seen >=
+            LMP_MARGIN[initial_depth][improving || ss->static_eval >= beta] &&
         !only_pawns(pos)) {
       skip_quiets = 1;
     }
