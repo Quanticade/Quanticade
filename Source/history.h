@@ -11,6 +11,7 @@ void update_corrhist(thread_t *thread, position_t *pos, int16_t static_eval,
                      int16_t score, uint8_t depth, uint8_t tt_flag);
 int16_t adjust_static_eval(thread_t *thread, position_t *pos,
                            int16_t static_eval);
+int16_t correction_value(thread_t *thread, position_t *pos);
 void update_capture_history_moves(thread_t *thread, position_t *pos,
                                   moves *capture_moves, int best_move,
                                   uint8_t depth);

@@ -661,6 +661,9 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     }
   }
 
+  int16_t correction = correction_value(thread, pos);
+  (void)correction;
+
   uint8_t initial_depth = depth;
   uint8_t improving = 0;
   uint8_t opponent_worsening = 0;
