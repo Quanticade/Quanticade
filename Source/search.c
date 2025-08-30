@@ -698,7 +698,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     if (!ss->tt_pv && depth <= RFP_DEPTH &&
         ss->eval >= beta + RFP_BASE_MARGIN + RFP_MARGIN * depth -
                         RFP_IMPROVING * improving -
-                        RFP_OPP_WORSENING * opponent_worsening) {
+                        RFP_OPP_WORSENING * opponent_worsening +
+                        (500 * abs(correction) / 1024)) {
       // evaluation margin substracted from static evaluation score
       return beta + (ss->eval - beta) / 3;
     }
@@ -836,7 +837,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
     // Late Move Pruning
     if (!pv_node && quiet &&
-        moves_seen >= LMP_MARGIN[initial_depth][improving || ss->static_eval >= beta] &&
+        moves_seen >=
+            LMP_MARGIN[initial_depth][improving || ss->static_eval >= beta] &&
         !only_pawns(pos)) {
       skip_quiets = 1;
     }
