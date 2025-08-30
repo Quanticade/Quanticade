@@ -677,19 +677,19 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     return 0;
   }
 
+  if ((ss - 1)->reduction >= 3072 && !opponent_worsening) {
+    ++depth;
+  }
+
+  if (depth >= 2 && (ss - 1)->reduction >= 2048 && (ss - 1)->eval != NO_SCORE &&
+      ss->static_eval + (ss - 1)->eval > 96) {
+    --depth;
+  }
+
   // moves seen counter
   uint16_t moves_seen = 0;
 
   if (!pv_node && !in_check && !ss->excluded_move) {
-    if ((ss - 1)->reduction >= 3072 && !opponent_worsening) {
-      ++depth;
-    }
-
-    if (depth >= 2 && (ss - 1)->reduction >= 2048 && (ss - 1)->eval != NO_SCORE &&
-        ss->static_eval + (ss - 1)->eval > 96) {
-      --depth;
-    }
-
     // Reverse Futility Pruning
     if (!ss->tt_pv && depth <= RFP_DEPTH &&
         ss->eval >= beta + RFP_BASE_MARGIN + RFP_MARGIN * depth -
