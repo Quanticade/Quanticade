@@ -661,6 +661,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     }
   }
 
+  uint8_t initial_depth = depth;
   uint8_t improving = 0;
   uint8_t opponent_worsening = 0;
 
@@ -832,7 +833,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
     // Late Move Pruning
     if (!pv_node && quiet &&
-        moves_seen >= LMP_MARGIN[depth][improving || ss->static_eval >= beta] &&
+        moves_seen >= LMP_MARGIN[initial_depth][improving || ss->static_eval >= beta] &&
         !only_pawns(pos)) {
       skip_quiets = 1;
     }
