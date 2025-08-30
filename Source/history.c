@@ -36,6 +36,10 @@ int CONT_HISTORY_BASE4_BONUS = 9;
 int CONT_HISTORY_FACTOR4_BONUS = 183;
 int CONT_HISTORY_BASE4_MALUS = 9;
 int CONT_HISTORY_FACTOR4_MALUS = 227;
+int CONT_HISTORY_BASE6_BONUS = 9;
+int CONT_HISTORY_FACTOR6_BONUS = 183;
+int CONT_HISTORY_BASE6_MALUS = 9;
+int CONT_HISTORY_FACTOR6_MALUS = 227;
 
 int PAWN_HISTORY_MALUS_MAX = 1138;
 int PAWN_HISTORY_BONUS_MAX = 1311;
@@ -241,9 +245,8 @@ void update_corrhist(thread_t *thread, position_t *pos, int16_t static_eval,
           bonus);
 }
 
-void update_quiet_history(thread_t *thread, position_t *pos,
-                                        searchstack_t *ss, int move,
-                                        int bonus) {
+void update_quiet_history(thread_t *thread, position_t *pos, searchstack_t *ss,
+                          int move, int bonus) {
   int target = get_move_target(move);
   int source = get_move_source(move);
   const uint8_t cpiece = pos->mailbox[source];
@@ -343,6 +346,12 @@ void update_quiet_histories(thread_t *thread, position_t *pos,
   int cont_malus4 =
       -MIN(CONT_HISTORY_BASE4_MALUS + CONT_HISTORY_FACTOR4_MALUS * depth,
            CONT_HISTORY_MALUS_MAX);
+  int cont_bonus6 =
+      MIN(CONT_HISTORY_BASE6_BONUS + CONT_HISTORY_FACTOR6_BONUS * depth,
+          CONT_HISTORY_BONUS_MAX);
+  int cont_malus6 =
+      -MIN(CONT_HISTORY_BASE6_MALUS + CONT_HISTORY_FACTOR6_MALUS * depth,
+           CONT_HISTORY_MALUS_MAX);
 
   int quiet_bonus =
       MIN(QUIET_HISTORY_BASE_BONUS + QUIET_HISTORY_FACTOR_BONUS * depth,
@@ -363,12 +372,14 @@ void update_quiet_histories(thread_t *thread, position_t *pos,
       update_continuation_history(thread, pos, ss - 1, best_move, cont_bonus);
       update_continuation_history(thread, pos, ss - 2, best_move, cont_bonus2);
       update_continuation_history(thread, pos, ss - 4, best_move, cont_bonus4);
+      update_continuation_history(thread, pos, ss - 6, best_move, cont_bonus6);
       update_pawn_history(thread, pos, best_move, pawn_bonus);
       update_quiet_history(thread, pos, ss, best_move, quiet_bonus);
     } else {
       update_continuation_history(thread, pos, ss - 1, move, cont_malus);
       update_continuation_history(thread, pos, ss - 2, move, cont_malus2);
       update_continuation_history(thread, pos, ss - 4, move, cont_malus4);
+      update_continuation_history(thread, pos, ss - 6, move, cont_malus6);
       update_pawn_history(thread, pos, move, pawn_malus);
       update_quiet_history(thread, pos, ss, move, quiet_malus);
     }
