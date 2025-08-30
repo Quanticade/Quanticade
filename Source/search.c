@@ -1168,7 +1168,7 @@ static inline uint8_t aspiration_windows(thread_t *thread, position_t *pos,
     }
 
     // find best move within a given position
-    thread->score = negamax(pos, thread, ss + 4, alpha, beta,
+    thread->score = negamax(pos, thread, ss + 7, alpha, beta,
                             thread->depth - fail_high_count, 0, PV_NODE);
 
     // We hit an apspiration window cut-off before time ran out and we jumped
@@ -1233,7 +1233,7 @@ void *iterative_deepening(void *thread_void) {
       ss[i].tt_pv = 0;
     }
 
-    calculate_threats(pos, ss + 4);
+    calculate_threats(pos, ss + 7);
 
     thread->seldepth = 0;
 
