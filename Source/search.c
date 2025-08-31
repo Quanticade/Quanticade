@@ -258,26 +258,51 @@ static inline void score_move(position_t *pos, thread_t *thread,
   return;
 }
 
-static inline move_t pick_next_best_move(moves *move_list, uint16_t *index) {
-  if (*index >= move_list->count)
-    return (move_t){0}; // Return dummy if we're out of bounds
-
-  uint16_t best = *index;
-
-  for (uint16_t i = *index + 1; i < move_list->count; ++i) {
-    if (move_list->entry[i].score > move_list->entry[best].score)
-      best = i;
+static inline uint16_t pick_next_best_move(thread_t *thread, position_t *pos,
+                                           searchstack_t *ss, moves *move_list,
+                                           uint16_t *index, uint16_t tt_move,
+                                           uint8_t tactical_only) {
+  switch (thread->stage) {
+  case 0: {
+    if (tactical_only) {
+      generate_noisy(pos, move_list);
+    } else {
+      generate_moves(pos, move_list);
+    }
+    thread->stage++;
+    __attribute__((fallthrough));
   }
-
-  // Swap best with current index
-  if (best != *index) {
-    move_t temp = move_list->entry[*index];
-    move_list->entry[*index] = move_list->entry[best];
-    move_list->entry[best] = temp;
+  case 1: {
+    for (uint32_t count = 0; count < move_list->count; count++) {
+      score_move(pos, thread, ss, &move_list->entry[count], tt_move);
+    }
+    thread->stage++;
+    __attribute__((fallthrough));
   }
+  case 2: {
+    if (*index >= move_list->count)
+      return 0; // Return dummy if we're out of bounds
 
-  // Return and increment index for next call
-  return move_list->entry[(*index)++];
+    uint16_t best = *index;
+
+    for (uint16_t i = *index + 1; i < move_list->count; ++i) {
+      if (move_list->entry[i].score > move_list->entry[best].score)
+        best = i;
+    }
+
+    // Swap best with current index
+    if (best != *index) {
+      move_t temp = move_list->entry[*index];
+      move_list->entry[*index] = move_list->entry[best];
+      move_list->entry[best] = temp;
+    }
+
+    // Return and increment index for next call
+    return move_list->entry[(*index)++].move;
+  }
+  default:
+    return 0;
+  }
 }
 
 // position repetition detection
@@ -300,9 +325,9 @@ static inline uint8_t is_material_draw(position_t *pos) {
   if (piece_count == 2) {
     return 1;
   }
-  // Initialize knight and bishop count only after we check that piece count is
-  // higher then 2 as there cannot be a knight or bishop with 2 pieces on the
-  // board
+  // Initialize knight and bishop count only after we check that piece count
+  // is higher then 2 as there cannot be a knight or bishop with 2 pieces on
+  // the board
   uint8_t knight_count =
       __builtin_popcountll(pos->bitboards[n] | pos->bitboards[N]);
   // KN v K || KB v K
@@ -419,17 +444,6 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   moves capture_list[1];
   capture_list->count = 0;
 
-  // generate moves
-  if (!in_check) {
-    generate_noisy(pos, move_list);
-  } else {
-    generate_moves(pos, move_list);
-  }
-
-  for (uint32_t count = 0; count < move_list->count; count++) {
-    score_move(pos, thread, ss, &move_list->entry[count], tt_move);
-  }
-
   uint16_t move_index = 0;
 
   uint16_t previous_square = 0;
@@ -440,11 +454,14 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     previous_square = get_move_target((ss - 1)->move);
   }
 
+  uint16_t move = 0;
+
+  thread->stage = 0;
+
   // loop over moves within a movelist
 
-  while (move_index < move_list->count) {
-    uint16_t move = pick_next_best_move(move_list, &move_index).move;
-
+  while ((move = pick_next_best_move(thread, pos, ss, move_list, &move_index,
+                                     tt_move, !in_check)) != 0) {
     if (!SEE(pos, move, -QS_SEE_THRESHOLD))
       continue;
 
@@ -618,8 +635,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     tt_move = tt_entry->move;
   }
 
-  // If we arent in excluded move or PV node and we hit requirements for cutoff
-  // we can return early from search
+  // If we arent in excluded move or PV node and we hit requirements for
+  // cutoff we can return early from search
   if (!ss->excluded_move && !pv_node && tt_depth >= depth &&
       can_use_score(alpha, beta, tt_score, tt_flag)) {
     if (tt_move != 0 &&
@@ -792,26 +809,22 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   quiet_list->count = 0;
   capture_list->count = 0;
 
-  // generate moves
-  generate_moves(pos, move_list);
-
   int16_t best_score = NO_SCORE;
   current_score = NO_SCORE;
 
   uint16_t best_move = 0;
-  for (uint32_t count = 0; count < move_list->count; count++) {
-    score_move(pos, thread, ss, &move_list->entry[count], tt_move);
-  }
 
   uint8_t skip_quiets = 0;
 
   const int16_t original_alpha = alpha;
 
   uint16_t move_index = 0;
+  uint16_t move = 0;
+  thread->stage = 0;
 
   // loop over moves within a movelist
-  while (move_index < move_list->count) {
-    uint16_t move = pick_next_best_move(move_list, &move_index).move;
+  while ((move = pick_next_best_move(thread, pos, ss, move_list, &move_index,
+                                     tt_move, 0)) != 0) {
     uint8_t quiet =
         (get_move_capture(move) == 0 && is_move_promotion(move) == 0);
 
@@ -903,8 +916,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       }
 
       // Multicut: Singular search failed high so if singular beta beats our
-      // beta we can assume the main search will also fail high and thus we can
-      // just cutoff here
+      // beta we can assume the main search will also fail high and thus we
+      // can just cutoff here
       else if (s_beta >= beta) {
         return s_beta;
       }

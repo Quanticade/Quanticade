@@ -121,6 +121,7 @@ typedef struct searchinfo {
   uint8_t seldepth;
   uint8_t stopped;
   uint8_t quit;
+  uint8_t stage;
 } thread_t;
 
 typedef struct threats {
