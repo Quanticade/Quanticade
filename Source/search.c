@@ -1070,6 +1070,10 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
           ss->cutoff_cnt++;
           break;
         }
+
+        if (depth > 2 && depth < 16 && abs(current_score) < MATE_SCORE) {
+          depth -= 1;
+        }
       }
     }
   }
