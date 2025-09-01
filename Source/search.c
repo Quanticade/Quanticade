@@ -1150,9 +1150,9 @@ static void print_thinking(thread_t *thread, int16_t score,
 static inline uint8_t aspiration_windows(thread_t *thread, position_t *pos,
                                          searchstack_t *ss, int16_t alpha,
                                          int16_t beta) {
-  uint16_t window = ASP_WINDOW;
+  uint16_t delta = ASP_WINDOW;
 
-  uint8_t fail_high_count = 0;
+  uint8_t reduction = 0;
 
   while (true) {
 
@@ -1166,15 +1166,14 @@ static inline uint8_t aspiration_windows(thread_t *thread, position_t *pos,
     }
 
     if (thread->depth >= ASP_DEPTH) {
-      window += thread->score * thread->score / ASP_WINDOW_DIVISER;
-
-      alpha = MAX(-INF, thread->score - window);
-      beta = MIN(INF, thread->score + window);
+      delta += thread->score * thread->score / ASP_WINDOW_DIVISER;
+      alpha = MAX(-INF, thread->score - delta);
+      beta = MIN(INF, thread->score + delta);
     }
 
     // find best move within a given position
     thread->score = negamax(pos, thread, ss + 7, alpha, beta,
-                            thread->depth - fail_high_count, 0, PV_NODE);
+                            thread->depth - reduction, 0, PV_NODE);
 
     // We hit an apspiration window cut-off before time ran out and we jumped
     // to another depth with wider search which we didnt finish
@@ -1184,22 +1183,18 @@ static inline uint8_t aspiration_windows(thread_t *thread, position_t *pos,
 
     if (thread->score <= alpha) {
       beta = (alpha + beta) / 2;
-
-      alpha = MAX(-INF, alpha - window);
-      fail_high_count = 0;
+      alpha = MAX(-INF, alpha - delta);
+      reduction = 0;
     }
 
     else if (thread->score >= beta) {
-      beta = MIN(INF, beta + window);
-
-      if (alpha < 2000) {
-        ++fail_high_count;
-      }
+      beta = MIN(INF, beta + delta);
+      ++reduction;
     } else {
       break;
     }
 
-    window += ASP_WINDOW_MULTIPLIER * window / 1024;
+    delta += delta * (38 + 15 * reduction) / 128;
   }
   return 0;
 }
