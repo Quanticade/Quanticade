@@ -362,12 +362,14 @@ void update_quiet_histories(thread_t *thread, position_t *pos,
     if (move == best_move) {
       update_continuation_history(thread, pos, ss - 1, best_move, cont_bonus);
       update_continuation_history(thread, pos, ss - 2, best_move, cont_bonus2);
+      update_continuation_history(thread, pos, ss - 3, best_move, cont_bonus2);
       update_continuation_history(thread, pos, ss - 4, best_move, cont_bonus4);
       update_pawn_history(thread, pos, best_move, pawn_bonus);
       update_quiet_history(thread, pos, ss, best_move, quiet_bonus);
     } else {
       update_continuation_history(thread, pos, ss - 1, move, cont_malus);
       update_continuation_history(thread, pos, ss - 2, move, cont_malus2);
+      update_continuation_history(thread, pos, ss - 3, move, cont_malus2);
       update_continuation_history(thread, pos, ss - 4, move, cont_malus4);
       update_pawn_history(thread, pos, move, pawn_malus);
       update_quiet_history(thread, pos, ss, move, quiet_malus);
