@@ -707,7 +707,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
   // null move pruning
   if (!pv_node && !in_check && !ss->excluded_move && !ss->null_move &&
-      ss->eval >= beta &&
+      pos->ply > thread->nmp_min_ply && ss->eval >= beta &&
       ss->static_eval >= beta - NMP_MULTIPLIER * depth + NMP_BASE_ADD &&
       ss->eval >= ss->static_eval && !only_pawns(pos)) {
     int R = MIN((ss->eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) +
@@ -771,9 +771,21 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     }
 
     // fail-hard beta cutoff
-    if (current_score >= beta)
-      // node (position) fails high
-      return current_score;
+    if (current_score >= beta) {
+      if (thread->nmp_min_ply != 0 || depth <= 14) {
+        return current_score >= MATE_SCORE ? beta : current_score;
+      }
+      thread->nmp_min_ply = pos->ply + 3 * (depth - R) / 4;
+
+      const int16_t verification_score =
+          negamax(pos, thread, ss, beta - 1, beta, depth - R, 0, 0);
+
+      thread->nmp_min_ply = 0;
+
+      if (verification_score >= beta) {
+        return verification_score;
+      }
+    }
   }
 
   if (!pv_node && !in_check && !ss->excluded_move && depth <= RAZOR_DEPTH &&
