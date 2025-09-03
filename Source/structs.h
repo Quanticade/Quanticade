@@ -107,6 +107,7 @@ typedef struct searchinfo {
   position_t pos;
   uint64_t repetition_table[2000];
   uint32_t repetition_index;
+  uint32_t nmp_min_ply;
   PV_t pv;
   uint16_t index;
   int16_t score;
