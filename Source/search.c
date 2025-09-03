@@ -30,6 +30,10 @@ extern int thread_count;
 
 extern keys_t keys;
 
+extern int QUIET_HISTORY_MAX_TT;
+extern int QUIET_HISTORY_TT_FACTOR;
+extern int QUIET_HISTORY_TT_BASE;
+
 // Depths and untunable values (SPSA poison)
 int RAZOR_DEPTH = 7;
 int RFP_DEPTH = 7;
@@ -71,6 +75,8 @@ int LMR_TT_DEPTH = 1214;
 int LMR_TT_PV = 1100;
 int LMR_TT_PV_CUTNODE = 776;
 int LMR_TT_SCORE = 946;
+int LMR_CUTOFF_CNT = 1024;
+int LMR_IMPROVING = 1024;
 int LMR_DEEPER_MARGIN = 34;
 int LMR_SHALLOWER_MARGIN = 6;
 int LMP_DEPTH_DIVISOR = 3;
@@ -80,8 +86,12 @@ int MO_SEE_THRESHOLD = 123;
 int LMR_QUIET_HIST_DIV = 6408;
 int LMR_CAPT_HIST_DIV = 7292;
 int ASP_WINDOW_DIVISER = 31350;
-int ASP_WINDOW_MULTIPLIER = 475;
+int ASP_WIN_RED_BASE = 38;
+int ASP_WIN_RED_MULT = 15;
 int EVAL_STABILITY_VAR = 9;
+int HINDSIGH_REDUCTION_ADD = 3072;
+int HINDSIGH_REDUCTION_RED = 2048;
+int HINDSIGN_REDUCTION_EVAL_MARGIN = 96;
 double LMR_DEEPER_MULT = 1.8637336462306593f;
 
 double LMP_MARGIN_WORSENING_BASE = 1.4130549930204508;
@@ -625,7 +635,9 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     if (tt_move != 0 &&
         !(is_move_promotion(tt_move) || get_move_capture(tt_move)) &&
         tt_score >= beta) {
-      int16_t bonus = MIN(1270, (133 * depth - 65));
+      int16_t bonus =
+          MIN(QUIET_HISTORY_MAX_TT,
+              (QUIET_HISTORY_TT_FACTOR * depth - QUIET_HISTORY_TT_BASE));
       update_quiet_history(thread, pos, ss, tt_move, bonus);
     }
     return tt_score;
@@ -683,12 +695,13 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     return 0;
   }
 
-  if ((ss - 1)->reduction >= 3072 && !opponent_worsening) {
+  if ((ss - 1)->reduction >= HINDSIGH_REDUCTION_ADD && !opponent_worsening) {
     ++depth;
   }
 
-  if (depth >= 2 && (ss - 1)->reduction >= 2048 && (ss - 1)->eval != NO_SCORE &&
-      ss->static_eval + (ss - 1)->eval > 96) {
+  if (depth >= 2 && (ss - 1)->reduction >= HINDSIGH_REDUCTION_RED &&
+      (ss - 1)->eval != NO_SCORE &&
+      ss->static_eval + (ss - 1)->eval > HINDSIGN_REDUCTION_EVAL_MARGIN) {
     --depth;
   }
 
@@ -994,8 +1007,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       R += (ss->tt_pv && tt_hit && tt_score <= alpha) * LMR_TT_SCORE;
       R -= (ss->tt_pv && cutnode) * LMR_TT_PV_CUTNODE;
       R -= stm_in_check(pos) * LMR_IN_CHECK;
-      R += (ss->cutoff_cnt > 3) * 1024;
-      R -= 1024 * improving;
+      R += (ss->cutoff_cnt > 3) * LMR_CUTOFF_CNT;
+      R -= improving * LMR_IMPROVING;
 
       ss->reduction = R;
 
@@ -1206,7 +1219,7 @@ static inline uint8_t aspiration_windows(thread_t *thread, position_t *pos,
       break;
     }
 
-    delta += delta * (38 + 15 * reduction) / 128;
+    delta += delta * (ASP_WIN_RED_BASE + ASP_WIN_RED_MULT * reduction) / 128;
   }
   return 0;
 }
