@@ -414,6 +414,8 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     alpha = MAX(alpha, best_score);
   }
 
+  const int16_t futility_score = best_score + 100;
+
   // create move list instance
   moves move_list[1];
   moves capture_list[1];
@@ -452,6 +454,12 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
       if (move_index >= 3) {
         continue;
       }
+    }
+
+    if (!in_check && get_move_capture(move) && futility_score <= alpha &&
+        !SEE(pos, move, 1)) {
+      best_score = MAX(best_score, futility_score);
+      continue;
     }
 
     // preserve board state
