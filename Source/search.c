@@ -82,6 +82,7 @@ int LMR_SHALLOWER_MARGIN = 6;
 int LMP_DEPTH_DIVISOR = 3;
 int ASP_WINDOW = 14;
 int QS_SEE_THRESHOLD = 7;
+int QS_FUTILITY_THRESHOLD = 100;
 int MO_SEE_THRESHOLD = 123;
 int LMR_QUIET_HIST_DIV = 6408;
 int LMR_CAPT_HIST_DIV = 7292;
@@ -424,7 +425,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     alpha = MAX(alpha, best_score);
   }
 
-  const int16_t futility_score = best_score + 100;
+  int16_t futility_score = best_score + QS_FUTILITY_THRESHOLD;
 
   // create move list instance
   moves move_list[1];
