@@ -139,6 +139,11 @@ extern double NODE_TIME_MIN;
 
 extern int mvv[];
 extern int SEEPieceValues[];
+extern int EVAL_KNIGHT;
+extern int EVAL_BISHOP;
+extern int EVAL_ROOK;
+extern int EVAL_QUEEN;
+extern int EVAL_SCALE_BASE;
 
 extern double bestmove_scale[5];
 extern double eval_scale[5];
@@ -308,6 +313,11 @@ void init_spsa_table(void) {
   SPSA_INT_NAME("MVV_BISHOP", mvv[BISHOP], 1);
   SPSA_INT_NAME("MVV_ROOK", mvv[ROOK], 1);
   SPSA_INT_NAME("MVV_QUEEN", mvv[QUEEN], 1);
+  SPSA_INT(EVAL_KNIGHT, 1);
+  SPSA_INT(EVAL_BISHOP, 1);
+  SPSA_INT(EVAL_ROOK, 1);
+  SPSA_INT(EVAL_QUEEN, 1);
+  SPSA_INT(EVAL_SCALE_BASE, 1);
 
   add_double_spsa(STRINGIFY(LMP_MARGIN_WORSENING_BASE),
                   &LMP_MARGIN_WORSENING_BASE, 1.0,
