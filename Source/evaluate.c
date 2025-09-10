@@ -8,11 +8,11 @@
 nnue_t nnue_data;
 extern nnue_settings_t nnue_settings;
 
-int EVAL_KNIGHT = 384;
-int EVAL_BISHOP = 384;
-int EVAL_ROOK = 640;
-int EVAL_QUEEN = 1280;
-int EVAL_SCALE_BASE = 25600;
+int EVAL_KNIGHT = 389;
+int EVAL_BISHOP = 374;
+int EVAL_ROOK = 616;
+int EVAL_QUEEN = 1210;
+int EVAL_SCALE_BASE = 25255;
 
 int16_t evaluate(thread_t *thread, position_t *pos,
                  accumulator_t *accumulator) {
