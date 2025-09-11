@@ -244,19 +244,16 @@ void update_corrhist(thread_t *thread, position_t *pos, int16_t static_eval,
           bonus);
 }
 
-void update_quiet_history(thread_t *thread, position_t *pos,
-                                        searchstack_t *ss, int move,
-                                        int bonus) {
+void update_quiet_history(thread_t *thread, position_t *pos, searchstack_t *ss,
+                          int move, int bonus) {
   int target = get_move_target(move);
   int source = get_move_source(move);
-  const uint8_t cpiece = pos->mailbox[source];
-  const uint8_t piece = cpiece > 5 ? cpiece - 6 : cpiece;
-  thread->quiet_history[pos->side][piece][source][target][is_square_threatened(
+  thread->quiet_history[pos->side][source][target][is_square_threatened(
       ss, source)][is_square_threatened(ss, target)] +=
-      bonus - thread->quiet_history[pos->side][piece][source][target]
-                                   [is_square_threatened(ss, source)]
-                                   [is_square_threatened(ss, target)] *
-                  abs(bonus) / HISTORY_MAX;
+      bonus -
+      thread->quiet_history[pos->side][source][target][is_square_threatened(
+          ss, source)][is_square_threatened(ss, target)] *
+          abs(bonus) / HISTORY_MAX;
 }
 
 static inline void update_capture_history(thread_t *thread, position_t *pos,

@@ -252,11 +252,9 @@ static inline void score_move(position_t *pos, thread_t *thread,
   else {
     // score history move
     move_entry->score =
-        thread
-            ->quiet_history[pos->side][pos->mailbox[get_move_source(move)] % 6]
-                           [get_move_source(move)][get_move_target(move)]
-                           [is_square_threatened(ss, get_move_source(move))]
-                           [is_square_threatened(ss, get_move_target(move))] +
+        thread->quiet_history[pos->side][get_move_source(move)][get_move_target(
+            move)][is_square_threatened(ss, get_move_source(move))]
+                             [is_square_threatened(ss, get_move_target(move))] +
         get_conthist_score(thread, pos, ss - 1, move) +
         get_conthist_score(thread, pos, ss - 2, move) +
         get_conthist_score(thread, pos, ss - 4, move) +
@@ -858,17 +856,17 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     }
 
     ss->history_score =
-        quiet ? thread->quiet_history
-                        [pos->side][pos->mailbox[get_move_source(move)] % 6]
-                        [get_move_source(move)][get_move_target(move)]
-                        [is_square_threatened(ss, get_move_source(move))]
-                        [is_square_threatened(ss, get_move_target(move))] +
-                    get_conthist_score(thread, pos, ss - 1, move) +
-                    get_conthist_score(thread, pos, ss - 2, move)
-              : thread->capture_history[pos->mailbox[get_move_source(move)]]
-                                       [pos->mailbox[get_move_target(move)]]
-                                       [get_move_source(move)]
-                                       [get_move_target(move)];
+        quiet
+            ? thread->quiet_history
+                      [pos->side][get_move_source(move)][get_move_target(move)]
+                      [is_square_threatened(ss, get_move_source(move))]
+                      [is_square_threatened(ss, get_move_target(move))] +
+                  get_conthist_score(thread, pos, ss - 1, move) +
+                  get_conthist_score(thread, pos, ss - 2, move)
+            : thread->capture_history[pos->mailbox[get_move_source(move)]]
+                                     [pos->mailbox[get_move_target(move)]]
+                                     [get_move_source(move)]
+                                     [get_move_target(move)];
 
     // Late Move Pruning
     if (!pv_node && quiet &&
