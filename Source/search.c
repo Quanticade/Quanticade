@@ -1020,7 +1020,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       ss->reduction = R;
 
       R = R / 1024;
-      int reduced_depth = MAX(1, MIN(new_depth - R, new_depth)) + pv_node;
+      int reduced_depth = MAX(1, MIN(new_depth - R, new_depth + pv_node)) + pv_node;
 
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                reduced_depth, 1, NON_PV);
