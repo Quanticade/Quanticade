@@ -809,7 +809,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   }
 
   if (!pv_node && !in_check && !ss->excluded_move && depth <= RAZOR_DEPTH &&
-      ss->static_eval + RAZOR_MARGIN * depth < alpha) {
+      ss->static_eval + RAZOR_MARGIN * (depth - !improving) < alpha) {
     const int16_t razor_score =
         quiescence(pos, thread, ss, alpha, beta, NON_PV);
     if (razor_score <= alpha) {
