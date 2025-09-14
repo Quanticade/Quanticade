@@ -894,7 +894,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     if (depth <= SEE_DEPTH && moves_seen > 0 &&
         !SEE(pos, move,
              SEE_MARGIN[depth][quiet] -
-                 ss->history_score / SEE_HISTORY_DIVISOR))
+                 (quiet ? 0 : (ss->history_score / SEE_HISTORY_DIVISOR))))
       continue;
 
     int extensions = 0;
@@ -1020,7 +1020,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       ss->reduction = R;
 
       R = R / 1024;
-      int reduced_depth = MAX(1, MIN(new_depth - R, new_depth + cutnode)) + pv_node;
+      int reduced_depth =
+          MAX(1, MIN(new_depth - R, new_depth + cutnode)) + pv_node;
 
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                reduced_depth, 1, NON_PV);
