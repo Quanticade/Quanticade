@@ -866,7 +866,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
             : thread->capture_history[pos->mailbox[get_move_source(move)]]
                                      [pos->mailbox[get_move_target(move)]]
                                      [get_move_source(move)]
-                                     [get_move_target(move)];
+                                     [get_move_target(move)] + mvv[pos->mailbox[get_move_target(move)] % 6];
 
     // Late Move Pruning
     if (!pv_node && quiet &&
