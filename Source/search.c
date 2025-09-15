@@ -720,7 +720,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       depth <= RFP_DEPTH &&
       ss->eval >= beta + RFP_BASE_MARGIN + RFP_MARGIN * depth -
                       RFP_IMPROVING * improving -
-                      RFP_OPP_WORSENING * opponent_worsening) {
+                      RFP_OPP_WORSENING * opponent_worsening +
+                      (ss - 1)->history_score / 512) {
     // evaluation margin substracted from static evaluation score
     return beta + (ss->eval - beta) / 3;
   }
@@ -1020,7 +1021,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       ss->reduction = R;
 
       R = R / 1024;
-      int reduced_depth = MAX(1, MIN(new_depth - R, new_depth + cutnode)) + pv_node;
+      int reduced_depth =
+          MAX(1, MIN(new_depth - R, new_depth + cutnode)) + pv_node;
 
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                reduced_depth, 1, NON_PV);
