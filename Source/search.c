@@ -87,8 +87,7 @@ int MO_SEE_THRESHOLD = 123;
 int LMR_QUIET_HIST_DIV = 6408;
 int LMR_CAPT_HIST_DIV = 7292;
 int ASP_WINDOW_DIVISER = 31350;
-int ASP_WIN_RED_BASE = 38;
-int ASP_WIN_RED_MULT = 15;
+int ASP_WINDOW_MULTIPLIER = 475;
 int EVAL_STABILITY_VAR = 9;
 int HINDSIGH_REDUCTION_ADD = 3072;
 int HINDSIGH_REDUCTION_RED = 2048;
@@ -1184,9 +1183,9 @@ static void print_thinking(thread_t *thread, int16_t score,
 static inline uint8_t aspiration_windows(thread_t *thread, position_t *pos,
                                          searchstack_t *ss, int16_t alpha,
                                          int16_t beta) {
-  uint16_t delta = ASP_WINDOW;
+  uint16_t window = ASP_WINDOW;
 
-  uint8_t reduction = 0;
+  uint8_t fail_high_count = 0;
 
   while (true) {
 
@@ -1200,14 +1199,15 @@ static inline uint8_t aspiration_windows(thread_t *thread, position_t *pos,
     }
 
     if (thread->depth >= ASP_DEPTH) {
-      delta += thread->score * thread->score / ASP_WINDOW_DIVISER;
-      alpha = MAX(-INF, thread->score - delta);
-      beta = MIN(INF, thread->score + delta);
+      window += thread->score * thread->score / ASP_WINDOW_DIVISER;
+
+      alpha = MAX(-INF, thread->score - window);
+      beta = MIN(INF, thread->score + window);
     }
 
     // find best move within a given position
     thread->score = negamax(pos, thread, ss + 7, alpha, beta,
-                            thread->depth - reduction, 0, PV_NODE);
+                            thread->depth - fail_high_count, 0, PV_NODE);
 
     // We hit an apspiration window cut-off before time ran out and we jumped
     // to another depth with wider search which we didnt finish
@@ -1217,18 +1217,22 @@ static inline uint8_t aspiration_windows(thread_t *thread, position_t *pos,
 
     if (thread->score <= alpha) {
       beta = (alpha + beta) / 2;
-      alpha = MAX(-INF, alpha - delta);
-      reduction = 0;
+
+      alpha = MAX(-INF, alpha - window);
+      fail_high_count = 0;
     }
 
     else if (thread->score >= beta) {
-      beta = MIN(INF, beta + delta);
-      ++reduction;
+      beta = MIN(INF, beta + window);
+
+      if (alpha < 2000) {
+        ++fail_high_count;
+      }
     } else {
       break;
     }
 
-    delta += delta * (ASP_WIN_RED_BASE + ASP_WIN_RED_MULT * reduction) / 128;
+    window += ASP_WINDOW_MULTIPLIER * window / 1024;
   }
   return 0;
 }
