@@ -4,10 +4,8 @@
 #include "enums.h"
 #include "move.h"
 #include "structs.h"
-#include "uci.h"
 #include <math.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <string.h>
 
 extern nnue_settings_t nnue_settings;
@@ -21,6 +19,9 @@ const uint8_t castling_rights[64] = {
 
 uint64_t between[64][64] = {0};
 uint64_t line[64][64] = {0};
+
+const uint8_t minor_lookup[13] = {0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0};
+const uint8_t major_lookup[13] = {0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0};
 
 void init_between_bitboards(uint64_t between[64][64]) {
   for (int from = 0; from < 64; ++from) {
@@ -248,6 +249,11 @@ uint8_t make_move(position_t *pos, uint16_t move) {
       if (bb_piece == p || bb_piece == P) {
         pos->hash_keys.pawn_key ^= keys.piece_keys[bb_piece][target_square];
       } else {
+        if (minor_lookup[bb_piece]) {
+          pos->hash_keys.minor_key ^= keys.piece_keys[bb_piece][target_square];
+        } else if (major_lookup[bb_piece]) {
+          pos->hash_keys.major_key ^= keys.piece_keys[bb_piece][target_square];
+        }
         if (pos->side == white) {
           pos->hash_keys.non_pawn_key[black] ^=
               keys.piece_keys[bb_piece][target_square];
@@ -301,6 +307,11 @@ uint8_t make_move(position_t *pos, uint16_t move) {
     pos->hash_keys.pawn_key ^= keys.piece_keys[piece][source_square];
     pos->hash_keys.pawn_key ^= keys.piece_keys[piece][target_square];
   } else {
+    if (minor_lookup[piece]) {
+      pos->hash_keys.minor_key ^= keys.piece_keys[piece][source_square];
+    } else if (major_lookup[piece]) {
+      pos->hash_keys.major_key ^= keys.piece_keys[piece][source_square];
+    }
     if (pos->side == white) {
       pos->hash_keys.non_pawn_key[white] ^=
           keys.piece_keys[piece][source_square];
@@ -342,6 +353,13 @@ uint8_t make_move(position_t *pos, uint16_t move) {
 
     // add promoted piece into the hash key
     pos->hash_keys.hash_key ^= keys.piece_keys[promoted_piece][target_square];
+    if (minor_lookup[promoted_piece]) {
+      pos->hash_keys.minor_key ^=
+          keys.piece_keys[promoted_piece][target_square];
+    } else if (major_lookup[promoted_piece]) {
+      pos->hash_keys.major_key ^=
+          keys.piece_keys[promoted_piece][target_square];
+    }
     if (pos->side == white) {
       pos->hash_keys.non_pawn_key[white] ^=
           keys.piece_keys[promoted_piece][target_square];
@@ -406,6 +424,13 @@ uint8_t make_move(position_t *pos, uint16_t move) {
         // Update hash key
         pos->hash_keys.hash_key ^= keys.piece_keys[piece][r_start];
         pos->hash_keys.hash_key ^= keys.piece_keys[piece][r_end];
+        if (minor_lookup[piece]) {
+          pos->hash_keys.minor_key ^= keys.piece_keys[piece][r_start];
+          pos->hash_keys.minor_key ^= keys.piece_keys[piece][r_end];
+        } else if (major_lookup[piece]) {
+          pos->hash_keys.major_key ^= keys.piece_keys[piece][r_start];
+          pos->hash_keys.major_key ^= keys.piece_keys[piece][r_end];
+        }
         if (pos->side == white) {
           pos->hash_keys.non_pawn_key[white] ^= keys.piece_keys[piece][r_start];
           pos->hash_keys.non_pawn_key[white] ^= keys.piece_keys[piece][r_end];
