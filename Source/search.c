@@ -892,7 +892,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     // SEE PVS Pruning
     if (depth <= SEE_DEPTH && moves_seen > 0 &&
         !SEE(pos, move,
-             SEE_MARGIN[depth][quiet] -
+             SEE_MARGIN[quiet ? lmr_depth : depth][quiet] -
                  ss->history_score / SEE_HISTORY_DIVISOR))
       continue;
 
