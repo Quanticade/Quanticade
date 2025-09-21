@@ -48,10 +48,10 @@ int PAWN_HISTORY_BASE_MALUS = 10;
 int PAWN_HISTORY_FACTOR_MALUS = 190;
 
 int CORR_HISTORY_MINMAX = 283;
-int PAWN_CORR_HISTORY_MULTIPLIER = 24;
-int NON_PAWN_CORR_HISTORY_MULTIPLIER = 14;
-int MINOR_CORR_HISTORY_MULTIPLIER = 12;
-int MAJOR_CORR_HISTORY_MULTIPLIER = 12;
+int PAWN_CORR_HISTORY_MULTIPLIER = 3072;
+int NON_PAWN_CORR_HISTORY_MULTIPLIER = 1792;
+int MINOR_CORR_HISTORY_MULTIPLIER = 1536;
+int MAJOR_CORR_HISTORY_MULTIPLIER = 1536;
 
 int FIFTY_MOVE_SCALING = 192;
 int HISTORY_MAX = 8192;
@@ -296,9 +296,9 @@ int16_t adjust_static_eval(thread_t *thread, position_t *pos,
       thread->major_correction_history[pos->side]
                                       [pos->hash_keys.major_key & 16383] *
       MAJOR_CORR_HISTORY_MULTIPLIER;
-  const int correction = pawn_correction + white_non_pawn_correction +
+  const int correction = (pawn_correction + white_non_pawn_correction +
                          black_non_pawn_correction + minor_correction +
-                         major_correction;
+                         major_correction) / 128;
   const int adjusted_score = static_eval + (correction / 1024);
   return clamp(adjusted_score, -MATE_SCORE + 1, MATE_SCORE - 1);
 }
@@ -325,9 +325,9 @@ int16_t correction_value(thread_t *thread, position_t *pos) {
       thread->major_correction_history[pos->side]
                                       [pos->hash_keys.major_key & 16383] *
       MAJOR_CORR_HISTORY_MULTIPLIER;
-  const int correction = pawn_correction + white_non_pawn_correction +
+  const int correction = (pawn_correction + white_non_pawn_correction +
                          black_non_pawn_correction + minor_correction +
-                         major_correction;
+                         major_correction) / 128;
   return correction / 1024;
 }
 
