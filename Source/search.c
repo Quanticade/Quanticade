@@ -1125,9 +1125,10 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     } else if (alpha <= original_alpha) {
       hash_flag = HASH_FLAG_UPPER_BOUND;
     }
+    uint16_t move = best_move != 0 ? best_move : tt_entry ? tt_entry->move : 0;
     // store hash entry with the score equal to alpha
     write_hash_entry(tt_entry, pos, best_score, raw_static_eval, depth,
-                     best_move, hash_flag, ss->tt_pv);
+                     move, hash_flag, ss->tt_pv);
 
     if (!in_check && (!best_move || !(is_move_promotion(best_move) ||
                                       get_move_capture(best_move)))) {
