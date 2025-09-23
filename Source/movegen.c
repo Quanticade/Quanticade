@@ -505,244 +505,141 @@ void generate_moves(position_t *pos, moves *move_list) {
     // init piece bitboard copy
     bitboard = pos->bitboards[piece];
 
-    // generate white pawns & white king castling moves
-    if (pos->side == white) {
-      // pick up white pawn bitboards index
-      if (piece == P) {
-        // loop over white pawns within white pawn bitboard
-        while (bitboard) {
-          // init source square
-          source_square = __builtin_ctzll(bitboard);
+    // generate pawns & king castling moves (color agnostic)
+    if ((pos->side == white && piece == P) ||
+        (pos->side == black && piece == p)) {
+      // determine direction and key ranks based on side
+      int pawn_direction = -8 + (pos->side << 4); // white: -8, black: 8
+      int start_rank_min = (pos->side == white) ? a2 : a7;
+      int start_rank_max = (pos->side == white) ? h2 : h7;
+      int promotion_rank_min = (pos->side == white) ? a7 : a2;
+      int promotion_rank_max = (pos->side == white) ? h7 : h2;
+      int opponent_side = pos->side ^ 1;
 
+      // loop over pawns within pawn bitboard
+      while (bitboard) {
+        // init source square
+        source_square = __builtin_ctzll(bitboard);
+
+        // init target square
+        target_square = source_square + pawn_direction;
+
+        // generate quiet pawn moves
+        if ((unsigned)target_square < 64 &&
+            !get_bit(pos->occupancies[both], target_square)) {
+
+          // pawn promotion
+          if (source_square >= promotion_rank_min &&
+              source_square <= promotion_rank_max) {
+            add_move(move_list, encode_move(source_square, target_square,
+                                            QUEEN_PROMOTION));
+            add_move(move_list,
+                     encode_move(source_square, target_square, ROOK_PROMOTION));
+            add_move(move_list, encode_move(source_square, target_square,
+                                            BISHOP_PROMOTION));
+            add_move(move_list, encode_move(source_square, target_square,
+                                            KNIGHT_PROMOTION));
+          } else {
+            // one square ahead pawn move
+            add_move(move_list,
+                     encode_move(source_square, target_square, QUIET));
+
+            // two squares ahead pawn move
+            if ((source_square >= start_rank_min &&
+                 source_square <= start_rank_max) &&
+                !get_bit(pos->occupancies[both],
+                         target_square + pawn_direction))
+              add_move(move_list, encode_move(source_square,
+                                              target_square + pawn_direction,
+                                              DOUBLE_PUSH));
+          }
+        }
+
+        // init pawn attacks bitboard
+        attacks = pawn_attacks[pos->side][source_square] &
+                  pos->occupancies[opponent_side];
+
+        // generate pawn captures
+        while (attacks) {
           // init target square
-          target_square = source_square - 8;
+          target_square = __builtin_ctzll(attacks);
 
-          // generate quiet pawn moves
-          if (!(target_square < a8) &&
-              !get_bit(pos->occupancies[both], target_square)) {
-            // pawn promotion
-            if (source_square >= a7 && source_square <= h7) {
-              add_move(move_list, encode_move(source_square, target_square,
-                                              QUEEN_PROMOTION));
-              add_move(move_list, encode_move(source_square, target_square,
-                                              ROOK_PROMOTION));
-              add_move(move_list, encode_move(source_square, target_square,
-                                              BISHOP_PROMOTION));
-              add_move(move_list, encode_move(source_square, target_square,
-                                              KNIGHT_PROMOTION));
-            }
+          // pawn promotion
+          if (source_square >= promotion_rank_min &&
+              source_square <= promotion_rank_max) {
+            add_move(move_list, encode_move(source_square, target_square,
+                                            QUEEN_CAPTURE_PROMOTION));
+            add_move(move_list, encode_move(source_square, target_square,
+                                            ROOK_CAPTURE_PROMOTION));
+            add_move(move_list, encode_move(source_square, target_square,
+                                            BISHOP_CAPTURE_PROMOTION));
+            add_move(move_list, encode_move(source_square, target_square,
+                                            KNIGHT_CAPTURE_PROMOTION));
+          } else
+            // capture move
+            add_move(move_list,
+                     encode_move(source_square, target_square, CAPTURE));
 
-            else {
-              // one square ahead pawn move
-              add_move(move_list,
-                       encode_move(source_square, target_square, QUIET));
-
-              // two squares ahead pawn move
-              if ((source_square >= a2 && source_square <= h2) &&
-                  !get_bit(pos->occupancies[both], target_square - 8))
-                add_move(move_list,
-                         encode_move(source_square, (target_square - 8),
-                                     DOUBLE_PUSH));
-            }
-          }
-
-          // init pawn attacks bitboard
-          attacks =
-              pawn_attacks[pos->side][source_square] & pos->occupancies[black];
-
-          // generate pawn captures
-          while (attacks) {
-            // init target square
-            target_square = __builtin_ctzll(attacks);
-
-            // pawn promotion
-            if (source_square >= a7 && source_square <= h7) {
-              add_move(move_list, encode_move(source_square, target_square,
-                                              QUEEN_CAPTURE_PROMOTION));
-              add_move(move_list, encode_move(source_square, target_square,
-                                              ROOK_CAPTURE_PROMOTION));
-              add_move(move_list, encode_move(source_square, target_square,
-                                              BISHOP_CAPTURE_PROMOTION));
-              add_move(move_list, encode_move(source_square, target_square,
-                                              KNIGHT_CAPTURE_PROMOTION));
-            }
-
-            else
-              // one square ahead pawn move
-              add_move(move_list,
-                       encode_move(source_square, target_square, CAPTURE));
-
-            // pop ls1b of the pawn attacks
-            pop_bit(attacks, target_square);
-          }
-
-          // generate enpassant captures
-          if (pos->enpassant != no_sq) {
-            // lookup pawn attacks and bitwise AND with enpassant square (bit)
-            uint64_t enpassant_attacks =
-                pawn_attacks[pos->side][source_square] &
-                (1ULL << pos->enpassant);
-
-            // make sure enpassant capture available
-            if (enpassant_attacks) {
-              // init enpassant capture target square
-              int target_enpassant = __builtin_ctzll(enpassant_attacks);
-              add_move(move_list, encode_move(source_square, target_enpassant,
-                                              ENPASSANT_CAPTURE));
-            }
-          }
-
-          // pop ls1b from piece bitboard copy
-          pop_bit(bitboard, source_square);
+          // pop ls1b of the pawn attacks
+          pop_bit(attacks, target_square);
         }
-      }
 
-      // castling moves
-      if (piece == K) {
-        // king side castling is available
-        if (pos->castle & wk) {
-          // make sure square between king and king's rook are empty
-          if (!get_bit(pos->occupancies[both], f1) &&
-              !get_bit(pos->occupancies[both], g1)) {
-            // make sure king and the f1 squares are not under attacks
-            if (!is_square_attacked(pos, e1, black) &&
-                !is_square_attacked(pos, f1, black))
-              add_move(move_list, encode_move(e1, g1, KING_CASTLE));
+        // generate enpassant captures
+        if (pos->enpassant != no_sq) {
+          // lookup pawn attacks and bitwise AND with enpassant square (bit)
+          uint64_t enpassant_attacks =
+              pawn_attacks[pos->side][source_square] & BB(pos->enpassant);
+
+          // make sure enpassant capture available
+          if (enpassant_attacks) {
+            // init enpassant capture target square
+            int target_enpassant = __builtin_ctzll(enpassant_attacks);
+            add_move(move_list, encode_move(source_square, target_enpassant,
+                                            ENPASSANT_CAPTURE));
           }
         }
 
-        // queen side castling is available
-        if (pos->castle & wq) {
-          // make sure square between king and queen's rook are empty
-          if (!get_bit(pos->occupancies[both], d1) &&
-              !get_bit(pos->occupancies[both], c1) &&
-              !get_bit(pos->occupancies[both], b1)) {
-            // make sure king and the d1 squares are not under attacks
-            if (!is_square_attacked(pos, e1, black) &&
-                !is_square_attacked(pos, d1, black))
-              add_move(move_list, encode_move(e1, c1, QUEEN_CASTLE));
-          }
-        }
+        // pop ls1b from piece bitboard copy
+        pop_bit(bitboard, source_square);
       }
     }
 
-    // generate black pawns & black king castling moves
-    else {
-      // pick up black pawn bitboards index
-      if (piece == p) {
-        // loop over white pawns within white pawn bitboard
-        while (bitboard) {
-          // init source square
-          source_square = __builtin_ctzll(bitboard);
+    // castling moves
+    if ((pos->side == white && piece == K) ||
+        (pos->side == black && piece == k)) {
+      // determine castling rights and squares based on side
+      int king_castle_right = (pos->side == white) ? wk : bk;
+      int queen_castle_right = (pos->side == white) ? wq : bq;
+      int king_square = (pos->side == white) ? e1 : e8;
+      int king_target = (pos->side == white) ? g1 : g8;
+      int queen_target = (pos->side == white) ? c1 : c8;
+      int f_square = (pos->side == white) ? f1 : f8;
+      int d_square = (pos->side == white) ? d1 : d8;
+      int b_square = (pos->side == white) ? b1 : b8;
+      int opponent_side = pos->side ^ 1;
 
-          // init target square
-          target_square = source_square + 8;
-
-          // generate quiet pawn moves
-          if (!(target_square > h1) &&
-              !get_bit(pos->occupancies[both], target_square)) {
-            // pawn promotion
-            if (source_square >= a2 && source_square <= h2) {
-              add_move(move_list, encode_move(source_square, target_square,
-                                              QUEEN_PROMOTION));
-              add_move(move_list, encode_move(source_square, target_square,
-                                              ROOK_PROMOTION));
-              add_move(move_list, encode_move(source_square, target_square,
-                                              BISHOP_PROMOTION));
-              add_move(move_list, encode_move(source_square, target_square,
-                                              KNIGHT_PROMOTION));
-            }
-
-            else {
-              // one square ahead pawn move
-              add_move(move_list,
-                       encode_move(source_square, target_square, QUIET));
-
-              // two squares ahead pawn move
-              if ((source_square >= a7 && source_square <= h7) &&
-                  !get_bit(pos->occupancies[both], target_square + 8))
-                add_move(move_list,
-                         encode_move(source_square, (target_square + 8),
-                                     DOUBLE_PUSH));
-            }
-          }
-
-          // init pawn attacks bitboard
-          attacks =
-              pawn_attacks[pos->side][source_square] & pos->occupancies[white];
-
-          // generate pawn captures
-          while (attacks) {
-            // init target square
-            target_square = __builtin_ctzll(attacks);
-
-            // pawn promotion
-            if (source_square >= a2 && source_square <= h2) {
-              add_move(move_list, encode_move(source_square, target_square,
-                                              QUEEN_CAPTURE_PROMOTION));
-              add_move(move_list, encode_move(source_square, target_square,
-                                              ROOK_CAPTURE_PROMOTION));
-              add_move(move_list, encode_move(source_square, target_square,
-                                              BISHOP_CAPTURE_PROMOTION));
-              add_move(move_list, encode_move(source_square, target_square,
-                                              KNIGHT_CAPTURE_PROMOTION));
-            }
-
-            else
-              // one square ahead pawn move
-              add_move(move_list,
-                       encode_move(source_square, target_square, CAPTURE));
-
-            // pop ls1b of the pawn attacks
-            pop_bit(attacks, target_square);
-          }
-
-          // generate enpassant captures
-          if (pos->enpassant != no_sq) {
-            // lookup pawn attacks and bitwise AND with enpassant square (bit)
-            uint64_t enpassant_attacks =
-                pawn_attacks[pos->side][source_square] &
-                (1ULL << pos->enpassant);
-
-            // make sure enpassant capture available
-            if (enpassant_attacks) {
-              // init enpassant capture target square
-              int target_enpassant = __builtin_ctzll(enpassant_attacks);
-              add_move(move_list, encode_move(source_square, target_enpassant,
-                                              ENPASSANT_CAPTURE));
-            }
-          }
-
-          // pop ls1b from piece bitboard copy
-          pop_bit(bitboard, source_square);
+      // king side castling is available
+      if (pos->castle & king_castle_right) {
+        // make sure squares between king and king's rook are empty
+        if (!(pos->occupancies[both] & (BB(f_square) | BB(king_target)))) {
+          // make sure king and the f square are not under attack
+          if (!is_square_attacked(pos, king_square, opponent_side) &&
+              !is_square_attacked(pos, f_square, opponent_side))
+            add_move(move_list,
+                     encode_move(king_square, king_target, KING_CASTLE));
         }
       }
 
-      // castling moves
-      if (piece == k) {
-        // king side castling is available
-        if (pos->castle & bk) {
-          // make sure square between king and king's rook are empty
-          if (!get_bit(pos->occupancies[both], f8) &&
-              !get_bit(pos->occupancies[both], g8)) {
-            // make sure king and the f8 squares are not under attacks
-            if (!is_square_attacked(pos, e8, white) &&
-                !is_square_attacked(pos, f8, white))
-              add_move(move_list, encode_move(e8, g8, KING_CASTLE));
-          }
-        }
-
-        // queen side castling is available
-        if (pos->castle & bq) {
-          // make sure square between king and queen's rook are empty
-          if (!get_bit(pos->occupancies[both], d8) &&
-              !get_bit(pos->occupancies[both], c8) &&
-              !get_bit(pos->occupancies[both], b8)) {
-            // make sure king and the d8 squares are not under attacks
-            if (!is_square_attacked(pos, e8, white) &&
-                !is_square_attacked(pos, d8, white))
-              add_move(move_list, encode_move(e8, c8, QUEEN_CASTLE));
-          }
+      // queen side castling is available
+      if (pos->castle & queen_castle_right) {
+        // make sure squares between king and queen's rook are empty
+        if (!(pos->occupancies[both] &
+              (BB(d_square) | BB(queen_target) | BB(b_square)))) {
+          // make sure king and the d square are not under attack
+          if (!is_square_attacked(pos, king_square, opponent_side) &&
+              !is_square_attacked(pos, d_square, opponent_side))
+            add_move(move_list,
+                     encode_move(king_square, queen_target, QUEEN_CASTLE));
         }
       }
     }
