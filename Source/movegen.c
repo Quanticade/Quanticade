@@ -493,9 +493,15 @@ void generate_moves(position_t *pos, moves *move_list) {
 
   // define current piece's bitboard copy & its attacks
   uint64_t bitboard, attacks;
+  uint8_t start = P, end = K;
+
+  if (pos->side == black) {
+    start = p;
+    end = k;
+  }
 
   // loop over all the bitboards
-  for (uint8_t piece = P; piece <= k; piece++) {
+  for (uint8_t piece = start; piece <= end; piece++) {
     // init piece bitboard copy
     bitboard = pos->bitboards[piece];
 
@@ -942,9 +948,15 @@ void generate_noisy(position_t *pos, moves *move_list) {
 
   // define current piece's bitboard copy & its attacks
   uint64_t bitboard, attacks;
+  uint8_t start = P, end = K;
+
+  if (pos->side == black) {
+    start = p;
+    end = k;
+  }
 
   // loop over all the bitboards
-  for (uint8_t piece = P; piece <= k; piece++) {
+  for (uint8_t piece = start; piece <= end; piece++) {
     // init piece bitboard copy
     bitboard = pos->bitboards[piece];
 
