@@ -399,7 +399,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
             : evaluate(thread, pos, &thread->accumulator[pos->ply]);
     ss->static_eval = adjust_static_eval(thread, pos, raw_static_eval);
 
-    if (tt_hit && can_use_score(best_score, best_score, tt_score, tt_flag)) {
+    if (tt_hit && can_use_score(ss->static_eval, ss->static_eval, tt_score, tt_flag)) {
       best_score = tt_score;
     } else {
       best_score = ss->static_eval;
