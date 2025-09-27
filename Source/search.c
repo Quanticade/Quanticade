@@ -1124,26 +1124,27 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       return 0;
   }
 
-  if (!ss->excluded_move) {
-    uint8_t hash_flag = HASH_FLAG_EXACT;
-    if (alpha >= beta) {
-      hash_flag = HASH_FLAG_LOWER_BOUND;
-    } else if (alpha <= original_alpha) {
-      hash_flag = HASH_FLAG_UPPER_BOUND;
-    }
-    // store hash entry with the score equal to alpha
-    write_hash_entry(tt_entry, pos, best_score, raw_static_eval, depth,
-                     best_move, hash_flag, ss->tt_pv);
-
-    if (!in_check && (!best_move || !(get_move_capture(best_move) || is_move_promotion(best_move))) && 
-      (hash_flag != HASH_FLAG_LOWER_BOUND || best_score > raw_static_eval) && (hash_flag != HASH_FLAG_UPPER_BOUND || best_score <= raw_static_eval)) {
-      update_corrhist(thread, pos, raw_static_eval, best_score, depth);
-    }
+  uint8_t hash_flag = HASH_FLAG_EXACT;
+  if (alpha >= beta) {
+    hash_flag = HASH_FLAG_LOWER_BOUND;
+  } else if (alpha <= original_alpha) {
+    hash_flag = HASH_FLAG_UPPER_BOUND;
   }
 
   if (best_score >= beta && abs(best_score) < MATE_SCORE &&
       abs(beta) < MATE_SCORE) {
     best_score = (best_score * depth + beta) / (depth + 1);
+  }
+
+  if (!ss->excluded_move) {
+    // store hash entry with the score equal to alpha
+    write_hash_entry(tt_entry, pos, best_score, raw_static_eval, depth,
+                     best_move, hash_flag, ss->tt_pv);
+  }
+  
+  if (!in_check && (!best_move || !(get_move_capture(best_move) || is_move_promotion(best_move))) && 
+    (hash_flag != HASH_FLAG_LOWER_BOUND || best_score > raw_static_eval) && (hash_flag != HASH_FLAG_UPPER_BOUND || best_score <= raw_static_eval)) {
+    update_corrhist(thread, pos, raw_static_eval, best_score, depth);
   }
 
   // node (position) fails low
