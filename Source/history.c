@@ -216,10 +216,7 @@ int16_t correction_value(thread_t *thread, position_t *pos) {
 }
 
 void update_corrhist(thread_t *thread, position_t *pos, int16_t static_eval,
-                     int16_t score, uint8_t depth, uint8_t tt_flag) {
-  if (!static_eval_within_bounds(static_eval, score, tt_flag)) {
-    return;
-  }
+                     int16_t score, uint8_t depth) {
   int16_t bonus = calculate_corrhist_bonus(static_eval, score, depth);
   thread->correction_history[pos->side][pos->hash_keys.pawn_key & 16383] +=
       scale_corrhist_bonus(
