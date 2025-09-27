@@ -721,7 +721,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   uint16_t moves_seen = 0;
 
   // Reverse Futility Pruning
-  if (!pv_node && !in_check && !ss->excluded_move && !ss->tt_pv &&
+  if (!ss->tt_pv && !in_check && !ss->excluded_move &&
       depth <= RFP_DEPTH &&
       ss->eval >= beta + RFP_BASE_MARGIN + RFP_MARGIN * depth -
                       RFP_IMPROVING * improving -
