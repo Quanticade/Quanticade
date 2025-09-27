@@ -727,7 +727,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
                       RFP_IMPROVING * improving -
                       RFP_OPP_WORSENING * opponent_worsening) {
     // evaluation margin substracted from static evaluation score
-    return beta + (ss->eval - beta) / 3;
+    return (ss->eval + beta) / 2;
   }
 
   // null move pruning
