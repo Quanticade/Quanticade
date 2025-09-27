@@ -362,7 +362,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 
   uint16_t best_move = 0;
   uint16_t tt_move = 0;
-  int16_t score = NO_SCORE, best_score = NO_SCORE;
+  int16_t score = NO_SCORE, best_score = NO_SCORE, futility_score = NO_SCORE;
   int16_t raw_static_eval = NO_SCORE;
   int16_t tt_score = NO_SCORE;
   int16_t tt_static_eval = NO_SCORE;
@@ -399,7 +399,9 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
             : evaluate(thread, pos, &thread->accumulator[pos->ply]);
     ss->static_eval = adjust_static_eval(thread, pos, raw_static_eval);
 
-    if (tt_hit && can_use_score(ss->static_eval, ss->static_eval, tt_score, tt_flag)) {
+    if (tt_hit && tt_score != NO_SCORE && ((tt_flag == HASH_FLAG_EXACT) ||
+       ((tt_flag == HASH_FLAG_UPPER_BOUND) && (tt_score < ss->static_eval)) ||
+       ((tt_flag == HASH_FLAG_LOWER_BOUND) && (tt_score > ss->static_eval)))) {
       best_score = tt_score;
     } else {
       best_score = ss->static_eval;
@@ -420,9 +422,11 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 
     // found a better move
     alpha = MAX(alpha, best_score);
+
+    futility_score = best_score + QS_FUTILITY_THRESHOLD;
   }
 
-  int16_t futility_score = best_score + QS_FUTILITY_THRESHOLD;
+  
 
   // create move list instance
   moves move_list[1];
@@ -579,7 +583,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
   // variable to store current move's score (from the static evaluation
   // perspective)
-  int16_t current_score = NO_SCORE, static_eval = NO_SCORE;
+  int16_t current_score = NO_SCORE;
   int16_t raw_static_eval = NO_SCORE;
 
   uint16_t tt_move = 0;
@@ -656,7 +660,9 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   }
 
   if (in_check) {
-    static_eval = ss->static_eval = NO_SCORE;
+    ss->static_eval = NO_SCORE;
+    raw_static_eval = NO_SCORE;
+    ss->eval = NO_SCORE;
   } else if (!ss->excluded_move) {
     raw_static_eval =
         tt_static_eval != NO_SCORE
@@ -669,10 +675,10 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     }
 
     // adjust static eval with corrhist
-    static_eval = ss->static_eval =
+    ss->static_eval =
         adjust_static_eval(thread, pos, raw_static_eval);
 
-    if (tt_hit && can_use_score(static_eval, static_eval, tt_score, tt_flag)) {
+    if (tt_hit && can_use_score(ss->static_eval, ss->static_eval, tt_score, tt_flag)) {
       ss->eval = tt_score;
     } else {
       ss->eval = ss->static_eval;
