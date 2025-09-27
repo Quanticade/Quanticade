@@ -720,6 +720,15 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   // moves seen counter
   uint16_t moves_seen = 0;
 
+  // Static Evaluation Reverse Futility Pruning
+  if (!pv_node && !in_check && !ss->excluded_move && !ss->tt_pv &&
+      depth <= 7 &&
+      ss->static_eval >= beta + 55 * depth -
+                      59 * improving) {
+    // evaluation margin substracted from static evaluation score
+    return beta + (ss->static_eval - beta) / 3;
+  }
+
   // Reverse Futility Pruning
   if (!pv_node && !in_check && !ss->excluded_move && !ss->tt_pv &&
       depth <= RFP_DEPTH &&
