@@ -399,9 +399,11 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
             : evaluate(thread, pos, &thread->accumulator[pos->ply]);
     ss->static_eval = adjust_static_eval(thread, pos, raw_static_eval);
 
-    if (tt_hit && tt_score != NO_SCORE && ((tt_flag == HASH_FLAG_EXACT) ||
-       ((tt_flag == HASH_FLAG_UPPER_BOUND) && (tt_score < ss->static_eval)) ||
-       ((tt_flag == HASH_FLAG_LOWER_BOUND) && (tt_score > ss->static_eval)))) {
+    if (tt_hit && tt_score != NO_SCORE &&
+        ((tt_flag == HASH_FLAG_EXACT) ||
+         ((tt_flag == HASH_FLAG_UPPER_BOUND) && (tt_score < ss->static_eval)) ||
+         ((tt_flag == HASH_FLAG_LOWER_BOUND) &&
+          (tt_score > ss->static_eval)))) {
       best_score = tt_score;
     } else {
       best_score = ss->static_eval;
@@ -425,8 +427,6 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 
     futility_score = best_score + QS_FUTILITY_THRESHOLD;
   }
-
-  
 
   // create move list instance
   moves move_list[1];
@@ -675,10 +675,10 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     }
 
     // adjust static eval with corrhist
-    ss->static_eval =
-        adjust_static_eval(thread, pos, raw_static_eval);
+    ss->static_eval = adjust_static_eval(thread, pos, raw_static_eval);
 
-    if (tt_hit && can_use_score(ss->static_eval, ss->static_eval, tt_score, tt_flag)) {
+    if (tt_hit &&
+        can_use_score(ss->static_eval, ss->static_eval, tt_score, tt_flag)) {
       ss->eval = tt_score;
     } else {
       ss->eval = ss->static_eval;
@@ -871,7 +871,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
             : thread->capture_history[pos->mailbox[get_move_source(move)]]
                                      [pos->mailbox[get_move_target(move)]]
                                      [get_move_source(move)]
-                                     [get_move_target(move)] + mvv[pos->mailbox[get_move_target(move)] % 6];
+                                     [get_move_target(move)] +
+                  mvv[pos->mailbox[get_move_target(move)] % 6];
 
     // Late Move Pruning
     if (!pv_node && quiet &&
@@ -1025,7 +1026,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       ss->reduction = R;
 
       R = R / 1024;
-      int reduced_depth = MAX(1, MIN(new_depth - R, new_depth + cutnode)) + pv_node;
+      int reduced_depth =
+          MAX(1, MIN(new_depth - R, new_depth + cutnode)) + pv_node;
 
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                reduced_depth, 1, NON_PV);
@@ -1124,21 +1126,25 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       return 0;
   }
 
+  uint8_t hash_flag = HASH_FLAG_EXACT;
+  if (alpha >= beta) {
+    hash_flag = HASH_FLAG_LOWER_BOUND;
+  } else if (alpha <= original_alpha) {
+    hash_flag = HASH_FLAG_UPPER_BOUND;
+  }
+
   if (!ss->excluded_move) {
-    uint8_t hash_flag = HASH_FLAG_EXACT;
-    if (alpha >= beta) {
-      hash_flag = HASH_FLAG_LOWER_BOUND;
-    } else if (alpha <= original_alpha) {
-      hash_flag = HASH_FLAG_UPPER_BOUND;
-    }
     // store hash entry with the score equal to alpha
     write_hash_entry(tt_entry, pos, best_score, raw_static_eval, depth,
                      best_move, hash_flag, ss->tt_pv);
+  }
 
-    if (!in_check && (!best_move || !(get_move_capture(best_move) || is_move_promotion(best_move))) && 
-      (hash_flag != HASH_FLAG_LOWER_BOUND || best_score > raw_static_eval) && (hash_flag != HASH_FLAG_UPPER_BOUND || best_score <= raw_static_eval)) {
-      update_corrhist(thread, pos, raw_static_eval, best_score, depth);
-    }
+  if (!in_check &&
+      (!best_move ||
+       !(get_move_capture(best_move) || is_move_promotion(best_move))) &&
+      (hash_flag != HASH_FLAG_LOWER_BOUND || best_score > raw_static_eval) &&
+      (hash_flag != HASH_FLAG_UPPER_BOUND || best_score <= raw_static_eval)) {
+    update_corrhist(thread, pos, raw_static_eval, best_score, depth);
   }
 
   if (best_score >= beta && abs(best_score) < MATE_SCORE &&
