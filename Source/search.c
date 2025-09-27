@@ -386,7 +386,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     return tt_score;
   }
 
-  const uint8_t in_check = stm_in_check(pos);
+  const uint8_t in_check = ss->in_check = stm_in_check(pos);
 
   if (in_check) {
     ss->static_eval = NO_SCORE;
@@ -399,9 +399,11 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
             : evaluate(thread, pos, &thread->accumulator[pos->ply]);
     ss->static_eval = adjust_static_eval(thread, pos, raw_static_eval);
 
-    if (tt_hit && tt_score != NO_SCORE && ((tt_flag == HASH_FLAG_EXACT) ||
-       ((tt_flag == HASH_FLAG_UPPER_BOUND) && (tt_score < ss->static_eval)) ||
-       ((tt_flag == HASH_FLAG_LOWER_BOUND) && (tt_score > ss->static_eval)))) {
+    if (tt_hit && tt_score != NO_SCORE &&
+        ((tt_flag == HASH_FLAG_EXACT) ||
+         ((tt_flag == HASH_FLAG_UPPER_BOUND) && (tt_score < ss->static_eval)) ||
+         ((tt_flag == HASH_FLAG_LOWER_BOUND) &&
+          (tt_score > ss->static_eval)))) {
       best_score = tt_score;
     } else {
       best_score = ss->static_eval;
@@ -425,8 +427,6 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 
     futility_score = best_score + QS_FUTILITY_THRESHOLD;
   }
-
-  
 
   // create move list instance
   moves move_list[1];
@@ -503,12 +503,13 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 
     ss->move = move;
     ss->piece = pos->mailbox[get_move_source(move)];
+    ss->capture = get_move_capture(move);
 
     thread->nodes++;
 
     moves_seen++;
 
-    if (get_move_capture(move)) {
+    if (ss->capture) {
       add_move(capture_list, move);
     }
 
@@ -618,14 +619,14 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       return alpha;
   }
 
-  // is king in check
-  uint8_t in_check = stm_in_check(pos);
-
   // recursion escape condition
   if (depth <= 0) {
     // run quiescence search
     return quiescence(pos, thread, ss, alpha, beta, pv_node);
   }
+
+  // is king in check
+  uint8_t in_check = ss->in_check = stm_in_check(pos);
 
   tt_entry_t *tt_entry = read_hash_entry(pos, &tt_hit);
 
@@ -675,10 +676,10 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     }
 
     // adjust static eval with corrhist
-    ss->static_eval =
-        adjust_static_eval(thread, pos, raw_static_eval);
+    ss->static_eval = adjust_static_eval(thread, pos, raw_static_eval);
 
-    if (tt_hit && can_use_score(ss->static_eval, ss->static_eval, tt_score, tt_flag)) {
+    if (tt_hit &&
+        can_use_score(ss->static_eval, ss->static_eval, tt_score, tt_flag)) {
       ss->eval = tt_score;
     } else {
       ss->eval = ss->static_eval;
@@ -691,6 +692,18 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   uint8_t initial_depth = depth;
   uint8_t improving = 0;
   uint8_t opponent_worsening = 0;
+
+  // Adjust the quiet history based on how much the static eval has changed
+  if ((ss - 1)->piece != NO_PIECE && !(ss - 1)->capture &&
+      !(ss - 1)->in_check && pos->ply > 1) {
+
+    int bonus =
+        clamp(-5 * (int)(ss->static_eval + (ss - 1)->static_eval), -100, 100);
+
+    pos->side = pos->side ^ 1;
+    update_quiet_history(thread, pos, ss, (ss - 1)->move, bonus);
+    pos->side = pos->side ^ 1;
+  }
 
   if ((ss - 2)->static_eval != NO_SCORE) {
     improving = ss->static_eval > (ss - 2)->static_eval;
@@ -768,6 +781,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
     ss->move = 0;
     ss->piece = 0;
+    ss->capture = 0;
     pos_copy.checkers = 0;
     pos_copy.checker_count = 0;
     (ss + 1)->null_move = 1;
@@ -871,7 +885,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
             : thread->capture_history[pos->mailbox[get_move_source(move)]]
                                      [pos->mailbox[get_move_target(move)]]
                                      [get_move_source(move)]
-                                     [get_move_target(move)] + mvv[pos->mailbox[get_move_target(move)] % 6];
+                                     [get_move_target(move)] +
+                  mvv[pos->mailbox[get_move_target(move)] % 6];
 
     // Late Move Pruning
     if (!pv_node && quiet &&
@@ -985,6 +1000,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
     ss->move = move;
     ss->piece = pos_copy.mailbox[get_move_source(move)];
+    ss->capture = get_move_capture(move);
 
     // increment nodes count
     thread->nodes++;
@@ -1025,7 +1041,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       ss->reduction = R;
 
       R = R / 1024;
-      int reduced_depth = MAX(1, MIN(new_depth - R, new_depth + cutnode)) + pv_node;
+      int reduced_depth =
+          MAX(1, MIN(new_depth - R, new_depth + cutnode)) + pv_node;
 
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                reduced_depth, 1, NON_PV);
@@ -1135,8 +1152,11 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     write_hash_entry(tt_entry, pos, best_score, raw_static_eval, depth,
                      best_move, hash_flag, ss->tt_pv);
 
-    if (!in_check && (!best_move || !(get_move_capture(best_move) || is_move_promotion(best_move))) && 
-      (hash_flag != HASH_FLAG_LOWER_BOUND || best_score > raw_static_eval) && (hash_flag != HASH_FLAG_UPPER_BOUND || best_score <= raw_static_eval)) {
+    if (!in_check &&
+        (!best_move ||
+         !(get_move_capture(best_move) || is_move_promotion(best_move))) &&
+        (hash_flag != HASH_FLAG_LOWER_BOUND || best_score > raw_static_eval) &&
+        (hash_flag != HASH_FLAG_UPPER_BOUND || best_score <= raw_static_eval)) {
       update_corrhist(thread, pos, raw_static_eval, best_score, depth);
     }
   }
@@ -1273,6 +1293,8 @@ void *iterative_deepening(void *thread_void) {
       ss[i].reduction = 0;
       ss[i].tt_pv = 0;
       ss[i].cutoff_cnt = 0;
+      ss[i].in_check = 0;
+      ss[i].capture = 0;
     }
 
     calculate_threats(pos, ss + 7);
