@@ -392,21 +392,22 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     ss->static_eval = NO_SCORE;
     raw_static_eval = NO_SCORE;
   } else {
+    if (tt_hit && tt_static_eval != NO_SCORE) {
+      raw_static_eval = tt_static_eval;
+      ss->static_eval = best_score =
+          adjust_static_eval(thread, pos, raw_static_eval);
 
-    raw_static_eval =
-        tt_static_eval != NO_SCORE
-            ? tt_static_eval
-            : evaluate(thread, pos, &thread->accumulator[pos->ply]);
-    ss->static_eval = adjust_static_eval(thread, pos, raw_static_eval);
-
-    if (tt_hit && tt_score != NO_SCORE &&
-        ((tt_flag == HASH_FLAG_EXACT) ||
-         ((tt_flag == HASH_FLAG_UPPER_BOUND) && (tt_score < ss->static_eval)) ||
-         ((tt_flag == HASH_FLAG_LOWER_BOUND) &&
-          (tt_score > ss->static_eval)))) {
-      best_score = tt_score;
+      if (tt_score != NO_SCORE && ((tt_flag == HASH_FLAG_EXACT) ||
+                                   ((tt_flag == HASH_FLAG_UPPER_BOUND) &&
+                                    (tt_score < ss->static_eval)) ||
+                                   ((tt_flag == HASH_FLAG_LOWER_BOUND) &&
+                                    (tt_score > ss->static_eval)))) {
+        best_score = tt_score;
+      }
     } else {
-      best_score = ss->static_eval;
+      raw_static_eval = evaluate(thread, pos, &thread->accumulator[pos->ply]);
+      ss->static_eval = best_score =
+          adjust_static_eval(thread, pos, raw_static_eval);
     }
 
     // fail-hard beta cutoff
@@ -721,8 +722,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   uint16_t moves_seen = 0;
 
   // Reverse Futility Pruning
-  if (!ss->tt_pv && !in_check && !ss->excluded_move &&
-      depth <= RFP_DEPTH &&
+  if (!ss->tt_pv && !in_check && !ss->excluded_move && depth <= RFP_DEPTH &&
       ss->eval >= beta + RFP_BASE_MARGIN + RFP_MARGIN * depth -
                       RFP_IMPROVING * improving -
                       RFP_OPP_WORSENING * opponent_worsening) {
