@@ -664,26 +664,26 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     ss->static_eval = NO_SCORE;
     raw_static_eval = NO_SCORE;
     ss->eval = NO_SCORE;
-  } else if (!ss->excluded_move) {
+  } else if (ss->excluded_move) {
+    raw_static_eval = ss->eval = ss->static_eval;
+  } else if (tt_hit) {
     raw_static_eval =
         tt_static_eval != NO_SCORE
             ? tt_static_eval
             : evaluate(thread, pos, &thread->accumulator[pos->ply]);
+    ss->eval = ss->static_eval =
+        adjust_static_eval(thread, pos, raw_static_eval);
 
-    if (!tt_hit) {
-      write_hash_entry(tt_entry, pos, NO_SCORE, raw_static_eval, 0, 0,
-                       HASH_FLAG_NONE, ss->tt_pv);
-    }
-
-    // adjust static eval with corrhist
-    ss->static_eval = adjust_static_eval(thread, pos, raw_static_eval);
-
-    if (tt_hit &&
-        can_use_score(ss->static_eval, ss->static_eval, tt_score, tt_flag)) {
+    if (can_use_score(ss->static_eval, ss->static_eval, tt_score, tt_flag)) {
       ss->eval = tt_score;
-    } else {
-      ss->eval = ss->static_eval;
     }
+  } else {
+    raw_static_eval = evaluate(thread, pos, &thread->accumulator[pos->ply]);
+    ss->eval = ss->static_eval =
+        adjust_static_eval(thread, pos, raw_static_eval);
+
+    write_hash_entry(tt_entry, pos, NO_SCORE, raw_static_eval, 0, 0,
+                     HASH_FLAG_NONE, ss->tt_pv);
   }
 
   int16_t correction = correction_value(thread, pos);
