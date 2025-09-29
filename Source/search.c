@@ -674,7 +674,10 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     ss->eval = ss->static_eval =
         adjust_static_eval(thread, pos, raw_static_eval);
 
-    if (can_use_score(ss->static_eval, ss->static_eval, tt_score, tt_flag)) {
+    if (tt_score != NO_SCORE &&
+        ((tt_flag == HASH_FLAG_UPPER_BOUND && tt_score < ss->eval) ||
+         (tt_flag == HASH_FLAG_LOWER_BOUND && tt_score > ss->eval) ||
+         (tt_flag == HASH_FLAG_EXACT))) {
       ss->eval = tt_score;
     }
   } else {
