@@ -654,12 +654,6 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     return tt_score;
   }
 
-  // Internal Iterative Reductions
-  if ((pv_node || cutnode) && !ss->excluded_move && depth >= IIR_DEPTH &&
-      (!tt_move || tt_depth < depth - IIR_DEPTH_REDUCTION)) {
-    depth--;
-  }
-
   if (in_check) {
     ss->static_eval = NO_SCORE;
     raw_static_eval = NO_SCORE;
@@ -709,6 +703,12 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   if (check_time(thread)) {
     stop_threads(thread, thread_count);
     return 0;
+  }
+
+  // Internal Iterative Reductions
+  if ((pv_node || cutnode) && !ss->excluded_move && depth >= IIR_DEPTH &&
+      (!tt_move || tt_depth < depth - IIR_DEPTH_REDUCTION)) {
+    depth--;
   }
 
   if ((ss - 1)->reduction >= HINDSIGH_REDUCTION_ADD && !opponent_worsening) {
