@@ -830,8 +830,9 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   }
 
   // ProbCut pruning
-  if (!pv_node && !in_check && !ss->excluded_move && depth >= PROBCUT_DEPTH &&
-      abs(beta) < MATE_SCORE) {
+  if (!pv_node && !in_check && !ss->excluded_move && 
+    depth >= PROBCUT_DEPTH && abs(beta) < MATE_SCORE &&
+    (!tt_hit || tt_depth + 3 < depth || tt_score >= beta + PROBCUT_MARGIN)) {
 
     int16_t probcut_beta = beta + PROBCUT_MARGIN;
     int probcut_depth = depth - PROBCUT_SHALLOW_DEPTH - 1;
