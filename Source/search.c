@@ -96,6 +96,8 @@ int PROBCUT_DEPTH = 5;
 int PROBCUT_MARGIN = 200;
 int PROBCUT_SHALLOW_DEPTH = 3;
 int PROBCUT_SEE_THRESHOLD = 100;
+int SMALL_PROBCUT_MARGIN = 400;
+int SMALL_PROBCUT_DEPTH_MARGIN = 4;
 double LMR_DEEPER_MULT = 1.8637336462306593f;
 
 double LMP_MARGIN_WORSENING_BASE = 1.4130549930204508;
@@ -830,9 +832,9 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   }
 
   // ProbCut pruning
-  if (!pv_node && !in_check && !ss->excluded_move && 
-    depth >= PROBCUT_DEPTH && abs(beta) < MATE_SCORE &&
-    (!tt_hit || tt_depth + 3 < depth || tt_score >= beta + PROBCUT_MARGIN)) {
+  if (!pv_node && !in_check && !ss->excluded_move && depth >= PROBCUT_DEPTH &&
+      abs(beta) < MATE_SCORE &&
+      (!tt_hit || tt_depth + 3 < depth || tt_score >= beta + PROBCUT_MARGIN)) {
 
     int16_t probcut_beta = beta + PROBCUT_MARGIN;
     int probcut_depth = depth - PROBCUT_SHALLOW_DEPTH - 1;
@@ -913,6 +915,19 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
                          probcut_depth, move, HASH_FLAG_LOWER_BOUND, ss->tt_pv);
         return probcut_score;
       }
+    }
+  }
+
+  // Small ProbCut idea
+  if (!pv_node && !ss->excluded_move && tt_hit &&
+      (tt_flag & HASH_FLAG_LOWER_BOUND) &&
+      tt_depth >= depth - SMALL_PROBCUT_DEPTH_MARGIN && tt_score != NO_SCORE &&
+      abs(tt_score) < MATE_SCORE && abs(beta) < MATE_SCORE) {
+
+    int16_t small_probcut_beta = beta + SMALL_PROBCUT_MARGIN;
+
+    if (tt_score >= small_probcut_beta) {
+      return small_probcut_beta;
     }
   }
 
