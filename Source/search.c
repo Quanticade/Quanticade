@@ -92,7 +92,7 @@ int EVAL_STABILITY_VAR = 9;
 int HINDSIGH_REDUCTION_ADD = 3072;
 int HINDSIGH_REDUCTION_RED = 2048;
 int HINDSIGN_REDUCTION_EVAL_MARGIN = 96;
-int PROBCUT_DEPTH = 5;
+int PROBCUT_DEPTH = 3;
 int PROBCUT_MARGIN = 200;
 int PROBCUT_SHALLOW_DEPTH = 3;
 int PROBCUT_SEE_THRESHOLD = 100;
@@ -832,10 +832,10 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   // ProbCut pruning
   if (!pv_node && !in_check && !ss->excluded_move && 
     depth >= PROBCUT_DEPTH && abs(beta) < MATE_SCORE &&
-    (!tt_hit || tt_depth + 3 < depth || tt_score >= beta + PROBCUT_MARGIN)) {
+    (!tt_hit || tt_score >= beta + PROBCUT_MARGIN)) {
 
     int16_t probcut_beta = beta + PROBCUT_MARGIN;
-    int probcut_depth = depth - PROBCUT_SHALLOW_DEPTH - 1;
+    int probcut_depth = MAX(0, depth - 4);
 
     // Generate captures and good promotions for ProbCut
     moves probcut_list[1];
@@ -890,7 +890,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
                                           -probcut_beta + 1, NON_PV);
 
       // If qsearch doesn't fail high, try a deeper search
-      if (probcut_score >= probcut_beta) {
+      if (probcut_score >= probcut_beta && probcut_depth > 0) {
         probcut_score =
             -negamax(pos, thread, ss + 1, -probcut_beta, -probcut_beta + 1,
                      probcut_depth, !cutnode, NON_PV);
@@ -910,7 +910,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       if (probcut_score >= probcut_beta) {
         // Store in transposition table
         write_hash_entry(tt_entry, pos, probcut_score, raw_static_eval,
-                         probcut_depth, move, HASH_FLAG_LOWER_BOUND, ss->tt_pv);
+                         probcut_depth + 1, move, HASH_FLAG_LOWER_BOUND, ss->tt_pv);
         return probcut_score;
       }
     }
