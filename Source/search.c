@@ -939,7 +939,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
   // Small ProbCut idea
   if (!pv_node && !ss->excluded_move && tt_hit &&
-      (tt_flag & HASH_FLAG_LOWER_BOUND) &&
+      (tt_flag == HASH_FLAG_LOWER_BOUND) &&
       tt_depth >= depth - SMALL_PROBCUT_DEPTH_MARGIN && tt_score != NO_SCORE &&
       abs(tt_score) < MATE_SCORE && abs(beta) < MATE_SCORE) {
 
