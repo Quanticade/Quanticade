@@ -92,6 +92,10 @@ int EVAL_STABILITY_VAR = 9;
 int HINDSIGH_REDUCTION_ADD = 3072;
 int HINDSIGH_REDUCTION_RED = 2048;
 int HINDSIGN_REDUCTION_EVAL_MARGIN = 96;
+int PROBCUT_DEPTH = 5;
+int PROBCUT_MARGIN = 200;
+int PROBCUT_SHALLOW_DEPTH = 3;
+int PROBCUT_SEE_THRESHOLD = 100;
 double LMR_DEEPER_MULT = 1.8637336462306593f;
 
 double LMP_MARGIN_WORSENING_BASE = 1.4130549930204508;
@@ -822,6 +826,93 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
         quiescence(pos, thread, ss, alpha, beta, NON_PV);
     if (razor_score <= alpha) {
       return razor_score;
+    }
+  }
+
+  // ProbCut pruning
+  if (!pv_node && !in_check && !ss->excluded_move && 
+    depth >= PROBCUT_DEPTH && abs(beta) < MATE_SCORE &&
+    (!tt_hit || tt_depth + 3 < depth || tt_score >= beta + PROBCUT_MARGIN)) {
+
+    int16_t probcut_beta = beta + PROBCUT_MARGIN;
+    int probcut_depth = depth - PROBCUT_SHALLOW_DEPTH - 1;
+
+    // Generate captures and good promotions for ProbCut
+    moves probcut_list[1];
+    generate_noisy(pos, probcut_list);
+
+    // Score the moves
+    for (uint32_t count = 0; count < probcut_list->count; count++) {
+      score_move(pos, thread, ss, &probcut_list->entry[count], 0);
+    }
+
+    uint16_t probcut_index = 0;
+
+    // Try moves that look promising
+    while (probcut_index < probcut_list->count) {
+      uint16_t move = pick_next_best_move(probcut_list, &probcut_index).move;
+
+      // Skip moves that don't pass SEE threshold
+      if (!SEE(pos, move, PROBCUT_SEE_THRESHOLD)) {
+        continue;
+      }
+
+      // Preserve board state
+      position_t pos_copy = *pos;
+
+      // Increment ply
+      pos->ply++;
+
+      // Increment repetition index & store hash key
+      thread->repetition_index++;
+      thread->repetition_table[thread->repetition_index] =
+          pos->hash_keys.hash_key;
+
+      // Make sure to make only legal moves
+      if (make_move(pos, move) == 0) {
+        pos->ply--;
+        thread->repetition_index--;
+        continue;
+      }
+
+      calculate_threats(&pos_copy, ss + 1);
+      update_nnue(pos, thread, pos_copy.mailbox, move);
+
+      ss->move = move;
+      ss->piece = pos_copy.mailbox[get_move_source(move)];
+
+      thread->nodes++;
+
+      prefetch_hash_entry(pos->hash_keys.hash_key);
+
+      // Shallow search with raised beta
+      int16_t probcut_score = -quiescence(pos, thread, ss + 1, -probcut_beta,
+                                          -probcut_beta + 1, NON_PV);
+
+      // If qsearch doesn't fail high, try a deeper search
+      if (probcut_score >= probcut_beta) {
+        probcut_score =
+            -negamax(pos, thread, ss + 1, -probcut_beta, -probcut_beta + 1,
+                     probcut_depth, !cutnode, NON_PV);
+      }
+
+      // Restore position
+      pos->ply--;
+      thread->repetition_index--;
+      *pos = pos_copy;
+
+      // Check if we need to stop
+      if (thread->stopped == 1) {
+        return 0;
+      }
+
+      // If shallow search failed high, we can prune
+      if (probcut_score >= probcut_beta) {
+        // Store in transposition table
+        write_hash_entry(tt_entry, pos, probcut_score, raw_static_eval,
+                         probcut_depth, move, HASH_FLAG_LOWER_BOUND, ss->tt_pv);
+        return probcut_score;
+      }
     }
   }
 
