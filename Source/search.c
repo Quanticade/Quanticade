@@ -1209,6 +1209,9 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
   // we don't have any legal moves to make in the current postion
   if (moves_seen == 0) {
+    if (ss->excluded_move) {
+      return alpha;
+    }
     // king is in check
     if (in_check)
       // return mating score (assuming closest distance to mating position)
