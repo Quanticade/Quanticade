@@ -1145,6 +1145,9 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
     // Principal Variation Search
     if (pv_node && (moves_seen == 1 || current_score > alpha)) {
+      if (move == tt_move && tt_depth > 1 && thread->depth > 8) {
+        new_depth = MAX(1, new_depth);
+      }
       current_score =
           -negamax(pos, thread, ss + 1, -beta, -alpha, new_depth, 0, PV_NODE);
     }
