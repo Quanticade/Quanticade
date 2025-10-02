@@ -1032,6 +1032,9 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
             extensions++;
           }
         }
+        if (extensions > 1 && depth < 14) {
+          depth++;
+        }
       }
 
       // Multicut: Singular search failed high so if singular beta beats our
