@@ -273,6 +273,9 @@ static inline void update_continuation_history(thread_t *thread,
                                                position_t *pos,
                                                searchstack_t *ss, int move,
                                                int bonus) {
+  if (ss->move == 0) {
+    return;
+  }
   int prev_piece = ss->piece;
   int prev_target = get_move_target(ss->move);
   int piece = pos->mailbox[get_move_source(move)];
@@ -315,6 +318,9 @@ void update_capture_history_moves(thread_t *thread, position_t *pos,
 
 int16_t get_conthist_score(thread_t *thread, position_t *pos, searchstack_t *ss,
                            int move) {
+  if (ss->move == 0) {
+    return 0;
+  }
   return thread->continuation_history[ss->piece][get_move_target(
       ss->move)][pos->mailbox[get_move_source(move)]][get_move_target(move)];
 }
