@@ -144,6 +144,7 @@ double eval_scale[5] = {1.2553097907287714, 1.1283513678269563f,
                         0.8980687736160886f};
 
 uint64_t nodes_spent_table[4096] = {0};
+int16_t eval_root_table[4096] = {0};
 
 // Initializes the late move reduction array
 void init_reductions(void) {
@@ -173,16 +174,17 @@ void init_reductions(void) {
 }
 
 void scale_time(thread_t *thread, uint8_t best_move_stability,
-                uint8_t eval_stability, uint16_t move) {
+                uint8_t eval_stability, uint16_t move, int16_t prev_best_score) {
   double not_bm_nodes_fraction =
       1 - (double)nodes_spent_table[move >> 4] / (double)thread->nodes;
   double node_scaling_factor =
       MAX(NODE_TIME_MULTIPLIER * not_bm_nodes_fraction + NODE_TIME_ADDITION,
           NODE_TIME_MIN);
+  double score_trend = 0.95 + 0.004 * MAX(MIN(prev_best_score - eval_root_table[move >> 4], -8), 65);
   limits.soft_limit =
       MIN(thread->starttime +
               limits.base_soft * bestmove_scale[best_move_stability] *
-                  eval_scale[eval_stability] * node_scaling_factor,
+                  eval_scale[eval_stability] * node_scaling_factor * score_trend,
           limits.max_time + thread->starttime);
 }
 
@@ -1184,6 +1186,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
     if (thread->index == 0 && root_node) {
       nodes_spent_table[move >> 4] += thread->nodes - nodes_before_search;
+      eval_root_table[move >> 4] += current_score;
     }
 
     // return INF so we can deal with timeout in case we are doing
@@ -1369,6 +1372,7 @@ void *iterative_deepening(void *thread_void) {
 
   uint16_t prev_best_move = 0;
   int16_t average_score = NO_SCORE;
+  int16_t prev_best_score = NO_SCORE;
   uint8_t best_move_stability = 0;
   uint8_t eval_stability = 0;
 
@@ -1427,8 +1431,9 @@ void *iterative_deepening(void *thread_void) {
 
       if (limits.timeset && thread->depth > 7) {
         scale_time(thread, best_move_stability, eval_stability,
-                   thread->pv.pv_table[0][0]);
+                   thread->pv.pv_table[0][0], prev_best_score);
       }
+      prev_best_score = thread->score;
     }
 
     if (thread->index == 0 &&
@@ -1467,6 +1472,8 @@ void search_position(position_t *pos, thread_t *threads) {
   memset(threads->pv.pv_table, 0, sizeof(threads->pv.pv_table));
   memset(threads->pv.pv_length, 0, sizeof(threads->pv.pv_length));
   memset(nodes_spent_table, 0, sizeof(nodes_spent_table));
+  memset(eval_root_table, 0, sizeof(eval_root_table));
+
 
   for (int thread_index = 1; thread_index < thread_count; ++thread_index) {
     pthread_create(&pthreads[thread_index], NULL, &iterative_deepening,
