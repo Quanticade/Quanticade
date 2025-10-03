@@ -136,7 +136,8 @@ typedef struct threats {
 typedef struct limits {
   uint64_t soft_limit;
   uint64_t hard_limit;
-  uint64_t node_limit;
+  uint64_t node_limit_soft;
+  uint64_t node_limit_hard;
   uint64_t start_time;
   int64_t time;
   int32_t inc;

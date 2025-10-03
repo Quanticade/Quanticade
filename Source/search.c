@@ -190,7 +190,7 @@ uint8_t check_time(thread_t *thread) {
   // if time is up break here
   if (thread->index == 0 &&
       ((limits.timeset && get_time_ms() > limits.hard_limit) ||
-       (limits.nodes_set && thread->nodes >= limits.node_limit))) {
+       (limits.nodes_set && thread->nodes >= limits.node_limit_hard))) {
     // tell engine to stop calculating
     thread->stopped = 1;
     return 1;
@@ -1433,7 +1433,7 @@ void *iterative_deepening(void *thread_void) {
 
     if (thread->index == 0 &&
         ((limits.timeset && get_time_ms() >= limits.soft_limit) ||
-         (limits.nodes_set && thread->nodes >= limits.node_limit))) {
+         (limits.nodes_set && thread->nodes >= limits.node_limit_soft))) {
       stop_threads(thread, thread_count);
     }
 
