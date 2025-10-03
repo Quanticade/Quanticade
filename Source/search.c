@@ -45,6 +45,7 @@ int IIR_DEPTH = 4;
 int SEE_DEPTH = 10;
 int ASP_DEPTH = 4;
 int SE_DEPTH = 6;
+int PROBCUT_DEPTH = 5;
 
 // SPSA Tuned params
 int RAZOR_MARGIN = 265;
@@ -92,10 +93,23 @@ int EVAL_STABILITY_VAR = 9;
 int HINDSIGH_REDUCTION_ADD = 3072;
 int HINDSIGH_REDUCTION_RED = 2048;
 int HINDSIGN_REDUCTION_EVAL_MARGIN = 96;
-int PROBCUT_DEPTH = 5;
 int PROBCUT_MARGIN = 200;
 int PROBCUT_SHALLOW_DEPTH = 3;
 int PROBCUT_SEE_THRESHOLD = 100;
+int MO_QUIET_HIST_MULT = 1024;
+int MO_CONT1_HIST_MULT = 1024;
+int MO_CONT2_HIST_MULT = 1024;
+int MO_CONT4_HIST_MULT = 1024;
+int MO_PAWN_HIST_MULT = 1024;
+int MO_CAPT_HIST_MULT = 1024;
+int MO_MVV_MULT = 1024;
+int SEARCH_QUIET_HIST_MULT = 1024;
+int SEARCH_CONT1_HIST_MULT = 1024;
+int SEARCH_CONT2_HIST_MULT = 1024;
+int SEARCH_CONT4_HIST_MULT = 1024;
+int SEARCH_PAWN_HIST_MULT = 1024;
+int SEARCH_CAPT_HIST_MULT = 1024;
+int SEARCH_MVV_MULT = 1024;
 double LMR_DEEPER_MULT = 1.8637336462306593f;
 
 double LMP_MARGIN_WORSENING_BASE = 1.4130549930204508;
@@ -241,11 +255,13 @@ static inline void score_move(position_t *pos, thread_t *thread,
                                    : pos->mailbox[get_move_target(move) + 8];
 
     // score move by MVV LVA lookup [source piece][target piece]
-    move_entry->score += mvv[target_piece % 6];
+    move_entry->score += mvv[target_piece % 6] * MO_MVV_MULT;
     move_entry->score +=
         thread
             ->capture_history[pos->mailbox[get_move_source(move)]][target_piece]
-                             [get_move_source(move)][get_move_target(move)];
+                             [get_move_source(move)][get_move_target(move)] *
+        MO_CAPT_HIST_MULT;
+    move_entry->score /= 1024;
     move_entry->score +=
         SEE(pos, move, -MO_SEE_THRESHOLD) ? 1000000000 : -1000000000;
     return;
@@ -257,13 +273,16 @@ static inline void score_move(position_t *pos, thread_t *thread,
     move_entry->score =
         thread->quiet_history[pos->side][get_move_source(move)][get_move_target(
             move)][is_square_threatened(ss, get_move_source(move))]
-                             [is_square_threatened(ss, get_move_target(move))] +
-        get_conthist_score(thread, pos, ss - 1, move) +
-        get_conthist_score(thread, pos, ss - 2, move) +
-        get_conthist_score(thread, pos, ss - 4, move) +
+                             [is_square_threatened(ss, get_move_target(move))] *
+            MO_QUIET_HIST_MULT +
+        get_conthist_score(thread, pos, ss - 1, move) * MO_CONT1_HIST_MULT +
+        get_conthist_score(thread, pos, ss - 2, move) * MO_CONT2_HIST_MULT +
+        get_conthist_score(thread, pos, ss - 4, move) * MO_CONT4_HIST_MULT +
         thread->pawn_history[pos->hash_keys.pawn_key % 2048]
                             [pos->mailbox[get_move_source(move)]]
-                            [get_move_target(move)];
+                            [get_move_target(move)] *
+            MO_PAWN_HIST_MULT;
+    move_entry->score /= 1024;
     return;
   }
   move_entry->score = 0;
@@ -830,9 +849,9 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   }
 
   // ProbCut pruning
-  if (!pv_node && !in_check && !ss->excluded_move && 
-    depth >= PROBCUT_DEPTH && abs(beta) < MATE_SCORE &&
-    (!tt_hit || tt_depth + 3 < depth || tt_score >= beta + PROBCUT_MARGIN)) {
+  if (!pv_node && !in_check && !ss->excluded_move && depth >= PROBCUT_DEPTH &&
+      abs(beta) < MATE_SCORE &&
+      (!tt_hit || tt_depth + 3 < depth || tt_score >= beta + PROBCUT_MARGIN)) {
 
     int16_t probcut_beta = beta + PROBCUT_MARGIN;
     int probcut_depth = depth - PROBCUT_SHALLOW_DEPTH - 1;
@@ -956,17 +975,24 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
     ss->history_score =
         quiet
-            ? thread->quiet_history
-                      [pos->side][get_move_source(move)][get_move_target(move)]
-                      [is_square_threatened(ss, get_move_source(move))]
-                      [is_square_threatened(ss, get_move_target(move))] +
-                  get_conthist_score(thread, pos, ss - 1, move) +
-                  get_conthist_score(thread, pos, ss - 2, move)
+            ? thread->quiet_history[pos->side][get_move_source(move)]
+                                   [get_move_target(move)][is_square_threatened(
+                                       ss, get_move_source(move))]
+                                   [is_square_threatened(
+                                       ss, get_move_target(move))] *
+                      SEARCH_QUIET_HIST_MULT +
+                  get_conthist_score(thread, pos, ss - 1, move) *
+                      SEARCH_CONT1_HIST_MULT +
+                  get_conthist_score(thread, pos, ss - 2, move) *
+                      SEARCH_CONT2_HIST_MULT
             : thread->capture_history[pos->mailbox[get_move_source(move)]]
                                      [pos->mailbox[get_move_target(move)]]
                                      [get_move_source(move)]
-                                     [get_move_target(move)] +
-                  mvv[pos->mailbox[get_move_target(move)] % 6];
+                                     [get_move_target(move)] *
+                      SEARCH_CAPT_HIST_MULT +
+                  mvv[pos->mailbox[get_move_target(move)] % 6] *
+                      SEARCH_MVV_MULT;
+    ss->history_score /= 1024;
 
     // Late Move Pruning
     if (!pv_node && quiet &&
