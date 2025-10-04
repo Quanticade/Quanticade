@@ -1014,6 +1014,10 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       continue;
     }
 
+    if (!root_node && !pv_node && best_score > -MATE_SCORE && depth < 4 && quiet && ss->history_score < -6200 * depth) {
+      continue;
+    }
+
     // SEE PVS Pruning
     if (depth <= SEE_DEPTH && moves_seen > 0 &&
         !SEE(pos, move,
