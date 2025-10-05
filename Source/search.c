@@ -727,12 +727,6 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     return 0;
   }
 
-  // Internal Iterative Reductions
-  if ((pv_node || cutnode) && !ss->excluded_move && depth >= IIR_DEPTH &&
-      (!tt_move || tt_depth < depth - IIR_DEPTH_REDUCTION)) {
-    depth--;
-  }
-
   if ((ss - 1)->reduction >= HINDSIGH_REDUCTION_ADD && !opponent_worsening) {
     ++depth;
   }
@@ -746,6 +740,16 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   // moves seen counter
   uint16_t moves_seen = 0;
 
+  // Razoring
+  if (!pv_node && !in_check && !ss->excluded_move && depth <= RAZOR_DEPTH &&
+      ss->static_eval + RAZOR_MARGIN * depth < alpha) {
+    const int16_t razor_score =
+        quiescence(pos, thread, ss, alpha, beta, NON_PV);
+    if (razor_score <= alpha) {
+      return razor_score;
+    }
+  }
+
   // Reverse Futility Pruning
   if (!ss->tt_pv && !in_check && !ss->excluded_move && depth <= RFP_DEPTH &&
       ss->eval >= beta + RFP_BASE_MARGIN + RFP_MARGIN * depth -
@@ -755,7 +759,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     return beta + (ss->eval - beta) / 3;
   }
 
-  // null move pruning
+  // Null Move Pruning
   if (!pv_node && !in_check && !ss->excluded_move && !ss->null_move &&
       pos->ply > thread->nmp_min_ply && ss->eval >= beta &&
       ss->static_eval >= beta - NMP_MULTIPLIER * depth + NMP_BASE_ADD &&
@@ -835,15 +839,6 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       if (verification_score >= beta) {
         return verification_score;
       }
-    }
-  }
-
-  if (!pv_node && !in_check && !ss->excluded_move && depth <= RAZOR_DEPTH &&
-      ss->static_eval + RAZOR_MARGIN * depth < alpha) {
-    const int16_t razor_score =
-        quiescence(pos, thread, ss, alpha, beta, NON_PV);
-    if (razor_score <= alpha) {
-      return razor_score;
     }
   }
 
@@ -932,6 +927,12 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
         return probcut_score;
       }
     }
+  }
+
+  // Internal Iterative Reductions
+  if ((pv_node || cutnode) && !ss->excluded_move && depth >= IIR_DEPTH &&
+      (!tt_move || tt_depth < depth - IIR_DEPTH_REDUCTION)) {
+    depth--;
   }
 
   // create move list instance
