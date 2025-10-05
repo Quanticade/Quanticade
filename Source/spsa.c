@@ -151,6 +151,8 @@ extern double SOFT_LIMIT_MULTIPLIER;
 extern double NODE_TIME_MULTIPLIER;
 extern double NODE_TIME_ADDITION;
 extern double NODE_TIME_MIN;
+extern double EVAL_TIME_ADDITION;
+extern double EVAL_TIME_MULTIPLIER;
 
 extern int mvv[];
 extern int SEEPieceValues[];
@@ -161,7 +163,6 @@ extern int EVAL_QUEEN;
 extern int EVAL_SCALE_BASE;
 
 extern double bestmove_scale[5];
-extern double eval_scale[5];
 
 #define RATE(VALUE) MAX(0.5, MAX(1, (((float)VALUE * 2) - 1)) / 20)
 #define RATE_POISON(VALUE) MAX(0.5, MAX(1, (((float)VALUE * 2) - 1)) / 20 / 5)
@@ -408,6 +409,13 @@ void init_spsa_table(void) {
                   SPSA_MAX(NODE_TIME_MIN), RATE_DOUBLE_TIME(NODE_TIME_MIN),
                   NULL, 1);
 
+  add_double_spsa(STRINGIFY(EVAL_TIME_ADDITION), &EVAL_TIME_ADDITION, 0,
+                  SPSA_MAX(EVAL_TIME_ADDITION),
+                  RATE_DOUBLE_TIME(EVAL_TIME_ADDITION), NULL, 1);
+  add_double_spsa(STRINGIFY(EVAL_TIME_MULTIPLIER), &EVAL_TIME_MULTIPLIER, 0,
+                  SPSA_MAX(EVAL_TIME_MULTIPLIER),
+                  RATE_DOUBLE_TIME(EVAL_TIME_MULTIPLIER), NULL, 1);
+
   add_double_spsa("BESTMOVE_SCALE0", &bestmove_scale[0], 0,
                   SPSA_MAX(bestmove_scale[0]),
                   RATE_DOUBLE_TIME(bestmove_scale[0]), NULL, 1);
@@ -423,17 +431,6 @@ void init_spsa_table(void) {
   add_double_spsa("BESTMOVE_SCALE4", &bestmove_scale[4], 0,
                   SPSA_MAX(bestmove_scale[4]),
                   RATE_DOUBLE_TIME(bestmove_scale[4]), NULL, 1);
-
-  add_double_spsa("EVAL_SCALE0", &eval_scale[0], 0, SPSA_MAX(eval_scale[0]),
-                  RATE_DOUBLE_TIME(eval_scale[0]), NULL, 1);
-  add_double_spsa("EVAL_SCALE1", &eval_scale[1], 0, SPSA_MAX(eval_scale[1]),
-                  RATE_DOUBLE_TIME(eval_scale[1]), NULL, 1);
-  add_double_spsa("EVAL_SCALE2", &eval_scale[2], 0, SPSA_MAX(eval_scale[2]),
-                  RATE_DOUBLE_TIME(eval_scale[2]), NULL, 1);
-  add_double_spsa("EVAL_SCALE3", &eval_scale[3], 0, SPSA_MAX(eval_scale[3]),
-                  RATE_DOUBLE_TIME(eval_scale[3]), NULL, 1);
-  add_double_spsa("EVAL_SCALE4", &eval_scale[4], 0, SPSA_MAX(eval_scale[4]),
-                  RATE_DOUBLE_TIME(eval_scale[4]), NULL, 1);
 }
 
 void print_spsa_table_uci(void) {

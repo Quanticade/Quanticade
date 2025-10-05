@@ -126,6 +126,9 @@ double NODE_TIME_MULTIPLIER = 2.386305469085633;
 double NODE_TIME_ADDITION = 0.44814808632195424;
 double NODE_TIME_MIN = 0.5568573339779463;
 
+double EVAL_TIME_ADDITION = 1.2;
+double EVAL_TIME_MULTIPLIER = 0.04;
+
 int SEEPieceValues[] = {56, 311, 324, 582, 1225, 0, 0};
 
 int mvv[] = {126, 395, 309, 584, 1347, 0};
@@ -139,9 +142,6 @@ int LMP_MARGIN[MAX_PLY + 1][2];
 double bestmove_scale[5] = {2.435008962486456f, 1.3514595123975768f,
                             1.0921709375887645f, 0.8799608961420715f,
                             0.7006821873450457f};
-double eval_scale[5] = {1.2553097907287714, 1.1283513678269563f,
-                        0.9752319195442376f, 0.9422129907606405f,
-                        0.8980687736160886f};
 
 uint64_t nodes_spent_table[4096] = {0};
 
@@ -179,11 +179,11 @@ void scale_time(thread_t *thread, uint8_t best_move_stability,
   double node_scaling_factor =
       MAX(NODE_TIME_MULTIPLIER * not_bm_nodes_fraction + NODE_TIME_ADDITION,
           NODE_TIME_MIN);
-  double eval = 1.2 - eval_stability * 0.04;
+  double eval = EVAL_TIME_ADDITION - eval_stability * EVAL_TIME_MULTIPLIER;
   limits.soft_limit =
-      MIN(thread->starttime +
-              limits.base_soft * bestmove_scale[best_move_stability] *
-                  eval * node_scaling_factor,
+      MIN(thread->starttime + limits.base_soft *
+                                  bestmove_scale[best_move_stability] * eval *
+                                  node_scaling_factor,
           limits.max_time + thread->starttime);
 }
 
