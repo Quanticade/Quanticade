@@ -311,18 +311,8 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   }
 
   // create move list instance
-  moves move_list[1];
   moves capture_list[1];
   capture_list->count = 0;
-
-  // generate moves
-  if (!in_check) {
-    generate_noisy(pos, move_list);
-  } else {
-    generate_moves(pos, move_list);
-  }
-
-  score_moves(pos, thread, ss, move_list, tt_move);
 
   uint16_t previous_square = 0;
 
@@ -333,13 +323,13 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   }
 
   move_picker_t picker;
-  init_picker(&picker, move_list);
+  init_qsearch_picker(&picker, pos, thread, ss, tt_move);
 
   uint16_t move_index = 0;
 
   // loop over moves within a movelist
   uint16_t move = 0;
-  while ((move = next_move(&picker)) != 0) {
+  while ((move = next_move(&picker, 0)) != 0) {
     move_index++;
 
     if (!is_legal(pos, move)) {
@@ -712,20 +702,15 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     int probcut_depth = depth - PROBCUT_SHALLOW_DEPTH - 1;
     probcut_depth = MAX(1, probcut_depth);
 
-    // Generate captures and good promotions for ProbCut
-    moves probcut_list[1];
-    generate_noisy(pos, probcut_list);
-
     // Score the moves
-    score_moves(pos, thread, ss, probcut_list, 0);
 
     move_picker_t picker;
-    init_picker(&picker, probcut_list);
+    init_probcut_picker(&picker, pos, thread, ss);
 
     uint16_t move;
 
     // Try moves that look promising
-    while ((move = next_move(&picker)) != 0) {
+    while ((move = next_move(&picker, 0)) != 0) {
 
       // Skip moves that don't pass SEE threshold
       if (!SEE(pos, move, PROBCUT_SEE_THRESHOLD)) {
@@ -800,32 +785,27 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   }
 
   // create move list instance
-  moves move_list[1];
   moves quiet_list[1];
   moves capture_list[1];
   quiet_list->count = 0;
   capture_list->count = 0;
 
-  // generate moves
-  generate_moves(pos, move_list);
-
   int16_t best_score = NO_SCORE;
   current_score = NO_SCORE;
 
   uint16_t best_move = 0;
-  score_moves(pos, thread, ss, move_list, tt_move);
 
   uint8_t skip_quiets = 0;
 
   const int16_t original_alpha = alpha;
 
   move_picker_t picker;
-  init_picker(&picker, move_list);
+  init_picker(&picker, pos, thread, ss, tt_move);
 
   uint16_t move = 0;
 
   // loop over moves within a movelist
-  while ((move = next_move(&picker)) != 0) {
+  while ((move = next_move(&picker, skip_quiets)) != 0) {
     uint8_t quiet =
         (get_move_capture(move) == 0 && is_move_promotion(move) == 0);
 

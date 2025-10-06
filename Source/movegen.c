@@ -1308,3 +1308,319 @@ void generate_noisy(position_t *pos, moves *move_list) {
     }
   }
 }
+
+void generate_quiets(position_t *pos, moves *move_list) {
+  // init move count
+  move_list->count = 0;
+
+  // define source & target squares
+  int source_square, target_square;
+
+  // define current piece's bitboard copy & its attacks
+  uint64_t bitboard, attacks;
+  uint8_t start = P, end = K;
+
+  if (pos->side == black) {
+    start = p;
+    end = k;
+  }
+
+  // loop over all the bitboards
+  for (uint8_t piece = start; piece <= end; piece++) {
+    // init piece bitboard copy
+    bitboard = pos->bitboards[piece];
+
+    // generate white pawns & white king castling moves
+    if (pos->side == white) {
+      // pick up white pawn bitboards index
+      if (piece == P) {
+        // loop over white pawns within white pawn bitboard
+        while (bitboard) {
+          // init source square
+          source_square = __builtin_ctzll(bitboard);
+
+          // init target square
+          target_square = source_square - 8;
+
+          // generate quiet pawn moves
+          if (!(target_square < a8) &&
+              !get_bit(pos->occupancies[both], target_square)) {
+            // pawn promotion
+            if (!(source_square >= a7 && source_square <= h7)) {
+              // one square ahead pawn move
+              add_move(move_list,
+                       encode_move(source_square, target_square, QUIET));
+
+              // two squares ahead pawn move
+              if ((source_square >= a2 && source_square <= h2) &&
+                  !get_bit(pos->occupancies[both], target_square - 8))
+                add_move(move_list,
+                         encode_move(source_square, (target_square - 8),
+                                     DOUBLE_PUSH));
+            }
+          }
+
+          // pop ls1b from piece bitboard copy
+          pop_bit(bitboard, source_square);
+        }
+      }
+
+      // castling moves
+      if (piece == K) {
+        // king side castling is available
+        if (pos->castle & wk) {
+          // make sure square between king and king's rook are empty
+          if (!get_bit(pos->occupancies[both], f1) &&
+              !get_bit(pos->occupancies[both], g1)) {
+            // make sure king and the f1 squares are not under attacks
+            if (!is_square_attacked(pos, e1, black) &&
+                !is_square_attacked(pos, f1, black))
+              add_move(move_list, encode_move(e1, g1, KING_CASTLE));
+          }
+        }
+
+        // queen side castling is available
+        if (pos->castle & wq) {
+          // make sure square between king and queen's rook are empty
+          if (!get_bit(pos->occupancies[both], d1) &&
+              !get_bit(pos->occupancies[both], c1) &&
+              !get_bit(pos->occupancies[both], b1)) {
+            // make sure king and the d1 squares are not under attacks
+            if (!is_square_attacked(pos, e1, black) &&
+                !is_square_attacked(pos, d1, black))
+              add_move(move_list, encode_move(e1, c1, QUEEN_CASTLE));
+          }
+        }
+      }
+    }
+
+    // generate black pawns & black king castling moves
+    else {
+      // pick up black pawn bitboards index
+      if (piece == p) {
+        // loop over white pawns within white pawn bitboard
+        while (bitboard) {
+          // init source square
+          source_square = __builtin_ctzll(bitboard);
+
+          // init target square
+          target_square = source_square + 8;
+
+          // generate quiet pawn moves
+          if (!(target_square > h1) &&
+              !get_bit(pos->occupancies[both], target_square)) {
+            // pawn promotion
+            if (!(source_square >= a2 && source_square <= h2)) {
+              // one square ahead pawn move
+              add_move(move_list,
+                       encode_move(source_square, target_square, QUIET));
+
+              // two squares ahead pawn move
+              if ((source_square >= a7 && source_square <= h7) &&
+                  !get_bit(pos->occupancies[both], target_square + 8))
+                add_move(move_list,
+                         encode_move(source_square, (target_square + 8),
+                                     DOUBLE_PUSH));
+            }
+          }
+
+          // pop ls1b from piece bitboard copy
+          pop_bit(bitboard, source_square);
+        }
+      }
+
+      // castling moves
+      if (piece == k) {
+        // king side castling is available
+        if (pos->castle & bk) {
+          // make sure square between king and king's rook are empty
+          if (!get_bit(pos->occupancies[both], f8) &&
+              !get_bit(pos->occupancies[both], g8)) {
+            // make sure king and the f8 squares are not under attacks
+            if (!is_square_attacked(pos, e8, white) &&
+                !is_square_attacked(pos, f8, white))
+              add_move(move_list, encode_move(e8, g8, KING_CASTLE));
+          }
+        }
+
+        // queen side castling is available
+        if (pos->castle & bq) {
+          // make sure square between king and queen's rook are empty
+          if (!get_bit(pos->occupancies[both], d8) &&
+              !get_bit(pos->occupancies[both], c8) &&
+              !get_bit(pos->occupancies[both], b8)) {
+            // make sure king and the d8 squares are not under attacks
+            if (!is_square_attacked(pos, e8, white) &&
+                !is_square_attacked(pos, d8, white))
+              add_move(move_list, encode_move(e8, c8, QUEEN_CASTLE));
+          }
+        }
+      }
+    }
+
+    // genarate knight moves
+    if ((pos->side == white) ? piece == N : piece == n) {
+      // loop over source squares of piece bitboard copy
+      while (bitboard) {
+        // init source square
+        source_square = __builtin_ctzll(bitboard);
+
+        // init piece attacks in order to get set of target squares
+        attacks = knight_attacks[source_square] &
+                  ((pos->side == white) ? ~pos->occupancies[white]
+                                        : ~pos->occupancies[black]);
+
+        // loop over target squares available from generated attacks
+        while (attacks) {
+          // init target square
+          target_square = __builtin_ctzll(attacks);
+
+          // quiet move
+          if (!get_bit(((pos->side == white) ? pos->occupancies[black]
+                                             : pos->occupancies[white]),
+                       target_square))
+            add_move(move_list,
+                     encode_move(source_square, target_square, QUIET));
+
+          // pop ls1b in current attacks set
+          pop_bit(attacks, target_square);
+        }
+
+        // pop ls1b of the current piece bitboard copy
+        pop_bit(bitboard, source_square);
+      }
+    }
+
+    // generate bishop moves
+    if ((pos->side == white) ? piece == B : piece == b) {
+      // loop over source squares of piece bitboard copy
+      while (bitboard) {
+        // init source square
+        source_square = __builtin_ctzll(bitboard);
+
+        // init piece attacks in order to get set of target squares
+        attacks = get_bishop_attacks(source_square, pos->occupancies[both]) &
+                  ((pos->side == white) ? ~pos->occupancies[white]
+                                        : ~pos->occupancies[black]);
+
+        // loop over target squares available from generated attacks
+        while (attacks) {
+          // init target square
+          target_square = __builtin_ctzll(attacks);
+
+          // quiet move
+          if (!get_bit(((pos->side == white) ? pos->occupancies[black]
+                                             : pos->occupancies[white]),
+                       target_square))
+            add_move(move_list,
+                     encode_move(source_square, target_square, QUIET));
+
+          // pop ls1b in current attacks set
+          pop_bit(attacks, target_square);
+        }
+
+        // pop ls1b of the current piece bitboard copy
+        pop_bit(bitboard, source_square);
+      }
+    }
+
+    // generate rook moves
+    if ((pos->side == white) ? piece == R : piece == r) {
+      // loop over source squares of piece bitboard copy
+      while (bitboard) {
+        // init source square
+        source_square = __builtin_ctzll(bitboard);
+
+        // init piece attacks in order to get set of target squares
+        attacks = get_rook_attacks(source_square, pos->occupancies[both]) &
+                  ((pos->side == white) ? ~pos->occupancies[white]
+                                        : ~pos->occupancies[black]);
+
+        // loop over target squares available from generated attacks
+        while (attacks) {
+          // init target square
+          target_square = __builtin_ctzll(attacks);
+
+          // quiet move
+          if (!get_bit(((pos->side == white) ? pos->occupancies[black]
+                                             : pos->occupancies[white]),
+                       target_square))
+            add_move(move_list,
+                     encode_move(source_square, target_square, QUIET));
+
+          // pop ls1b in current attacks set
+          pop_bit(attacks, target_square);
+        }
+
+        // pop ls1b of the current piece bitboard copy
+        pop_bit(bitboard, source_square);
+      }
+    }
+
+    // generate queen moves
+    if ((pos->side == white) ? piece == Q : piece == q) {
+      // loop over source squares of piece bitboard copy
+      while (bitboard) {
+        // init source square
+        source_square = __builtin_ctzll(bitboard);
+
+        // init piece attacks in order to get set of target squares
+        attacks = get_queen_attacks(source_square, pos->occupancies[both]) &
+                  ((pos->side == white) ? ~pos->occupancies[white]
+                                        : ~pos->occupancies[black]);
+
+        // loop over target squares available from generated attacks
+        while (attacks) {
+          // init target square
+          target_square = __builtin_ctzll(attacks);
+
+          // quiet move
+          if (!get_bit(((pos->side == white) ? pos->occupancies[black]
+                                             : pos->occupancies[white]),
+                       target_square))
+            add_move(move_list,
+                     encode_move(source_square, target_square, QUIET));
+
+          // pop ls1b in current attacks set
+          pop_bit(attacks, target_square);
+        }
+
+        // pop ls1b of the current piece bitboard copy
+        pop_bit(bitboard, source_square);
+      }
+    }
+
+    // generate king moves
+    if ((pos->side == white) ? piece == K : piece == k) {
+      // loop over source squares of piece bitboard copy
+      while (bitboard) {
+        // init source square
+        source_square = __builtin_ctzll(bitboard);
+
+        // init piece attacks in order to get set of target squares
+        attacks = king_attacks[source_square] &
+                  ((pos->side == white) ? ~pos->occupancies[white]
+                                        : ~pos->occupancies[black]);
+
+        // loop over target squares available from generated attacks
+        while (attacks) {
+          // init target square
+          target_square = __builtin_ctzll(attacks);
+
+          // quiet move
+          if (!get_bit(((pos->side == white) ? pos->occupancies[black]
+                                             : pos->occupancies[white]),
+                       target_square))
+            add_move(move_list,
+                     encode_move(source_square, target_square, QUIET));
+
+          // pop ls1b in current attacks set
+          pop_bit(attacks, target_square);
+        }
+
+        // pop ls1b of the current piece bitboard copy
+        pop_bit(bitboard, source_square);
+      }
+    }
+  }
+}
