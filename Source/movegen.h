@@ -11,5 +11,6 @@ void generate_moves(position_t* pos, moves *move_list);
 void generate_noisy(position_t* pos, moves *move_list);
 void init_between_bitboards(void);
 void update_slider_pins(position_t *pos, uint8_t side);
+void generate_quiets(position_t* pos, moves *move_list);
 
 #endif
