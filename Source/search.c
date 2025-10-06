@@ -752,6 +752,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
   // Reverse Futility Pruning
   if (!ss->tt_pv && !in_check && !ss->excluded_move && depth <= RFP_DEPTH &&
+      beta > -MATE_SCORE && ss->eval < MATE_SCORE &&
       ss->eval >= beta + RFP_BASE_MARGIN + RFP_MARGIN * depth -
                       RFP_IMPROVING * improving -
                       RFP_OPP_WORSENING * opponent_worsening) {
