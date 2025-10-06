@@ -6,6 +6,7 @@
 #include "history.h"
 #include "move.h"
 #include "movegen.h"
+#include "movepicker.h"
 #include "nnue.h"
 #include "pyrrhic/tbprobe.h"
 #include "see.h"
@@ -199,93 +200,6 @@ uint8_t check_time(thread_t *thread) {
   return 0;
 }
 
-// score moves
-static inline void score_move(position_t *pos, thread_t *thread,
-                              searchstack_t *ss, move_t *move_entry,
-                              uint16_t hash_move) {
-  uint16_t move = move_entry->move;
-
-  // Hash move gets highest priority
-  if (move == hash_move) {
-    move_entry->score = 2000000000;
-    return;
-  }
-
-  // Cache frequently used values
-  uint8_t source = get_move_source(move);
-  uint8_t target = get_move_target(move);
-  uint8_t promoted_piece = get_move_promoted(pos->side, move);
-  uint8_t is_capture = get_move_capture(move);
-
-  uint8_t source_threatened = is_square_threatened(ss, source);
-  uint8_t target_threatened = is_square_threatened(ss, target);
-
-  // Handle noisy moves
-  if (is_capture || promoted_piece) {
-    // Determine target piece (handle en passant)
-    int target_piece;
-    if (get_move_enpassant(move)) {
-      int ep_square = pos->side ? target - 8 : target + 8;
-      target_piece = pos->mailbox[ep_square];
-    } else {
-      target_piece = pos->mailbox[target];
-    }
-
-    // MVV-LVA base score
-    move_entry->score = mvv[target_piece % 6] * MO_MVV_MULT;
-
-    // Add capture history
-    move_entry->score +=
-        thread->capture_history[pos->mailbox[source]][target_piece][source]
-                               [target][source_threatened][target_threatened] *
-        MO_CAPT_HIST_MULT;
-
-    move_entry->score /= 1024;
-
-    // SEE check - good captures get huge bonus, bad ones get penalty
-    int see_threshold = -MO_SEE_THRESHOLD - move_entry->score / 35;
-    move_entry->score +=
-        SEE(pos, move, see_threshold) ? 1000000000 : -1000000000;
-    return;
-  }
-
-  // Handle quiet moves
-  move_entry->score =
-      thread->quiet_history[pos->side][source][target][source_threatened]
-                           [target_threatened] *
-          MO_QUIET_HIST_MULT +
-      get_conthist_score(thread, pos, ss, move, 1) * MO_CONT1_HIST_MULT +
-      get_conthist_score(thread, pos, ss, move, 2) * MO_CONT2_HIST_MULT +
-      get_conthist_score(thread, pos, ss, move, 4) * MO_CONT4_HIST_MULT +
-      thread->pawn_history[pos->hash_keys.pawn_key % 2048][pos->mailbox[source]]
-                          [target] *
-          MO_PAWN_HIST_MULT;
-
-  move_entry->score /= 1024;
-}
-
-static inline move_t pick_next_best_move(moves *move_list, uint16_t *index) {
-  if (*index >= move_list->count)
-    return (move_t){0}; // Return dummy if we're out of bounds
-
-  uint16_t best = *index;
-
-  for (uint16_t i = *index + 1; i < move_list->count; ++i) {
-    if (move_list->entry[i].score > move_list->entry[best].score)
-      best = i;
-  }
-
-  // Swap best with current index
-  if (best != *index) {
-    move_t temp = move_list->entry[*index];
-    move_list->entry[*index] = move_list->entry[best];
-    move_list->entry[best] = temp;
-  }
-
-  // Return and increment index for next call
-  return move_list->entry[(*index)++];
-}
-
 // position repetition detection
 static inline uint8_t is_repetition(position_t *pos, thread_t *thread) {
   // loop over repetition indices range
@@ -408,11 +322,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     generate_moves(pos, move_list);
   }
 
-  for (uint32_t count = 0; count < move_list->count; count++) {
-    score_move(pos, thread, ss, &move_list->entry[count], tt_move);
-  }
-
-  uint16_t move_index = 0;
+  score_moves(pos, thread, ss, move_list, tt_move);
 
   uint16_t previous_square = 0;
 
@@ -422,10 +332,15 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     previous_square = get_move_target((ss - 1)->move);
   }
 
-  // loop over moves within a movelist
+  move_picker_t picker;
+  init_picker(&picker, move_list);
 
-  while (move_index < move_list->count) {
-    uint16_t move = pick_next_best_move(move_list, &move_index).move;
+  uint16_t move_index = 0;
+
+  // loop over moves within a movelist
+  uint16_t move = 0;
+  while ((move = next_move(&picker)) != 0) {
+    move_index++;
 
     if (!is_legal(pos, move)) {
       continue;
@@ -802,15 +717,15 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     generate_noisy(pos, probcut_list);
 
     // Score the moves
-    for (uint32_t count = 0; count < probcut_list->count; count++) {
-      score_move(pos, thread, ss, &probcut_list->entry[count], 0);
-    }
+    score_moves(pos, thread, ss, probcut_list, 0);
 
-    uint16_t probcut_index = 0;
+    move_picker_t picker;
+    init_picker(&picker, probcut_list);
+
+    uint16_t move;
 
     // Try moves that look promising
-    while (probcut_index < probcut_list->count) {
-      uint16_t move = pick_next_best_move(probcut_list, &probcut_index).move;
+    while ((move = next_move(&picker)) != 0) {
 
       // Skip moves that don't pass SEE threshold
       if (!SEE(pos, move, PROBCUT_SEE_THRESHOLD)) {
@@ -898,19 +813,19 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   current_score = NO_SCORE;
 
   uint16_t best_move = 0;
-  for (uint32_t count = 0; count < move_list->count; count++) {
-    score_move(pos, thread, ss, &move_list->entry[count], tt_move);
-  }
+  score_moves(pos, thread, ss, move_list, tt_move);
 
   uint8_t skip_quiets = 0;
 
   const int16_t original_alpha = alpha;
 
-  uint16_t move_index = 0;
+  move_picker_t picker;
+  init_picker(&picker, move_list);
+
+  uint16_t move = 0;
 
   // loop over moves within a movelist
-  while (move_index < move_list->count) {
-    uint16_t move = pick_next_best_move(move_list, &move_index).move;
+  while ((move = next_move(&picker)) != 0) {
     uint8_t quiet =
         (get_move_capture(move) == 0 && is_move_promotion(move) == 0);
 
