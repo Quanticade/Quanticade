@@ -150,6 +150,7 @@ int main(int argc, char *argv[]) {
   // free hash table memory on exit
   free(tt.hash_entry);
   free(threads);
+  free(nnue_settings.nnue_file);
 
   return 0;
 }
