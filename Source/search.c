@@ -1161,6 +1161,14 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
         if (new_depth > reduced_depth) {
           current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                    new_depth, !cutnode, NON_PV);
+
+          // Early continuation history update on beta cutoff for quiet moves
+          if (quiet && current_score >= beta) {
+            int bonus = (1 + (moves_seen / depth)) * MIN(155 * depth - 63, 851);
+            update_continuation_history(thread, pos, ss - 1, move, bonus);
+            update_continuation_history(thread, pos, ss - 2, move, bonus);
+            update_continuation_history(thread, pos, ss - 4, move, bonus);
+          }
         }
       }
       // Full Depth Search

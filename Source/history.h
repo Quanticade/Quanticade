@@ -23,5 +23,7 @@ void update_quiet_histories(thread_t *thread, position_t *pos,
 
 void update_quiet_history(thread_t *thread, position_t *pos, searchstack_t *ss,
                           int move, int bonus);
+void update_continuation_history(thread_t *thread, position_t *pos,
+                                 searchstack_t *ss, int move, int bonus);
 
 #endif
