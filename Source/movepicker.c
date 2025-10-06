@@ -117,8 +117,11 @@ void init_qsearch_picker(move_picker_t *picker, position_t *pos,
   picker->stage = STAGE_TT_MOVE;
   picker->type = PICKER_QSEARCH;
   picker->noisy_index = 0;
-  picker->noisy_moves->count = 0;
+  picker->quiet_index = 0;
   picker->bad_noisy_index = 0;
+  picker->skip_quiets = 0;
+  picker->noisy_moves->count = 0;
+  picker->quiet_moves->count = 0;
   picker->bad_noisy->count = 0;
   picker->probcut = 0;
 }
@@ -132,8 +135,11 @@ void init_probcut_picker(move_picker_t *picker, position_t *pos,
   picker->stage = STAGE_TT_MOVE;
   picker->type = PICKER_QSEARCH;
   picker->noisy_index = 0;
-  picker->noisy_moves->count = 0;
+  picker->quiet_index = 0;
   picker->bad_noisy_index = 0;
+  picker->skip_quiets = 0;
+  picker->noisy_moves->count = 0;
+  picker->quiet_moves->count = 0;
   picker->bad_noisy->count = 0;
   picker->probcut = 1;
 }
