@@ -454,7 +454,7 @@ static inline void time_control(position_t *pos, thread_t *threads,
   if ((argument = strstr(line, "nodes"))) {
     // parse amount of time allowed to spend to make a move
     limits.node_limit_soft = atoi(argument + 6);
-    limits.node_limit_hard = 1000000;
+    limits.node_limit_hard = 100000000;
     limits.depth = MAX_PLY;
     limits.nodes_set = 1;
   }
