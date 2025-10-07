@@ -1128,9 +1128,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     // PVS & LMR
     int new_depth = depth + extensions - 1;
 
-    // LMR
-    if (depth >= 2 && moves_seen > 2 + 2 * pv_node) {
-      int R = lmr[quiet][depth][MIN(255, moves_seen)] * 1024;
+    int R = lmr[quiet][depth][MIN(255, moves_seen)] * 1024;
       R += !pv_node * LMR_PV_NODE;
       R -= ss->history_score * (quiet ? LMR_HISTORY_QUIET : LMR_HISTORY_NOISY) /
            (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
@@ -1144,6 +1142,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       R += (ss->cutoff_cnt > 3) * LMR_CUTOFF_CNT;
       R -= improving * LMR_IMPROVING;
 
+    // LMR
+    if (depth >= 2 && moves_seen > 2 + 2 * pv_node) {
       ss->reduction = R;
 
       R = R / 1024;
@@ -1167,7 +1167,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       // Full Depth Search
     } else if (!pv_node || moves_seen > 1) {
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
-                               new_depth, !cutnode, NON_PV);
+                               new_depth - (R > 3072), !cutnode, NON_PV);
     }
 
     // Principal Variation Search
