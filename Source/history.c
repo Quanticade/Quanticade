@@ -28,17 +28,9 @@ int CAPTURE_HISTORY_FACTOR_MALUS = 235;
 int CONT_HISTORY_MALUS_MAX = 1308;
 int CONT_HISTORY_BONUS_MAX = 2023;
 int CONT_HISTORY_BASE_BONUS = 9;
-int CONT_HISTORY_FACTOR_BONUS = 156;
+int CONT_HISTORY_FACTOR_BONUS = 177;
 int CONT_HISTORY_BASE_MALUS = 9;
-int CONT_HISTORY_FACTOR_MALUS = 200;
-int CONT_HISTORY_BASE2_BONUS = 10;
-int CONT_HISTORY_FACTOR2_BONUS = 193;
-int CONT_HISTORY_BASE2_MALUS = 10;
-int CONT_HISTORY_FACTOR2_MALUS = 246;
-int CONT_HISTORY_BASE4_BONUS = 9;
-int CONT_HISTORY_FACTOR4_BONUS = 183;
-int CONT_HISTORY_BASE4_MALUS = 9;
-int CONT_HISTORY_FACTOR4_MALUS = 227;
+int CONT_HISTORY_FACTOR_MALUS = 224;
 
 int PAWN_HISTORY_MALUS_MAX = 1138;
 int PAWN_HISTORY_BONUS_MAX = 1311;
@@ -53,6 +45,8 @@ int NON_PAWN_CORR_HISTORY_MULTIPLIER = 26;
 
 int FIFTY_MOVE_SCALING = 192;
 int HISTORY_MAX = 8192;
+
+uint8_t cont_hist_updates[] = {1, 2, 4};
 
 extern keys_t keys;
 
@@ -283,6 +277,25 @@ static inline void update_continuation_history(thread_t *thread,
           abs(bonus) / HISTORY_MAX;
 }
 
+static inline void update_continuation_histories(thread_t *thread,
+                                                 position_t *pos,
+                                                 searchstack_t *ss, int move,
+                                                 int bonus) {
+  uint8_t count = sizeof(cont_hist_updates) / sizeof(uint8_t);
+  for (uint8_t i = 0; i < count; ++i) {
+    int prev_piece = (ss - cont_hist_updates[i])->piece;
+    if (pos->ply >= cont_hist_updates[i] && prev_piece != NO_PIECE) {
+      int prev_target = get_move_target((ss - cont_hist_updates[i])->move);
+      int piece = pos->mailbox[get_move_source(move)];
+      int target = get_move_target(move);
+      thread->continuation_history[prev_piece][prev_target][piece][target] +=
+          bonus -
+          thread->continuation_history[prev_piece][prev_target][piece][target] *
+              abs(bonus) / HISTORY_MAX;
+    }
+  }
+}
+
 static inline void update_pawn_history(thread_t *thread, position_t *pos,
                                        int move, int bonus) {
   int target = get_move_target(move);
@@ -328,18 +341,6 @@ void update_quiet_histories(thread_t *thread, position_t *pos,
   int cont_malus =
       -MIN(CONT_HISTORY_BASE_MALUS + CONT_HISTORY_FACTOR_MALUS * depth,
            CONT_HISTORY_MALUS_MAX);
-  int cont_bonus2 =
-      MIN(CONT_HISTORY_BASE2_BONUS + CONT_HISTORY_FACTOR2_BONUS * depth,
-          CONT_HISTORY_BONUS_MAX);
-  int cont_malus2 =
-      -MIN(CONT_HISTORY_BASE2_MALUS + CONT_HISTORY_FACTOR2_MALUS * depth,
-           CONT_HISTORY_MALUS_MAX);
-  int cont_bonus4 =
-      MIN(CONT_HISTORY_BASE4_BONUS + CONT_HISTORY_FACTOR4_BONUS * depth,
-          CONT_HISTORY_BONUS_MAX);
-  int cont_malus4 =
-      -MIN(CONT_HISTORY_BASE4_MALUS + CONT_HISTORY_FACTOR4_MALUS * depth,
-           CONT_HISTORY_MALUS_MAX);
 
   int quiet_bonus =
       MIN(QUIET_HISTORY_BASE_BONUS + QUIET_HISTORY_FACTOR_BONUS * depth,
@@ -357,15 +358,11 @@ void update_quiet_histories(thread_t *thread, position_t *pos,
   for (uint32_t i = 0; i < quiet_moves->count; ++i) {
     uint16_t move = quiet_moves->entry[i].move;
     if (move == best_move) {
-      update_continuation_history(thread, pos, ss - 1, best_move, cont_bonus);
-      update_continuation_history(thread, pos, ss - 2, best_move, cont_bonus2);
-      update_continuation_history(thread, pos, ss - 4, best_move, cont_bonus4);
+      update_continuation_histories(thread, pos, ss, best_move, cont_bonus);
       update_pawn_history(thread, pos, best_move, pawn_bonus);
       update_quiet_history(thread, pos, ss, best_move, quiet_bonus);
     } else {
-      update_continuation_history(thread, pos, ss - 1, move, cont_malus);
-      update_continuation_history(thread, pos, ss - 2, move, cont_malus2);
-      update_continuation_history(thread, pos, ss - 4, move, cont_malus4);
+      update_continuation_histories(thread, pos, ss, move, cont_malus);
       update_pawn_history(thread, pos, move, pawn_malus);
       update_quiet_history(thread, pos, ss, move, quiet_malus);
     }
