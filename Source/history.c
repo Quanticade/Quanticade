@@ -46,7 +46,7 @@ int NON_PAWN_CORR_HISTORY_MULTIPLIER = 26;
 int FIFTY_MOVE_SCALING = 192;
 int HISTORY_MAX = 8192;
 
-uint8_t cont_hist_updates[] = {1, 2, 4};
+uint8_t cont_hist_updates[] = {1, 2, 4, 6};
 
 extern keys_t keys;
 
