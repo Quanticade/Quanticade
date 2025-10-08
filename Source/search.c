@@ -274,9 +274,9 @@ static inline void score_move(position_t *pos, thread_t *thread,
             move)][is_square_threatened(ss, get_move_source(move))]
                              [is_square_threatened(ss, get_move_target(move))] *
             MO_QUIET_HIST_MULT +
-        get_conthist_score(thread, pos, ss - 1, move) * MO_CONT1_HIST_MULT +
-        get_conthist_score(thread, pos, ss - 2, move) * MO_CONT2_HIST_MULT +
-        get_conthist_score(thread, pos, ss - 4, move) * MO_CONT4_HIST_MULT +
+        get_conthist_score(thread, pos, ss, move, 1) * MO_CONT1_HIST_MULT +
+        get_conthist_score(thread, pos, ss, move, 2) * MO_CONT2_HIST_MULT +
+        get_conthist_score(thread, pos, ss, move, 4) * MO_CONT4_HIST_MULT +
         thread->pawn_history[pos->hash_keys.pawn_key % 2048]
                             [pos->mailbox[get_move_source(move)]]
                             [get_move_target(move)] *
@@ -982,9 +982,9 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
                                    [is_square_threatened(
                                        ss, get_move_target(move))] *
                       SEARCH_QUIET_HIST_MULT +
-                  get_conthist_score(thread, pos, ss - 1, move) *
+                  get_conthist_score(thread, pos, ss, move, 1) *
                       SEARCH_CONT1_HIST_MULT +
-                  get_conthist_score(thread, pos, ss - 2, move) *
+                  get_conthist_score(thread, pos, ss, move, 2) *
                       SEARCH_CONT2_HIST_MULT
             : thread->capture_history[pos->mailbox[get_move_source(move)]]
                                      [pos->mailbox[get_move_target(move)]]

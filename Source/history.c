@@ -263,7 +263,7 @@ static inline void update_capture_history(thread_t *thread, position_t *pos,
                   abs(bonus) / HISTORY_MAX;
 }
 
-static inline void update_continuation_history(thread_t *thread,
+/*static inline void update_continuation_history(thread_t *thread,
                                                position_t *pos,
                                                searchstack_t *ss, int move,
                                                int bonus) {
@@ -275,7 +275,7 @@ static inline void update_continuation_history(thread_t *thread,
       bonus -
       thread->continuation_history[prev_piece][prev_target][piece][target] *
           abs(bonus) / HISTORY_MAX;
-}
+}*/
 
 static inline void update_continuation_histories(thread_t *thread,
                                                  position_t *pos,
@@ -327,9 +327,14 @@ void update_capture_history_moves(thread_t *thread, position_t *pos,
 }
 
 int16_t get_conthist_score(thread_t *thread, position_t *pos, searchstack_t *ss,
-                           int move) {
-  return thread->continuation_history[ss->piece][get_move_target(
-      ss->move)][pos->mailbox[get_move_source(move)]][get_move_target(move)];
+                           int move, uint8_t ply) {
+  if (pos->ply >= ply && (ss - ply)->piece != NO_PIECE) {
+    return thread->continuation_history[(ss - ply)->piece][get_move_target(
+        (ss - ply)->move)][pos->mailbox[get_move_source(move)]]
+                                       [get_move_target(move)];
+  } else {
+    return 0;
+  }
 }
 
 void update_quiet_histories(thread_t *thread, position_t *pos,
