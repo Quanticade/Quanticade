@@ -8,61 +8,47 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-windows-gcc:
+  build:
     runs-on: windows-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Setup MSYS2
-      uses: msys2/setup-msys2@v2
-      with:
-        msystem: MINGW64
-        update: true
-        install: >-
-          mingw-w64-x86_64-gcc
-          mingw-w64-x86_64-winpthreads-git
-          make
-    
-    - name: Build Quanticade with GCC
-      shell: msys2 {0}
-      run: |
-        make
-    
-    - name: Upload GCC Executable
-      uses: actions/upload-artifact@v4
-      with:
-        name: Quanticade-Windows-GCC-x64
-        path: "*.exe"
-        if-no-files-found: warn
 
-  build-windows-clang:
-    runs-on: windows-latest
-    
+    strategy:
+      matrix:
+        compiler: [gcc, clang]
+        arch: [x86-64-avx2, x86-64-bmi2, x86-64-avx512]
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-    
+
     - name: Setup MSYS2
       uses: msys2/setup-msys2@v2
       with:
         msystem: MINGW64
         update: true
         install: >-
+          make
+          mingw-w64-x86_64-winpthreads-git
+          mingw-w64-x86_64-gcc
           mingw-w64-x86_64-clang
           mingw-w64-x86_64-lld
-          mingw-w64-x86_64-winpthreads-git
-          make
-    
-    - name: Build Quanticade with Clang
+
+    - name: Build with ${{ matrix.compiler }} for ${{ matrix.arch }}
       shell: msys2 {0}
       run: |
-        make CC=clang
-    
-    - name: Upload Clang Executable
+        if [ "${{ matrix.compiler }}" = "clang" ]; then
+          make CC=clang build=${{ matrix.arch }}
+        else
+          make build=${{ matrix.arch }}
+        fi
+
+    - name: Rename binary
+      shell: msys2 {0}
+      run: |
+        mv Quanticade.exe Quanticade-Windows-${{ matrix.compiler }}-${{ matrix.arch }}.exe
+
+    - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Quanticade-Windows-Clang-x64
-        path: "*.exe"
+        name: Quanticade-Windows-${{ matrix.compiler }}-${{ matrix.arch }}
+        path: Quanticade-Windows-${{ matrix.compiler }}-${{ matrix.arch }}.exe
         if-no-files-found: warn
