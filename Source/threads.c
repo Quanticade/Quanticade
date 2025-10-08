@@ -26,8 +26,8 @@ thread_t *init_threads(int thread_count) {
 #endif
 
     for (int thread = 0; thread < thread_count; ++thread) {
-        threads[thread].index = thread;
         memset(&threads[thread], 0, sizeof(threads[thread]));
+        threads[thread].index = thread;
     }
 
     return threads;
