@@ -2,13 +2,13 @@ name: Windows Build
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main, master ]
   pull_request:
-    branches: [ master ]
+    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
-  build-windows:
+  build-windows-gcc:
     runs-on: windows-latest
     
     steps:
@@ -25,40 +25,43 @@ jobs:
           mingw-w64-x86_64-winpthreads-git
           make
     
-    - name: Build Quanticade
+    - name: Build Quanticade with GCC
       shell: msys2 {0}
       run: |
         make
     
-    - name: Create Release Archive
-      shell: pwsh
-      run: |
-        $version = "dev-build"
-        $archiveName = "Quanticade-Windows-x64-$version.zip"
-        
-        # Find the executable (adjust if needed)
-        $exe = Get-ChildItem -Filter "*.exe" -Recurse | Select-Object -First 1
-        
-        if ($exe) {
-          Compress-Archive -Path $exe.FullName -DestinationPath $archiveName
-          echo "ARCHIVE_NAME=$archiveName" >> $env:GITHUB_ENV
-          echo "Built executable: $($exe.Name)"
-        } else {
-          echo "No executable found, creating archive of build directory"
-          Compress-Archive -Path "." -DestinationPath $archiveName
-          echo "ARCHIVE_NAME=$archiveName" >> $env:GITHUB_ENV
-        }
-    
-    - name: Upload Build Artifact
+    - name: Upload GCC Executable
       uses: actions/upload-artifact@v4
       with:
-        name: Quanticade-Windows-x64
-        path: ${{ env.ARCHIVE_NAME }}
+        name: Quanticade-Windows-GCC-x64
+        path: "*.exe"
         if-no-files-found: warn
+
+  build-windows-clang:
+    runs-on: windows-latest
     
-    - name: Upload Executable
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          mingw-w64-x86_64-clang
+          mingw-w64-x86_64-winpthreads-git
+          make
+    
+    - name: Build Quanticade with Clang
+      shell: msys2 {0}
+      run: |
+        make CC=clang
+    
+    - name: Upload Clang Executable
       uses: actions/upload-artifact@v4
       with:
-        name: Quanticade-Windows-exe
+        name: Quanticade-Windows-Clang-x64
         path: "*.exe"
         if-no-files-found: warn
