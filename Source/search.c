@@ -211,6 +211,10 @@ static inline void score_move(position_t *pos, thread_t *thread,
     return;
   }
 
+  move_entry->score = 0;
+
+  move_entry->score += might_give_check(pos, move) * 100000;
+
   if (promoted_piece) {
     // We have a promotion
     switch (promoted_piece) {
@@ -243,7 +247,6 @@ static inline void score_move(position_t *pos, thread_t *thread,
     }
   }
 
-  move_entry->score = 0;
 
   // score capture move
   if (get_move_capture(move)) {
@@ -269,7 +272,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
   // score quiet move
   else {
     // score history move
-    move_entry->score =
+    move_entry->score +=
         thread->quiet_history[pos->side][get_move_source(move)][get_move_target(
             move)][is_square_threatened(ss, get_move_source(move))]
                              [is_square_threatened(ss, get_move_target(move))] *
