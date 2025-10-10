@@ -49,7 +49,7 @@ int PROBCUT_DEPTH = 5;
 int PROBCUT_SHALLOW_DEPTH = 3;
 int SE_DEPTH_REDUCTION = 6;
 int SE_PV_DOUBLE_MARGIN = 1;
-int SE_TRIPLE_MARGIN = 36;
+int SE_TRIPLE_MARGIN = 80;
 int IIR_DEPTH_REDUCTION = 3;
 int EVAL_STABILITY_VAR = 9;
 
@@ -1055,7 +1055,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
         extensions++;
         if (s_score < s_beta - SE_PV_DOUBLE_MARGIN * pv_node) {
           extensions++;
-          if (!get_move_capture(move) && s_score + SE_TRIPLE_MARGIN < s_beta) {
+          if (s_score < s_beta - SE_TRIPLE_MARGIN + 45 * !get_move_capture(tt_move)) {
             extensions++;
           }
         }
