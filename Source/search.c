@@ -36,7 +36,7 @@ extern int QUIET_HISTORY_TT_BASE;
 
 // Depths and untunable values (SPSA poison)
 int RAZOR_DEPTH = 7;
-int RFP_DEPTH = 7;
+int RFP_DEPTH = 9;
 int FP_DEPTH = 10;
 int NMP_BASE_REDUCTION = 5;
 int NMP_DIVISER = 3;
