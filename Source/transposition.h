@@ -18,7 +18,6 @@ extern tt_t tt;
 #define HASH_FLAG_LOWER_BOUND 2
 #define HASH_FLAG_UPPER_BOUND 3
 
-void tt_new_search(void);
 void clear_hash_table(void);
 void prefetch_hash_entry(uint64_t hash_key);
 uint8_t can_use_score(int alpha, int beta, int tt_score, uint8_t flag);

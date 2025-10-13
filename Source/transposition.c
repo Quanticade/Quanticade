@@ -16,13 +16,6 @@ extern int thread_count;
 
 __extension__ typedef unsigned __int128 uint128_t;
 
-void tt_new_search(void) {
-  tt.current_age++;
-  if (tt.current_age >= 32) {
-    tt.current_age = 1;
-  }
-}
-
 int hash_full(void) {
   uint64_t used = 0;
   int samples = 1000;
@@ -211,7 +204,7 @@ void write_hash_entry(tt_entry_t *tt_entry, position_t *pos, int16_t score,
   uint8_t replace =
       tt_entry->hash_key != get_hash_low_bits(pos->hash_keys.hash_key) ||
       depth + 4 > tt_entry->depth || hash_flag == HASH_FLAG_EXACT ||
-      tt_entry->age == tt.current_age;
+      tt_entry->age != tt.current_age;
 
   if (!replace) {
     return;
