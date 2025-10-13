@@ -1452,6 +1452,10 @@ void *iterative_deepening(void *thread_void) {
       return NULL;
     }
   }
+
+  if (thread->index == 0) {
+    tt.current_age = (tt.current_age + 1) & ((1 << 5) - 1);
+  }
   return NULL;
 }
 
