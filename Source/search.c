@@ -38,7 +38,7 @@ extern int QUIET_HISTORY_TT_BASE;
 int RAZOR_DEPTH = 7;
 int RFP_DEPTH = 9;
 int FP_DEPTH = 10;
-int NMP_BASE_REDUCTION = 5;
+int NMP_BASE_REDUCTION = 6;
 int NMP_DIVISER = 3;
 int NMP_RED_MIN = 3;
 int IIR_DEPTH = 4;
@@ -765,8 +765,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       pos->ply > thread->nmp_min_ply && ss->eval >= beta &&
       ss->static_eval >= beta - NMP_MULTIPLIER * depth + NMP_BASE_ADD &&
       ss->eval >= ss->static_eval && !only_pawns(pos)) {
-    int R = MIN((ss->eval - beta) / NMP_RED_DIVISER, NMP_RED_MIN) +
-            depth / NMP_DIVISER + NMP_BASE_REDUCTION;
+    int R = depth / NMP_DIVISER + NMP_BASE_REDUCTION;
     R = MIN(R, depth);
     // preserve board state
     position_t pos_copy = *pos;
