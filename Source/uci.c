@@ -289,11 +289,13 @@ static inline void parse_fen(position_t *pos, thread_t *thread, char *fen) {
 
     // init enpassant square
     pos->enpassant = rank * 8 + file;
+    fen += 2; // skip both characters
   }
-
   // no enpassant square
-  else
+  else {
     pos->enpassant = no_sq;
+    fen++; // skip '-'
+  }
 
   // go to parsing half move counter (increment pointer to FEN string)
   fen++;
