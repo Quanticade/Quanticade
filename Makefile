@@ -38,6 +38,10 @@ ifeq ($(OS), Windows_NT)
 	uname_S  := Windows
 	SUFFIX   := .exe
 	CFLAGS += -static
+	# Detect MSYS2 environment (CLANG64/MINGW64)
+	ifneq ($(MSYSTEM),)
+		FLAGS = -pthread
+	endif
 else
 	FLAGS    = -pthread -lm
 	SUFFIX  :=
