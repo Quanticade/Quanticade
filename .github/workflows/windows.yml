@@ -13,42 +13,34 @@ jobs:
 
     strategy:
       matrix:
-        compiler: [gcc, clang]
         arch: [x86-64-avx2, x86-64-bmi2, x86-64-avx512]
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup MSYS2
+    - name: Setup MSYS2 with CLANG64
       uses: msys2/setup-msys2@v2
       with:
-        msystem: MINGW64
+        msystem: CLANG64
         update: true
         install: >-
           make
-          mingw-w64-x86_64-winpthreads-git
-          mingw-w64-x86_64-gcc
-          mingw-w64-x86_64-clang
-          mingw-w64-x86_64-lld
+          mingw-w64-clang-x86_64-toolchain
 
-    - name: Build with ${{ matrix.compiler }} for ${{ matrix.arch }}
+    - name: Build with Clang for ${{ matrix.arch }}
       shell: msys2 {0}
       run: |
-        if [ "${{ matrix.compiler }}" = "clang" ]; then
-          make CC=clang build=${{ matrix.arch }}
-        else
-          make build=${{ matrix.arch }}
-        fi
+        make CC=clang build=${{ matrix.arch }}
 
     - name: Rename binary
       shell: msys2 {0}
       run: |
-        mv Quanticade.exe Quanticade-Windows-${{ matrix.compiler }}-${{ matrix.arch }}.exe
+        mv Quanticade.exe Quanticade-Windows-clang-${{ matrix.arch }}.exe
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Quanticade-Windows-${{ matrix.compiler }}-${{ matrix.arch }}
-        path: Quanticade-Windows-${{ matrix.compiler }}-${{ matrix.arch }}.exe
+        name: Quanticade-Windows-clang-${{ matrix.arch }}
+        path: Quanticade-Windows-clang-${{ matrix.arch }}.exe
         if-no-files-found: warn
