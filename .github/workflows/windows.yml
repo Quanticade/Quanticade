@@ -32,7 +32,7 @@ jobs:
     - name: Build with Clang for ${{ matrix.arch }}
       shell: msys2 {0}
       run: |
-        make CC=clang LDFLAGS="-lpthread" build=${{ matrix.arch }}
+        make CC=clang CFLAGS="-pthread" LDFLAGS="-pthread" build=${{ matrix.arch }}
 
     - name: Rename binary
       shell: msys2 {0}
