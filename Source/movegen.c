@@ -453,6 +453,8 @@ uint8_t make_move(position_t *pos, uint16_t move) {
       pos->occupancies[pos->side ^ 1];
   pos->checker_count = popcount(pos->checkers);
 
+  pos->fullmove += pos->side == black;
+
   // change side
   pos->side ^= 1;
 

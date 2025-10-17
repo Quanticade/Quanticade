@@ -99,6 +99,11 @@ const char *square_to_coordinates[] = {
 int char_pieces[] = {
     ['P'] = P, ['N'] = N, ['B'] = B, ['R'] = R, ['Q'] = Q, ['K'] = K,
     ['p'] = p, ['n'] = n, ['b'] = b, ['r'] = r, ['q'] = q, ['k'] = k};
+
+char piece_chars[] = {
+    [P] = 'P', [N] = 'N', [B] = 'B', [R] = 'R', [Q] = 'Q', [K] = 'K',
+    [p] = 'p', [n] = 'n', [b] = 'b', [r] = 'r', [q] = 'q', [k] = 'k'};
+
 char promoted_pieces[] = {[Q] = 'q', [R] = 'r', [B] = 'b', [N] = 'n',
                           [q] = 'q', [r] = 'r', [b] = 'b', [n] = 'n'};
 
@@ -188,6 +193,94 @@ static inline void reset_board(position_t *pos, thread_t *thread) {
 
   // reset repetition table
   memset(thread->repetition_table, 0ULL, sizeof(thread->repetition_table));
+}
+
+static inline void generate_fen(position_t *pos, char *fen) {
+  char *ptr = fen;
+
+  // loop over board ranks
+  for (int rank = 0; rank < 8; rank++) {
+    int empty = 0;
+
+    // loop over board files
+    for (int file = 0; file < 8; file++) {
+      int square = rank * 8 + file;
+      int piece = pos->mailbox[square];
+
+      // if square has a piece
+      if (piece != NO_PIECE) {
+        // write empty square count if any
+        if (empty > 0) {
+          *ptr++ = '0' + empty;
+          empty = 0;
+        }
+
+        // write piece character
+        *ptr++ = piece_chars[piece];
+      } else {
+        // increment empty square counter
+        empty++;
+      }
+    }
+
+    // write remaining empty squares
+    if (empty > 0) {
+      *ptr++ = '0' + empty;
+    }
+
+    // add rank separator (except after last rank)
+    if (rank < 7) {
+      *ptr++ = '/';
+    }
+  }
+
+  // add space before side to move
+  *ptr++ = ' ';
+
+  // write side to move
+  *ptr++ = (pos->side == white) ? 'w' : 'b';
+
+  // add space before castling rights
+  *ptr++ = ' ';
+
+  // write castling rights
+  if (pos->castle == 0) {
+    *ptr++ = '-';
+  } else {
+    if (pos->castle & wk)
+      *ptr++ = 'K';
+    if (pos->castle & wq)
+      *ptr++ = 'Q';
+    if (pos->castle & bk)
+      *ptr++ = 'k';
+    if (pos->castle & bq)
+      *ptr++ = 'q';
+  }
+
+  // add space before en passant square
+  *ptr++ = ' ';
+
+  // write en passant square
+  if (pos->enpassant == no_sq) {
+    *ptr++ = '-';
+  } else {
+    int file = pos->enpassant % 8;
+    int rank = pos->enpassant / 8;
+    *ptr++ = 'a' + file;
+    *ptr++ = '1' + (7 - rank);
+  }
+
+  // add space before half move counter
+  *ptr++ = ' ';
+
+  // write half move counter
+  int fifty_len = sprintf(ptr, "%d", pos->fifty);
+  ptr += fifty_len;
+
+  // add space before full move counter
+  *ptr++ = ' ';
+
+  sprintf(ptr, "%d", pos->fullmove);
 }
 
 static inline void parse_fen(position_t *pos, thread_t *thread, char *fen) {
@@ -302,6 +395,18 @@ static inline void parse_fen(position_t *pos, thread_t *thread, char *fen) {
 
   // parse half move counter to init fifty move counter
   pos->fifty = atoi(fen);
+
+  // skip to full move counter
+  while (*fen && *fen != ' ') fen++;
+  
+  // parse full move counter
+  if (*fen == ' ') {
+    fen++;
+    pos->fullmove = atoi(fen);
+  } else {
+    // default to 1 if not provided
+    pos->fullmove = 1;
+  }
 
   // loop over white pieces bitboards
   for (int piece = P; piece <= K; piece++)
