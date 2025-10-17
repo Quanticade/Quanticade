@@ -206,7 +206,7 @@ int16_t correction_value(thread_t *thread, position_t *pos) {
       NON_PAWN_CORR_HISTORY_MULTIPLIER;
   const int correction =
       pawn_correction + white_non_pawn_correction + black_non_pawn_correction;
-  return correction / 1024;
+  return correction;
 }
 
 void update_corrhist(thread_t *thread, position_t *pos, int16_t static_eval,
