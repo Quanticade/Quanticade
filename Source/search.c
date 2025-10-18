@@ -1128,7 +1128,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     int new_depth = depth + extensions - 1;
 
     // LMR
-    if (depth >= 2 && moves_seen > 2 + 2 * pv_node) {
+    if (depth >= 2 && moves_seen > 1) {
       int R = lmr[quiet][depth][MIN(255, moves_seen)] * 1024;
       R += !pv_node * LMR_PV_NODE;
       R -= ss->history_score * (quiet ? LMR_HISTORY_QUIET : LMR_HISTORY_NOISY) /
