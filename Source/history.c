@@ -308,8 +308,8 @@ static inline void update_pawn_history(thread_t *thread, position_t *pos,
 }
 
 void update_capture_history_moves(thread_t *thread, position_t *pos,
-                                  moves *capture_moves, int best_move,
-                                  uint8_t depth) {
+                                  moves *capture_moves, uint16_t best_move,
+                                  uint8_t depth, uint8_t is_tt_move) {
   int capt_bonus =
       MIN(CAPTURE_HISTORY_BASE_BONUS + CAPTURE_HISTORY_FACTOR_BONUS * depth,
           CAPTURE_HISTORY_BONUS_MAX);
@@ -318,7 +318,7 @@ void update_capture_history_moves(thread_t *thread, position_t *pos,
            CAPTURE_HISTORY_MALUS_MAX);
   for (uint32_t i = 0; i < capture_moves->count; ++i) {
     if (capture_moves->entry[i].move == best_move) {
-      update_capture_history(thread, pos, best_move, capt_bonus);
+      update_capture_history(thread, pos, best_move, capt_bonus + 300 * is_tt_move);
     } else {
       update_capture_history(thread, pos, capture_moves->entry[i].move,
                              capt_malus);
@@ -339,7 +339,7 @@ int16_t get_conthist_score(thread_t *thread, position_t *pos, searchstack_t *ss,
 
 void update_quiet_histories(thread_t *thread, position_t *pos,
                             searchstack_t *ss, moves *quiet_moves,
-                            int best_move, uint8_t depth) {
+                            uint16_t best_move, uint8_t depth, uint8_t is_tt_move) {
   int cont_bonus =
       MIN(CONT_HISTORY_BASE_BONUS + CONT_HISTORY_FACTOR_BONUS * depth,
           CONT_HISTORY_BONUS_MAX);
@@ -363,9 +363,9 @@ void update_quiet_histories(thread_t *thread, position_t *pos,
   for (uint32_t i = 0; i < quiet_moves->count; ++i) {
     uint16_t move = quiet_moves->entry[i].move;
     if (move == best_move) {
-      update_continuation_histories(thread, pos, ss, best_move, cont_bonus);
-      update_pawn_history(thread, pos, best_move, pawn_bonus);
-      update_quiet_history(thread, pos, ss, best_move, quiet_bonus);
+      update_continuation_histories(thread, pos, ss, best_move, cont_bonus + 300 * is_tt_move);
+      update_pawn_history(thread, pos, best_move, pawn_bonus + 300 * is_tt_move);
+      update_quiet_history(thread, pos, ss, best_move, quiet_bonus + 300 * is_tt_move);
     } else {
       update_continuation_histories(thread, pos, ss, move, cont_malus);
       update_pawn_history(thread, pos, move, pawn_malus);

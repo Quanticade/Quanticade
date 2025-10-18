@@ -562,7 +562,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
         alpha = score;
         // fail-hard beta cutoff
         if (alpha >= beta) {
-          update_capture_history_moves(thread, pos, capture_list, best_move, 1);
+          update_capture_history_moves(thread, pos, capture_list, best_move, 1, best_move == tt_move);
           break;
         }
       }
@@ -1221,11 +1221,11 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
           // on quiet moves
           if (quiet) {
             update_quiet_histories(thread, pos, ss, quiet_list, best_move,
-                                   depth);
+                                   depth, best_move == tt_move);
           }
 
           update_capture_history_moves(thread, pos, capture_list, best_move,
-                                       depth);
+                                       depth, best_move == tt_move);
           ss->cutoff_cnt++;
           break;
         }
