@@ -309,7 +309,7 @@ static inline void update_pawn_history(thread_t *thread, position_t *pos,
 
 void update_capture_history_moves(thread_t *thread, position_t *pos,
                                   moves *capture_moves, int best_move,
-                                  uint8_t depth) {
+                                  uint8_t depth, uint16_t move_count) {
   int capt_bonus =
       MIN(CAPTURE_HISTORY_BASE_BONUS + CAPTURE_HISTORY_FACTOR_BONUS * depth,
           CAPTURE_HISTORY_BONUS_MAX);
@@ -321,7 +321,7 @@ void update_capture_history_moves(thread_t *thread, position_t *pos,
       update_capture_history(thread, pos, best_move, capt_bonus);
     } else {
       update_capture_history(thread, pos, capture_moves->entry[i].move,
-                             capt_malus);
+                             capt_malus - 30 * (move_count - 1));
     }
   }
 }
@@ -339,7 +339,7 @@ int16_t get_conthist_score(thread_t *thread, position_t *pos, searchstack_t *ss,
 
 void update_quiet_histories(thread_t *thread, position_t *pos,
                             searchstack_t *ss, moves *quiet_moves,
-                            int best_move, uint8_t depth) {
+                            int best_move, uint8_t depth, uint16_t move_count) {
   int cont_bonus =
       MIN(CONT_HISTORY_BASE_BONUS + CONT_HISTORY_FACTOR_BONUS * depth,
           CONT_HISTORY_BONUS_MAX);
@@ -367,9 +367,9 @@ void update_quiet_histories(thread_t *thread, position_t *pos,
       update_pawn_history(thread, pos, best_move, pawn_bonus);
       update_quiet_history(thread, pos, ss, best_move, quiet_bonus);
     } else {
-      update_continuation_histories(thread, pos, ss, move, cont_malus);
-      update_pawn_history(thread, pos, move, pawn_malus);
-      update_quiet_history(thread, pos, ss, move, quiet_malus);
+      update_continuation_histories(thread, pos, ss, move, cont_malus - 30 * (move_count - 1));
+      update_pawn_history(thread, pos, move, pawn_malus - 30 * (move_count - 1));
+      update_quiet_history(thread, pos, ss, move, quiet_malus - 30 * (move_count - 1));
     }
   }
 }
