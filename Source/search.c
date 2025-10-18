@@ -618,6 +618,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   ss->tt_pv = ss->excluded_move ? ss->tt_pv : pv_node;
 
   uint8_t root_node = pos->ply == 0;
+  uint8_t all_node = !(pv_node || cutnode);
 
   // Limit depth to MAX_PLY - 1 in case extensions make it too big
   depth = clamp(depth, 0, MAX_PLY - 1);
@@ -930,7 +931,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   }
 
   // Internal Iterative Reductions
-  if ((pv_node || cutnode) && !ss->excluded_move && depth >= IIR_DEPTH &&
+  if (!all_node && !ss->excluded_move && depth >= IIR_DEPTH &&
       (!tt_move || tt_depth < depth - IIR_DEPTH_REDUCTION)) {
     depth--;
   }
