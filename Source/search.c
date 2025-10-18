@@ -923,7 +923,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       if (probcut_score >= probcut_beta) {
         // Store in transposition table
         write_hash_entry(tt_entry, pos, probcut_score, raw_static_eval,
-                         probcut_depth, move, HASH_FLAG_LOWER_BOUND, ss->tt_pv);
+                         probcut_depth + 1, move, HASH_FLAG_LOWER_BOUND, ss->tt_pv);
         return probcut_score;
       }
     }
