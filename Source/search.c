@@ -713,11 +713,13 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   uint8_t improving = 0;
   uint8_t opponent_worsening = 0;
 
-  if ((ss - 2)->static_eval != NO_SCORE) {
-    improving = ss->static_eval > (ss - 2)->static_eval;
-  }
-  if (!in_check) {
-    opponent_worsening = ss->static_eval + (ss - 1)->static_eval > 1;
+  if (!root_node && !in_check && !ss->excluded_move) {
+    if ((ss - 2)->static_eval != NO_SCORE) {
+      improving = ss->static_eval > (ss - 2)->static_eval;
+    }
+    if (!in_check) {
+      opponent_worsening = ss->static_eval + (ss - 1)->static_eval > 1;
+    }
   }
 
   (ss + 2)->cutoff_cnt = 0;
@@ -844,7 +846,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   }
 
   const int16_t probcut_beta = beta + PROBCUT_MARGIN;
-  
+
   // ProbCut pruning
   if (!pv_node && !in_check && !ss->excluded_move && depth >= PROBCUT_DEPTH &&
       abs(beta) < MATE_SCORE &&
