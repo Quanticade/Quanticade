@@ -1053,7 +1053,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       // No move beat tt score so we extend the search
       if (s_score < s_beta) {
         extensions++;
-        if (s_score < s_beta - SE_PV_DOUBLE_MARGIN * pv_node) {
+        if (s_score < s_beta - SE_PV_DOUBLE_MARGIN * pv_node + (ss->history_score / 512) * quiet) {
           extensions++;
           if (!get_move_capture(move) && s_score + SE_TRIPLE_MARGIN < s_beta) {
             extensions++;
