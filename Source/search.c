@@ -713,13 +713,11 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   uint8_t improving = 0;
   uint8_t opponent_worsening = 0;
 
-  if (!root_node && !in_check && !ss->excluded_move) {
-    if ((ss - 2)->static_eval != NO_SCORE) {
-      improving = ss->static_eval > (ss - 2)->static_eval;
-    }
-    if (!in_check) {
-      opponent_worsening = ss->static_eval + (ss - 1)->static_eval > 1;
-    }
+  if ((ss - 2)->static_eval != NO_SCORE) {
+    improving = ss->static_eval > (ss - 2)->static_eval;
+  }
+  if (!in_check) {
+    opponent_worsening = ss->static_eval + (ss - 1)->static_eval > 1;
   }
 
   (ss + 2)->cutoff_cnt = 0;
@@ -730,14 +728,16 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     return 0;
   }
 
-  if ((ss - 1)->reduction >= HINDSIGH_REDUCTION_ADD && !opponent_worsening) {
-    ++depth;
-  }
+  if (!root_node && !in_check && !ss->excluded_move) {
+    if ((ss - 1)->reduction >= HINDSIGH_REDUCTION_ADD && !opponent_worsening) {
+      ++depth;
+    }
 
-  if (depth >= 2 && (ss - 1)->reduction >= HINDSIGH_REDUCTION_RED &&
-      (ss - 1)->eval != NO_SCORE &&
-      ss->static_eval + (ss - 1)->eval > HINDSIGN_REDUCTION_EVAL_MARGIN) {
-    --depth;
+    if (depth >= 2 && (ss - 1)->reduction >= HINDSIGH_REDUCTION_RED &&
+        (ss - 1)->eval != NO_SCORE &&
+        ss->static_eval + (ss - 1)->eval > HINDSIGN_REDUCTION_EVAL_MARGIN) {
+      --depth;
+    }
   }
 
   // moves seen counter
