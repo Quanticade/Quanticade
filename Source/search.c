@@ -463,6 +463,8 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     generate_moves(pos, move_list);
   }
 
+  calculate_threats(pos, ss);
+
   for (uint32_t count = 0; count < move_list->count; count++) {
     score_move(pos, thread, ss, &move_list->entry[count], tt_move);
   }
@@ -855,6 +857,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     moves probcut_list[1];
     generate_noisy(pos, probcut_list);
 
+    calculate_threats(pos, ss);
+
     // Score the moves
     for (uint32_t count = 0; count < probcut_list->count; count++) {
       score_move(pos, thread, ss, &probcut_list->entry[count], 0);
@@ -948,6 +952,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
   int16_t best_score = NO_SCORE;
   current_score = NO_SCORE;
+
+  calculate_threats(pos, ss);
 
   uint16_t best_move = 0;
   for (uint32_t count = 0; count < move_list->count; count++) {
