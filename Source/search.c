@@ -482,19 +482,22 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   while (move_index < move_list->count) {
     uint16_t move = pick_next_best_move(move_list, &move_index).move;
 
-    if (!SEE(pos, move, -QS_SEE_THRESHOLD))
-      continue;
+    if (move_index > 1) {
+      if (!SEE(pos, move, -QS_SEE_THRESHOLD))
+        continue;
 
-    if (best_score > -MATE_SCORE && get_move_target(move) != previous_square) {
-      if (move_index >= 3) {
+      if (best_score > -MATE_SCORE &&
+          get_move_target(move) != previous_square) {
+        if (move_index >= 3) {
+          continue;
+        }
+      }
+
+      if (!in_check && get_move_capture(move) && futility_score <= alpha &&
+          !SEE(pos, move, 1)) {
+        best_score = MAX(best_score, futility_score);
         continue;
       }
-    }
-
-    if (!in_check && get_move_capture(move) && futility_score <= alpha &&
-        !SEE(pos, move, 1)) {
-      best_score = MAX(best_score, futility_score);
-      continue;
     }
 
     // preserve board state
@@ -844,7 +847,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   }
 
   const int16_t probcut_beta = beta + PROBCUT_MARGIN;
-  
+
   // ProbCut pruning
   if (!pv_node && !in_check && !ss->excluded_move && depth >= PROBCUT_DEPTH &&
       abs(beta) < MATE_SCORE &&
@@ -924,7 +927,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       if (probcut_score >= probcut_beta) {
         // Store in transposition table
         write_hash_entry(tt_entry, pos, probcut_score, raw_static_eval,
-                         probcut_depth + 1, move, HASH_FLAG_LOWER_BOUND, ss->tt_pv);
+                         probcut_depth + 1, move, HASH_FLAG_LOWER_BOUND,
+                         ss->tt_pv);
         return probcut_score;
       }
     }
