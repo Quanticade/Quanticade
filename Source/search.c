@@ -463,8 +463,6 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     generate_moves(pos, move_list);
   }
 
-  calculate_threats(pos, ss);
-
   for (uint32_t count = 0; count < move_list->count; count++) {
     score_move(pos, thread, ss, &move_list->entry[count], tt_move);
   }
@@ -522,7 +520,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
       continue;
     }
 
-    calculate_threats(pos, ss + 1);
+    calculate_threats(&pos_copy, ss + 1);
 
     update_nnue(&pos_copy, thread, pos->mailbox, move);
 
@@ -804,7 +802,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     pos_copy.checker_count = 0;
     (ss + 1)->null_move = 1;
 
-    calculate_threats(pos, ss + 1);
+    calculate_threats(&pos_copy, ss + 1);
 
     /* search moves with reduced depth to find beta cutoffs
        depth - 1 - R where R is a reduction limit */
@@ -857,8 +855,6 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     moves probcut_list[1];
     generate_noisy(pos, probcut_list);
 
-    calculate_threats(pos, ss);
-
     // Score the moves
     for (uint32_t count = 0; count < probcut_list->count; count++) {
       score_move(pos, thread, ss, &probcut_list->entry[count], 0);
@@ -893,7 +889,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
         continue;
       }
 
-      calculate_threats(&pos_copy, ss + 1);
+      calculate_threats(pos, ss + 1);
       update_nnue(pos, thread, pos_copy.mailbox, move);
 
       ss->move = move;
@@ -952,8 +948,6 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
   int16_t best_score = NO_SCORE;
   current_score = NO_SCORE;
-
-  calculate_threats(pos, ss);
 
   uint16_t best_move = 0;
   for (uint32_t count = 0; count < move_list->count; count++) {
