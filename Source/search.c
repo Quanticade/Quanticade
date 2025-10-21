@@ -520,7 +520,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
       continue;
     }
 
-    calculate_threats(pos, ss + 1);
+    calculate_threats(&pos_copy, ss + 1);
 
     update_nnue(&pos_copy, thread, pos->mailbox, move);
 
@@ -802,7 +802,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     pos_copy.checker_count = 0;
     (ss + 1)->null_move = 1;
 
-    calculate_threats(pos, ss + 1);
+    calculate_threats(&pos_copy, ss + 1);
 
     /* search moves with reduced depth to find beta cutoffs
        depth - 1 - R where R is a reduction limit */
@@ -889,7 +889,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
         continue;
       }
 
-      calculate_threats(&pos_copy, ss + 1);
+      calculate_threats(pos, ss + 1);
       update_nnue(pos, thread, pos_copy.mailbox, move);
 
       ss->move = move;
