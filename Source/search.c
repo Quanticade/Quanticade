@@ -1260,8 +1260,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       hash_flag = HASH_FLAG_UPPER_BOUND;
     }
     // store hash entry with the score equal to alpha
-    /*write_hash_entry(tt_entry, pos, best_score, raw_static_eval, depth,
-                     best_move, hash_flag, ss->tt_pv);*/
+    write_hash_entry(tt_entry, pos, best_score, raw_static_eval, depth,
+                     best_move, hash_flag, ss->tt_pv);
 
     if (!in_check &&
         (!best_move ||
