@@ -21,11 +21,9 @@ int hash_full(void) {
   int samples = 1000;
 
   for (int i = 0; i < samples; ++i) {
-    for (int j = 0; j < 3; j++) {
-      if (tt.hash_entry[i].tt_entries[j].hash_key != 0) {
+      if (tt.hash_entry[i].hash_key != 0) {
         used++;
       }
-    }
   }
 
   return used / ((samples * 3) / 1000);
@@ -172,26 +170,13 @@ int16_t score_from_tt(position_t *pos, int16_t score) {
 
 // read hash entry data
 tt_entry_t *read_hash_entry(position_t *pos, uint8_t *tt_hit) {
-  tt_bucket_t *bucket = &tt.hash_entry[get_hash_index(pos->hash_keys.hash_key)];
-  tt_entry_t *replace = &bucket->tt_entries[0];
-  uint8_t min_depth = 255;
-
-  for (uint8_t i = 0; i < 3; i++) {
-    tt_entry_t *entry = &bucket->tt_entries[i];
+  tt_entry_t *entry = &tt.hash_entry[get_hash_index(pos->hash_keys.hash_key)];
 
     if (entry->hash_key == get_hash_low_bits(pos->hash_keys.hash_key)) {
       *tt_hit = 1;
-      return entry;
     }
 
-    if (entry->depth < min_depth) {
-      replace = entry;
-      min_depth = entry->depth;
-    }
-  }
-
-  // if hash entry doesn't exist
-  return replace;
+  return entry;
 }
 
 // write hash entry data
