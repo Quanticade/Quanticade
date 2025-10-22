@@ -584,6 +584,9 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     hash_flag = HASH_FLAG_UPPER_BOUND;
   }
 
+  if (tt_hit && best_move == 0)
+    best_move = tt_entry->move;
+
   write_hash_entry(tt_entry, pos, best_score, raw_static_eval, 0, best_move,
                    hash_flag, tt_was_pv);
 
@@ -926,7 +929,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       if (probcut_score >= probcut_beta) {
         // Store in transposition table
         write_hash_entry(tt_entry, pos, probcut_score, raw_static_eval,
-                         probcut_depth + 1, move, HASH_FLAG_LOWER_BOUND, ss->tt_pv);
+                         probcut_depth + 1, move, HASH_FLAG_LOWER_BOUND,
+                         ss->tt_pv);
         return probcut_score;
       }
     }
@@ -1261,6 +1265,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     } else if (alpha <= original_alpha) {
       hash_flag = HASH_FLAG_UPPER_BOUND;
     }
+    if (tt_hit && best_move == 0)
+      best_move = tt_entry->move;
     // store hash entry with the score equal to alpha
     write_hash_entry(tt_entry, pos, best_score, raw_static_eval, depth,
                      best_move, hash_flag, ss->tt_pv);
