@@ -190,6 +190,10 @@ void write_hash_entry(tt_entry_t *tt_entry, position_t *pos, int16_t score,
   if (score > MATE_SCORE)
     score += pos->ply;
 
+  if (!(tt_entry->hash_key == get_hash_low_bits(pos->hash_keys.hash_key) && move == 0)) {
+    tt_entry->move = move;
+  }
+
   // write hash entry data
   tt_entry->hash_key = get_hash_low_bits(pos->hash_keys.hash_key);
   tt_entry->score = score;
@@ -197,5 +201,4 @@ void write_hash_entry(tt_entry_t *tt_entry, position_t *pos, int16_t score,
   tt_entry->flag = hash_flag;
   tt_entry->tt_pv = tt_pv;
   tt_entry->depth = depth;
-  tt_entry->move = move;
 }
