@@ -728,14 +728,16 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     return 0;
   }
 
-  if ((ss - 1)->reduction >= HINDSIGH_REDUCTION_ADD && !opponent_worsening) {
-    ++depth;
-  }
+  if (!root_node && !in_check && !ss->excluded_move) {
+    if ((ss - 1)->reduction >= HINDSIGH_REDUCTION_ADD && !opponent_worsening) {
+      ++depth;
+    }
 
-  if (depth >= 2 && (ss - 1)->reduction >= HINDSIGH_REDUCTION_RED &&
-      (ss - 1)->eval != NO_SCORE &&
-      ss->static_eval + (ss - 1)->eval > HINDSIGN_REDUCTION_EVAL_MARGIN) {
-    --depth;
+    if (depth >= 2 && (ss - 1)->reduction >= HINDSIGH_REDUCTION_RED &&
+        (ss - 1)->eval != NO_SCORE &&
+        ss->static_eval + (ss - 1)->eval > HINDSIGN_REDUCTION_EVAL_MARGIN) {
+      --depth;
+    }
   }
 
   // moves seen counter
@@ -844,7 +846,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   }
 
   const int16_t probcut_beta = beta + PROBCUT_MARGIN;
-  
+
   // ProbCut pruning
   if (!pv_node && !in_check && !ss->excluded_move && depth >= PROBCUT_DEPTH &&
       abs(beta) < MATE_SCORE &&
