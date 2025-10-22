@@ -389,7 +389,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   int16_t tt_score = NO_SCORE;
   int16_t tt_static_eval = NO_SCORE;
   uint8_t tt_hit = 0;
-  uint8_t tt_flag = HASH_FLAG_EXACT;
+  uint8_t tt_flag = HASH_FLAG_NONE;
   uint8_t tt_was_pv = pv_node;
 
   tt_entry_t *tt_entry = read_hash_entry(pos, &tt_hit);
@@ -435,8 +435,8 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     // fail-hard beta cutoff
     if (best_score >= beta) {
       if (!tt_hit) {
-        write_hash_entry(tt_entry, pos, NO_SCORE, raw_static_eval, 0, 0,
-                         HASH_FLAG_NONE, tt_was_pv);
+        /*write_hash_entry(tt_entry, pos, NO_SCORE, raw_static_eval, 0, 0,
+                         HASH_FLAG_NONE, tt_was_pv);*/
       }
       if (abs(best_score) < MATE_SCORE && abs(beta) < MATE_SCORE) {
         best_score = (best_score + beta) / 2;
@@ -556,10 +556,10 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 
     if (score > best_score) {
       best_score = score;
-      best_move = move;
       // found a better move
       if (score > alpha) {
         alpha = score;
+        best_move = move;
         // fail-hard beta cutoff
         if (alpha >= beta) {
           update_capture_history_moves(thread, pos, capture_list, best_move, 1);
@@ -577,15 +577,15 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
       return -MATE_VALUE + pos->ply;
   }
 
-  uint8_t hash_flag = HASH_FLAG_NONE;
+  /*uint8_t hash_flag = HASH_FLAG_NONE;
   if (alpha >= beta) {
     hash_flag = HASH_FLAG_LOWER_BOUND;
   } else {
     hash_flag = HASH_FLAG_UPPER_BOUND;
-  }
+  }*/
 
-  write_hash_entry(tt_entry, pos, best_score, raw_static_eval, 0, best_move,
-                   hash_flag, tt_was_pv);
+  /*write_hash_entry(tt_entry, pos, best_score, raw_static_eval, 0, best_move,
+                   hash_flag, tt_was_pv);*/
 
   return best_score;
 }
@@ -614,7 +614,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   int16_t tt_static_eval = NO_SCORE;
   uint8_t tt_hit = 0;
   uint8_t tt_depth = 0;
-  uint8_t tt_flag = HASH_FLAG_EXACT;
+  uint8_t tt_flag = HASH_FLAG_NONE;
   ss->tt_pv = ss->excluded_move ? ss->tt_pv : pv_node;
 
   uint8_t root_node = pos->ply == 0;
@@ -702,8 +702,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     ss->eval = ss->static_eval =
         adjust_static_eval(thread, pos, raw_static_eval);
 
-    write_hash_entry(tt_entry, pos, NO_SCORE, raw_static_eval, 0, 0,
-                     HASH_FLAG_NONE, ss->tt_pv);
+    /*write_hash_entry(tt_entry, pos, NO_SCORE, raw_static_eval, 0, 0,
+                     HASH_FLAG_NONE, ss->tt_pv);*/
   }
 
   int16_t correction = correction_value(thread, pos);
@@ -923,8 +923,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       // If shallow search failed high, we can prune
       if (probcut_score >= probcut_beta) {
         // Store in transposition table
-        write_hash_entry(tt_entry, pos, probcut_score, raw_static_eval,
-                         probcut_depth + 1, move, HASH_FLAG_LOWER_BOUND, ss->tt_pv);
+        /*write_hash_entry(tt_entry, pos, probcut_score, raw_static_eval,
+                         probcut_depth + 1, move, HASH_FLAG_LOWER_BOUND, ss->tt_pv);*/
         return probcut_score;
       }
     }
@@ -1260,8 +1260,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       hash_flag = HASH_FLAG_UPPER_BOUND;
     }
     // store hash entry with the score equal to alpha
-    write_hash_entry(tt_entry, pos, best_score, raw_static_eval, depth,
-                     best_move, hash_flag, ss->tt_pv);
+    /*write_hash_entry(tt_entry, pos, best_score, raw_static_eval, depth,
+                     best_move, hash_flag, ss->tt_pv);*/
 
     if (!in_check &&
         (!best_move ||
