@@ -764,7 +764,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   }
 
   // Null Move Pruning
-  if (!pv_node && !in_check && !ss->excluded_move && !ss->null_move &&
+  if (cutnode && !root_node && !in_check && !ss->excluded_move && !ss->null_move &&
       pos->ply > thread->nmp_min_ply && ss->eval >= beta &&
       ss->static_eval >= beta - NMP_MULTIPLIER * depth + NMP_BASE_ADD &&
       ss->eval >= ss->static_eval && !only_pawns(pos)) {
