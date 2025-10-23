@@ -261,8 +261,11 @@ static inline void score_move(position_t *pos, thread_t *thread,
                              [get_move_source(move)][get_move_target(move)] *
         MO_CAPT_HIST_MULT;
     move_entry->score /= 1024;
+
+    const int16_t see_threshold = -move_entry->score / 35 + MO_SEE_THRESHOLD;
+
     move_entry->score +=
-        SEE(pos, move, -MO_SEE_THRESHOLD) ? 1000000000 : -1000000000;
+        SEE(pos, move, see_threshold) ? 1000000000 : -1000000000;
     return;
   }
 
