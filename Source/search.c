@@ -556,10 +556,10 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 
     if (score > best_score) {
       best_score = score;
-      best_move = move;
       // found a better move
       if (score > alpha) {
         alpha = score;
+        best_move = move;
         // fail-hard beta cutoff
         if (alpha >= beta) {
           update_capture_history_moves(thread, pos, capture_list, best_move, 1);
