@@ -361,6 +361,24 @@ static inline uint8_t only_pawns(position_t *pos) {
            pos->occupancies[pos->side]);
 }
 
+static inline uint8_t opponent_has_good_capture(position_t *pos,
+                                                searchstack_t *ss) {
+  uint64_t queens = pos->bitboards[QUEEN + 6 * pos->side];
+  uint64_t rooks = pos->bitboards[ROOK + 6 * pos->side];
+  rooks |= queens;
+  uint64_t minors = pos->bitboards[KNIGHT + 6 * pos->side] |
+                    pos->bitboards[BISHOP + 6 * pos->side];
+  minors |= rooks;
+
+  threats_t *threats = &ss->threats;
+  uint64_t minor_threat =
+      threats->bishop_threats | threats->knight_threats | threats->pawn_threats;
+  uint64_t rook_threat = minor_threat | threats->rook_threats;
+
+  return (queens & rook_threat) | (rooks & minor_threat) |
+         (minors & threats->pawn_threats);
+}
+
 // quiescence search
 static inline int16_t quiescence(position_t *pos, thread_t *thread,
                                  searchstack_t *ss, int16_t alpha, int16_t beta,
@@ -757,7 +775,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   if (!ss->tt_pv && !in_check && !ss->excluded_move && depth <= RFP_DEPTH &&
       beta > -MATE_SCORE && ss->eval < MATE_SCORE &&
       ss->eval >= beta + RFP_BASE_MARGIN + RFP_MARGIN * depth -
-                      RFP_IMPROVING * improving -
+                      RFP_IMPROVING *
+                          (improving && !opponent_has_good_capture(pos, ss)) -
                       RFP_OPP_WORSENING * opponent_worsening) {
     // evaluation margin substracted from static evaluation score
     return beta + (ss->eval - beta) / 3;
@@ -926,7 +945,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       if (probcut_score >= probcut_beta) {
         // Store in transposition table
         write_hash_entry(tt_entry, pos, probcut_score, raw_static_eval,
-                         probcut_depth + 1, move, HASH_FLAG_LOWER_BOUND, ss->tt_pv);
+                         probcut_depth + 1, move, HASH_FLAG_LOWER_BOUND,
+                         ss->tt_pv);
         return probcut_score;
       }
     }
@@ -934,7 +954,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
   // Internal Iterative Reductions
   if (!all_node && !ss->excluded_move && depth >= IIR_DEPTH &&
-      (!tt_move || tt_depth < depth - IIR_DEPTH_REDUCTION || tt_flag == HASH_FLAG_UPPER_BOUND)) {
+      (!tt_move || tt_depth < depth - IIR_DEPTH_REDUCTION ||
+       tt_flag == HASH_FLAG_UPPER_BOUND)) {
     depth--;
   }
 
