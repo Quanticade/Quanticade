@@ -852,7 +852,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       abs(beta) < MATE_SCORE &&
       (!tt_hit || tt_depth + 3 < depth || tt_score >= probcut_beta)) {
     int probcut_depth = depth - PROBCUT_SHALLOW_DEPTH - 1;
-    probcut_depth = MAX(0, probcut_depth);
+    probcut_depth = MAX(1, probcut_depth);
 
     // Generate captures and good promotions for ProbCut
     moves probcut_list[1];
