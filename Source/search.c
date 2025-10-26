@@ -927,7 +927,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       if (probcut_score >= probcut_beta) {
         // Store in transposition table
         write_hash_entry(tt_entry, pos, probcut_score, raw_static_eval,
-                         probcut_depth + 1, move, HASH_FLAG_LOWER_BOUND, ss->tt_pv);
+                         probcut_depth + 1, move, HASH_FLAG_LOWER_BOUND,
+                         ss->tt_pv);
         return probcut_score;
       }
     }
@@ -935,7 +936,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
   // Internal Iterative Reductions
   if (!all_node && !ss->excluded_move && depth >= IIR_DEPTH &&
-      (!tt_move || tt_depth < depth - IIR_DEPTH_REDUCTION || tt_flag == HASH_FLAG_UPPER_BOUND)) {
+      (!tt_move || tt_depth < depth - IIR_DEPTH_REDUCTION ||
+       tt_flag == HASH_FLAG_UPPER_BOUND)) {
     depth--;
   }
 
@@ -1150,8 +1152,9 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       ss->reduction = R;
 
       R = R / 1024;
-      int reduced_depth =
-          MAX(1, MIN(new_depth - R, new_depth + cutnode)) + pv_node;
+      int reduced_depth = MAX(pv_node && tt_move && best_move == 0,
+                              MIN(new_depth - R, new_depth + cutnode)) +
+                          pv_node;
 
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                reduced_depth, 1, NON_PV);
