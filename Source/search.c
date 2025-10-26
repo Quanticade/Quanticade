@@ -482,11 +482,18 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   while (move_index < move_list->count) {
     uint16_t move = pick_next_best_move(move_list, &move_index).move;
 
+    position_t temp = *pos;
+    if (!make_move(&temp, move)) {
+      continue;
+    }
+
+    moves_seen++;
+
     if (!SEE(pos, move, -QS_SEE_THRESHOLD))
       continue;
 
     if (best_score > -MATE_SCORE && get_move_target(move) != previous_square) {
-      if (move_index >= 3) {
+      if (moves_seen >= 3) {
         continue;
       }
     }
@@ -528,8 +535,6 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     ss->piece = pos->mailbox[get_move_source(move)];
 
     thread->nodes++;
-
-    moves_seen++;
 
     if (get_move_capture(move)) {
       add_move(capture_list, move);
@@ -927,7 +932,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       if (probcut_score >= probcut_beta) {
         // Store in transposition table
         write_hash_entry(tt_entry, pos, probcut_score, raw_static_eval,
-                         probcut_depth + 1, move, HASH_FLAG_LOWER_BOUND, ss->tt_pv);
+                         probcut_depth + 1, move, HASH_FLAG_LOWER_BOUND,
+                         ss->tt_pv);
         return probcut_score;
       }
     }
@@ -935,7 +941,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
   // Internal Iterative Reductions
   if (!all_node && !ss->excluded_move && depth >= IIR_DEPTH &&
-      (!tt_move || tt_depth < depth - IIR_DEPTH_REDUCTION || tt_flag == HASH_FLAG_UPPER_BOUND)) {
+      (!tt_move || tt_depth < depth - IIR_DEPTH_REDUCTION ||
+       tt_flag == HASH_FLAG_UPPER_BOUND)) {
     depth--;
   }
 
@@ -976,6 +983,13 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     if (skip_quiets && quiet) {
       continue;
     }
+
+    position_t temp = *pos;
+    if (!make_move(&temp, move)) {
+      continue;
+    }
+
+    moves_seen++;
 
     ss->history_score =
         quiet
@@ -1113,9 +1127,6 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
     // increment nodes count
     thread->nodes++;
-
-    // increment legal moves
-    moves_seen++;
 
     if (quiet) {
       add_move(quiet_list, move);
