@@ -1267,8 +1267,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
                      best_move, hash_flag, ss->tt_pv);
 
     if (!in_check &&
-        (!best_move ||
-         !(get_move_capture(best_move) || is_move_promotion(best_move))) &&
+        !(get_move_capture(best_move) || is_move_promotion(best_move)) &&
         (hash_flag != HASH_FLAG_LOWER_BOUND || best_score > raw_static_eval) &&
         (hash_flag != HASH_FLAG_UPPER_BOUND || best_score <= raw_static_eval)) {
       update_corrhist(thread, pos, raw_static_eval, best_score, depth);
