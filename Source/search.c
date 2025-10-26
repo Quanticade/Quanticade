@@ -258,7 +258,9 @@ static inline void score_move(position_t *pos, thread_t *thread,
     move_entry->score +=
         thread
             ->capture_history[pos->mailbox[get_move_source(move)]][target_piece]
-                             [get_move_source(move)][get_move_target(move)] *
+                             [get_move_source(move)][get_move_target(move)]
+                             [is_square_threatened(ss, get_move_source(move))]
+                             [is_square_threatened(ss, get_move_target(move))] *
         MO_CAPT_HIST_MULT;
     move_entry->score /= 1024;
     move_entry->score +=
@@ -562,7 +564,8 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
         best_move = move;
         // fail-hard beta cutoff
         if (alpha >= beta) {
-          update_capture_history_moves(thread, pos, capture_list, best_move, 1);
+          update_capture_history_moves(thread, pos, ss, capture_list, best_move,
+                                       1);
           break;
         }
       }
@@ -927,7 +930,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       if (probcut_score >= probcut_beta) {
         // Store in transposition table
         write_hash_entry(tt_entry, pos, probcut_score, raw_static_eval,
-                         probcut_depth + 1, move, HASH_FLAG_LOWER_BOUND, ss->tt_pv);
+                         probcut_depth + 1, move, HASH_FLAG_LOWER_BOUND,
+                         ss->tt_pv);
         return probcut_score;
       }
     }
@@ -935,7 +939,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
   // Internal Iterative Reductions
   if (!all_node && !ss->excluded_move && depth >= IIR_DEPTH &&
-      (!tt_move || tt_depth < depth - IIR_DEPTH_REDUCTION || tt_flag == HASH_FLAG_UPPER_BOUND)) {
+      (!tt_move || tt_depth < depth - IIR_DEPTH_REDUCTION ||
+       tt_flag == HASH_FLAG_UPPER_BOUND)) {
     depth--;
   }
 
@@ -989,10 +994,12 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
                       SEARCH_CONT1_HIST_MULT +
                   get_conthist_score(thread, pos, ss, move, 2) *
                       SEARCH_CONT2_HIST_MULT
-            : thread->capture_history[pos->mailbox[get_move_source(move)]]
-                                     [pos->mailbox[get_move_target(move)]]
-                                     [get_move_source(move)]
-                                     [get_move_target(move)] *
+            : thread->capture_history
+                          [pos->mailbox[get_move_source(move)]]
+                          [pos->mailbox[get_move_target(move)]]
+                          [get_move_source(move)][get_move_target(move)]
+                          [is_square_threatened(ss, get_move_source(move))]
+                          [is_square_threatened(ss, get_move_target(move))] *
                       SEARCH_CAPT_HIST_MULT +
                   mvv[pos->mailbox[get_move_target(move)] % 6] *
                       SEARCH_MVV_MULT;
@@ -1228,7 +1235,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
                                    depth);
           }
 
-          update_capture_history_moves(thread, pos, capture_list, best_move,
+          update_capture_history_moves(thread, pos, ss, capture_list, best_move,
                                        depth);
           ss->cutoff_cnt++;
           break;

@@ -117,7 +117,7 @@ typedef struct searchinfo {
   int16_t w_non_pawn_correction_history[2][16384];
   int16_t quiet_history[2][64][64][2][2];
   int16_t continuation_history[13][64][12][64];
-  int16_t capture_history[12][13][64][64];
+  int16_t capture_history[12][13][64][64][2][2];
   int16_t pawn_history[2048][12][64];
   uint8_t depth;
   uint8_t seldepth;
