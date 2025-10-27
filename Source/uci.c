@@ -434,6 +434,8 @@ static inline void parse_fen(position_t *pos, thread_t *thread, char *fen) {
                    pos->occupancies[both]) &
       pos->occupancies[pos->side ^ 1];
   pos->checker_count = popcount(pos->checkers);
+  update_slider_pins(pos, white);
+  update_slider_pins(pos, black);
 }
 
 // parse UCI "position" command
