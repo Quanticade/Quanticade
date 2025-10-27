@@ -143,6 +143,10 @@ double bestmove_scale[5] = {2.435008962486456f, 1.3514595123975768f,
                             1.0921709375887645f, 0.8799608961420715f,
                             0.7006821873450457f};
 
+double eval_scale[5] = {1.2553097907287714, 1.1283513678269563f,
+                        0.9752319195442376f, 0.9422129907606405f,
+                        0.8980687736160886f};
+
 uint64_t nodes_spent_table[4096] = {0};
 
 // Initializes the late move reduction array
@@ -179,11 +183,10 @@ void scale_time(thread_t *thread, uint8_t best_move_stability,
   double node_scaling_factor =
       MAX(NODE_TIME_MULTIPLIER * not_bm_nodes_fraction + NODE_TIME_ADDITION,
           NODE_TIME_MIN);
-  double eval = EVAL_TIME_ADDITION - eval_stability * EVAL_TIME_MULTIPLIER;
   limits.soft_limit =
-      MIN(thread->starttime + limits.base_soft *
-                                  bestmove_scale[best_move_stability] * eval *
-                                  node_scaling_factor,
+      MIN(thread->starttime +
+              limits.base_soft * bestmove_scale[best_move_stability] *
+                  eval_scale[eval_stability] * node_scaling_factor,
           limits.max_time + thread->starttime);
 }
 
@@ -927,7 +930,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       if (probcut_score >= probcut_beta) {
         // Store in transposition table
         write_hash_entry(tt_entry, pos, probcut_score, raw_static_eval,
-                         probcut_depth + 1, move, HASH_FLAG_LOWER_BOUND, ss->tt_pv);
+                         probcut_depth + 1, move, HASH_FLAG_LOWER_BOUND,
+                         ss->tt_pv);
         return probcut_score;
       }
     }
@@ -935,7 +939,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
   // Internal Iterative Reductions
   if (!all_node && !ss->excluded_move && depth >= IIR_DEPTH &&
-      (!tt_move || tt_depth < depth - IIR_DEPTH_REDUCTION || tt_flag == HASH_FLAG_UPPER_BOUND)) {
+      (!tt_move || tt_depth < depth - IIR_DEPTH_REDUCTION ||
+       tt_flag == HASH_FLAG_UPPER_BOUND)) {
     depth--;
   }
 
@@ -1425,7 +1430,7 @@ void *iterative_deepening(void *thread_void) {
 
       if (thread->score > average_score - EVAL_STABILITY_VAR &&
           thread->score < average_score + EVAL_STABILITY_VAR) {
-        eval_stability = MIN(eval_stability + 1, 8);
+        eval_stability = MIN(eval_stability + 1, 4);
       } else {
         eval_stability = 0;
       }
