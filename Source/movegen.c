@@ -51,7 +51,7 @@ void init_between_bitboards(uint64_t between[64][64]) {
 
 void update_slider_pins(position_t *pos, uint8_t side) {
   int king = get_lsb(pos->bitboards[KING + 6 * side]);
-  pos->pinned[side] = 0;
+  pos->blockers[side] = 0;
 
   uint64_t possible_bishop_pinners = get_bishop_attacks(king, BB(0)) &
                                      (pos->bitboards[BISHOP + 6 * (side ^ 1)] |
@@ -67,7 +67,7 @@ void update_slider_pins(position_t *pos, uint8_t side) {
     uint64_t pinned_bb = between[king][pinner_square] & occupied;
 
     if (popcount(pinned_bb) == 1) {
-      pos->pinned[side] |= pinned_bb;
+      pos->blockers[side] |= pinned_bb;
     }
   }
 }

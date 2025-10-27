@@ -1,9 +1,13 @@
 #include "attacks.h"
+#include "bitboards.h"
 #include "enums.h"
 #include "move.h"
 #include "structs.h"
+#include <stdio.h>
 
 extern int SEEPieceValues[];
+
+extern uint64_t line[64][64];
 
 static inline int move_estimated_value(position_t *pos, int move) {
 
@@ -31,7 +35,8 @@ static inline int move_estimated_value(position_t *pos, int move) {
   return value;
 }
 
-static inline uint64_t all_attackers_to_square(position_t *pos, uint64_t occupied, int sq) {
+static inline uint64_t all_attackers_to_square(position_t *pos,
+                                               uint64_t occupied, int sq) {
 
   // When performing a static exchange evaluation we need to find all
   // attacks to a given square, but we also are given an updated occupied
@@ -54,6 +59,7 @@ int SEE(position_t *pos, int move, int threshold) {
 
   int from, to, enpassant, promotion, colour, balance, nextVictim;
   uint64_t bishops, rooks, occupied, attackers, myAttackers;
+  uint64_t blockers, alignedBlockers;
 
   // Unpack move information
   from = get_move_source(move);
@@ -97,13 +103,29 @@ int SEE(position_t *pos, int move, int threshold) {
   // so that we do not let the same piece attack twice
   attackers = all_attackers_to_square(pos, occupied, to) & occupied;
 
+  // Get king squares for both sides
+  int whiteKing = get_lsb(pos->bitboards[K]);
+  int blackKing = get_lsb(pos->bitboards[k]);
+
+  // Combine all pinned/blocking pieces from both sides
+  blockers = pos->blockers[white] | pos->blockers[black];
+
+  // Only blockers aligned with the target square matter
+  // A pinned piece can participate if it's on the line from its king to the target
+  alignedBlockers = (pos->blockers[white] & line[to][whiteKing]) |
+                    (pos->blockers[black] & line[to][blackKing]);
+
   // Now our opponents turn to recapture
   colour = pos->side ^ 1;
 
   while (1) {
 
+    // Remove attackers that have been captured
+    attackers &= occupied;
+
     // If we have no more attackers left we lose
-    myAttackers = attackers & pos->occupancies[colour];
+    // Filter out pinned pieces that aren't aligned with the target square
+    myAttackers = attackers & pos->occupancies[colour] & (~blockers | alignedBlockers);
     if (myAttackers == 0ull) {
       break;
     }
@@ -121,6 +143,10 @@ int SEE(position_t *pos, int move, int threshold) {
         (1ull << get_lsb(myAttackers & (pos->bitboards[nextVictim] |
                                         pos->bitboards[nextVictim + 6])));
 
+    // Remove the piece from blockers and alignedBlockers as well
+    blockers &= occupied;
+    alignedBlockers &= occupied;
+
     // A diagonal move may reveal bishop or queen attackers
     if (nextVictim == PAWN || nextVictim == BISHOP || nextVictim == QUEEN)
       attackers |= get_bishop_attacks(to, occupied) & bishops;
@@ -128,9 +154,6 @@ int SEE(position_t *pos, int move, int threshold) {
     // A vertical or horizontal move may reveal rook or queen attackers
     if (nextVictim == ROOK || nextVictim == QUEEN)
       attackers |= get_rook_attacks(to, occupied) & rooks;
-
-    // Make sure we did not add any already used attacks
-    attackers &= occupied;
 
     // Swap the turn
     colour = !colour;
