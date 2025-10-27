@@ -845,10 +845,10 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     }
   }
 
-  const int16_t probcut_beta = beta + PROBCUT_MARGIN;
+  //const int16_t probcut_beta = beta + PROBCUT_MARGIN;
 
   // ProbCut pruning
-  if (!pv_node && !in_check && !ss->excluded_move && depth >= PROBCUT_DEPTH &&
+  /*if (!pv_node && !in_check && !ss->excluded_move && depth >= PROBCUT_DEPTH &&
       abs(beta) < MATE_SCORE &&
       (!tt_hit || tt_depth + 3 < depth || tt_score >= probcut_beta)) {
     int probcut_depth = depth - PROBCUT_SHALLOW_DEPTH - 1;
@@ -931,7 +931,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
         return probcut_score;
       }
     }
-  }
+  }*/
 
   // Internal Iterative Reductions
   if (!all_node && !ss->excluded_move && depth >= IIR_DEPTH &&
