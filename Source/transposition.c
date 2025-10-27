@@ -200,7 +200,7 @@ void write_hash_entry(tt_entry_t *tt_entry, position_t *pos, int16_t score,
                       uint8_t hash_flag, uint8_t tt_pv) {
   uint8_t replace =
       tt_entry->hash_key != get_hash_low_bits(pos->hash_keys.hash_key) ||
-      depth + 4 > tt_entry->depth || hash_flag == HASH_FLAG_EXACT;
+      depth + 4 + 2 * tt_pv > tt_entry->depth || hash_flag == HASH_FLAG_EXACT;
 
   if (move || tt_entry->hash_key != get_hash_low_bits(pos->hash_keys.hash_key))
     tt_entry->move = move;
