@@ -790,6 +790,9 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     // reset enpassant capture square
     pos_copy.enpassant = no_sq;
 
+    update_slider_pins(pos, white);
+    update_slider_pins(pos, black);
+
     // switch the side, literally giving opponent an extra move to make
     pos_copy.side ^= 1;
 
@@ -927,7 +930,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       if (probcut_score >= probcut_beta) {
         // Store in transposition table
         write_hash_entry(tt_entry, pos, probcut_score, raw_static_eval,
-                         probcut_depth + 1, move, HASH_FLAG_LOWER_BOUND, ss->tt_pv);
+                         probcut_depth + 1, move, HASH_FLAG_LOWER_BOUND,
+                         ss->tt_pv);
         return probcut_score;
       }
     }
@@ -935,7 +939,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
   // Internal Iterative Reductions
   if (!all_node && !ss->excluded_move && depth >= IIR_DEPTH &&
-      (!tt_move || tt_depth < depth - IIR_DEPTH_REDUCTION || tt_flag == HASH_FLAG_UPPER_BOUND)) {
+      (!tt_move || tt_depth < depth - IIR_DEPTH_REDUCTION ||
+       tt_flag == HASH_FLAG_UPPER_BOUND)) {
     depth--;
   }
 

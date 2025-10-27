@@ -49,6 +49,29 @@ void init_between_bitboards(uint64_t between[64][64]) {
   }
 }
 
+void update_slider_pins(position_t *pos, uint8_t side) {
+  int king = get_lsb(pos->bitboards[KING + 6 * side]);
+  pos->pinned[side] = 0;
+
+  uint64_t possible_bishop_pinners = get_bishop_attacks(king, BB(0)) &
+                                     (pos->bitboards[BISHOP + 6 * (side ^ 1)] |
+                                      pos->bitboards[QUEEN + 6 * (side ^ 1)]);
+  uint64_t possible_rook_pinners =
+      get_rook_attacks(king, BB(0)) & (pos->bitboards[ROOK + 6 * (side ^ 1)] |
+                                       pos->bitboards[QUEEN + 6 * (side ^ 1)]);
+  uint64_t possible_pinners = possible_bishop_pinners | possible_rook_pinners;
+  uint64_t occupied = pos->occupancies[both] ^ possible_pinners;
+
+  while (possible_pinners) {
+    int pinner_square = poplsb(&possible_pinners);
+    uint64_t pinned_bb = between[king][pinner_square] & occupied;
+
+    if (popcount(pinned_bb) == 1) {
+      pos->pinned[side] |= pinned_bb;
+    }
+  }
+}
+
 uint8_t is_pseudo_legal(position_t *pos, uint16_t move) {
   uint8_t origin = get_move_source(move);
   uint8_t target = get_move_target(move);
@@ -452,6 +475,9 @@ uint8_t make_move(position_t *pos, uint16_t move) {
                    pos->occupancies[both]) &
       pos->occupancies[pos->side ^ 1];
   pos->checker_count = popcount(pos->checkers);
+
+  update_slider_pins(pos, white);
+  update_slider_pins(pos, black);
 
   pos->fullmove += pos->side == black;
 
