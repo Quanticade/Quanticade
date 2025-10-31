@@ -51,7 +51,7 @@ void init_between_bitboards(uint64_t between[64][64]) {
 
 void update_slider_pins(position_t *pos, uint8_t side) {
   int king = get_lsb(pos->bitboards[KING + 6 * side]);
-  pos->pinned[side] = 0;
+  pos->blockers[side] = 0;
 
   uint64_t possible_bishop_pinners = get_bishop_attacks(king, BB(0)) &
                                      (pos->bitboards[BISHOP + 6 * (side ^ 1)] |
@@ -67,7 +67,7 @@ void update_slider_pins(position_t *pos, uint8_t side) {
     uint64_t pinned_bb = between[king][pinner_square] & occupied;
 
     if (popcount(pinned_bb) == 1) {
-      pos->pinned[side] |= pinned_bb;
+      pos->blockers[side] |= pinned_bb;
     }
   }
 }
@@ -227,6 +227,44 @@ uint8_t is_pseudo_legal(position_t *pos, uint16_t move) {
     break;
   }
 
+  return 1;
+}
+
+uint8_t is_legal(position_t *pos, uint16_t move) {
+  uint8_t source = get_move_source(move);
+  uint8_t target = get_move_target(move);
+  uint64_t source_bb = BB(source);
+  uint8_t king = get_lsb(pos->bitboards[KING + 6 * pos->side]);
+
+  if (get_move_enpassant(move)) {
+    uint8_t ep_square = target - pos->side ? 8 : -8;
+    uint64_t ep_bb = BB(ep_square);
+    uint64_t target_bb = BB(target);
+
+    uint64_t occupied =
+        (pos->occupancies[both] ^ source_bb ^ ep_bb) | target_bb;
+
+    uint64_t rook_attacks = get_rook_attacks(king, occupied) &
+                            (pos->bitboards[ROOK + 6 * (pos->side ^ 1)] |
+                             pos->bitboards[QUEEN + 6 * (pos->side ^ 1)]);
+    uint64_t bishop_attacks = get_rook_attacks(king, occupied) &
+                              (pos->bitboards[BISHOP + 6 * (pos->side ^ 1)] |
+                               pos->bitboards[QUEEN + 6 * (pos->side ^ 1)]);
+    return !rook_attacks && !bishop_attacks;
+  }
+  if (get_move_castling(move)) {
+    uint64_t squares = between[source][target] | BB(source) | BB(target);
+    while (squares) {
+      uint8_t square = poplsb(&squares);
+      if (attackers_to(pos, square, pos->occupancies[both]) & pos->occupancies[pos->side ^ 1]) {
+        return 0;
+      }
+    }
+    return 1;
+  }
+  if (pos->mailbox[source] == KING + 6 * pos->side) {
+    
+  }
   return 1;
 }
 
