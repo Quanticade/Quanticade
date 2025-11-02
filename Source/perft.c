@@ -28,10 +28,19 @@ static inline void perft_driver(position_t *pos, thread_t *thread, int depth) {
   for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
     position_t pos_copy = *pos;
 
+    if (!is_legal(pos, move_list->entry[move_count].move)) {
+      continue;
+    }
     // make move
-    if (!make_move(&pos_copy, move_list->entry[move_count].move))
+    if (!make_move(&pos_copy, move_list->entry[move_count].move)) {
+      printf("is_legal allowed an illegal move\n");
+      char fen[200];
+      generate_fen(pos, fen);
+      print_move(move_list->entry[move_count].move);
+      printf(" is legal in position %s\n", fen);
       // skip to the next move
       continue;
+    }
 
     // call perft driver recursively
     perft_driver(&pos_copy, thread, depth - 1);
@@ -54,6 +63,10 @@ void perft_test(position_t *pos, thread_t *searchinfo, int depth) {
   // loop over generated moves
   for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
     position_t pos_copy = *pos;
+
+    if (!is_legal(pos, move_list->entry[move_count].move)) {
+      continue;
+    }
 
     // make move
     if (!make_move(&pos_copy, move_list->entry[move_count].move))

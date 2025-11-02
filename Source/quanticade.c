@@ -34,6 +34,7 @@ extern const int default_hash_size;
 extern int thread_count;
 extern nnue_t nnue;
 extern uint64_t between[64][64];
+extern uint64_t line[64][64];
 
 // generate 32-bit pseudo legal numbers
 uint32_t get_random_U32_number(void) {
@@ -115,7 +116,7 @@ void init_all(void) {
 
   init_spsa_table();
 
-  init_between_bitboards(between);
+  init_between_bitboards();
 
   // init hash table with default size
   init_hash_table(default_hash_size);

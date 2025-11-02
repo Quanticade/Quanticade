@@ -22,14 +22,15 @@ const uint8_t castling_rights[64] = {
 uint64_t between[64][64] = {0};
 uint64_t line[64][64] = {0};
 
-void init_between_bitboards(uint64_t between[64][64]) {
+void init_between_bitboards() {
   for (int from = 0; from < 64; ++from) {
     for (int to = 0; to < 64; ++to) {
       if (from == to) {
         between[from][to] = 0ULL;
+        line[from][to] = 0ULL;
         continue;
       }
-      line[from][to] = BB(0);
+      line[from][to] = 0ULL;
       if (get_bishop_attacks(from, BB(0)) & BB(to))
         line[from][to] |=
             get_bishop_attacks(from, BB(0)) & get_bishop_attacks(to, BB(0));
@@ -38,7 +39,7 @@ void init_between_bitboards(uint64_t between[64][64]) {
             get_rook_attacks(from, BB(0)) & get_rook_attacks(to, BB(0));
       line[from][to] |= BB(from) | BB(to);
 
-      between[from][to] = BB(0);
+      between[from][to] = 0ULL;
       between[from][to] |=
           get_bishop_attacks(from, BB(to)) & get_bishop_attacks(to, BB(from));
       between[from][to] |=
@@ -234,10 +235,11 @@ uint8_t is_legal(position_t *pos, uint16_t move) {
   uint8_t source = get_move_source(move);
   uint8_t target = get_move_target(move);
   uint64_t source_bb = BB(source);
-  uint8_t king = get_lsb(pos->bitboards[KING + 6 * pos->side]);
+  uint8_t stm = pos->side;
+  uint8_t king = get_lsb(pos->bitboards[KING + 6 * stm]);
 
   if (get_move_enpassant(move)) {
-    uint8_t ep_square = target - pos->side ? 8 : -8;
+    uint8_t ep_square = target - stm ? 8 : -8;
     uint64_t ep_bb = BB(ep_square);
     uint64_t target_bb = BB(target);
 
@@ -245,27 +247,30 @@ uint8_t is_legal(position_t *pos, uint16_t move) {
         (pos->occupancies[both] ^ source_bb ^ ep_bb) | target_bb;
 
     uint64_t rook_attacks = get_rook_attacks(king, occupied) &
-                            (pos->bitboards[ROOK + 6 * (pos->side ^ 1)] |
-                             pos->bitboards[QUEEN + 6 * (pos->side ^ 1)]);
-    uint64_t bishop_attacks = get_rook_attacks(king, occupied) &
-                              (pos->bitboards[BISHOP + 6 * (pos->side ^ 1)] |
-                               pos->bitboards[QUEEN + 6 * (pos->side ^ 1)]);
+                            (pos->bitboards[ROOK + 6 * (stm ^ 1)] |
+                             pos->bitboards[QUEEN + 6 * (stm ^ 1)]);
+    uint64_t bishop_attacks = get_bishop_attacks(king, occupied) &
+                              (pos->bitboards[BISHOP + 6 * (stm ^ 1)] |
+                               pos->bitboards[QUEEN + 6 * (stm ^ 1)]);
     return !rook_attacks && !bishop_attacks;
   }
   if (get_move_castling(move)) {
-    uint64_t squares = between[source][target] | BB(source) | BB(target);
+    uint64_t squares = between[source][target];
     while (squares) {
       uint8_t square = poplsb(&squares);
-      if (attackers_to(pos, square, pos->occupancies[both]) & pos->occupancies[pos->side ^ 1]) {
+      if (attackers_to(pos, square, pos->occupancies[both]) &
+          pos->occupancies[stm ^ 1]) {
         return 0;
       }
     }
     return 1;
   }
-  if (pos->mailbox[source] == KING + 6 * pos->side) {
-    
+  if (pos->mailbox[source] == KING + 6 * stm) {
+    uint64_t occupied = pos->occupancies[both] ^ BB(source);
+    return !(pos->occupancies[stm ^ 1] & attackers_to(pos, target, occupied));
   }
-  return 1;
+  uint8_t pinned = pos->blockers[stm] & source_bb;
+  return !pinned || (line[source][target] & BB(king));
 }
 
 uint8_t make_move(position_t *pos, uint16_t move) {
