@@ -22,7 +22,7 @@ const uint8_t castling_rights[64] = {
 uint64_t between[64][64] = {0};
 uint64_t line[64][64] = {0};
 
-void init_between_bitboards() {
+void init_between_bitboards(void) {
   for (int from = 0; from < 64; ++from) {
     for (int to = 0; to < 64; ++to) {
       if (from == to) {
