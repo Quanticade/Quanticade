@@ -1,5 +1,3 @@
-#include "bitboards.h"
-#include "enums.h"
 #include "move.h"
 #include "movegen.h"
 #include "structs.h"
@@ -8,11 +6,20 @@
 #include <inttypes.h>
 #include <math.h>
 #include <stdio.h>
-#include <string.h>
-
-extern uint64_t line[64][64];
 
 static inline void perft_driver(position_t *pos, thread_t *thread, int depth) {
+
+  if (depth == 1) {
+    moves move_list[1];
+    generate_moves(pos, move_list);
+    for (uint32_t i = 0; i < move_list->count; i++) {
+      if (is_legal(pos, move_list->entry[i].move)) {
+        thread->nodes++;
+      }
+    }
+    return;
+  }
+
   // recursion escape condition
   if (depth == 0) {
     // increment nodes count (count reached positions)
@@ -30,19 +37,8 @@ static inline void perft_driver(position_t *pos, thread_t *thread, int depth) {
   for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
     position_t pos_copy = *pos;
 
-    if (!is_legal(pos, move_list->entry[move_count].move)) {
-      continue;
-    }
     // make move
     if (!make_move(&pos_copy, move_list->entry[move_count].move)) {
-      printf("is_legal allowed an illegal move\n");
-      char fen[200];
-      generate_fen(pos, fen);
-      print_move(move_list->entry[move_count].move);
-      printf(" is legal in position %s\n", fen);
-      uint64_t lined = line[get_move_source(move_list->entry[move_count].move)][get_move_target(move_list->entry[move_count].move)];
-      uint8_t king = get_lsb(pos->bitboards[KING + 6 * pos->side]);
-      printf("blockers stm: %lu, blockers ntm: %lu, squarebb %llu, line: %llu\n", pos->blockers[pos->side], pos->blockers[pos->side ^ 1], BB(get_move_source(move_list->entry[move_count].move)), (lined & BB(king)));
       // skip to the next move
       continue;
     }
@@ -69,20 +65,8 @@ void perft_test(position_t *pos, thread_t *searchinfo, int depth) {
   for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
     position_t pos_copy = *pos;
 
-    if (!is_legal(pos, move_list->entry[move_count].move)) {
-      continue;
-    }
-
     // make move
     if (!make_move(&pos_copy, move_list->entry[move_count].move)) {
-      printf("is_legal allowed an illegal move\n");
-      char fen[200];
-      generate_fen(pos, fen);
-      print_move(move_list->entry[move_count].move);
-      printf(" is legal in position %s\n", fen);
-      uint64_t lined = line[get_move_source(move_list->entry[move_count].move)][get_move_target(move_list->entry[move_count].move)];
-      uint8_t king = get_lsb(pos->bitboards[KING + 6 * pos->side]);
-      printf("stm: %lu ntm: %lu, squarebb %llu, line: %llu\n", pos->blockers[pos->side], pos->blockers[pos->side ^ 1], BB(get_move_source(move_list->entry[move_count].move)), (lined & BB(king)));
       // skip to the next move
       continue;
     }
