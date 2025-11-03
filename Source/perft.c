@@ -10,6 +10,8 @@
 #include <stdio.h>
 #include <string.h>
 
+extern uint64_t line[64][64];
+
 static inline void perft_driver(position_t *pos, thread_t *thread, int depth) {
   // recursion escape condition
   if (depth == 0) {
@@ -38,6 +40,9 @@ static inline void perft_driver(position_t *pos, thread_t *thread, int depth) {
       generate_fen(pos, fen);
       print_move(move_list->entry[move_count].move);
       printf(" is legal in position %s\n", fen);
+      uint64_t lined = line[get_move_source(move_list->entry[move_count].move)][get_move_target(move_list->entry[move_count].move)];
+      uint8_t king = get_lsb(pos->bitboards[KING + 6 * pos->side]);
+      printf("blockers stm: %lu, blockers ntm: %lu, squarebb %llu, line: %llu\n", pos->blockers[pos->side], pos->blockers[pos->side ^ 1], BB(get_move_source(move_list->entry[move_count].move)), (lined & BB(king)));
       // skip to the next move
       continue;
     }
@@ -69,9 +74,18 @@ void perft_test(position_t *pos, thread_t *searchinfo, int depth) {
     }
 
     // make move
-    if (!make_move(&pos_copy, move_list->entry[move_count].move))
+    if (!make_move(&pos_copy, move_list->entry[move_count].move)) {
+      printf("is_legal allowed an illegal move\n");
+      char fen[200];
+      generate_fen(pos, fen);
+      print_move(move_list->entry[move_count].move);
+      printf(" is legal in position %s\n", fen);
+      uint64_t lined = line[get_move_source(move_list->entry[move_count].move)][get_move_target(move_list->entry[move_count].move)];
+      uint8_t king = get_lsb(pos->bitboards[KING + 6 * pos->side]);
+      printf("stm: %lu ntm: %lu, squarebb %llu, line: %llu\n", pos->blockers[pos->side], pos->blockers[pos->side ^ 1], BB(get_move_source(move_list->entry[move_count].move)), (lined & BB(king)));
       // skip to the next move
       continue;
+    }
 
     // cummulative nodes
     long cummulative_nodes = searchinfo->nodes;

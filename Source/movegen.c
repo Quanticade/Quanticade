@@ -238,8 +238,22 @@ uint8_t is_legal(position_t *pos, uint16_t move) {
   uint8_t stm = pos->side;
   uint8_t king = get_lsb(pos->bitboards[KING + 6 * stm]);
 
+  uint64_t checkers = attackers_to(pos, king, pos->occupancies[both]) & pos->occupancies[stm ^ 1];
+
+  if (checkers) {
+    printf("We are in check here\n");
+    return 0;
+    if (pos->checker_count > 1) {
+      return 0;
+    }
+    else {
+      uint8_t attacker = get_lsb(pos->checkers);
+      return between[king][attacker] & BB(target) || target == attacker;
+    }
+  }
+
   if (get_move_enpassant(move)) {
-    uint8_t ep_square = target - stm ? 8 : -8;
+    uint8_t ep_square = target - (stm ? 8 : -8);
     uint64_t ep_bb = BB(ep_square);
     uint64_t target_bb = BB(target);
 
@@ -255,7 +269,7 @@ uint8_t is_legal(position_t *pos, uint16_t move) {
     return !rook_attacks && !bishop_attacks;
   }
   if (get_move_castling(move)) {
-    uint64_t squares = between[source][target];
+    uint64_t squares = between[source][target] | source_bb;
     while (squares) {
       uint8_t square = poplsb(&squares);
       if (attackers_to(pos, square, pos->occupancies[both]) &
@@ -269,7 +283,7 @@ uint8_t is_legal(position_t *pos, uint16_t move) {
     uint64_t occupied = pos->occupancies[both] ^ BB(source);
     return !(pos->occupancies[stm ^ 1] & attackers_to(pos, target, occupied));
   }
-  uint8_t pinned = pos->blockers[stm] & source_bb;
+  uint64_t pinned = pos->blockers[stm] & source_bb;
   return !pinned || (line[source][target] & BB(king));
 }
 
