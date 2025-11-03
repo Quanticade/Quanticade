@@ -442,6 +442,10 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
       continue;
     }
 
+    if (!is_legal(pos, move)) {
+      continue;
+    }
+
     // preserve board state
     position_t pos_copy = *pos;
 
@@ -454,16 +458,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
         pos_copy.hash_keys.hash_key;
 
     // make sure to make only legal moves
-    if (make_move(&pos_copy, move) == 0) {
-      // decrement ply
-      pos_copy.ply--;
-
-      // decrement repetition index
-      thread->repetition_index--;
-
-      // skip to next move
-      continue;
-    }
+    make_move(&pos_copy, move);
 
     calculate_threats(&pos_copy, ss + 1);
 
@@ -822,6 +817,10 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
         continue;
       }
 
+      if (!is_legal(pos, move)) {
+        continue;
+      }
+
       // Preserve board state
       position_t pos_copy = *pos;
 
@@ -834,11 +833,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
           pos->hash_keys.hash_key;
 
       // Make sure to make only legal moves
-      if (make_move(pos, move) == 0) {
-        pos->ply--;
-        thread->repetition_index--;
-        continue;
-      }
+      make_move(pos, move);
 
       calculate_threats(pos, ss + 1);
       update_nnue(pos, thread, pos_copy.mailbox, move);
@@ -992,12 +987,6 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       const int s_beta = tt_score - depth;
       const int s_depth = 3 * (depth - 1) / 8;
 
-      position_t pos_copy = *pos;
-
-      if (make_move(&pos_copy, move) == 0) {
-        continue;
-      }
-
       ss->excluded_move = move;
 
       const int16_t s_score = negamax(pos, thread, ss, s_beta - 1, s_beta,
@@ -1033,6 +1022,10 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       }
     }
 
+    if (!is_legal(pos, move)) {
+      continue;
+    }
+
     // preserve board state
     position_t pos_copy = *pos;
 
@@ -1045,16 +1038,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
         pos->hash_keys.hash_key;
 
     // make sure to make only legal moves
-    if (make_move(pos, move) == 0) {
-      // decrement ply
-      pos->ply--;
-
-      // decrement repetition index
-      thread->repetition_index--;
-
-      // skip to next move
-      continue;
-    }
+    make_move(pos, move);
 
     calculate_threats(pos, ss + 1);
 

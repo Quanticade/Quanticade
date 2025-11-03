@@ -35,13 +35,13 @@ static inline void perft_driver(position_t *pos, thread_t *thread, int depth) {
 
   // loop over generated moves
   for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
+    if (!is_legal(pos, move_list->entry[move_count].move)) {
+      continue;
+    }
     position_t pos_copy = *pos;
 
     // make move
-    if (!make_move(&pos_copy, move_list->entry[move_count].move)) {
-      // skip to the next move
-      continue;
-    }
+    make_move(&pos_copy, move_list->entry[move_count].move);
 
     // call perft driver recursively
     perft_driver(&pos_copy, thread, depth - 1);
@@ -63,13 +63,13 @@ void perft_test(position_t *pos, thread_t *searchinfo, int depth) {
 
   // loop over generated moves
   for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
+    if (!is_legal(pos, move_list->entry[move_count].move)) {
+      continue;
+    }
     position_t pos_copy = *pos;
 
     // make move
-    if (!make_move(&pos_copy, move_list->entry[move_count].move)) {
-      // skip to the next move
-      continue;
-    }
+    make_move(&pos_copy, move_list->entry[move_count].move);
 
     // cummulative nodes
     long cummulative_nodes = searchinfo->nodes;
