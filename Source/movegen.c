@@ -22,14 +22,15 @@ const uint8_t castling_rights[64] = {
 uint64_t between[64][64] = {0};
 uint64_t line[64][64] = {0};
 
-void init_between_bitboards(uint64_t between[64][64]) {
+void init_between_bitboards() {
   for (int from = 0; from < 64; ++from) {
     for (int to = 0; to < 64; ++to) {
       if (from == to) {
         between[from][to] = 0ULL;
+        line[from][to] = 0ULL;
         continue;
       }
-      line[from][to] = BB(0);
+      line[from][to] = 0ULL;
       if (get_bishop_attacks(from, BB(0)) & BB(to))
         line[from][to] |=
             get_bishop_attacks(from, BB(0)) & get_bishop_attacks(to, BB(0));
@@ -38,13 +39,36 @@ void init_between_bitboards(uint64_t between[64][64]) {
             get_rook_attacks(from, BB(0)) & get_rook_attacks(to, BB(0));
       line[from][to] |= BB(from) | BB(to);
 
-      between[from][to] = BB(0);
+      between[from][to] = 0ULL;
       between[from][to] |=
           get_bishop_attacks(from, BB(to)) & get_bishop_attacks(to, BB(from));
       between[from][to] |=
           get_rook_attacks(from, BB(to)) & get_rook_attacks(to, BB(from));
       between[from][to] |= BB(to);
       between[from][to] &= line[from][to];
+    }
+  }
+}
+
+void update_slider_pins(position_t *pos, uint8_t side) {
+  int king = get_lsb(pos->bitboards[KING + 6 * side]);
+  pos->blockers[side] = 0;
+
+  uint64_t possible_bishop_pinners = get_bishop_attacks(king, BB(0)) &
+                                     (pos->bitboards[BISHOP + 6 * (side ^ 1)] |
+                                      pos->bitboards[QUEEN + 6 * (side ^ 1)]);
+  uint64_t possible_rook_pinners =
+      get_rook_attacks(king, BB(0)) & (pos->bitboards[ROOK + 6 * (side ^ 1)] |
+                                       pos->bitboards[QUEEN + 6 * (side ^ 1)]);
+  uint64_t possible_pinners = possible_bishop_pinners | possible_rook_pinners;
+  uint64_t occupied = pos->occupancies[both] ^ possible_pinners;
+
+  while (possible_pinners) {
+    int pinner_square = poplsb(&possible_pinners);
+    uint64_t pinned_bb = between[king][pinner_square] & occupied;
+
+    if (popcount(pinned_bb) == 1) {
+      pos->blockers[side] |= pinned_bb;
     }
   }
 }
@@ -205,6 +229,66 @@ uint8_t is_pseudo_legal(position_t *pos, uint16_t move) {
   }
 
   return 1;
+}
+
+uint8_t is_legal(position_t *pos, uint16_t move) {
+  uint8_t source = get_move_source(move);
+  uint8_t target = get_move_target(move);
+  uint64_t source_bb = BB(source);
+  uint8_t stm = pos->side;
+  uint8_t king = get_lsb(pos->bitboards[KING + 6 * stm]);
+
+  uint64_t checkers = attackers_to(pos, king, pos->occupancies[both]) &
+                      pos->occupancies[stm ^ 1];
+  uint8_t checker_count = popcount(checkers);
+
+  if (checkers && source != king) {
+    if (checker_count > 1) {
+      return 0;
+    } else {
+      uint8_t attacker = get_lsb(checkers);
+      if (between[king][attacker] & BB(target) || target == attacker) {
+        goto pinners;
+      } else {
+        return 0;
+      }
+    }
+  }
+
+  if (get_move_enpassant(move)) {
+    uint8_t ep_square = target - (stm ? 8 : -8);
+    uint64_t ep_bb = BB(ep_square);
+    uint64_t target_bb = BB(target);
+
+    uint64_t occupied =
+        (pos->occupancies[both] ^ source_bb ^ ep_bb) | target_bb;
+
+    uint64_t rook_attacks = get_rook_attacks(king, occupied) &
+                            (pos->bitboards[ROOK + 6 * (stm ^ 1)] |
+                             pos->bitboards[QUEEN + 6 * (stm ^ 1)]);
+    uint64_t bishop_attacks = get_bishop_attacks(king, occupied) &
+                              (pos->bitboards[BISHOP + 6 * (stm ^ 1)] |
+                               pos->bitboards[QUEEN + 6 * (stm ^ 1)]);
+    return !rook_attacks && !bishop_attacks;
+  }
+  if (get_move_castling(move)) {
+    uint64_t squares = between[source][target] | source_bb;
+    while (squares) {
+      uint8_t square = poplsb(&squares);
+      if (attackers_to(pos, square, pos->occupancies[both]) &
+          pos->occupancies[stm ^ 1]) {
+        return 0;
+      }
+    }
+    return 1;
+  }
+  if (pos->mailbox[source] == KING + 6 * stm) {
+    uint64_t occupied = pos->occupancies[both] ^ BB(source);
+    return !(pos->occupancies[stm ^ 1] & attackers_to(pos, target, occupied));
+  }
+pinners: {}
+  uint64_t pinned = pos->blockers[stm] & source_bb;
+  return !pinned || (line[source][target] & BB(king));
 }
 
 uint8_t make_move(position_t *pos, uint16_t move) {
@@ -452,6 +536,9 @@ uint8_t make_move(position_t *pos, uint16_t move) {
                    pos->occupancies[both]) &
       pos->occupancies[pos->side ^ 1];
   pos->checker_count = popcount(pos->checkers);
+
+  update_slider_pins(pos, white);
+  update_slider_pins(pos, black);
 
   pos->fullmove += pos->side == black;
 

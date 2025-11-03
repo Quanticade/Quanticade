@@ -736,6 +736,9 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     // reset enpassant capture square
     pos_copy.enpassant = no_sq;
 
+    update_slider_pins(pos, white);
+    update_slider_pins(pos, black);
+
     // switch the side, literally giving opponent an extra move to make
     pos_copy.side ^= 1;
 

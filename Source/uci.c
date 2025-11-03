@@ -195,7 +195,7 @@ static inline void reset_board(position_t *pos, thread_t *thread) {
   memset(thread->repetition_table, 0ULL, sizeof(thread->repetition_table));
 }
 
-/*static inline void generate_fen(position_t *pos, char *fen) {
+void generate_fen(position_t *pos, char *fen) {
   char *ptr = fen;
 
   // loop over board ranks
@@ -281,7 +281,7 @@ static inline void reset_board(position_t *pos, thread_t *thread) {
   *ptr++ = ' ';
 
   sprintf(ptr, "%d", pos->fullmove);
-}*/
+}
 
 static inline void parse_fen(position_t *pos, thread_t *thread, char *fen) {
   // prepare for new game
@@ -434,6 +434,8 @@ static inline void parse_fen(position_t *pos, thread_t *thread, char *fen) {
                    pos->occupancies[both]) &
       pos->occupancies[pos->side ^ 1];
   pos->checker_count = popcount(pos->checkers);
+  update_slider_pins(pos, white);
+  update_slider_pins(pos, black);
 }
 
 // parse UCI "position" command

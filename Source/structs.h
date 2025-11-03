@@ -82,6 +82,7 @@ typedef struct hash_keys {
 typedef struct position {
   uint64_t bitboards[12];
   uint64_t occupancies[3];
+  uint64_t blockers[2];
   hash_keys_t hash_keys;
   uint64_t checkers;
   uint16_t fullmove;
