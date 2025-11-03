@@ -247,7 +247,8 @@ uint8_t is_legal(position_t *pos, uint16_t move) {
       return 0;
     } else {
       uint8_t attacker = get_lsb(checkers);
-      if (between[king][attacker] & BB(target) || target == attacker) {
+      uint8_t mod_target = get_move_enpassant(move) ? target - (stm ? 8 : -8) : target;
+      if (between[king][attacker] & BB(target) || mod_target == attacker) {
         goto pinners;
       } else {
         return 0;

@@ -217,7 +217,6 @@ static inline void score_move(position_t *pos, thread_t *thread,
   uint8_t promoted_piece = get_move_promoted(pos->side, move);
   uint8_t is_capture = get_move_capture(move);
 
-
   uint8_t source_threatened = is_square_threatened(ss, source);
   uint8_t target_threatened = is_square_threatened(ss, target);
 
