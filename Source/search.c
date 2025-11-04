@@ -427,11 +427,17 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   while (move_index < move_list->count) {
     uint16_t move = pick_next_best_move(move_list, &move_index).move;
 
+    if (!is_legal(pos, move)) {
+      continue;
+    }
+
+    moves_seen++;
+
     if (!SEE(pos, move, -QS_SEE_THRESHOLD))
       continue;
 
     if (best_score > -MATE_SCORE && get_move_target(move) != previous_square) {
-      if (move_index >= 3) {
+      if (moves_seen >= 3) {
         continue;
       }
     }
@@ -439,10 +445,6 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     if (!in_check && get_move_capture(move) && futility_score <= alpha &&
         !SEE(pos, move, 1)) {
       best_score = MAX(best_score, futility_score);
-      continue;
-    }
-
-    if (!is_legal(pos, move)) {
       continue;
     }
 
@@ -468,8 +470,6 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     ss->piece = pos->mailbox[get_move_source(move)];
 
     thread->nodes++;
-
-    moves_seen++;
 
     if (get_move_capture(move)) {
       add_move(capture_list, move);
