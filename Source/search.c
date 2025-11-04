@@ -926,8 +926,6 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       continue;
     }
 
-    moves_seen++;
-
     ss->history_score =
         quiet
             ? thread->quiet_history[pos->side][get_move_source(move)]
@@ -1051,6 +1049,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
     // increment nodes count
     thread->nodes++;
+    moves_seen++;
 
     if (quiet) {
       add_move(quiet_list, move);
