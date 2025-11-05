@@ -84,10 +84,8 @@ uint8_t is_pseudo_legal(position_t *pos, uint16_t move) {
   if (piece == NO_PIECE || pos->side != floor((double)piece / 6)) {
     return 0;
   }
-  // uint64_t origin_bb = pos->bitboards[piece];
 
   if (get_move_capture(move)) {
-    // uint64_t target_bb = pos->bitboards[pos->mailbox[target]];
     if (!get_move_enpassant(move)) {
       uint8_t opponent_piece = pos->mailbox[target];
       if (opponent_piece == NO_PIECE ||
@@ -96,16 +94,15 @@ uint8_t is_pseudo_legal(position_t *pos, uint16_t move) {
       }
     }
   }
-
-  // We cannot have a turn if opponent is in check
-  if (is_square_attacked(pos, get_lsb(pos->bitboards[pos->side ? K : k]),
-                         pos->side)) {
-    return 0;
+  else {
+    if (pos->mailbox[target] != NO_PIECE) {
+      return 0;
+    }
   }
 
   if (get_move_castling(move)) {
     // We cannot castle if the moved piece is not king or we are in check
-    if (noc_piece != KING || pos->checkers) {
+    if (noc_piece != KING) {
       return 0;
     }
     uint8_t squares[4] = {0};
@@ -145,13 +142,12 @@ uint8_t is_pseudo_legal(position_t *pos, uint16_t move) {
         pos->mailbox[squares[3]] == NO_PIECE) {
       return 0;
     }
+    if (is_square_attacked(pos, squares[0], pos->side ^ 1) || is_square_attacked(pos, squares[1], pos->side ^ 1)) {
+      return 0;
+    }
     return 1;
   } else if (get_move_enpassant(move)) {
     if (noc_piece != PAWN && pos->checker_count > 1) {
-      return 0;
-    }
-    if (pos->checkers &&
-        !(get_lsb(pos->checkers) == target - (pos->side ? 8 : -8))) {
       return 0;
     }
     if (target != pos->enpassant &&
@@ -162,17 +158,6 @@ uint8_t is_pseudo_legal(position_t *pos, uint16_t move) {
   } else if (is_move_promotion(move)) {
     if (noc_piece != PAWN) {
       return 0;
-    }
-    if (pos->checker_count > 1) {
-      return 0;
-    }
-    if (pos->checkers) {
-      uint8_t blocks = BB(target) &
-                       between[get_lsb(pos->checkers)]
-                              [get_lsb(pos->bitboards[KING + (6 * pos->side)])];
-      if (target != get_lsb(pos->checkers) && !blocks) {
-        return 0;
-      }
     }
     if (!(get_pawn_attacks(pos->side, origin) & BB(target) &
           pos->occupancies[pos->side ^ 1]) &&
@@ -187,7 +172,7 @@ uint8_t is_pseudo_legal(position_t *pos, uint16_t move) {
     if (BB(target) & 0xFF000000000000FF) {
       return 0;
     }
-    if (!(get_pawn_attacks(pos->side, origin) & BB(target)) &&
+    if (!(get_pawn_attacks(pos->side, origin) & BB(target) && get_move_capture(move)) &&
         !(origin + (pos->side ? 8 : -8) == target &&
           pos->mailbox[target] == NO_PIECE) &&
         !(origin + 2 * (pos->side ? 8 : -8) == target &&
