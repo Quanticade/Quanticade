@@ -949,34 +949,36 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
                       SEARCH_MVV_MULT;
     ss->history_score /= 1024;
 
-    // Late Move Pruning
-    if (!pv_node && quiet &&
-        moves_seen >= LMP_MARGIN[initial_depth]
-                                [improving || ss->static_eval >= beta + 15] &&
-        !only_pawns(pos)) {
-      skip_quiets = 1;
-    }
+    if (!root_node && best_score > -MATE_SCORE) {
+      // Late Move Pruning
+      if (!pv_node && quiet &&
+          moves_seen >= LMP_MARGIN[initial_depth]
+                                  [improving || ss->static_eval >= beta + 15] &&
+          !only_pawns(pos)) {
+        skip_quiets = 1;
+      }
 
-    int r = lmr[quiet][MIN(63, depth)][MIN(63, moves_seen)];
-    r += !pv_node;
-    int lmr_depth = MAX(1, depth - 1 - MAX(r, 1));
-    // Futility Pruning
-    if (!root_node && current_score > -MATE_SCORE && lmr_depth <= FP_DEPTH &&
-        !in_check && quiet &&
-        ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION +
-                ss->history_score / FP_HISTORY_DIVISOR <=
-            alpha &&
-        !might_give_check(pos, move)) {
-      skip_quiets = 1;
-      continue;
-    }
+      int r = lmr[quiet][MIN(63, depth)][MIN(63, moves_seen)];
+      r += !pv_node;
+      int lmr_depth = MAX(1, depth - 1 - MAX(r, 1));
+      // Futility Pruning
+      if (current_score > -MATE_SCORE && lmr_depth <= FP_DEPTH &&
+          !in_check && quiet &&
+          ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION +
+                  ss->history_score / FP_HISTORY_DIVISOR <=
+              alpha &&
+          !might_give_check(pos, move)) {
+        skip_quiets = 1;
+        continue;
+      }
 
-    // SEE PVS Pruning
-    if (depth <= SEE_DEPTH && moves_seen > 0 &&
-        !SEE(pos, move,
-             SEE_MARGIN[depth][!get_move_capture(move)] -
-                 ss->history_score / SEE_HISTORY_DIVISOR))
-      continue;
+      // SEE PVS Pruning
+      if (depth <= SEE_DEPTH &&
+          !SEE(pos, move,
+               SEE_MARGIN[depth][!get_move_capture(move)] -
+                   ss->history_score / SEE_HISTORY_DIVISOR))
+        continue;
+    }
 
     int extensions = 0;
 
