@@ -681,7 +681,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   }
 
   // moves seen counter
-  uint16_t moves_seen = 0;
+  uint16_t moves_count = 0;
 
   // Razoring
   if (!pv_node && !in_check && !ss->excluded_move && depth <= RAZOR_DEPTH &&
@@ -926,7 +926,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       continue;
     }
 
-    moves_seen++;
+    moves_count++;
 
     ss->history_score =
         quiet
@@ -954,13 +954,13 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     if (!root_node && best_score > -MATE_SCORE) {
       // Late Move Pruning
       if (!pv_node && quiet &&
-          moves_seen >= LMP_MARGIN[initial_depth]
+          moves_count - 1 >= LMP_MARGIN[initial_depth]
                                   [improving || ss->static_eval >= beta + 15] &&
           !only_pawns(pos)) {
         skip_quiets = 1;
       }
 
-      int r = lmr[quiet][MIN(63, depth)][MIN(63, moves_seen)];
+      int r = lmr[quiet][MIN(63, depth)][MIN(63, moves_count - 1)];
       r += !pv_node;
       int lmr_depth = MAX(1, depth - 1 - MAX(r, 1));
       // Futility Pruning
@@ -1069,8 +1069,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     int new_depth = depth + extensions - 1;
 
     // LMR
-    if (depth >= 2 && moves_seen > 1) {
-      int R = lmr[quiet][depth][MIN(255, moves_seen)] * 1024;
+    if (depth >= 2 && moves_count > 1) {
+      int R = lmr[quiet][depth][MIN(255, moves_count)] * 1024;
       R += !pv_node * LMR_PV_NODE;
       R -= ss->history_score * (quiet ? LMR_HISTORY_QUIET : LMR_HISTORY_NOISY) /
            (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
@@ -1105,13 +1105,13 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
         }
       }
       // Full Depth Search
-    } else if (!pv_node || moves_seen > 1) {
+    } else if (!pv_node || moves_count > 1) {
       current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
                                new_depth, !cutnode, NON_PV);
     }
 
     // Principal Variation Search
-    if (pv_node && (moves_seen == 1 || current_score > alpha)) {
+    if (pv_node && (moves_count == 1 || current_score > alpha)) {
       current_score =
           -negamax(pos, thread, ss + 1, -beta, -alpha, new_depth, 0, PV_NODE);
     }
@@ -1175,7 +1175,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   }
 
   // we don't have any legal moves to make in the current postion
-  if (moves_seen == 0) {
+  if (moves_count == 0) {
     // king is in check
     if (in_check)
       // return mating score (assuming closest distance to mating position)
