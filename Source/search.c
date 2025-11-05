@@ -922,6 +922,10 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       continue;
     }
 
+    if (!is_legal(pos, move)) {
+      continue;
+    }
+
     ss->history_score =
         quiet
             ? thread->quiet_history[pos->side][get_move_source(move)]
@@ -1022,10 +1026,6 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       }
     }
 
-    if (!is_legal(pos, move)) {
-      continue;
-    }
-
     // preserve board state
     position_t pos_copy = *pos;
 
@@ -1049,8 +1049,6 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
     // increment nodes count
     thread->nodes++;
-
-    // increment legal moves
     moves_seen++;
 
     if (quiet) {
