@@ -5,6 +5,7 @@
 #include "utils.h"
 #include <inttypes.h>
 #include <math.h>
+#include <stdint.h>
 #include <stdio.h>
 
 static inline void perft_driver(position_t *pos, thread_t *thread, int depth) {

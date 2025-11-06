@@ -8,6 +8,7 @@
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 extern nnue_settings_t nnue_settings;
@@ -86,6 +87,11 @@ uint8_t is_pseudo_legal(position_t *pos, uint16_t move) {
   }
 
   if (get_move_capture(move)) {
+    // This bit is ignored so when trying moves bruteforce way we need to return
+    // 0
+    if (move & 2 && !is_move_promotion(move)) {
+      return 0;
+    }
     if (!get_move_enpassant(move)) {
       uint8_t opponent_piece = pos->mailbox[target];
       if (opponent_piece == NO_PIECE ||
@@ -93,8 +99,7 @@ uint8_t is_pseudo_legal(position_t *pos, uint16_t move) {
         return 0;
       }
     }
-  }
-  else {
+  } else {
     if (pos->mailbox[target] != NO_PIECE) {
       return 0;
     }
@@ -102,10 +107,18 @@ uint8_t is_pseudo_legal(position_t *pos, uint16_t move) {
 
   if (get_move_castling(move)) {
     // We cannot castle if the moved piece is not king or we are in check
-    if (noc_piece != KING) {
+    if (noc_piece != KING || pos->castle == 0) {
       return 0;
     }
-    uint8_t squares[4] = {0};
+
+    uint8_t king_castle_side = pos->side ? bk : wk;
+    uint8_t queen_castle_side = pos->side ? bq : wq;
+
+    if (!((get_move_castling(move) == KING_CASTLE && pos->castle & king_castle_side) || (get_move_castling(move) == QUEEN_CASTLE && pos->castle & queen_castle_side))) {
+      return 0;
+    }
+
+    uint8_t squares[5] = {0};
     switch (target) {
     case g1: {
       squares[0] = e1;
@@ -119,6 +132,7 @@ uint8_t is_pseudo_legal(position_t *pos, uint16_t move) {
       squares[1] = d1;
       squares[2] = c1;
       squares[3] = a1;
+      squares[4] = b1;
       break;
     }
     case g8: {
@@ -133,8 +147,13 @@ uint8_t is_pseudo_legal(position_t *pos, uint16_t move) {
       squares[1] = d8;
       squares[2] = c8;
       squares[3] = a8;
+      squares[4] = b8;
       break;
     }
+    }
+    if (!((get_move_castling(move) == KING_CASTLE && (squares[2] == g1 || squares[2] == g8)) ||
+          (get_move_castling(move) == QUEEN_CASTLE && (squares[2] == c1 || squares[2] == c8)))) {
+      return 0;
     }
     if (pos->mailbox[squares[0]] == NO_PIECE ||
         pos->mailbox[squares[1]] != NO_PIECE ||
@@ -142,21 +161,59 @@ uint8_t is_pseudo_legal(position_t *pos, uint16_t move) {
         pos->mailbox[squares[3]] == NO_PIECE) {
       return 0;
     }
-    if (is_square_attacked(pos, squares[0], pos->side ^ 1) || is_square_attacked(pos, squares[1], pos->side ^ 1)) {
+    if (is_square_attacked(pos, squares[0], pos->side ^ 1) ||
+        is_square_attacked(pos, squares[1], pos->side ^ 1)) {
+      return 0;
+    }
+
+    if (get_move_castling(move) == KING_CASTLE) {
+      return 1;
+    }
+
+    if (!(get_move_castling(move) == QUEEN_CASTLE && pos->mailbox[squares[4]] == NO_PIECE)) {
       return 0;
     }
     return 1;
   } else if (get_move_enpassant(move)) {
-    if (noc_piece != PAWN && pos->checker_count > 1) {
+    if (noc_piece != PAWN) {
       return 0;
     }
-    if (target != pos->enpassant &&
-        pos->mailbox[target - (pos->side ? 8 : -8)] % 6 != PAWN) {
+
+    // With a8=0: white captures downward (+8), black captures upward (-8)
+    int captured_square = target + (pos->side ? -8 : 8);
+
+    if (target != pos->enpassant) {
       return 0;
     }
+
+    // Verify the moving pawn is on the correct rank for en passant
+    // White (side=0) must be on rank 3, Black (side=1) must be on rank 4
+    int source_rank = origin / 8;
+    int required_rank = pos->side ? 4 : 3;
+
+    if (source_rank != required_rank) {
+      return 0;
+    }
+
+    int source_file = origin % 8;
+    int target_file = target % 8;
+
+    if (abs(source_file - target_file) != 1) {
+      return 0;
+    }
+
+    // Verify there's actually an opponent pawn there
+    int captured_piece = pos->mailbox[captured_square];
+    if (captured_piece % 6 != PAWN || captured_piece / 6 == pos->side) {
+      return 0;
+    }
+
     return 1;
   } else if (is_move_promotion(move)) {
     if (noc_piece != PAWN) {
+      return 0;
+    }
+    if (!(BB(target) & 0xFF000000000000FF)) {
       return 0;
     }
     if (!(get_pawn_attacks(pos->side, origin) & BB(target) &
@@ -167,15 +224,21 @@ uint8_t is_pseudo_legal(position_t *pos, uint16_t move) {
     }
     return 1;
   }
+  if ((get_move_enpassant(move) || get_move_double(move)) &&
+      noc_piece != PAWN) {
+    return 0;
+  }
   switch (noc_piece) {
   case PAWN: {
     if (BB(target) & 0xFF000000000000FF) {
       return 0;
     }
-    if (!(get_pawn_attacks(pos->side, origin) & BB(target) && get_move_capture(move)) &&
-        !(origin + (pos->side ? 8 : -8) == target &&
+    if (!(get_pawn_attacks(pos->side, origin) & BB(target) &&
+          get_move_capture(move)) &&
+        !(origin + (pos->side ? 8 : -8) == target && !get_move_double(move) &&
           pos->mailbox[target] == NO_PIECE) &&
         !(origin + 2 * (pos->side ? 8 : -8) == target &&
+          get_move_double(move) && BB(origin) & 0x00FF00000000FF00 &&
           pos->mailbox[target] == NO_PIECE &&
           pos->mailbox[target - (pos->side ? 8 : -8)] == NO_PIECE &&
           BB(target) & 0xFFFF000000)) {
