@@ -72,15 +72,8 @@ static inline void score_quiet(move_picker_t *picker, move_t *move_entry) {
   move_entry->score /= 1024;
 }
 
-static inline void score_move(move_picker_t *picker, move_t *move_entry,
-                              uint16_t hash_move) {
+static inline void score_move(move_picker_t *picker, move_t *move_entry) {
   uint16_t move = move_entry->move;
-
-  // Hash move gets highest priority
-  if (move == hash_move) {
-    move_entry->score = 2000000000;
-    return;
-  }
 
   // Cache frequently used values
   uint8_t source = get_move_source(move);
@@ -234,7 +227,7 @@ uint16_t next_move(move_picker_t *picker, uint8_t skip_quiets) {
       }
 
       for (uint32_t i = 0; i < picker->quiet_moves->count; i++) {
-        score_quiet(picker, &picker->quiet_moves->entry[i]);
+        score_move(picker, &picker->quiet_moves->entry[i]);
       }
       picker->stage = STAGE_PLAY_MOVES;
       continue;
