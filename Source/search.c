@@ -962,8 +962,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       r += !pv_node;
       int lmr_depth = MAX(1, depth - 1 - MAX(r, 1));
       // Futility Pruning
-      if (current_score > -MATE_SCORE && lmr_depth <= FP_DEPTH &&
-          !in_check && quiet &&
+      if (current_score > -MATE_SCORE && lmr_depth <= FP_DEPTH && !in_check &&
+          quiet &&
           ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION +
                   ss->history_score / FP_HISTORY_DIVISOR <=
               alpha &&
@@ -1026,6 +1026,9 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       else if (cutnode) {
         extensions -= 2;
       }
+    } else if (pv_node && move == tt_move && get_move_capture(move) &&
+               get_move_target(move) == get_move_target((ss - 1)->move)) {
+      extensions++;
     }
 
     // preserve board state
