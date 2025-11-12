@@ -425,13 +425,18 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   // loop over moves within a movelist
 
   while (move_index < move_list->count) {
-    uint16_t move = pick_next_best_move(move_list, &move_index).move;
+    move_t move_struct = pick_next_best_move(move_list, &move_index);
+    uint16_t move = move_struct.move;
 
     if (!is_legal(pos, move)) {
       continue;
     }
 
     moves_seen++;
+
+    if (move_struct.score < -900000000) {
+      break;
+    }
 
     if (!SEE(pos, move, -QS_SEE_THRESHOLD))
       continue;
