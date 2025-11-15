@@ -19,12 +19,10 @@
 #include "attacks.h"
 #include "enums.h"
 #include "structs.h"
-#include "threads.h"
 #include "transposition.h"
 #include "uci.h"
 
 position_t pos;
-thread_t *threads;
 nnue_settings_t nnue_settings;
 limits_t limits;
 keys_t keys;
@@ -133,7 +131,6 @@ void init_all(void) {
 \**********************************/
 
 int main(int argc, char *argv[]) {
-  threads = init_threads(thread_count);
   pos.enpassant = no_sq;
   limits.movestogo = 30;
   limits.time = -1;
@@ -146,11 +143,10 @@ int main(int argc, char *argv[]) {
   init_all();
 
   // connect to GUI
-  uci_loop(&pos, threads, argc, argv);
+  uci_loop(&pos, argc, argv);
 
   // free hash table memory on exit
   free(tt.hash_entry);
-  free(threads);
   free(nnue_settings.nnue_file);
 
   return 0;
