@@ -1399,14 +1399,17 @@ void search_position(position_t *pos, thread_t *threads) {
   for (int i = 0; i < thread_count; ++i) {
     threads[i].nodes = 0;
     threads[i].stopped = 0;
-    memcpy(&threads[i].pos, pos, sizeof(position_t));
+    threads[i].pos = *pos;
+    threads[i].score = -INF;
+    threads[i].quit = 0;
+    threads[i].nmp_min_ply = 0;
+    memset(&threads[i].pv, 0, sizeof(threads[i].pv));
+    memset(&threads[i].neurons, 0, sizeof(simd_t));
     init_accumulator(pos, threads[i].accumulator);
     init_finny_tables(&threads[i], pos);
   }
 
   // clear helper data structures for search
-  memset(threads->pv.pv_table, 0, sizeof(threads->pv.pv_table));
-  memset(threads->pv.pv_length, 0, sizeof(threads->pv.pv_length));
   memset(nodes_spent_table, 0, sizeof(nodes_spent_table));
 
   for (int thread_index = 1; thread_index < thread_count; ++thread_index) {
