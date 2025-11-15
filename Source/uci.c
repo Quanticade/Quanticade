@@ -625,9 +625,11 @@ void print_move(int move) {
 }
 
 // main UCI loop
-void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
+void uci_loop(position_t *pos, int argc, char *argv[]) {
   // max hash MB
   int max_hash = 524288;
+
+  thread_t *threads = init_threads(thread_count);
 
   pthread_t search_thread;
   uint8_t started = 0;
@@ -826,4 +828,9 @@ void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]) {
       handle_spsa_change(input);
     }
   }
+#ifndef _WIN32
+  free(threads);
+#else
+  _aligned_free(threads);
+#endif
 }

@@ -14,7 +14,7 @@ extern const char *square_to_coordinates[];
 extern char promoted_pieces[];
 
 void generate_fen(position_t *pos, char *fen);
-void uci_loop(position_t *pos, thread_t *threads, int argc, char *argv[]);
+void uci_loop(position_t *pos, int argc, char *argv[]);
 void print_move(int move);
 
 #endif
