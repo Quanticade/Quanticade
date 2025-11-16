@@ -1407,6 +1407,10 @@ void search_position(position_t *pos, thread_t *threads) {
     memset(&threads[i].neurons, 0, sizeof(simd_t));
     init_accumulator(pos, threads[i].accumulator);
     init_finny_tables(&threads[i], pos);
+    if (i > 0) {
+      threads[i].repetition_index = threads[0].repetition_index;
+      memcpy(threads[i].repetition_table, threads[0].repetition_table, sizeof(threads[0].repetition_table));
+    }
   }
 
   // clear helper data structures for search
