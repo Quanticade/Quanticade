@@ -26,7 +26,6 @@ position_t pos;
 nnue_settings_t nnue_settings;
 limits_t limits;
 keys_t keys;
-uint32_t random_state;
 
 extern const int default_hash_size;
 extern int thread_count;
@@ -34,49 +33,17 @@ extern nnue_t nnue;
 extern uint64_t between[64][64];
 extern uint64_t line[64][64];
 
-// generate 32-bit pseudo legal numbers
-uint32_t get_random_U32_number(void) {
-  // get current state
-  uint32_t number = random_state;
-
-  // XOR shift algorithm
-  number ^= number << 13;
-  number ^= number >> 17;
-  number ^= number << 5;
-
-  // update random number state
-  random_state = number;
-
-  // return random number
-  return number;
-}
-
-// generate 64-bit pseudo legal numbers
+// SplitMix64 PRNG for generating random hash keys
+uint64_t sm64_state;
 uint64_t get_random_uint64_number(void) {
-  // define 4 random numbers
-  uint64_t n1, n2, n3, n4;
-
-  // init random numbers slicing 16 bits from MS1B side
-  n1 = (uint64_t)(get_random_U32_number()) & 0xFFFF;
-  n2 = (uint64_t)(get_random_U32_number()) & 0xFFFF;
-  n3 = (uint64_t)(get_random_U32_number()) & 0xFFFF;
-  n4 = (uint64_t)(get_random_U32_number()) & 0xFFFF;
-
-  // return random number
-  return n1 | (n2 << 16) | (n3 << 32) | (n4 << 48);
-}
-
-// generate magic number candidate
-uint64_t generate_magic_number(void) {
-  return get_random_uint64_number() & get_random_uint64_number() &
-         get_random_uint64_number();
+  uint64_t z = (sm64_state += 0x9E3779B97F4A7C15ULL);
+  z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
+  z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
+  return z ^ (z >> 31);
 }
 
 // init random hash keys (zobrist keys)
 static inline void init_random_keys(void) {
-  // update pseudo random number state
-  random_state = 1804289383;
-
   // loop over piece codes
   for (int piece = P; piece <= k; piece++) {
     // loop over board squares
@@ -134,7 +101,6 @@ int main(int argc, char *argv[]) {
   pos.enpassant = no_sq;
   limits.movestogo = 30;
   limits.time = -1;
-  random_state = 1804289383;
   tt.hash_entry = NULL;
   tt.num_of_entries = 0;
   nnue_settings.nnue_file = calloc(21, 1);
