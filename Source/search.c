@@ -432,20 +432,22 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     }
 
     moves_seen++;
+    
+    if (best_score > -MATE_SCORE) {
+      if (!SEE(pos, move, -QS_SEE_THRESHOLD))
+        continue;
 
-    if (!SEE(pos, move, -QS_SEE_THRESHOLD))
-      continue;
+      if (get_move_target(move) != previous_square) {
+        if (moves_seen >= 3) {
+          continue;
+        }
+      }
 
-    if (best_score > -MATE_SCORE && get_move_target(move) != previous_square) {
-      if (moves_seen >= 3) {
+      if (!in_check && get_move_capture(move) && futility_score <= alpha &&
+          !SEE(pos, move, 1)) {
+        best_score = MAX(best_score, futility_score);
         continue;
       }
-    }
-
-    if (!in_check && get_move_capture(move) && futility_score <= alpha &&
-        !SEE(pos, move, 1)) {
-      best_score = MAX(best_score, futility_score);
-      continue;
     }
 
     // preserve board state
@@ -962,8 +964,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       r += !pv_node;
       int lmr_depth = MAX(1, depth - 1 - MAX(r, 1));
       // Futility Pruning
-      if (current_score > -MATE_SCORE && lmr_depth <= FP_DEPTH &&
-          !in_check && quiet &&
+      if (current_score > -MATE_SCORE && lmr_depth <= FP_DEPTH && !in_check &&
+          quiet &&
           ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION +
                   ss->history_score / FP_HISTORY_DIVISOR <=
               alpha &&
