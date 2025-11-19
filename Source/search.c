@@ -1425,6 +1425,8 @@ void search_position(position_t *pos, thread_t *threads) {
 
   iterative_deepening(&threads[0]);
 
+  stop_threads(threads, thread_count);
+
   for (int i = 1; i < thread_count; ++i) {
     pthread_join(pthreads[i], NULL);
   }
