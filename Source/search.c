@@ -432,7 +432,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     }
 
     moves_seen++;
-    
+
     if (best_score > -MATE_SCORE) {
       if (!SEE(pos, move, -QS_SEE_THRESHOLD))
         continue;
@@ -686,13 +686,9 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   uint16_t moves_seen = 0;
 
   // Razoring
-  if (!pv_node && !in_check && !ss->excluded_move && depth <= RAZOR_DEPTH &&
+  if (!pv_node && !in_check && depth <= RAZOR_DEPTH &&
       ss->static_eval + RAZOR_MARGIN * depth < alpha) {
-    const int16_t razor_score =
-        quiescence(pos, thread, ss, alpha, beta, NON_PV);
-    if (razor_score <= alpha) {
-      return razor_score;
-    }
+    return quiescence(pos, thread, ss, alpha, beta, NON_PV);
   }
 
   // Reverse Futility Pruning
@@ -1411,7 +1407,8 @@ void search_position(position_t *pos, thread_t *threads) {
     init_finny_tables(&threads[i], pos);
     if (i > 0) {
       threads[i].repetition_index = threads[0].repetition_index;
-      memcpy(threads[i].repetition_table, threads[0].repetition_table, sizeof(threads[0].repetition_table));
+      memcpy(threads[i].repetition_table, threads[0].repetition_table,
+             sizeof(threads[0].repetition_table));
     }
   }
 
