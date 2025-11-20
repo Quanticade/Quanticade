@@ -281,11 +281,25 @@ static inline void update_capture_history(thread_t *thread, position_t *pos,
           abs(bonus) / HISTORY_MAX;
 }*/
 
+int16_t get_conthist_score(thread_t *thread, position_t *pos, searchstack_t *ss,
+                           int move, uint8_t ply) {
+  if (pos->ply >= ply && (ss - ply)->piece != NO_PIECE) {
+    return thread->continuation_history[(ss - ply)->piece][get_move_target(
+        (ss - ply)->move)][pos->mailbox[get_move_source(move)]]
+                                       [get_move_target(move)];
+  } else {
+    return 0;
+  }
+}
+
 static inline void update_continuation_histories(thread_t *thread,
                                                  position_t *pos,
                                                  searchstack_t *ss, int move,
                                                  int bonus) {
   uint8_t count = sizeof(cont_hist_updates) / sizeof(uint8_t);
+  int64_t total_score = get_conthist_score(thread, pos, ss, move, 1) +
+                        get_conthist_score(thread, pos, ss, move, 2) +
+                        get_conthist_score(thread, pos, ss, move, 4);
   for (uint8_t i = 0; i < count; ++i) {
     int prev_piece = (ss - cont_hist_updates[i])->piece;
     if (pos->ply >= cont_hist_updates[i] && prev_piece != NO_PIECE) {
@@ -293,9 +307,7 @@ static inline void update_continuation_histories(thread_t *thread,
       int piece = pos->mailbox[get_move_source(move)];
       int target = get_move_target(move);
       thread->continuation_history[prev_piece][prev_target][piece][target] +=
-          bonus -
-          thread->continuation_history[prev_piece][prev_target][piece][target] *
-              abs(bonus) / HISTORY_MAX;
+          bonus - total_score * abs(bonus) / HISTORY_MAX;
     }
   }
 }
@@ -327,17 +339,6 @@ void update_capture_history_moves(thread_t *thread, position_t *pos,
       update_capture_history(thread, pos, ss, capture_moves->entry[i].move,
                              capt_malus);
     }
-  }
-}
-
-int16_t get_conthist_score(thread_t *thread, position_t *pos, searchstack_t *ss,
-                           int move, uint8_t ply) {
-  if (pos->ply >= ply && (ss - ply)->piece != NO_PIECE) {
-    return thread->continuation_history[(ss - ply)->piece][get_move_target(
-        (ss - ply)->move)][pos->mailbox[get_move_source(move)]]
-                                       [get_move_target(move)];
-  } else {
-    return 0;
   }
 }
 
