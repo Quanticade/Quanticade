@@ -432,7 +432,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     }
 
     moves_seen++;
-    
+
     if (best_score > -MATE_SCORE) {
       if (!SEE(pos, move, -QS_SEE_THRESHOLD))
         continue;
@@ -1004,12 +1004,12 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
       // No move beat tt score so we extend the search
       if (s_score < s_beta) {
+        const int16_t double_margin = SE_PV_DOUBLE_MARGIN * pv_node;
+        const int16_t triple_margin = SE_TRIPLE_MARGIN;
         extensions++;
-        if (s_score < s_beta - SE_PV_DOUBLE_MARGIN * pv_node) {
-          extensions++;
-          if (!get_move_capture(move) && s_score + SE_TRIPLE_MARGIN < s_beta) {
-            extensions++;
-          }
+        extensions += s_score < s_beta - double_margin;
+        if (!get_move_capture(move)) {
+          extensions += s_score < s_beta - triple_margin;
         }
       }
 
@@ -1411,7 +1411,8 @@ void search_position(position_t *pos, thread_t *threads) {
     init_finny_tables(&threads[i], pos);
     if (i > 0) {
       threads[i].repetition_index = threads[0].repetition_index;
-      memcpy(threads[i].repetition_table, threads[0].repetition_table, sizeof(threads[0].repetition_table));
+      memcpy(threads[i].repetition_table, threads[0].repetition_table,
+             sizeof(threads[0].repetition_table));
     }
   }
 
