@@ -190,7 +190,8 @@ void scale_time(thread_t *thread, uint8_t best_move_stability,
 uint8_t check_time(thread_t *thread) {
   // if time is up break here
   if (thread->index == 0 &&
-      ((limits.timeset && get_time_ms() > limits.hard_limit) ||
+      ((limits.timeset && ((thread->nodes % 1024) == 0) &&
+        get_time_ms() > limits.hard_limit) ||
        (limits.nodes_set && thread->nodes >= limits.node_limit_hard))) {
     // tell engine to stop calculating
     thread->stopped = 1;
@@ -432,7 +433,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     }
 
     moves_seen++;
-    
+
     if (best_score > -MATE_SCORE) {
       if (!SEE(pos, move, -QS_SEE_THRESHOLD))
         continue;
@@ -1411,7 +1412,8 @@ void search_position(position_t *pos, thread_t *threads) {
     init_finny_tables(&threads[i], pos);
     if (i > 0) {
       threads[i].repetition_index = threads[0].repetition_index;
-      memcpy(threads[i].repetition_table, threads[0].repetition_table, sizeof(threads[0].repetition_table));
+      memcpy(threads[i].repetition_table, threads[0].repetition_table,
+             sizeof(threads[0].repetition_table));
     }
   }
 
