@@ -48,8 +48,6 @@ int SE_DEPTH = 6;
 int PROBCUT_DEPTH = 5;
 int PROBCUT_SHALLOW_DEPTH = 3;
 int SE_DEPTH_REDUCTION = 6;
-int SE_PV_DOUBLE_MARGIN = 1;
-int SE_TRIPLE_MARGIN = 36;
 int IIR_DEPTH_REDUCTION = 3;
 int EVAL_STABILITY_VAR = 9;
 
@@ -68,6 +66,9 @@ int NMP_MULTIPLIER = 20;
 int SEE_QUIET = 45;
 int SEE_CAPTURE = 30;
 int SEE_HISTORY_DIVISOR = 41;
+int SE_PV_DOUBLE_MARGIN = 1;
+int SE_DOUBLE_MARGIN = 0;
+int SE_TRIPLE_MARGIN = 36;
 int LMR_PV_NODE = 966;
 int LMR_HISTORY_QUIET = 1117;
 int LMR_HISTORY_NOISY = 975;
@@ -1005,7 +1006,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
       // No move beat tt score so we extend the search
       if (s_score < s_beta) {
-        const int16_t double_margin = SE_PV_DOUBLE_MARGIN * pv_node;
+        const int16_t double_margin = SE_DOUBLE_MARGIN + SE_PV_DOUBLE_MARGIN * pv_node;
         const int16_t triple_margin = SE_TRIPLE_MARGIN;
         extensions++;
         extensions += s_score < s_beta - double_margin;
