@@ -83,6 +83,7 @@ int LMR_CUTOFF_CNT = 933;
 int LMR_IMPROVING = 955;
 int LMR_DEEPER_MARGIN = 31;
 int LMR_SHALLOWER_MARGIN = 6;
+int LMP_BETA_MARGIN = 15;
 int ASP_WINDOW = 13;
 int QS_SEE_THRESHOLD = 7;
 int QS_FUTILITY_THRESHOLD = 101;
@@ -96,6 +97,7 @@ int HINDSIGH_REDUCTION_RED = 2101;
 int HINDSIGN_REDUCTION_EVAL_MARGIN = 100;
 int PROBCUT_MARGIN = 199;
 int PROBCUT_SEE_THRESHOLD = 98;
+int MO_SEE_HISTORY_DIVISER = 35;
 int MO_QUIET_HIST_MULT = 1080;
 int MO_CONT1_HIST_MULT = 932;
 int MO_CONT2_HIST_MULT = 968;
@@ -245,7 +247,7 @@ static inline void score_move(position_t *pos, thread_t *thread,
     move_entry->score /= 1024;
 
     // SEE check - good captures get huge bonus, bad ones get penalty
-    int see_threshold = -MO_SEE_THRESHOLD - move_entry->score / 35;
+    int see_threshold = -MO_SEE_THRESHOLD - move_entry->score / MO_SEE_HISTORY_DIVISER;
     move_entry->score +=
         SEE(pos, move, see_threshold) ? 1000000000 : -1000000000;
     return;
@@ -957,7 +959,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       // Late Move Pruning
       if (!pv_node && quiet &&
           moves_seen >= LMP_MARGIN[initial_depth]
-                                  [improving || ss->static_eval >= beta + 15] &&
+                                  [improving || ss->static_eval >= beta + LMP_BETA_MARGIN] &&
           !only_pawns(pos)) {
         skip_quiets = 1;
       }
