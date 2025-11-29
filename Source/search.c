@@ -50,91 +50,91 @@ int PROBCUT_SHALLOW_DEPTH = 3;
 int SE_DEPTH_REDUCTION = 6;
 int IIR_DEPTH_REDUCTION = 3;
 int EVAL_STABILITY_VAR = 9;
+int QS_SEE_THRESHOLD = 7;
 
 // SPSA Tuned params
-int RAZOR_MARGIN = 264;
-int RFP_MARGIN = 56;
-int RFP_BASE_MARGIN = 28;
+int RAZOR_MARGIN = 266;
+int RFP_MARGIN = 57;
+int RFP_BASE_MARGIN = 26;
 int RFP_IMPROVING = 62;
 int RFP_OPP_WORSENING = 14;
-int FP_MULTIPLIER = 120;
-int FP_ADDITION = 146;
-int FP_HISTORY_DIVISOR = 34;
-int NMP_RED_DIVISER = 165;
-int NMP_BASE_ADD = 183;
+int FP_MULTIPLIER = 137;
+int FP_ADDITION = 163;
+int FP_HISTORY_DIVISOR = 30;
+int NMP_RED_DIVISER = 144;
+int NMP_BASE_ADD = 189;
 int NMP_MULTIPLIER = 20;
-int SEE_QUIET = 45;
-int SEE_CAPTURE = 30;
-int SEE_HISTORY_DIVISOR = 41;
+int SEE_QUIET = 41;
+int SEE_CAPTURE = 29;
+int SEE_HISTORY_DIVISOR = 39;
 int SE_PV_DOUBLE_MARGIN = 1;
 int SE_DOUBLE_MARGIN = 0;
-int SE_TRIPLE_MARGIN = 36;
-int LMR_PV_NODE = 966;
-int LMR_HISTORY_QUIET = 1117;
-int LMR_HISTORY_NOISY = 975;
-int LMR_WAS_IN_CHECK = 799;
-int LMR_IN_CHECK = 983;
-int LMR_CUTNODE = 1147;
-int LMR_TT_DEPTH = 1170;
-int LMR_TT_PV = 1039;
-int LMR_TT_PV_CUTNODE = 876;
-int LMR_TT_SCORE = 903;
-int LMR_CUTOFF_CNT = 933;
-int LMR_IMPROVING = 955;
-int LMR_DEEPER_MARGIN = 31;
+int SE_TRIPLE_MARGIN = 37;
+int LMR_PV_NODE = 870;
+int LMR_HISTORY_QUIET = 1171;
+int LMR_HISTORY_NOISY = 1068;
+int LMR_WAS_IN_CHECK = 853;
+int LMR_IN_CHECK = 1068;
+int LMR_CUTNODE = 1244;
+int LMR_TT_DEPTH = 1038;
+int LMR_TT_PV = 1073;
+int LMR_TT_PV_CUTNODE = 887;
+int LMR_TT_SCORE = 868;
+int LMR_CUTOFF_CNT = 809;
+int LMR_IMPROVING = 988;
+int LMR_DEEPER_MARGIN = 30;
 int LMR_SHALLOWER_MARGIN = 6;
 int LMP_BETA_MARGIN = 15;
 int ASP_WINDOW = 13;
-int QS_SEE_THRESHOLD = 7;
-int QS_FUTILITY_THRESHOLD = 101;
-int MO_SEE_THRESHOLD = 129;
-int LMR_QUIET_HIST_DIV = 6575;
-int LMR_CAPT_HIST_DIV = 7974;
-int ASP_WINDOW_DIVISER = 33120;
-int ASP_WINDOW_MULTIPLIER = 489;
-int HINDSIGH_REDUCTION_ADD = 3019;
-int HINDSIGH_REDUCTION_RED = 2101;
-int HINDSIGN_REDUCTION_EVAL_MARGIN = 100;
-int PROBCUT_MARGIN = 199;
-int PROBCUT_SEE_THRESHOLD = 98;
-int MO_SEE_HISTORY_DIVISER = 35;
-int MO_QUIET_HIST_MULT = 1080;
-int MO_CONT1_HIST_MULT = 932;
-int MO_CONT2_HIST_MULT = 968;
-int MO_CONT4_HIST_MULT = 1092;
-int MO_PAWN_HIST_MULT = 1024;
-int MO_CAPT_HIST_MULT = 1092;
-int MO_MVV_MULT = 1099;
+int QS_FUTILITY_THRESHOLD = 92;
+int MO_SEE_THRESHOLD = 119;
+int LMR_QUIET_HIST_DIV = 6320;
+int LMR_CAPT_HIST_DIV = 8316;
+int ASP_WINDOW_DIVISER = 31548;
+int ASP_WINDOW_MULTIPLIER = 462;
+int HINDSIGH_REDUCTION_ADD = 2905;
+int HINDSIGH_REDUCTION_RED = 2113;
+int HINDSIGN_REDUCTION_EVAL_MARGIN = 93;
+int PROBCUT_MARGIN = 208;
+int PROBCUT_SEE_THRESHOLD = 101;
+int MO_SEE_HISTORY_DIVISER = 33;
+int MO_QUIET_HIST_MULT = 1087;
+int MO_CONT1_HIST_MULT = 940;
+int MO_CONT2_HIST_MULT = 940;
+int MO_CONT4_HIST_MULT = 1075;
+int MO_PAWN_HIST_MULT = 989;
+int MO_CAPT_HIST_MULT = 1039;
+int MO_MVV_MULT = 1011;
 int SEARCH_QUIET_HIST_MULT = 1024;
 int SEARCH_CONT1_HIST_MULT = 1024;
 int SEARCH_CONT2_HIST_MULT = 1024;
 int SEARCH_PAWN_HIST_MULT = 1024;
 int SEARCH_CAPT_HIST_MULT = 1024;
 int SEARCH_MVV_MULT = 1024;
-double LMR_DEEPER_MULT = 1.9595040263148549f;
+double LMR_DEEPER_MULT = 1.9371f;
 
-double LMP_MARGIN_WORSENING_BASE = 1.4335145072347588f;
-double LMP_MARGIN_WORSENING_FACTOR = 0.42524143202341924f;
-double LMP_MARGIN_WORSENING_POWER = 1.5922362307029867f;
-double LMP_MARGIN_IMPROVING_BASE = 2.733474225157023f;
-double LMP_MARGIN_IMPROVING_FACTOR = 0.8962233822164344f;
-double LMP_MARGIN_IMPROVING_POWER = 1.986800047510314f;
+double LMP_MARGIN_WORSENING_BASE = 1.4682582415625955f;
+double LMP_MARGIN_WORSENING_FACTOR = 0.38743619976819593f;
+double LMP_MARGIN_WORSENING_POWER = 1.6157476127701476f;
+double LMP_MARGIN_IMPROVING_BASE = 2.829163964758142f;
+double LMP_MARGIN_IMPROVING_FACTOR = 0.874216528038092f;
+double LMP_MARGIN_IMPROVING_POWER = 1.9914724406479483f;
 
-double LMR_OFFSET_QUIET = 0.7534772452963504f;
-double LMR_DIVISOR_QUIET = 1.6366342462493635f;
-double LMR_OFFSET_NOISY = -0.13734027831582868f;
-double LMR_DIVISOR_NOISY = 2.458438757171824f;
+double LMR_OFFSET_QUIET = 0.7307520900094735f;
+double LMR_DIVISOR_QUIET = 1.6908366857335537f;
+double LMR_OFFSET_NOISY = -0.11752771499046151f;
+double LMR_DIVISOR_NOISY = 2.5323539640440114f;
 
-double NODE_TIME_MULTIPLIER = 2.4215387632682486f;
-double NODE_TIME_ADDITION = 0.45809035673822324f;
-double NODE_TIME_MIN = 0.551622253750392f;
+double NODE_TIME_MULTIPLIER = 2.4094902403164835f;
+double NODE_TIME_ADDITION = 0.46313422932221443f;
+double NODE_TIME_MIN = 0.5460676765832846f;
 
-double EVAL_TIME_ADDITION = 1.1979126175912398f;
-double EVAL_TIME_MULTIPLIER = 0.03161545695120066f;
+double EVAL_TIME_ADDITION = 1.1963843279560706f;
+double EVAL_TIME_MULTIPLIER = 0.04424199775292753f;
 
-int SEEPieceValues[] = {56, 319, 304, 549, 1241, 0, 0};
+int SEEPieceValues[] = {61, 312, 301, 547, 1371, 0, 0};
 
-int mvv[] = {124, 335, 304, 549, 1412, 0};
+int mvv[] = {131, 362, 308, 486, 1328, 0};
 
 int lmr[2][MAX_PLY + 1][256];
 
@@ -142,9 +142,9 @@ int SEE_MARGIN[MAX_PLY + 1][2];
 
 int LMP_MARGIN[MAX_PLY + 1][2];
 
-double bestmove_scale[5] = {2.418260135330557f, 1.3544148386858634f,
-                            1.1053718681958427f, 0.8881563050935932f,
-                            0.7111698288447275f};
+double bestmove_scale[5] = {2.4330002014493437f, 1.3609459164691797f,
+                            1.1046029589586195f, 0.89894271250319f,
+                            0.7130907026145579f};
 
 uint64_t nodes_spent_table[4096] = {0};
 
@@ -247,7 +247,8 @@ static inline void score_move(position_t *pos, thread_t *thread,
     move_entry->score /= 1024;
 
     // SEE check - good captures get huge bonus, bad ones get penalty
-    int see_threshold = -MO_SEE_THRESHOLD - move_entry->score / MO_SEE_HISTORY_DIVISER;
+    int see_threshold =
+        -MO_SEE_THRESHOLD - move_entry->score / MO_SEE_HISTORY_DIVISER;
     move_entry->score +=
         SEE(pos, move, see_threshold) ? 1000000000 : -1000000000;
     return;
@@ -959,7 +960,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       // Late Move Pruning
       if (!pv_node && quiet &&
           moves_seen >= LMP_MARGIN[initial_depth]
-                                  [improving || ss->static_eval >= beta + LMP_BETA_MARGIN] &&
+                                  [improving ||
+                                   ss->static_eval >= beta + LMP_BETA_MARGIN] &&
           !only_pawns(pos)) {
         skip_quiets = 1;
       }
@@ -1008,7 +1010,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
       // No move beat tt score so we extend the search
       if (s_score < s_beta) {
-        const int16_t double_margin = SE_DOUBLE_MARGIN + SE_PV_DOUBLE_MARGIN * pv_node;
+        const int16_t double_margin =
+            SE_DOUBLE_MARGIN + SE_PV_DOUBLE_MARGIN * pv_node;
         const int16_t triple_margin = SE_TRIPLE_MARGIN;
         extensions++;
         extensions += s_score < s_beta - double_margin;
