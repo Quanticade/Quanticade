@@ -43,7 +43,7 @@ void dbg_correl_of(int64_t value1, int64_t value2, int slot) {
     atomic_fetch_add(&correl[slot].data[5], value1 * value2);
 }
 
-void dbg_print() {
+void dbg_print(void) {
     int64_t n;
     for (int i = 0; i < MAX_DEBUG_SLOTS; ++i)
     {
