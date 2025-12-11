@@ -219,19 +219,19 @@ void update_corrhist(thread_t *thread, position_t *pos, int16_t static_eval,
           bonus);
 
   thread->w_non_pawn_correction_history
-      [thread->pos.side][thread->pos.hash_keys.non_pawn_key[white] & 16383] +=
+      [pos->side][pos->hash_keys.non_pawn_key[white] & 16383] +=
       scale_corrhist_bonus(
           thread->w_non_pawn_correction_history
-              [thread->pos.side]
-              [thread->pos.hash_keys.non_pawn_key[white] & 16383],
+              [pos->side]
+              [pos->hash_keys.non_pawn_key[white] & 16383],
           bonus);
 
   thread->b_non_pawn_correction_history
-      [thread->pos.side][thread->pos.hash_keys.non_pawn_key[black] & 16383] +=
+      [pos->side][pos->hash_keys.non_pawn_key[black] & 16383] +=
       scale_corrhist_bonus(
           thread->b_non_pawn_correction_history
-              [thread->pos.side]
-              [thread->pos.hash_keys.non_pawn_key[black] & 16383],
+              [pos->side]
+              [pos->hash_keys.non_pawn_key[black] & 16383],
           bonus);
 }
 
