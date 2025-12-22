@@ -186,7 +186,7 @@ void scale_time(thread_t *thread, uint8_t best_move_stability,
   limits.soft_limit =
       MIN(thread->starttime + limits.base_soft *
                                   bestmove_scale[best_move_stability] * eval *
-                                  node_scaling_factor * (recapture ? 1.0f : 0.9f),
+                                  node_scaling_factor * (recapture ? 0.9f : 1.0f),
           limits.max_time + thread->starttime);
 }
 
