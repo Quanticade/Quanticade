@@ -176,7 +176,7 @@ void init_reductions(void) {
 }
 
 void scale_time(thread_t *thread, uint8_t best_move_stability,
-                uint8_t eval_stability, uint16_t move) {
+                uint8_t eval_stability, uint16_t move, uint8_t recapture) {
   double not_bm_nodes_fraction =
       1 - (double)nodes_spent_table[move >> 4] / (double)thread->nodes;
   double node_scaling_factor =
@@ -186,7 +186,7 @@ void scale_time(thread_t *thread, uint8_t best_move_stability,
   limits.soft_limit =
       MIN(thread->starttime + limits.base_soft *
                                   bestmove_scale[best_move_stability] * eval *
-                                  node_scaling_factor,
+                                  node_scaling_factor * (recapture ? 1.0f : 0.9f),
           limits.max_time + thread->starttime);
 }
 
@@ -1334,6 +1334,8 @@ void *iterative_deepening(void *thread_void) {
     int16_t alpha = -INF;
     int16_t beta = INF;
 
+    uint8_t recapture = 0;
+
     searchstack_t ss[MAX_PLY + 10];
     for (int i = 0; i < MAX_PLY + 10; ++i) {
       ss[i].excluded_move = 0;
@@ -1361,6 +1363,10 @@ void *iterative_deepening(void *thread_void) {
                           ? thread->score
                           : (average_score + thread->score) / 2;
 
+      if (get_move_capture(prev_best_move) && get_move_capture(thread->pv.pv_table[0][0]) && get_move_target(prev_best_move) == get_move_target(thread->pv.pv_table[0][0])) {
+        recapture = 1;
+      }
+
       if (thread->pv.pv_table[0][0] == prev_best_move) {
         best_move_stability = MIN(best_move_stability + 1, 4);
       } else {
@@ -1377,7 +1383,7 @@ void *iterative_deepening(void *thread_void) {
 
       if (limits.timeset && thread->depth > 7) {
         scale_time(thread, best_move_stability, eval_stability,
-                   thread->pv.pv_table[0][0]);
+                   thread->pv.pv_table[0][0], recapture);
       }
     }
 
