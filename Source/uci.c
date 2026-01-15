@@ -1,6 +1,7 @@
 #include "uci.h"
 #include "attacks.h"
 #include "bitboards.h"
+#include "datagen.h"
 #include "enums.h"
 #include "history.h"
 #include "move.h"
@@ -16,6 +17,7 @@
 #include "utils.h"
 #include <inttypes.h>
 #include <pthread.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -677,6 +679,17 @@ void uci_loop(position_t *pos, int argc, char *argv[]) {
       uint64_t total_time = get_time_ms() - start_time;
       printf("\n%" PRIu64 " nodes %" PRIu64 " nps\n", total_nodes,
              (total_nodes / (total_time + 1) * 1000));
+      return;
+    }
+    else if (strncmp("genfens", argv[1], 7) == 0) {
+      int n_of_fens = 0;
+      uint64_t seed = 0ULL;
+      char book[100];
+      int n_of_char_read = 0;
+      if (sscanf(argv[1], "genfens %d seed %99" SCNu64 " book %s %n", &n_of_fens, &seed, book, &n_of_char_read)) {
+        // Parse additional stuff here if needed in future
+      }
+      genfens(pos, seed, n_of_fens);
       return;
     }
   }
