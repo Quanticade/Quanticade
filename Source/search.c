@@ -473,7 +473,7 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
 
     calculate_threats(&pos_copy, ss + 1);
 
-    update_nnue(&pos_copy, thread, pos->mailbox, move);
+    //update_nnue(&pos_copy, thread, pos->mailbox, move);
 
     ss->move = move;
     ss->piece = pos->mailbox[get_move_source(move)];
@@ -845,7 +845,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       make_move(pos, move);
 
       calculate_threats(pos, ss + 1);
-      update_nnue(pos, thread, pos_copy.mailbox, move);
+      //update_nnue(pos, thread, pos_copy.mailbox, move);
 
       ss->move = move;
       ss->piece = pos_copy.mailbox[get_move_source(move)];
@@ -1055,7 +1055,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
     calculate_threats(pos, ss + 1);
 
-    update_nnue(pos, thread, pos_copy.mailbox, move);
+    //update_nnue(pos, thread, pos_copy.mailbox, move);
 
     ss->move = move;
     ss->piece = pos_copy.mailbox[get_move_source(move)];
