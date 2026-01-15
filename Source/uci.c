@@ -31,6 +31,7 @@ int thread_count = 1;
 int32_t move_overhead = 10;
 
 uint8_t disable_norm = 0;
+uint8_t soft_nodes = 0;
 
 double DEF_TIME_MULTIPLIER = 0.09087583539486617f;
 double DEF_INC_MULTIPLIER = 0.8482586046941052f;
@@ -568,7 +569,7 @@ static inline void time_control(position_t *pos, thread_t *threads,
   if ((argument = strstr(line, "nodes"))) {
     // parse amount of time allowed to spend to make a move
     limits.node_limit_soft = atoi(argument + 6);
-    limits.node_limit_hard = atoi(argument + 6);
+    limits.node_limit_hard = soft_nodes ? 10000000 : atoi(argument + 6);
     limits.depth = MAX_PLY;
     limits.nodes_set = 1;
   }
@@ -844,13 +845,7 @@ void uci_loop(position_t *pos, int argc, char *argv[]) {
       // tb_init(ptr);
       printf("info string set SyzygyPath to %s\n", ptr);
     } else if (!strncmp(input, "setoption name SoftNodes value ", 31)) {
-      uint8_t enable = 0;
-      sscanf(input, "%*s %*s %*s %*s %c", &enable);
-      if (enable) {
-        limits.node_limit_hard = 10000000;
-      } else {
-        limits.node_limit_hard = limits.node_limit_soft;
-      }
+      sscanf(input, "%*s %*s %*s %*s %c", &soft_nodes);
     } else if (!strncmp(input, "setoption name DisableNormalization value ",
                         31)) {
       sscanf(input, "%*s %*s %*s %*s %c", &disable_norm);
