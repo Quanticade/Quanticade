@@ -34,6 +34,8 @@ extern int QUIET_HISTORY_MAX_TT;
 extern int QUIET_HISTORY_TT_FACTOR;
 extern int QUIET_HISTORY_TT_BASE;
 
+extern uint8_t disable_norm;
+
 // Depths and untunable values (SPSA poison)
 int RAZOR_DEPTH = 7;
 int RFP_DEPTH = 9;
@@ -1237,7 +1239,11 @@ static void print_thinking(thread_t *thread, int16_t score,
   } else if (score > MATE_SCORE && score < MATE_VALUE) {
     printf("mate %d ", (MATE_VALUE - score) / 2 + 1);
   } else {
+    if (disable_norm) {
+      printf("cp %d ", score);
+    } else {
     printf("cp %d ", 100 * score / 215);
+    }
   }
   printf("nodes %" PRIu64 " ", nodes);
   printf("nps %" PRIu64 " ", nps);

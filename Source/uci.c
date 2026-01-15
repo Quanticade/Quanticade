@@ -30,6 +30,8 @@ int thread_count = 1;
 
 int32_t move_overhead = 10;
 
+uint8_t disable_norm = 0;
+
 double DEF_TIME_MULTIPLIER = 0.09087583539486617f;
 double DEF_INC_MULTIPLIER = 0.8482586046941052f;
 double MAX_TIME_MULTIPLIER = 0.7475832965589099f;
@@ -787,6 +789,7 @@ void uci_loop(position_t *pos, int argc, char *argv[]) {
              nnue_settings.nnue_file);
       printf("option name Clear Hash type button\n");
       printf("option name SoftNodes type spin default 0 min 0 max 1\n");
+      printf("option name DisableNormalization type spin default 0 min 0 max 1\n");
       // SPSA
       //print_spsa_table_uci();
       // uciok
@@ -842,6 +845,9 @@ void uci_loop(position_t *pos, int argc, char *argv[]) {
     }
     else if (!strncmp(input, "setoption name SoftNodes value ", 31)) {
       limits.node_limit_hard = 10000000;
+    }
+    else if (!strncmp(input, "setoption name DisableNormalization value ", 31)) {
+      sscanf(input, "%*s %*s %*s %*s %c", &disable_norm);
     } else {
       handle_spsa_change(input);
     }
