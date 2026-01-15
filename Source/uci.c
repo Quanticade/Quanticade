@@ -682,13 +682,13 @@ void uci_loop(position_t *pos, int argc, char *argv[]) {
       printf("\n%" PRIu64 " nodes %" PRIu64 " nps\n", total_nodes,
              (total_nodes / (total_time + 1) * 1000));
       return;
-    }
-    else if (strncmp("genfens", argv[1], 7) == 0) {
+    } else if (strncmp("genfens", argv[1], 7) == 0) {
       int n_of_fens = 0;
       uint64_t seed = 0ULL;
       char book[100];
       int n_of_char_read = 0;
-      if (sscanf(argv[1], "genfens %d seed %99" SCNu64 " book %s %n", &n_of_fens, &seed, book, &n_of_char_read)) {
+      if (sscanf(argv[1], "genfens %d seed %99" SCNu64 " book %s %n",
+                 &n_of_fens, &seed, book, &n_of_char_read)) {
         // Parse additional stuff here if needed in future
       }
       genfens(pos, seed, n_of_fens);
@@ -789,9 +789,10 @@ void uci_loop(position_t *pos, int argc, char *argv[]) {
              nnue_settings.nnue_file);
       printf("option name Clear Hash type button\n");
       printf("option name SoftNodes type spin default 0 min 0 max 1\n");
-      printf("option name DisableNormalization type spin default 0 min 0 max 1\n");
+      printf(
+          "option name DisableNormalization type spin default 0 min 0 max 1\n");
       // SPSA
-      //print_spsa_table_uci();
+      // print_spsa_table_uci();
       // uciok
       printf("uciok\n");
     } else if (strncmp(input, "spsa", 4) == 0) {
@@ -842,11 +843,16 @@ void uci_loop(position_t *pos, int argc, char *argv[]) {
       char *ptr = input + 32;
       // tb_init(ptr);
       printf("info string set SyzygyPath to %s\n", ptr);
-    }
-    else if (!strncmp(input, "setoption name SoftNodes value ", 31)) {
-      limits.node_limit_hard = 10000000;
-    }
-    else if (!strncmp(input, "setoption name DisableNormalization value ", 31)) {
+    } else if (!strncmp(input, "setoption name SoftNodes value ", 31)) {
+      uint8_t enable = 0;
+      sscanf(input, "%*s %*s %*s %*s %c", &enable);
+      if (enable) {
+        limits.node_limit_hard = 10000000;
+      } else {
+        limits.node_limit_hard = limits.node_limit_soft;
+      }
+    } else if (!strncmp(input, "setoption name DisableNormalization value ",
+                        31)) {
       sscanf(input, "%*s %*s %*s %*s %c", &disable_norm);
     } else {
       handle_spsa_change(input);
