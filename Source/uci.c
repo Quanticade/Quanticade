@@ -786,12 +786,13 @@ void uci_loop(position_t *pos, int argc, char *argv[]) {
       printf("option name EvalFile type string default %s\n",
              nnue_settings.nnue_file);
       printf("option name Clear Hash type button\n");
+      printf("option name SoftNodes type spin default 0 min 0 max 1\n");
       // SPSA
-      print_spsa_table_uci();
+      //print_spsa_table_uci();
       // uciok
       printf("uciok\n");
     } else if (strncmp(input, "spsa", 4) == 0) {
-      //print_spsa_table();
+      print_spsa_table();
     }
 
     else if (!strncmp(input, "setoption name Hash value ", 26)) {
@@ -838,6 +839,9 @@ void uci_loop(position_t *pos, int argc, char *argv[]) {
       char *ptr = input + 32;
       // tb_init(ptr);
       printf("info string set SyzygyPath to %s\n", ptr);
+    }
+    else if (!strncmp(input, "setoption name SoftNodes value ", 31)) {
+      limits.node_limit_hard = 10000000;
     } else {
       handle_spsa_change(input);
     }
