@@ -791,7 +791,7 @@ void uci_loop(position_t *pos, int argc, char *argv[]) {
       // uciok
       printf("uciok\n");
     } else if (strncmp(input, "spsa", 4) == 0) {
-      print_spsa_table();
+      //print_spsa_table();
     }
 
     else if (!strncmp(input, "setoption name Hash value ", 26)) {
