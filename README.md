@@ -7,14 +7,15 @@ Quanticade usually ranks around the 15th place in the world.
 
 ## Playing Strength
 
-|         | CCRL Blitz    | CCRL 40/15 | CEGT 40/20 |
-|---------|---------------|------------|------------|
-| Orion   | 3685 (Top 15) | 3557       | Untested   |
-| Fenrir  | 3669 (Top 18) | 3561       | Untested   |
-| Chimera | 3619          | 3515       | Untested   |
-| Electra | 3552          | 3487       | 3410       |
-| Aurora  | 3465          | 3406       | Untested   |
-| 0.7     | Untested      | Untested   | Untested   |
+|         | CCRL Blitz    | CCRL 40/15 | CEGT 40/20 | SPCC |
+|---------|---------------|------------|------------|------|
+| Cronus  | 3731 (Top 11) | 3583       | Untested   | 3675 |
+| Orion   | 3685 (Top 15) | 3557       | Untested   |  --  |
+| Fenrir  | 3669 (Top 18) | 3561       | Untested   |  --  |
+| Chimera | 3619          | 3515       | Untested   |  --  |
+| Electra | 3552          | 3487       | 3410       |  --  |
+| Aurora  | 3465          | 3406       | Untested   |  --  |
+| 0.7     | Untested      | Untested   | Untested   |  --  |
 
 ## History
 
