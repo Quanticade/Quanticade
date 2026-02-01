@@ -8,8 +8,21 @@
 nnue_t nnue_data;
 extern nnue_settings_t nnue_settings;
 
+int EVAL_KNIGHT = 384;
+int EVAL_BISHOP = 384;
+int EVAL_ROOK = 640;
+int EVAL_QUEEN = 1280;
+int EVAL_SCALE_BASE = 25600;
+
 int16_t evaluate(thread_t *thread, position_t *pos, accumulator_t *accumulator) {
-    int eval = nnue_evaluate(thread, pos, accumulator);
+  int eval = nnue_evaluate(thread, pos, accumulator);
+
+  int phase = EVAL_KNIGHT * popcount(pos->bitboards[n] | pos->bitboards[N]) +
+              EVAL_BISHOP * popcount(pos->bitboards[b] | pos->bitboards[B]) +
+              EVAL_ROOK * popcount(pos->bitboards[r] | pos->bitboards[R]) +
+              EVAL_QUEEN * popcount(pos->bitboards[q] | pos->bitboards[Q]);
+  
+  eval = eval * (EVAL_SCALE_BASE + phase) / 32768;
 
   int16_t final_eval = clamp(eval, -MATE_SCORE + 1, MATE_SCORE - 1);
   return final_eval;
