@@ -11,10 +11,17 @@ BMI2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi -mbmi2
 AVX512FLAGS  = -DUSE_AVX512 -DUSE_SIMD -mavx512f -mavx512bw
 NEONFLAGS    = -DU#SE_NEON -DUSE_SIMD -flax-vector-conversions
 
+.DEFAULT_GOAL := all
+
 # engine name
 NAME        := Quanticade
 
 TMPDIR = .tmp
+
+NNUE_URL := https://github.com/Quanticade/Networks/releases/download/networks/$(EVALFILE)
+
+CURL := $(shell command -v curl 2>/dev/null)
+WGET := $(shell command -v wget 2>/dev/null)
 
 # Detect Clang
 ifeq ($(CC), clang)
@@ -182,6 +189,22 @@ OBJECTS := $(patsubst %.c,$(TMPDIR)/%.o,$(SOURCES))
 DEPENDS := $(patsubst %.c,$(TMPDIR)/%.d,$(SOURCES))
 
 EXE	    := $(NAME)$(SUFFIX)
+
+$(EVALFILE):
+	@echo "NNUE network '$(EVALFILE)' not found."
+	@if [ -n "$(CURL)" ]; then \
+		echo "Downloading with curl..."; \
+		curl -L --fail -o $(EVALFILE) $(NNUE_URL); \
+	elif [ -n "$(WGET)" ]; then \
+		echo "Downloading with wget..."; \
+		wget -O $(EVALFILE) $(NNUE_URL); \
+	else \
+		echo "Error: neither curl nor wget is installed."; \
+		exit 1; \
+	fi
+	@echo "Downloaded $(EVALFILE)"
+
+$(OBJECTS): | $(EVALFILE)
 
 all: $(TARGET)
 clean:
