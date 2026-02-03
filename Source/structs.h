@@ -57,14 +57,14 @@ typedef struct keys {
 } keys_t;
 
 typedef struct simd {
- _Alignas(64) int8_t l1_neurons[128];
+ _Alignas(64) int8_t l1_neurons[256];
  _Alignas(64) int l2_neurons[16];
  _Alignas(64) float l3_neurons[32];
  _Alignas(64) float l2_floats[16];
 } simd_t;
 
 typedef struct accumulator {
-  _Alignas(64) int16_t accumulator[2][128]; // This is very cursed but for now
+  _Alignas(64) int16_t accumulator[2][256]; // This is very cursed but for now
                                              // lets have it this way
 } accumulator_t;
 
