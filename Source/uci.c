@@ -445,7 +445,7 @@ static inline void parse_fen(position_t *pos, thread_t *thread, char *fen) {
 }
 
 // parse UCI "position" command
-static inline void parse_position(position_t *pos, thread_t *thread,
+void parse_position(position_t *pos, thread_t *thread,
                                   char *command) {
   // shift pointer to the right where next token begins
   command += 9;
@@ -520,7 +520,7 @@ static inline void parse_position(position_t *pos, thread_t *thread,
   }
 }
 
-static inline void time_control(position_t *pos, thread_t *threads,
+void time_control(position_t *pos, thread_t *threads,
                                 char *line) {
   // reset time control
   threads->stopped = 0;
@@ -692,7 +692,7 @@ void uci_loop(position_t *pos, int argc, char *argv[]) {
                  &n_of_fens, &seed, book, &n_of_char_read)) {
         // Parse additional stuff here if needed in future
       }
-      genfens(pos, seed, n_of_fens);
+      genfens(pos, threads, seed, n_of_fens);
       return;
     }
   }

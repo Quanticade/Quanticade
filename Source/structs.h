@@ -65,8 +65,7 @@ typedef struct simd {
 } simd_t;
 
 typedef struct accumulator {
-  _Alignas(64) int16_t accumulator[2][L1_SIZE]; // This is very cursed but for now
-                                             // lets have it this way
+  _Alignas(64) int16_t accumulator[2][L1_SIZE];
 } accumulator_t;
 
 typedef struct finny_table {
