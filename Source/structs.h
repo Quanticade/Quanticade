@@ -1,6 +1,7 @@
 #ifndef STRUCTS_H
 #define STRUCTS_H
 
+#include "arch.h"
 #include "bitboards.h"
 #include <stdint.h>
 
@@ -57,14 +58,14 @@ typedef struct keys {
 } keys_t;
 
 typedef struct simd {
- _Alignas(64) int8_t l1_neurons[128];
- _Alignas(64) int l2_neurons[16];
- _Alignas(64) float l3_neurons[32];
- _Alignas(64) float l2_floats[16];
+ _Alignas(64) int8_t l1_neurons[L1_SIZE];
+ _Alignas(64) int l2_neurons[L2_SIZE];
+ _Alignas(64) float l3_neurons[L3_SIZE];
+ _Alignas(64) float l2_floats[L2_SIZE];
 } simd_t;
 
 typedef struct accumulator {
-  _Alignas(64) int16_t accumulator[2][128]; // This is very cursed but for now
+  _Alignas(64) int16_t accumulator[2][L1_SIZE]; // This is very cursed but for now
                                              // lets have it this way
 } accumulator_t;
 

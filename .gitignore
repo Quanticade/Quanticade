@@ -1,6 +1,7 @@
 build
 Tools/*.nnue
 Tools*.bak
+*.nnue
 .tmp
 .cache
 .vscode
