@@ -1,4 +1,4 @@
-NETWORK_NAME = net5.nnue
+NETWORK_NAME = net6.nnue
 _THIS       := $(realpath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 _ROOT       := $(_THIS)
 EVALFILE     = $(NETWORK_NAME)
