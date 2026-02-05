@@ -86,7 +86,7 @@ void init_all(void) {
   // init hash table with default size
   init_hash_table(default_hash_size);
 
-  nnue_init("net7.nnue");
+  nnue_init(EVALFILE);
 }
 
 /**********************************\
@@ -103,8 +103,8 @@ int main(int argc, char *argv[]) {
   limits.time = -1;
   tt.hash_entry = NULL;
   tt.num_of_entries = 0;
-  nnue_settings.nnue_file = calloc(21, 1);
-  strcpy(nnue_settings.nnue_file, "net7.nnue");
+  nnue_settings.nnue_file = malloc(sizeof(EVALFILE));
+  strcpy(nnue_settings.nnue_file, EVALFILE);
   // init all
   init_all();
 
