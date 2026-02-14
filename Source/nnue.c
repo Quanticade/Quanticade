@@ -553,7 +553,7 @@ int nnue_evaluate(thread_t *thread, position_t *pos, accumulator_t *accumulator)
     vecf_t l2_crelu = clip_ps(l2_result, one_ps, zero_ps);
     vecf_t l2_csrelu = clip_ps(mul_ps(l2_result, l2_result), one_ps, zero_ps);
     *((vecf_t *)&layers->l2_floats[l2 * FLOAT_VEC_SIZE]) = l2_crelu;
-    *((vecf_t *)&layers->l2_floats[(l2 + L2_SIZE) * FLOAT_VEC_SIZE]) = l2_csrelu;
+    *((vecf_t *)&layers->l2_floats[l2 * FLOAT_VEC_SIZE + L2_SIZE]) = l2_csrelu;
   }
 
   for (int l2 = 0; l2 < 2*L2_SIZE; l2++) {
