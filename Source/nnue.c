@@ -1,4 +1,5 @@
 #include "nnue.h"
+#include "arch.h"
 #include "bitboards.h"
 #include "enums.h"
 #include "incbin/incbin.h"
@@ -20,7 +21,7 @@ struct raw_net {
   float feature_bias[L1_SIZE];
   float l1_weights[OUTPUT_BUCKETS][L2_SIZE][L1_SIZE];
   float l1_bias[OUTPUT_BUCKETS][L2_SIZE];
-  float l2_weights[OUTPUT_BUCKETS][L3_SIZE][L2_SIZE];
+  float l2_weights[OUTPUT_BUCKETS][L3_SIZE][2*L2_SIZE];
   float l2_bias[OUTPUT_BUCKETS][L3_SIZE];
   float l3_weights[OUTPUT_BUCKETS][L3_SIZE];
   float l3_bias[OUTPUT_BUCKETS];
@@ -140,7 +141,7 @@ static inline void transpose(void) {
     nnue.feature_bias[l1] = round(net.feature_bias[l1] * INPUT_QUANT);
   }
   for (int b = 0; b < OUTPUT_BUCKETS; b++) {
-    for (int l2 = 0; l2 < L2_SIZE; l2++) {
+    for (int l2 = 0; l2 < 2*L2_SIZE; l2++) {
       for (int l3 = 0; l3 < L3_SIZE; l3++) {
         nnue.l2_weights[b][l2][l3] = net.l2_weights[b][l3][l2];
       }
@@ -546,12 +547,16 @@ int nnue_evaluate(thread_t *thread, position_t *pos, accumulator_t *accumulator)
     vecf_t l2_result =
         add_ps(mul_ps(converted, norm_ps),
                *((vecf_t *)&nnue.l1_bias[out_bucket][l2 * FLOAT_VEC_SIZE]));
-    vecf_t l2_clipped = clip_ps(l2_result, one_ps, zero_ps);
+    /*vecf_t l2_clipped = clip_ps(l2_result, one_ps, zero_ps);
     *((vecf_t *)&layers->l2_floats[l2 * FLOAT_VEC_SIZE]) =
-        mul_ps(l2_clipped, l2_clipped);
+        mul_ps(l2_clipped, l2_clipped);*/
+    vecf_t l2_crelu = clip_ps(l2_result, one_ps, zero_ps);
+    vecf_t l2_csrelu = clip_ps(mul_ps(l2_result, l2_result), one_ps, zero_ps);
+    *((vecf_t *)&layers->l2_floats[l2 * FLOAT_VEC_SIZE]) = l2_crelu;
+    *((vecf_t *)&layers->l2_floats[(l2 + L2_SIZE) * FLOAT_VEC_SIZE]) = l2_csrelu;
   }
 
-  for (int l2 = 0; l2 < L2_SIZE; l2++) {
+  for (int l2 = 0; l2 < 2*L2_SIZE; l2++) {
     for (int l3 = 0; l3 < L3_SIZE / FLOAT_VEC_SIZE; l3++) {
       *((vecf_t *)&layers->l3_neurons[l3 * FLOAT_VEC_SIZE]) = fmadd_ps(
           set_ps1(layers->l2_floats[l2]),
