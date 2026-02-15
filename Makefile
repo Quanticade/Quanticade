@@ -18,7 +18,7 @@ NAME        := Quanticade
 
 TMPDIR = .tmp
 
-NNUE_URL := https://github.com/Quanticade/Networks/releases/download/networks/$(EVALFILE)
+NNUE_URL := https://github.com/Quanticade/Networks/raw/refs/heads/main/$(EVALFILE)
 
 CURL := $(shell command -v curl 2>/dev/null)
 WGET := $(shell command -v wget 2>/dev/null)
