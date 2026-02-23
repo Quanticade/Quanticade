@@ -13,7 +13,7 @@ typedef struct nnue {
   _Alignas(64) int16_t feature_bias[L1_SIZE];
   _Alignas(64) int8_t l1_weights[OUTPUT_BUCKETS][L1_SIZE * L2_SIZE];
   _Alignas(64) float l1_bias[OUTPUT_BUCKETS][L2_SIZE];
-  _Alignas(64) float l2_weights[OUTPUT_BUCKETS][L2_SIZE][L3_SIZE];
+  _Alignas(64) float l2_weights[OUTPUT_BUCKETS][2*L2_SIZE][L3_SIZE];
   _Alignas(64) float l2_bias[OUTPUT_BUCKETS][L3_SIZE];
   _Alignas(64) float l3_weights[OUTPUT_BUCKETS][L3_SIZE];
   _Alignas(64) float l3_bias[OUTPUT_BUCKETS];
