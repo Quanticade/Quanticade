@@ -61,7 +61,7 @@ typedef struct simd {
  _Alignas(64) int8_t l1_neurons[L1_SIZE];
  _Alignas(64) int l2_neurons[L2_SIZE];
  _Alignas(64) float l3_neurons[L3_SIZE];
- _Alignas(64) float l2_floats[L2_SIZE];
+ _Alignas(64) float l2_floats[2*L2_SIZE];
 } simd_t;
 
 typedef struct accumulator {
