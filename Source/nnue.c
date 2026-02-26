@@ -1,4 +1,5 @@
 #include "nnue.h"
+#include "arch.h"
 #include "bitboards.h"
 #include "enums.h"
 #include "incbin/incbin.h"
@@ -79,6 +80,10 @@ static inline float screlu_float(float value) {
   return clipped * clipped;
 }
 
+static inline float crelu_float(float value) {
+  return clamp_float(value, 0.0f, 1.0f);
+}
+
 #ifndef USE_SIMD
 
 static int32_t clamp_int32(int32_t d, int32_t min, int32_t max) {
@@ -93,10 +98,6 @@ static inline int32_t screlu(int16_t value) {
 
 static inline int16_t crelu(int16_t value) {
   return clamp_int32((int32_t)value, 0, INPUT_QUANT);
-}
-
-static inline float crelu_float(float value) {
-  return clamp_float(value, 0.0f, 1.0f);
 }
 
 #endif
@@ -451,10 +452,15 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
   for (int l2 = 0; l2 < L2_SIZE; l2++) {
     float l2Result = (float)(l2Neurons[l2]) * L1_NORMALISATION +
                      (nnue.l1_bias[out_bucket][l2]);
-    float l2Activated = screlu_float(l2Result);
+    float crelu = crelu_float(l2Result);
+    float csrelu = crelu_float(l2Result * l2Result);
 
     for (int l3 = 0; l3 < L3_SIZE; l3++) {
-      l3Neurons[l3] += l2Activated * nnue.l2_weights[out_bucket][l2][l3];
+      l3Neurons[l3] += crelu * nnue.l2_weights[out_bucket][l2][l3];
+    }
+
+    for (int l3 = 0; l3 < L3_SIZE; l3++) {
+      l3Neurons[l3] += csrelu * nnue.l2_weights[out_bucket][l2 + L2_SIZE][l3];
     }
   }
 
@@ -610,18 +616,21 @@ int nnue_evaluate(thread_t *thread, position_t *pos, accumulator_t *accumulator)
   for (int l2 = 0; l2 < L2_SIZE; l2++) {
     float l2Result = (float)(layers->l2_neurons[l2]) * L1_NORMALISATION +
                      (nnue.l1_bias[out_bucket][l2]);
-    float l2Activated = crelu_float(l2Result);
-    l2Activated *= l2Activated;
+    float crelu = crelu_float(l2Result);
+    float csrelu = crelu_float(l2Result * l2Result);
 
     for (int l3 = 0; l3 < L3_SIZE; l3++) {
-      layers->l3_neurons[l3] += l2Activated * nnue.l2_weights[out_bucket][l2][l3];
+      layers->l3_neurons[l3] += crelu * nnue.l2_weights[out_bucket][l2][l3];
+    }
+
+    for (int l3 = 0; l3 < L3_SIZE; l3++) {
+      layers->l3_neurons[l3] += csrelu * nnue.l2_weights[out_bucket][l2 + L2_SIZE][l3];
     }
   }
 
   float result = nnue.l3_bias[out_bucket];
   for (int l3 = 0; l3 < L3_SIZE; l3++) {
-    float l3Activated = crelu_float(layers->l3_neurons[l3]);
-    l3Activated *= l3Activated;
+    float l3Activated = screlu_float(layers->l3_neurons[l3]);
     result += l3Activated * nnue.l3_weights[out_bucket][l3];
   }
 
