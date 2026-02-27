@@ -56,18 +56,15 @@ static inline uint8_t get_king_bucket(uint8_t side, uint8_t square) {
 
 uint8_t need_refresh(uint8_t *mailbox, uint16_t move) {
   uint8_t moved_piece = mailbox[get_move_source(move)];
-  if (moved_piece == k || moved_piece == K) {
-    uint8_t side = moved_piece >= 6;
-    uint8_t source_flip = (get_move_source(move) & 7) >= 4;
-    uint8_t target_flip = (get_move_target(move) & 7) >= 4;
-    if ((get_king_bucket(side, get_move_source(move)) !=
-         get_king_bucket(side, get_move_target(move))) ||
-        source_flip != target_flip) {
-      return 1;
-    }
-    return 0;
-  }
-  return 0;
+  if (moved_piece != k && moved_piece != K) return 0;
+  
+  uint8_t side = moved_piece >= 6;
+  uint8_t source_flip = (get_move_source(move) & 7) >= 4;
+  uint8_t target_flip = (get_move_target(move) & 7) >= 4;
+  
+  return (get_king_bucket(side, get_move_source(move)) !=
+          get_king_bucket(side, get_move_target(move))) ||
+         (source_flip != target_flip);
 }
 
 static float clamp_float(float d, float min, float max) {
