@@ -4,6 +4,7 @@
 #include "nnue.h"
 #include "structs.h"
 #include "utils.h"
+#include <stdio.h>
 
 nnue_t nnue_data;
 extern nnue_settings_t nnue_settings;
