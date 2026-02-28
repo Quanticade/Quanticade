@@ -18,6 +18,21 @@ extern uint8_t disable_norm;
 
 int16_t evaluate(thread_t *thread, position_t *pos,
                  accumulator_t *accumulator) {
+  if (accumulator->dirty) {
+    uint8_t ply = pos->ply;
+    while (thread->accumulator[ply].dirty) {
+      ply--;
+    }
+    for (int i = ply+1; i <= pos->ply; i++) {
+      uint8_t white_bucket = get_king_bucket(white, thread->accumulator[i].white_king);
+      uint8_t black_bucket = get_king_bucket(black, thread->accumulator[i].black_king);
+      accumulator_make_move(&thread->accumulator[i],
+                          &thread->accumulator[i - 1], thread->accumulator[i].white_king,
+                          thread->accumulator[i].black_king, white_bucket, black_bucket,
+                          pos->side, thread->accumulator[i].move, thread->accumulator[i].mailbox, both);
+      thread->accumulator[i].dirty = 0;
+    }
+  }
   int eval = nnue_evaluate(thread, pos, accumulator);
 
   if (!disable_norm) {

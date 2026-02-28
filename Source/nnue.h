@@ -21,11 +21,17 @@ typedef struct nnue {
 
 extern nnue_t nnue;
 
+uint8_t get_king_bucket(uint8_t side, uint8_t square);
 void nnue_init(const char *nnue_file_name);
 void init_accumulator(position_t *pos, accumulator_t *accumulator);
 void init_finny_tables(thread_t *thread, position_t *pos);
 int nnue_evaluate(thread_t *thread, position_t *pos, accumulator_t *accumulator);
 int nnue_eval_pos(position_t *pos, accumulator_t *accumulator);
+void accumulator_make_move(accumulator_t *accumulator,
+                      accumulator_t *prev_accumulator,
+                      uint8_t white_king_square, uint8_t black_king_square,
+                      uint8_t white_bucket, uint8_t black_bucket, uint8_t side,
+                      int move, uint8_t *mailbox, uint8_t color_flag);
 void update_nnue(position_t *pos, thread_t *thread, uint8_t mailbox_copy[64],
                  uint16_t move);
 

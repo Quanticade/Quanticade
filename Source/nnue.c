@@ -50,7 +50,7 @@ const unsigned int gEVALSize = 1;
 
 const uint8_t BUCKET_DIVISOR = (32 + OUTPUT_BUCKETS - 1) / OUTPUT_BUCKETS;
 
-static inline uint8_t get_king_bucket(uint8_t side, uint8_t square) {
+uint8_t get_king_bucket(uint8_t side, uint8_t square) {
   return buckets[side ? square ^ 56 : square];
 }
 
@@ -737,7 +737,7 @@ static inline void accumulator_addaddsubsub(
   }
 }
 
-static inline void
+void
 accumulator_make_move(accumulator_t *accumulator,
                       accumulator_t *prev_accumulator,
                       uint8_t white_king_square, uint8_t black_king_square,
@@ -842,9 +842,14 @@ void update_nnue(position_t *pos, thread_t *thread, uint8_t mailbox_copy[64],
                             white_king_square, black_king_square, white_bucket,
                             black_bucket, pos->side, move, mailbox_copy, pos->side);
   } else {
-    accumulator_make_move(&thread->accumulator[pos->ply],
+    /*accumulator_make_move(&thread->accumulator[pos->ply],
                           &thread->accumulator[pos->ply - 1], white_king_square,
                           black_king_square, white_bucket, black_bucket,
-                          pos->side, move, mailbox_copy, both);
+                          pos->side, move, mailbox_copy, both);*/
+    thread->accumulator[pos->ply].dirty = 1;
+    thread->accumulator[pos->ply].white_king = white_king_square;
+    thread->accumulator[pos->ply].black_king = black_king_square;
+    thread->accumulator[pos->ply].move = move;
+    memcpy(thread->accumulator[pos->ply].mailbox, mailbox_copy, 64);
   }
 }
