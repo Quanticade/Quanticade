@@ -29,11 +29,11 @@ int16_t evaluate(thread_t *thread, position_t *pos,
       accumulator_make_move(&thread->accumulator[i],
                           &thread->accumulator[i - 1], thread->accumulator[i].white_king,
                           thread->accumulator[i].black_king, white_bucket, black_bucket,
-                          pos->side, thread->accumulator[i].move, thread->accumulator[i].mailbox, both);
+                          thread->accumulator[i].side, thread->accumulator[i].move, thread->accumulator[i].mailbox, both);
       thread->accumulator[i].dirty = 0;
     }
   }
-  int eval = nnue_evaluate(thread, pos, accumulator);
+  int eval = nnue_evaluate(thread, pos, &thread->accumulator[pos->ply]);
 
   if (!disable_norm) {
     int phase = EVAL_KNIGHT * popcount(pos->bitboards[n] | pos->bitboards[N]) +

@@ -70,6 +70,7 @@ typedef struct accumulator {
   _Alignas(64) uint16_t move;
   _Alignas(64) uint8_t white_king;
   _Alignas(64) uint8_t black_king;
+  _Alignas(64) uint8_t side;
   _Alignas(64) uint8_t dirty;
 } accumulator_t;
 

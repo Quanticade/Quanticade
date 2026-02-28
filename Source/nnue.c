@@ -841,6 +841,7 @@ void update_nnue(position_t *pos, thread_t *thread, uint8_t mailbox_copy[64],
                             &thread->accumulator[pos->ply - 1],
                             white_king_square, black_king_square, white_bucket,
                             black_bucket, pos->side, move, mailbox_copy, pos->side);
+      thread->accumulator[pos->ply].dirty = 0;
   } else {
     /*accumulator_make_move(&thread->accumulator[pos->ply],
                           &thread->accumulator[pos->ply - 1], white_king_square,
@@ -850,6 +851,7 @@ void update_nnue(position_t *pos, thread_t *thread, uint8_t mailbox_copy[64],
     thread->accumulator[pos->ply].white_king = white_king_square;
     thread->accumulator[pos->ply].black_king = black_king_square;
     thread->accumulator[pos->ply].move = move;
+    thread->accumulator[pos->ply].side = pos->side;
     memcpy(thread->accumulator[pos->ply].mailbox, mailbox_copy, 64);
   }
 }
