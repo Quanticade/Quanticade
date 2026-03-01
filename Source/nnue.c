@@ -236,25 +236,18 @@ void nnue_init(const char *nnue_file_name) {
 }
 
 static inline int16_t get_idx(uint8_t side, uint8_t piece, uint8_t square,
-                              uint8_t king_square, uint8_t force_hm,
-                              uint8_t mirror) {
-  const size_t COLOR_STRIDE = 64 * 6;
-  const size_t PIECE_STRIDE = 64;
+                               uint8_t king_square, uint8_t force_hm,
+                               uint8_t mirror) {
+    const uint8_t color     = piece >= 6;
+    const uint8_t piece_type = piece - color * 6;
+    const uint8_t do_mirror = force_hm ? mirror : (king_square & 4) != 0;
+    square ^= do_mirror ? 7 : 0;
 
-  uint8_t do_mirror = force_hm ? mirror : ((king_square & 7) >= 4);
-  if (do_mirror) {
-    square ^= 7;
-  }
+    const uint8_t is_white  = side == white;
+    const uint8_t eff_color = color ^ !is_white;   // flip color only for black
+    const uint8_t sq        = square ^ (is_white ? 56 : 0);
 
-  int piece_type = piece > 5 ? piece - 6 : piece;
-  int color = piece / 6;
-
-  int16_t idx =
-      side == white
-          ? color * COLOR_STRIDE + piece_type * PIECE_STRIDE + (square ^ 56)
-          : (1 ^ color) * COLOR_STRIDE + piece_type * PIECE_STRIDE + square;
-
-  return idx;
+    return (int16_t)(eff_color * 384 + piece_type * 64 + sq);
 }
 
 static inline void refresh_accumulator(thread_t *thread, position_t *pos,
