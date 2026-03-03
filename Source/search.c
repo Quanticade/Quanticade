@@ -313,6 +313,74 @@ static inline uint8_t only_pawns(position_t *pos) {
            pos->occupancies[pos->side]);
 }
 
+typedef enum {
+  STAGE_GENERATE = 0, // generate the move list
+  STAGE_SCORE,        // score every generated move
+  STAGE_PICK,         // yield moves one at a time, best-first
+  STAGE_DONE,
+} picker_stage_t;
+
+typedef struct {
+  picker_stage_t  stage;
+  moves           move_list;
+  uint16_t        move_index;
+  // Invariant context -- set once at init, never changes
+  uint16_t        tt_move;
+  uint8_t         generate_all; // 1 = generate_moves, 0 = generate_noisy
+  position_t     *pos;
+  thread_t       *thread;
+  searchstack_t  *ss;
+} picker_t;
+
+static inline void init_picker(picker_t *picker, position_t *pos,
+                                thread_t *thread, searchstack_t *ss,
+                                uint16_t tt_move, uint8_t generate_all) {
+  picker->stage           = STAGE_GENERATE;
+  picker->move_list.count = 0;
+  picker->move_index      = 0;
+  picker->tt_move         = tt_move;
+  picker->generate_all    = generate_all;
+  picker->pos             = pos;
+  picker->thread          = thread;
+  picker->ss              = ss;
+}
+
+// Returns the next move to try, or 0 when exhausted.
+static inline uint16_t select_next(picker_t *picker) {
+  switch (picker->stage) {
+
+  // Stage 1 - generate moves
+  case STAGE_GENERATE:
+    if (picker->generate_all)
+      generate_moves(picker->pos, &picker->move_list);
+    else
+      generate_noisy(picker->pos, &picker->move_list);
+    picker->stage = STAGE_SCORE;
+    /* fallthrough */
+
+  // Stage 2 - score all generated moves, then fall into picking
+  case STAGE_SCORE:
+    for (uint32_t i = 0; i < picker->move_list.count; i++)
+      score_move(picker->pos, picker->thread, picker->ss,
+                 &picker->move_list.entry[i], picker->tt_move);
+    picker->stage = STAGE_PICK;
+    /* fallthrough */
+
+  // Stage 3 - yield the highest-scored remaining move on every call
+  case STAGE_PICK:
+    while (picker->move_index < picker->move_list.count)
+      return pick_next_best_move(&picker->move_list, &picker->move_index).move;
+    picker->stage = STAGE_DONE;
+    /* fallthrough */
+
+  case STAGE_DONE:
+    return 0;
+
+  default:
+    return 0;
+  }
+}
+
 // quiescence search
 static inline int16_t quiescence(position_t *pos, thread_t *thread,
                                  searchstack_t *ss, int16_t alpha, int16_t beta,
@@ -403,36 +471,22 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
     futility_score = best_score + QS_FUTILITY_THRESHOLD;
   }
 
-  // create move list instance
-  moves move_list[1];
+  picker_t picker;
+  init_picker(&picker, pos, thread, ss, tt_move, in_check);
+
   moves capture_list[1];
   capture_list->count = 0;
 
-  // generate moves
-  if (!in_check) {
-    generate_noisy(pos, move_list);
-  } else {
-    generate_moves(pos, move_list);
-  }
-
-  for (uint32_t count = 0; count < move_list->count; count++) {
-    score_move(pos, thread, ss, &move_list->entry[count], tt_move);
-  }
-
-  uint16_t move_index = 0;
-
   uint16_t previous_square = 0;
-
-  uint16_t moves_seen = 0;
+  uint16_t moves_seen      = 0;
 
   if ((ss - 1)->move != 0) {
     previous_square = get_move_target((ss - 1)->move);
   }
 
   // loop over moves within a movelist
-
-  while (move_index < move_list->count) {
-    uint16_t move = pick_next_best_move(move_list, &move_index).move;
+  uint16_t move;
+  while ((move = select_next(&picker)) != 0) {
 
     if (!is_legal(pos, move)) {
       continue;
@@ -807,19 +861,12 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     probcut_depth = MAX(1, probcut_depth);
 
     // Generate captures and good promotions for ProbCut
-    moves probcut_list[1];
-    generate_noisy(pos, probcut_list);
-
-    // Score the moves
-    for (uint32_t count = 0; count < probcut_list->count; count++) {
-      score_move(pos, thread, ss, &probcut_list->entry[count], 0);
-    }
-
-    uint16_t probcut_index = 0;
+    picker_t probcut_picker;
+    init_picker(&probcut_picker, pos, thread, ss, 0, 0);
 
     // Try moves that look promising
-    while (probcut_index < probcut_list->count) {
-      uint16_t move = pick_next_best_move(probcut_list, &probcut_index).move;
+    uint16_t move;
+    while ((move = select_next(&probcut_picker)) != 0) {
 
       // Skip moves that don't pass SEE threshold
       if (!SEE(pos, move, PROBCUT_SEE_THRESHOLD)) {
@@ -893,33 +940,25 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     depth--;
   }
 
-  // create move list instance
-  moves move_list[1];
+  picker_t picker;
+  init_picker(&picker, pos, thread, ss, tt_move, 1);
+
   moves quiet_list[1];
   moves capture_list[1];
   quiet_list->count = 0;
   capture_list->count = 0;
 
-  // generate moves
-  generate_moves(pos, move_list);
-
   int16_t best_score = NO_SCORE;
   current_score = NO_SCORE;
 
   uint16_t best_move = 0;
-  for (uint32_t count = 0; count < move_list->count; count++) {
-    score_move(pos, thread, ss, &move_list->entry[count], tt_move);
-  }
-
   uint8_t skip_quiets = 0;
 
   const int16_t original_alpha = alpha;
 
-  uint16_t move_index = 0;
-
   // loop over moves within a movelist
-  while (move_index < move_list->count) {
-    uint16_t move = pick_next_best_move(move_list, &move_index).move;
+  uint16_t move;
+  while ((move = select_next(&picker)) != 0) {
     uint8_t quiet =
         (get_move_capture(move) == 0 && is_move_promotion(move) == 0);
 
