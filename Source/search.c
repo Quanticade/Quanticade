@@ -314,7 +314,8 @@ static inline uint8_t only_pawns(position_t *pos) {
 }
 
 typedef enum {
-  STAGE_GENERATE = 0, // generate the move list
+  STAGE_TABLE = 0,    // try the TT move first, before any generation
+  STAGE_GENERATE,     // generate the move list
   STAGE_SCORE,        // score every generated move
   STAGE_PICK,         // yield moves one at a time, best-first
   STAGE_DONE,
@@ -335,7 +336,7 @@ typedef struct {
 static inline void init_picker(picker_t *picker, position_t *pos,
                                 thread_t *thread, searchstack_t *ss,
                                 uint16_t tt_move, uint8_t generate_all) {
-  picker->stage           = STAGE_GENERATE;
+  picker->stage           = STAGE_TABLE;
   picker->move_list.count = 0;
   picker->move_index      = 0;
   picker->tt_move         = tt_move;
@@ -348,6 +349,16 @@ static inline void init_picker(picker_t *picker, position_t *pos,
 // Returns the next move to try, or 0 when exhausted.
 static inline uint16_t select_next(picker_t *picker) {
   switch (picker->stage) {
+
+  case STAGE_TABLE:
+    picker->stage = STAGE_GENERATE;
+    if (picker->tt_move != 0
+        && (picker->generate_all || get_move_capture(picker->tt_move) || is_move_promotion(picker->tt_move))
+        && is_pseudo_legal(picker->pos, picker->tt_move)
+        && is_legal(picker->pos, picker->tt_move)) {
+        return picker->tt_move;
+    }
+    /* fallthrough */
 
   // Stage 1 - generate moves
   case STAGE_GENERATE:
@@ -368,8 +379,12 @@ static inline uint16_t select_next(picker_t *picker) {
 
   // Stage 3 - yield the highest-scored remaining move on every call
   case STAGE_PICK:
-    while (picker->move_index < picker->move_list.count)
-      return pick_next_best_move(&picker->move_list, &picker->move_index).move;
+    while (picker->move_index < picker->move_list.count) {
+      uint16_t move = pick_next_best_move(&picker->move_list, &picker->move_index).move;
+      if (move != picker->tt_move) {
+        return move;
+      }
+    }
     picker->stage = STAGE_DONE;
     /* fallthrough */
 
