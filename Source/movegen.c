@@ -962,6 +962,173 @@ void generate_moves(position_t *pos, moves *move_list) {
   }
 }
 
+// generate only quiet moves
+void generate_quiets(position_t *pos, moves *move_list) {
+  move_list->count = 0;
+
+  int source_square, target_square;
+  uint64_t bitboard, attacks;
+  uint8_t start = P, end = K;
+
+  if (pos->side == black) {
+    start = p;
+    end = k;
+  }
+
+  for (uint8_t piece = start; piece <= end; piece++) {
+    bitboard = pos->bitboards[piece];
+
+    if (pos->side == white) {
+      if (piece == P) {
+        while (bitboard) {
+          source_square = __builtin_ctzll(bitboard);
+          target_square = source_square - 8;
+
+          if (!(target_square < a8) && !get_bit(pos->occupancies[both], target_square)) {
+            if (!(source_square >= a7 && source_square <= h7)) {
+              add_move(move_list, encode_move(source_square, target_square, QUIET));
+
+              if ((source_square >= a2 && source_square <= h2) &&
+                  !get_bit(pos->occupancies[both], target_square - 8))
+                add_move(move_list, encode_move(source_square, (target_square - 8), DOUBLE_PUSH));
+            }
+          }
+
+          pop_bit(bitboard, source_square);
+        }
+      }
+
+      if (piece == K) {
+        if (pos->castle & wk) {
+          if (!get_bit(pos->occupancies[both], f1) &&
+              !get_bit(pos->occupancies[both], g1)) {
+            if (!is_square_attacked(pos, e1, black) &&
+                !is_square_attacked(pos, f1, black))
+              add_move(move_list, encode_move(e1, g1, KING_CASTLE));
+          }
+        }
+
+        if (pos->castle & wq) {
+          if (!get_bit(pos->occupancies[both], d1) &&
+              !get_bit(pos->occupancies[both], c1) &&
+              !get_bit(pos->occupancies[both], b1)) {
+            if (!is_square_attacked(pos, e1, black) &&
+                !is_square_attacked(pos, d1, black))
+              add_move(move_list, encode_move(e1, c1, QUEEN_CASTLE));
+          }
+        }
+      }
+    }
+
+    else {
+      if (piece == p) {
+        while (bitboard) {
+          source_square = __builtin_ctzll(bitboard);
+          target_square = source_square + 8;
+
+          if (!(target_square > h1) && !get_bit(pos->occupancies[both], target_square)) {
+            if (!(source_square >= a2 && source_square <= h2)) {
+              add_move(move_list, encode_move(source_square, target_square, QUIET));
+
+              if ((source_square >= a7 && source_square <= h7) &&
+                  !get_bit(pos->occupancies[both], target_square + 8))
+                add_move(move_list, encode_move(source_square, (target_square + 8), DOUBLE_PUSH));
+            }
+          }
+
+          pop_bit(bitboard, source_square);
+        }
+      }
+
+      if (piece == k) {
+        if (pos->castle & bk) {
+          if (!get_bit(pos->occupancies[both], f8) &&
+              !get_bit(pos->occupancies[both], g8)) {
+            if (!is_square_attacked(pos, e8, white) &&
+                !is_square_attacked(pos, f8, white))
+              add_move(move_list, encode_move(e8, g8, KING_CASTLE));
+          }
+        }
+
+        if (pos->castle & bq) {
+          if (!get_bit(pos->occupancies[both], d8) &&
+              !get_bit(pos->occupancies[both], c8) &&
+              !get_bit(pos->occupancies[both], b8)) {
+            if (!is_square_attacked(pos, e8, white) &&
+                !is_square_attacked(pos, d8, white))
+              add_move(move_list, encode_move(e8, c8, QUEEN_CASTLE));
+          }
+        }
+      }
+    }
+
+    if ((pos->side == white) ? piece == N : piece == n) {
+      while (bitboard) {
+        source_square = __builtin_ctzll(bitboard);
+        attacks = knight_attacks[source_square] & ~pos->occupancies[both];
+        while (attacks) {
+          target_square = __builtin_ctzll(attacks);
+          add_move(move_list, encode_move(source_square, target_square, QUIET));
+          pop_bit(attacks, target_square);
+        }
+        pop_bit(bitboard, source_square);
+      }
+    }
+
+    if ((pos->side == white) ? piece == B : piece == b) {
+      while (bitboard) {
+        source_square = __builtin_ctzll(bitboard);
+        attacks = get_bishop_attacks(source_square, pos->occupancies[both]) & ~pos->occupancies[both];
+        while (attacks) {
+          target_square = __builtin_ctzll(attacks);
+          add_move(move_list, encode_move(source_square, target_square, QUIET));
+          pop_bit(attacks, target_square);
+        }
+        pop_bit(bitboard, source_square);
+      }
+    }
+
+    if ((pos->side == white) ? piece == R : piece == r) {
+      while (bitboard) {
+        source_square = __builtin_ctzll(bitboard);
+        attacks = get_rook_attacks(source_square, pos->occupancies[both]) & ~pos->occupancies[both];
+        while (attacks) {
+          target_square = __builtin_ctzll(attacks);
+          add_move(move_list, encode_move(source_square, target_square, QUIET));
+          pop_bit(attacks, target_square);
+        }
+        pop_bit(bitboard, source_square);
+      }
+    }
+
+    if ((pos->side == white) ? piece == Q : piece == q) {
+      while (bitboard) {
+        source_square = __builtin_ctzll(bitboard);
+        attacks = get_queen_attacks(source_square, pos->occupancies[both]) & ~pos->occupancies[both];
+        while (attacks) {
+          target_square = __builtin_ctzll(attacks);
+          add_move(move_list, encode_move(source_square, target_square, QUIET));
+          pop_bit(attacks, target_square);
+        }
+        pop_bit(bitboard, source_square);
+      }
+    }
+
+    if ((pos->side == white) ? piece == K : piece == k) {
+      while (bitboard) {
+        source_square = __builtin_ctzll(bitboard);
+        attacks = king_attacks[source_square] & ~pos->occupancies[both];
+        while (attacks) {
+          target_square = __builtin_ctzll(attacks);
+          add_move(move_list, encode_move(source_square, target_square, QUIET));
+          pop_bit(attacks, target_square);
+        }
+        pop_bit(bitboard, source_square);
+      }
+    }
+  }
+}
+
 void generate_noisy(position_t *pos, moves *move_list) {
   // init move count
   move_list->count = 0;
