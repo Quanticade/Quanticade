@@ -205,70 +205,24 @@ uint8_t check_time(thread_t *thread) {
   return 0;
 }
 
-// score moves
-static inline void score_move(position_t *pos, thread_t *thread,
-                              searchstack_t *ss, move_t *move_entry,
-                              uint16_t hash_move) {
-  uint16_t move = move_entry->move;
+// position repetition detection
+static inline uint8_t is_repetition(position_t *pos, thread_t *thread) {
+  // loop over repetition indices range
+  for (uint32_t index = 0; index < thread->repetition_index; index++)
+    // if we found the hash key same with a current
+    if (thread->repetition_table[index] == pos->hash_keys.hash_key)
+      // we found a repetition
+      return 1;
 
-  // Hash move gets highest priority
-  if (move == hash_move) {
-    move_entry->score = 2000000000;
-    return;
-  }
+  // if no repetition found
+  return 0;
+}
 
-  // Cache frequently used values
-  uint8_t source = get_move_source(move);
-  uint8_t target = get_move_target(move);
-  uint8_t promoted_piece = get_move_promoted(pos->side, move);
-  uint8_t is_capture = get_move_capture(move);
-
-  uint8_t source_threatened = is_square_threatened(ss, source);
-  uint8_t target_threatened = is_square_threatened(ss, target);
-
-  // Handle noisy moves
-  if (is_capture || promoted_piece) {
-    // Determine target piece (handle en passant)
-    int target_piece;
-    if (get_move_enpassant(move)) {
-      int ep_square = pos->side ? target - 8 : target + 8;
-      target_piece = pos->mailbox[ep_square];
-    } else {
-      target_piece = pos->mailbox[target];
-    }
-
-    // MVV-LVA base score
-    move_entry->score = mvv[target_piece % 6] * MO_MVV_MULT;
-
-    // Add capture history
-    move_entry->score +=
-        thread->capture_history[pos->mailbox[source]][target_piece][source]
-                               [target][source_threatened][target_threatened] *
-        MO_CAPT_HIST_MULT;
-
-    move_entry->score /= 1024;
-
-    // SEE check - good captures get huge bonus, bad ones get penalty
-    int see_threshold =
-        -MO_SEE_THRESHOLD - move_entry->score / MO_SEE_HISTORY_DIVISER;
-    move_entry->score +=
-        SEE(pos, move, see_threshold) ? 1000000000 : -1000000000;
-    return;
-  }
-
-  // Handle quiet moves
-  move_entry->score =
-      thread->quiet_history[pos->side][source][target][source_threatened]
-                           [target_threatened] *
-          MO_QUIET_HIST_MULT +
-      get_conthist_score(thread, pos, ss, move, 1) * MO_CONT1_HIST_MULT +
-      get_conthist_score(thread, pos, ss, move, 2) * MO_CONT2_HIST_MULT +
-      get_conthist_score(thread, pos, ss, move, 4) * MO_CONT4_HIST_MULT +
-      thread->pawn_history[pos->hash_keys.pawn_key % 2048][pos->mailbox[source]]
-                          [target] *
-          MO_PAWN_HIST_MULT;
-
-  move_entry->score /= 1024;
+static inline uint8_t only_pawns(position_t *pos) {
+  return !((pos->bitboards[N] | pos->bitboards[n] | pos->bitboards[B] |
+            pos->bitboards[b] | pos->bitboards[R] | pos->bitboards[r] |
+            pos->bitboards[Q] | pos->bitboards[q]) &
+           pos->occupancies[pos->side]);
 }
 
 static inline move_t pick_next_best_move(moves *move_list, uint16_t *index) {
@@ -293,41 +247,96 @@ static inline move_t pick_next_best_move(moves *move_list, uint16_t *index) {
   return move_list->entry[(*index)++];
 }
 
-// position repetition detection
-static inline uint8_t is_repetition(position_t *pos, thread_t *thread) {
-  // loop over repetition indices range
-  for (uint32_t index = 0; index < thread->repetition_index; index++)
-    // if we found the hash key same with a current
-    if (thread->repetition_table[index] == pos->hash_keys.hash_key)
-      // we found a repetition
-      return 1;
+// Scores noisy moves and splits them into good/bad lists based on SEE
+static inline void score_noisy(position_t *pos, thread_t *thread,
+                                searchstack_t *ss, moves *noisy_list,
+                                moves *good_noisy, moves *bad_noisy,
+                                uint16_t tt_move) {
+  for (uint32_t i = 0; i < noisy_list->count; i++) {
+    move_t entry = noisy_list->entry[i];
+    uint16_t move = entry.move;
 
-  // if no repetition found
-  return 0;
+    if (move == tt_move)
+      continue;
+
+    uint8_t source = get_move_source(move);
+    uint8_t target = get_move_target(move);
+    uint8_t source_threatened = is_square_threatened(ss, source);
+    uint8_t target_threatened = is_square_threatened(ss, target);
+
+    int target_piece;
+    if (get_move_enpassant(move))
+      target_piece = pos->mailbox[pos->side ? target - 8 : target + 8];
+    else
+      target_piece = pos->mailbox[target];
+
+    entry.score  = mvv[target_piece % 6] * MO_MVV_MULT;
+    entry.score += thread->capture_history[pos->mailbox[source]][target_piece]
+                                          [source][target]
+                                          [source_threatened][target_threatened] *
+                   MO_CAPT_HIST_MULT;
+    entry.score /= 1024;
+
+    int see_threshold = -MO_SEE_THRESHOLD - entry.score / MO_SEE_HISTORY_DIVISER;
+    if (SEE(pos, move, see_threshold))
+      good_noisy->entry[good_noisy->count++] = entry;
+    else
+      bad_noisy->entry[bad_noisy->count++] = entry;
+  }
 }
 
-static inline uint8_t only_pawns(position_t *pos) {
-  return !((pos->bitboards[N] | pos->bitboards[n] | pos->bitboards[B] |
-            pos->bitboards[b] | pos->bitboards[R] | pos->bitboards[r] |
-            pos->bitboards[Q] | pos->bitboards[q]) &
-           pos->occupancies[pos->side]);
+// Scores quiet moves in place
+static inline void score_quiet(position_t *pos, thread_t *thread,
+                                searchstack_t *ss, moves *quiet_list,
+                                uint16_t tt_move) {
+  for (uint32_t i = 0; i < quiet_list->count; i++) {
+    move_t *entry = &quiet_list->entry[i];
+    uint16_t move = entry->move;
+
+    if (move == tt_move) {
+      entry->score = INT32_MIN;
+      continue;
+    }
+
+    uint8_t source = get_move_source(move);
+    uint8_t target = get_move_target(move);
+    uint8_t source_threatened = is_square_threatened(ss, source);
+    uint8_t target_threatened = is_square_threatened(ss, target);
+
+    entry->score =
+        thread->quiet_history[pos->side][source][target]
+                             [source_threatened][target_threatened] *
+            MO_QUIET_HIST_MULT +
+        get_conthist_score(thread, pos, ss, move, 1) * MO_CONT1_HIST_MULT +
+        get_conthist_score(thread, pos, ss, move, 2) * MO_CONT2_HIST_MULT +
+        get_conthist_score(thread, pos, ss, move, 4) * MO_CONT4_HIST_MULT +
+        thread->pawn_history[pos->hash_keys.pawn_key % 2048]
+                            [pos->mailbox[source]][target] *
+            MO_PAWN_HIST_MULT;
+    entry->score /= 1024;
+  }
 }
 
 typedef enum {
-  STAGE_TABLE = 0,    // try the TT move first, before any generation
-  STAGE_GENERATE,     // generate the move list
-  STAGE_SCORE,        // score every generated move
-  STAGE_PICK,         // yield moves one at a time, best-first
+  STAGE_TABLE = 0,
+  STAGE_GENERATE_NOISY,
+  STAGE_GOOD_NOISY,
+  STAGE_GENERATE_QUIET,
+  STAGE_QUIET,
+  STAGE_BAD_NOISY,
   STAGE_DONE,
 } picker_stage_t;
 
 typedef struct {
   picker_stage_t  stage;
-  moves           move_list;
-  uint16_t        move_index;
-  // Invariant context -- set once at init, never changes
+  moves           good_noisy;
+  moves           bad_noisy;
+  moves           quiets;
+  uint16_t        good_noisy_index;
+  uint16_t        bad_noisy_index;
+  uint16_t        quiet_index;
   uint16_t        tt_move;
-  uint8_t         generate_all; // 1 = generate_moves, 0 = generate_noisy
+  uint8_t         generate_all;
   position_t     *pos;
   thread_t       *thread;
   searchstack_t  *ss;
@@ -336,55 +345,70 @@ typedef struct {
 static inline void init_picker(picker_t *picker, position_t *pos,
                                 thread_t *thread, searchstack_t *ss,
                                 uint16_t tt_move, uint8_t generate_all) {
-  picker->stage           = STAGE_TABLE;
-  picker->move_list.count = 0;
-  picker->move_index      = 0;
-  picker->tt_move         = tt_move;
-  picker->generate_all    = generate_all;
-  picker->pos             = pos;
-  picker->thread          = thread;
-  picker->ss              = ss;
+  picker->stage             = STAGE_TABLE;
+  picker->good_noisy.count  = 0;
+  picker->bad_noisy.count   = 0;
+  picker->quiets.count      = 0;
+  picker->good_noisy_index  = 0;
+  picker->bad_noisy_index   = 0;
+  picker->quiet_index       = 0;
+  picker->tt_move           = tt_move;
+  picker->generate_all      = generate_all;
+  picker->pos               = pos;
+  picker->thread            = thread;
+  picker->ss                = ss;
 }
 
-// Returns the next move to try, or 0 when exhausted.
 static inline uint16_t select_next(picker_t *picker) {
   switch (picker->stage) {
 
   case STAGE_TABLE:
-    picker->stage = STAGE_GENERATE;
+    picker->stage = STAGE_GENERATE_NOISY;
     if (picker->tt_move != 0
         && (picker->generate_all || get_move_capture(picker->tt_move) || is_move_promotion(picker->tt_move))
         && is_pseudo_legal(picker->pos, picker->tt_move)
-        && is_legal(picker->pos, picker->tt_move)) {
-        return picker->tt_move;
+        && is_legal(picker->pos, picker->tt_move))
+      return picker->tt_move;
+    /* fallthrough */
+
+  case STAGE_GENERATE_NOISY: {
+    moves tmp;
+    generate_noisy(picker->pos, &tmp);
+    score_noisy(picker->pos, picker->thread, picker->ss, &tmp,
+                &picker->good_noisy, &picker->bad_noisy, picker->tt_move);
+    picker->stage = STAGE_GOOD_NOISY;
+    /* fallthrough */
+  }
+
+  case STAGE_GOOD_NOISY:
+    while (picker->good_noisy_index < picker->good_noisy.count)
+      return pick_next_best_move(&picker->good_noisy, &picker->good_noisy_index).move;
+    if (!picker->generate_all) {
+      picker->stage = STAGE_DONE;
+      return 0;
     }
+    picker->stage = STAGE_GENERATE_QUIET;
     /* fallthrough */
 
-  // Stage 1 - generate moves
-  case STAGE_GENERATE:
-    if (picker->generate_all)
-      generate_moves(picker->pos, &picker->move_list);
-    else
-      generate_noisy(picker->pos, &picker->move_list);
-    picker->stage = STAGE_SCORE;
+  case STAGE_GENERATE_QUIET:
+    generate_quiets(picker->pos, &picker->quiets);
+    score_quiet(picker->pos, picker->thread, picker->ss,
+                &picker->quiets, picker->tt_move);
+    picker->stage = STAGE_QUIET;
     /* fallthrough */
 
-  // Stage 2 - score all generated moves, then fall into picking
-  case STAGE_SCORE:
-    for (uint32_t i = 0; i < picker->move_list.count; i++)
-      score_move(picker->pos, picker->thread, picker->ss,
-                 &picker->move_list.entry[i], picker->tt_move);
-    picker->stage = STAGE_PICK;
-    /* fallthrough */
-
-  // Stage 3 - yield the highest-scored remaining move on every call
-  case STAGE_PICK:
-    while (picker->move_index < picker->move_list.count) {
-      uint16_t move = pick_next_best_move(&picker->move_list, &picker->move_index).move;
-      if (move != picker->tt_move) {
+  case STAGE_QUIET:
+    while (picker->quiet_index < picker->quiets.count) {
+      uint16_t move = pick_next_best_move(&picker->quiets, &picker->quiet_index).move;
+      if (move != picker->tt_move)
         return move;
-      }
     }
+    picker->stage = STAGE_BAD_NOISY;
+    /* fallthrough */
+
+  case STAGE_BAD_NOISY:
+    while (picker->bad_noisy_index < picker->bad_noisy.count)
+      return pick_next_best_move(&picker->bad_noisy, &picker->bad_noisy_index).move;
     picker->stage = STAGE_DONE;
     /* fallthrough */
 
