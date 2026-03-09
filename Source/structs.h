@@ -7,6 +7,16 @@
 
 #define MAX_PLY 254
 
+typedef enum {
+  STAGE_TABLE = 0,
+  STAGE_GENERATE_NOISY,
+  STAGE_GOOD_NOISY,
+  STAGE_GENERATE_QUIET,
+  STAGE_QUIET,
+  STAGE_BAD_NOISY,
+  STAGE_DONE,
+} picker_stage_t;
+
 typedef struct spsa {
   void *value;
   union {
@@ -170,6 +180,21 @@ typedef struct searchstack {
   uint8_t null_move;
   uint8_t tt_pv;
 } searchstack_t;
+
+typedef struct {
+  picker_stage_t  stage;
+  moves           good_noisy;
+  moves           bad_noisy;
+  moves           quiets;
+  uint16_t        good_noisy_index;
+  uint16_t        bad_noisy_index;
+  uint16_t        quiet_index;
+  uint16_t        tt_move;
+  uint8_t         generate_all;
+  position_t     *pos;
+  thread_t       *thread;
+  searchstack_t  *ss;
+} picker_t;
 
 typedef struct nnue_settings {
   char *nnue_file;
