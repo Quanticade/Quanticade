@@ -102,7 +102,7 @@ typedef struct PV {
 
 typedef struct searchinfo {
   simd_t neurons;
-  finny_table_t finny_tables[2][13];
+  finny_table_t finny_tables[2][KING_BUCKETS];
   accumulator_t accumulator[MAX_PLY + 10];
   uint64_t nodes;
   uint64_t starttime;
