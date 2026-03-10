@@ -226,13 +226,13 @@ static inline uint8_t only_pawns(position_t *pos) {
            pos->occupancies[pos->side]);
 }
 
-static inline uint64_t pack(move_t m, uint16_t i) {
+static inline uint32_t pack(move_t m, uint16_t i) {
   const int score = m.score;
-  return (uint64_t)(score - INT_MIN) << 32 | (i ^ 0xffffffff);
+  return (uint32_t)(score + (1 << 23)) << 8 | (i ^ 0xff);
 }
 
-static inline uint16_t unpack(uint64_t packed) {
-  return packed ^ 0xffffffff;
+static inline uint16_t unpack(uint32_t packed) {
+  return (packed & 0xff) ^ 0xff;
 }
 
 static inline move_t pick_next_best_move(moves *move_list, uint16_t *index) {
@@ -244,7 +244,7 @@ static inline move_t pick_next_best_move(moves *move_list, uint16_t *index) {
 
   move_t *const moves = move_list->entry;
 
-  uint64_t best_packed = pack(moves[initial_index], initial_index);
+  uint32_t best_packed = pack(moves[initial_index], initial_index);
 
   for (int i = initial_index + 1; i < len; ++i) {
     best_packed = MAX(best_packed, pack(moves[i], i));
@@ -310,7 +310,7 @@ static inline void score_quiet(position_t *pos, thread_t *thread,
     uint16_t move = entry->move;
 
     if (move == tt_move) {
-      entry->score = INT32_MIN;
+      entry->score = -(1 << 20);
       continue;
     }
 
