@@ -16,6 +16,7 @@
 #include "uci.h"
 #include "utils.h"
 #include <inttypes.h>
+#include <limits.h>
 #include <math.h>
 #include <pthread.h>
 #include <stddef.h>
@@ -225,22 +226,37 @@ static inline uint8_t only_pawns(position_t *pos) {
            pos->occupancies[pos->side]);
 }
 
+static inline uint32_t pack(move_t m, uint16_t i) {
+  const int score = m.score;
+  return (uint32_t)(score + (1 << 23)) << 8 | (i ^ 0xff);
+}
+
+static inline uint16_t unpack(uint32_t packed) {
+  return (packed & 0xff) ^ 0xff;
+}
+
 static inline move_t pick_next_best_move(moves *move_list, uint16_t *index) {
   if (*index >= move_list->count)
     return (move_t){0}; // Return dummy if we're out of bounds
 
-  uint16_t best = *index;
+  const int initial_index = *index;
+  const int len = move_list->count;
 
-  for (uint16_t i = *index + 1; i < move_list->count; ++i) {
-    if (move_list->entry[i].score > move_list->entry[best].score)
-      best = i;
+  move_t *const moves = move_list->entry;
+
+  uint32_t best_packed = pack(moves[initial_index], initial_index);
+
+  for (int i = initial_index + 1; i < len; ++i) {
+    best_packed = MAX(best_packed, pack(moves[i], i));
   }
 
+  uint16_t best = unpack(best_packed);
+
   // Swap best with current index
-  if (best != *index) {
-    move_t temp = move_list->entry[*index];
-    move_list->entry[*index] = move_list->entry[best];
-    move_list->entry[best] = temp;
+  if (best != initial_index) {
+    move_t temp = moves[initial_index];
+    moves[initial_index] = moves[best];
+    moves[best] = temp;
   }
 
   // Return and increment index for next call
@@ -294,7 +310,7 @@ static inline void score_quiet(position_t *pos, thread_t *thread,
     uint16_t move = entry->move;
 
     if (move == tt_move) {
-      entry->score = INT32_MIN;
+      entry->score = -(1 << 20);
       continue;
     }
 
