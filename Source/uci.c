@@ -32,6 +32,7 @@ int32_t move_overhead = 10;
 
 uint8_t disable_norm = 0;
 uint8_t soft_nodes = 0;
+uint8_t minimal = 0;
 
 double DEF_TIME_MULTIPLIER = 0.09087583539486617f;
 double DEF_INC_MULTIPLIER = 0.8482586046941052f;
@@ -662,6 +663,7 @@ void uci_loop(position_t *pos, int argc, char *argv[]) {
 
   if (argc >= 2) {
     if (strncmp("bench", argv[1], 5) == 0) {
+      minimal = 1;
       uint64_t total_nodes = 0;
       uint64_t start_time = get_time_ms();
       for (int pos_index = 0; pos_index < 50; ++pos_index) {
@@ -792,6 +794,7 @@ void uci_loop(position_t *pos, int argc, char *argv[]) {
       printf("option name SoftNodes type spin default 0 min 0 max 1\n");
       printf(
           "option name DisableNormalization type spin default 0 min 0 max 1\n");
+      printf("option name Minimal type spin default 0 min 0 max 1\n");
       // SPSA
       // print_spsa_table_uci();
       // uciok
@@ -845,10 +848,13 @@ void uci_loop(position_t *pos, int argc, char *argv[]) {
       // tb_init(ptr);
       printf("info string set SyzygyPath to %s\n", ptr);
     } else if (!strncmp(input, "setoption name SoftNodes value ", 31)) {
-      sscanf(input, "%*s %*s %*s %*s %c", &soft_nodes);
+      sscanf(input, "%*s %*s %*s %*s %hhu", &soft_nodes);
     } else if (!strncmp(input, "setoption name DisableNormalization value ",
-                        31)) {
-      sscanf(input, "%*s %*s %*s %*s %c", &disable_norm);
+                        42)) {
+      sscanf(input, "%*s %*s %*s %*s %hhu", &disable_norm);
+    } else if (!strncmp(input, "setoption name Minimal value ",
+                        29)) {
+      sscanf(input, "%*s %*s %*s %*s %hhu", &minimal);
     } else {
       handle_spsa_change(input);
     }

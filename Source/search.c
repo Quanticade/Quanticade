@@ -36,6 +36,7 @@ extern int QUIET_HISTORY_TT_FACTOR;
 extern int QUIET_HISTORY_TT_BASE;
 
 extern uint8_t disable_norm;
+extern uint8_t minimal;
 
 // Depths and untunable values (SPSA poison)
 int RAZOR_DEPTH = 7;
@@ -1487,7 +1488,7 @@ void *iterative_deepening(void *thread_void) {
       stop_threads(thread, thread_count);
     }
 
-    if (thread->index == 0) {
+    if (thread->index == 0 && !minimal) {
       // if PV is available
       if (thread->pv.pv_length[0]) {
         // print search info
@@ -1539,6 +1540,9 @@ void search_position(position_t *pos, thread_t *threads) {
     pthread_join(pthreads[i], NULL);
   }
 
+  if (minimal) {
+    print_thinking(&threads[0], threads->score, threads[0].depth);
+  }
   // print best move
   printf("bestmove ");
   if (threads->pv.pv_table[0][0]) {
