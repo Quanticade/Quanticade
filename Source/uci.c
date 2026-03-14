@@ -796,7 +796,7 @@ void uci_loop(position_t *pos, int argc, char *argv[]) {
           "option name DisableNormalization type spin default 0 min 0 max 1\n");
       printf("option name Minimal type spin default 0 min 0 max 1\n");
       // SPSA
-      // print_spsa_table_uci();
+      print_spsa_table_uci();
       // uciok
       printf("uciok\n");
     } else if (strncmp(input, "spsa", 4) == 0) {
