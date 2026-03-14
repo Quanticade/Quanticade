@@ -686,15 +686,16 @@ void uci_loop(position_t *pos, int argc, char *argv[]) {
              (total_nodes / (total_time + 1) * 1000));
       return;
     } else if (strncmp("genfens", argv[1], 7) == 0) {
+      minimal = 1;
       int n_of_fens = 0;
       uint64_t seed = 0ULL;
-      char book[100];
+      char book[256];
       int n_of_char_read = 0;
       if (sscanf(argv[1], "genfens %d seed %99" SCNu64 " book %s %n",
                  &n_of_fens, &seed, book, &n_of_char_read)) {
         // Parse additional stuff here if needed in future
       }
-      genfens(pos, threads, seed, n_of_fens);
+      genfens(pos, threads, seed, n_of_fens, book);
       return;
     }
   }
