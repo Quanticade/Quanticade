@@ -437,7 +437,6 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
   int l2Neurons[L2_SIZE] = {0};
 
   for (int l1 = 0; l1 < L1_SIZE; l1++) {
-    if (!l1Neurons[l1]) continue;
     for (int l2 = 0; l2 < L2_SIZE; l2++) {
       l2Neurons[l2] +=
           l1Neurons[l1] * nnue.l1_weights[out_bucket][l1 * L2_SIZE + l2];
@@ -640,7 +639,6 @@ int nnue_evaluate(thread_t *thread, position_t *pos, accumulator_t *accumulator)
   }
 
   for (int l1 = 0; l1 < L1_SIZE; l1++) {
-    if (!layers->l1_neurons[l1]) continue;
     for (int l2 = 0; l2 < L2_SIZE; l2++) {
       layers->l2_neurons[l2] +=
           layers->l1_neurons[l1] * nnue.l1_weights[out_bucket][l1 * L2_SIZE + l2];
