@@ -437,6 +437,7 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
   int l2Neurons[L2_SIZE] = {0};
 
   for (int l1 = 0; l1 < L1_SIZE; l1++) {
+    if (!l1Neurons[l1]) continue;
     for (int l2 = 0; l2 < L2_SIZE; l2++) {
       l2Neurons[l2] +=
           l1Neurons[l1] * nnue.l1_weights[out_bucket][l1 * L2_SIZE + l2];
@@ -530,9 +531,43 @@ int nnue_evaluate(thread_t *thread, position_t *pos, accumulator_t *accumulator)
 
   int *l1Packs = (int *)layers->l1_neurons;
 
-  for (int l1 = 0; l1 < L1_SIZE; l1 += INT8_PER_INT32) {
+  const int NNZ_MAX    = L1_SIZE / INT8_PER_INT32;
+  const int I32_STRIDE = sizeof(veci_t) / sizeof(int32_t);
+  uint16_t nnz_indices[NNZ_MAX];
+  int nnz_count = 0;
+
+#if defined(USE_AVX512)
+  {
+    const veci_t zero_vec = zero();
+    for (int base = 0; base < NNZ_MAX; base += I32_STRIDE) {
+      __mmask16 nz = ~_mm512_cmpeq_epi32_mask(
+          _mm512_loadu_si512((const veci_t *)&l1Packs[base]), zero_vec);
+      while (nz) {
+        nnz_indices[nnz_count++] = (uint16_t)(base + __builtin_ctz(nz));
+        nz &= nz - 1;
+      }
+    }
+  }
+#elif defined(USE_AVX2)
+  {
+    const veci_t zero_vec = zero();
+    for (int base = 0; base < NNZ_MAX; base += I32_STRIDE) {
+      veci_t chunk = _mm256_loadu_si256((const veci_t *)&l1Packs[base]);
+      int nz       = ~_mm256_movemask_ps(_mm256_castsi256_ps(
+                         _mm256_cmpeq_epi32(chunk, zero_vec))) & 0xFF;
+      while (nz) {
+        nnz_indices[nnz_count++] = (uint16_t)(base + __builtin_ctz(nz));
+        nz &= nz - 1;
+      }
+    }
+  }
+#endif
+
+  for (int n = 0; n < nnz_count; n++) {
+    const int pack_idx = nnz_indices[n];
+    const int l1       = pack_idx * INT8_PER_INT32;
     for (int l2 = 0; l2 < L2_SIZE; l2 += sizeof(veci_t) / sizeof(int32_t)) {
-      veci_t u8 = set_epi32(l1Packs[l1 / INT8_PER_INT32]);
+      veci_t u8 = set_epi32(l1Packs[pack_idx]);
       veci_t i8 =
           *((veci_t *)&nnue
                 .l1_weights[out_bucket][l1 * L2_SIZE + INT8_PER_INT32 * l2]);
@@ -605,6 +640,7 @@ int nnue_evaluate(thread_t *thread, position_t *pos, accumulator_t *accumulator)
   }
 
   for (int l1 = 0; l1 < L1_SIZE; l1++) {
+    if (!layers->l1_neurons[l1]) continue;
     for (int l2 = 0; l2 < L2_SIZE; l2++) {
       layers->l2_neurons[l2] +=
           layers->l1_neurons[l1] * nnue.l1_weights[out_bucket][l1 * L2_SIZE + l2];
