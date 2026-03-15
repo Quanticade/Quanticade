@@ -18,23 +18,23 @@ uint64_t isolated_masks[64];
 uint64_t white_passed_masks[64];
 uint64_t black_passed_masks[64];
 
-const uint64_t not_a_file = 18374403900871474942ULL;
-const uint64_t not_h_file = 9187201950435737471ULL;
-const uint64_t not_hg_file = 4557430888798830399ULL;
-const uint64_t not_ab_file = 18229723555195321596ULL;
+static const uint64_t not_a_file  = 18374403900871474942ULL;
+static const uint64_t not_h_file  = 9187201950435737471ULL;
+static const uint64_t not_hg_file = 4557430888798830399ULL;
+static const uint64_t not_ab_file = 18229723555195321596ULL;
 
-const int bishop_relevant_bits[64] = {
+const uint8_t bishop_relevant_bits[64] = {
     6, 5, 5, 5, 5, 5, 5, 6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 7, 7, 7, 7,
     5, 5, 5, 5, 7, 9, 9, 7, 5, 5, 5, 5, 7, 9, 9, 7, 5, 5, 5, 5, 7, 7,
     7, 7, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 5, 5, 5, 5, 5, 5, 6};
 
-const int rook_relevant_bits[64] = {
+const uint8_t rook_relevant_bits[64] = {
     12, 11, 11, 11, 11, 11, 11, 12, 11, 10, 10, 10, 10, 10, 10, 11,
     11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11,
     11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11,
     11, 10, 10, 10, 10, 10, 10, 11, 12, 11, 11, 11, 11, 11, 11, 12};
 
-uint64_t rook_magic_numbers[64] = {
+const uint64_t rook_magic_numbers[64] = {
     0x8a80104000800020ULL, 0x140002000100040ULL,  0x2801880a0017001ULL,
     0x100081001000420ULL,  0x200020010080420ULL,  0x3001c0002010008ULL,
     0x8480008002000100ULL, 0x2080088004402900ULL, 0x800098204000ULL,
@@ -59,7 +59,7 @@ uint64_t rook_magic_numbers[64] = {
     0x1004081002402ULL};
 
 // bishop magic numbers
-uint64_t bishop_magic_numbers[64] = {
+const uint64_t bishop_magic_numbers[64] = {
     0x40040844404084ULL,   0x2004208a004208ULL,   0x10190041080202ULL,
     0x108060845042010ULL,  0x581104180800210ULL,  0x2112080446200010ULL,
     0x1080820820060210ULL, 0x3c0808410220200ULL,  0x4050404440404ULL,
@@ -96,20 +96,14 @@ uint64_t mask_pawn_attacks(int side, int square) {
 
   // white pawns
   if (!side) {
-    // generate pawn attacks
-    if ((bitboard >> 7) & not_a_file)
-      attacks |= (bitboard >> 7);
-    if ((bitboard >> 9) & not_h_file)
-      attacks |= (bitboard >> 9);
+    attacks |= (bitboard >> 7) & not_a_file;
+    attacks |= (bitboard >> 9) & not_h_file;
   }
 
   // black pawns
   else {
-    // generate pawn attacks
-    if ((bitboard << 7) & not_h_file)
-      attacks |= (bitboard << 7);
-    if ((bitboard << 9) & not_a_file)
-      attacks |= (bitboard << 9);
+    attacks |= (bitboard << 7) & not_h_file;
+    attacks |= (bitboard << 9) & not_a_file;
   }
 
   // return attack map
@@ -128,22 +122,14 @@ uint64_t mask_knight_attacks(int square) {
   set_bit(bitboard, square);
 
   // generate knight attacks
-  if ((bitboard >> 17) & not_h_file)
-    attacks |= (bitboard >> 17);
-  if ((bitboard >> 15) & not_a_file)
-    attacks |= (bitboard >> 15);
-  if ((bitboard >> 10) & not_hg_file)
-    attacks |= (bitboard >> 10);
-  if ((bitboard >> 6) & not_ab_file)
-    attacks |= (bitboard >> 6);
-  if ((bitboard << 17) & not_a_file)
-    attacks |= (bitboard << 17);
-  if ((bitboard << 15) & not_h_file)
-    attacks |= (bitboard << 15);
-  if ((bitboard << 10) & not_ab_file)
-    attacks |= (bitboard << 10);
-  if ((bitboard << 6) & not_hg_file)
-    attacks |= (bitboard << 6);
+  attacks |= (bitboard >> 17) & not_h_file;
+  attacks |= (bitboard >> 15) & not_a_file;
+  attacks |= (bitboard >> 10) & not_hg_file;
+  attacks |= (bitboard >>  6) & not_ab_file;
+  attacks |= (bitboard << 17) & not_a_file;
+  attacks |= (bitboard << 15) & not_h_file;
+  attacks |= (bitboard << 10) & not_ab_file;
+  attacks |= (bitboard <<  6) & not_hg_file;
 
   // return attack map
   return attacks;
@@ -161,22 +147,14 @@ uint64_t mask_king_attacks(int square) {
   set_bit(bitboard, square);
 
   // generate king attacks
-  if (bitboard >> 8)
-    attacks |= (bitboard >> 8);
-  if ((bitboard >> 9) & not_h_file)
-    attacks |= (bitboard >> 9);
-  if ((bitboard >> 7) & not_a_file)
-    attacks |= (bitboard >> 7);
-  if ((bitboard >> 1) & not_h_file)
-    attacks |= (bitboard >> 1);
-  if (bitboard << 8)
-    attacks |= (bitboard << 8);
-  if ((bitboard << 9) & not_a_file)
-    attacks |= (bitboard << 9);
-  if ((bitboard << 7) & not_h_file)
-    attacks |= (bitboard << 7);
-  if ((bitboard << 1) & not_a_file)
-    attacks |= (bitboard << 1);
+  attacks |= bitboard >> 8;
+  attacks |= (bitboard >> 9) & not_h_file;
+  attacks |= (bitboard >> 7) & not_a_file;
+  attacks |= (bitboard >> 1) & not_h_file;
+  attacks |= bitboard << 8;
+  attacks |= (bitboard << 9) & not_a_file;
+  attacks |= (bitboard << 7) & not_h_file;
+  attacks |= (bitboard << 1) & not_a_file;
 
   // return attack map
   return attacks;
@@ -364,8 +342,8 @@ void init_sliders_attacks(void) {
     rook_masks[square] = mask_rook_attacks(square);
 
     // init relevant occupancy bit count
-    int bishop_relevant_bits_count = __builtin_popcountll(bishop_masks[square]);
-    int rook_relevant_bits_count = __builtin_popcountll(rook_masks[square]);
+    int bishop_relevant_bits_count = bishop_relevant_bits[square];
+    int rook_relevant_bits_count   = rook_relevant_bits[square];
 
     // init occupancy indicies
     int bishop_occupancy_indicies = (1 << bishop_relevant_bits_count);
@@ -430,7 +408,7 @@ int is_square_attacked(position_t *pos, int square, int side) {
       ((side == white) ? pos->bitboards[R] : pos->bitboards[r]))
     return 1;
 
-  // attacked by bishops
+  // attacked by queens
   if (get_queen_attacks(square, pos->occupancies[both]) &
       ((side == white) ? pos->bitboards[Q] : pos->bitboards[q]))
     return 1;
@@ -484,11 +462,8 @@ uint8_t might_give_check(position_t *pos, uint16_t mv) {
 }
 
 uint8_t stm_in_check(position_t *pos) {
-  return is_square_attacked(pos,
-                            (pos->side == white)
-                                ? __builtin_ctzll(pos->bitboards[K])
-                                : __builtin_ctzll(pos->bitboards[k]),
-                            pos->side ^ 1);
+  const uint8_t king_sq = get_lsb(pos->bitboards[pos->side == white ? K : k]);
+  return is_square_attacked(pos, king_sq, pos->side ^ 1);
 }
 
 uint64_t attackers_to(position_t *pos, int square, uint64_t occupancy) {
@@ -566,12 +541,7 @@ void calculate_threats(position_t *pos, searchstack_t *ss) {
   }
 
   // Kings
-  threats->king_threats = 0;
-  uint64_t kings = pos->bitboards[them == white ? K : k];
-  while (kings) {
-    int sq = poplsb(&kings);
-    threats->king_threats |= king_attacks[sq];
-  }
+  threats->king_threats = king_attacks[get_lsb(pos->bitboards[them == white ? K : k])];
 }
 
 uint8_t is_square_threatened(searchstack_t *ss, int square) {
@@ -585,4 +555,3 @@ uint8_t is_square_threatened(searchstack_t *ss, int square) {
                         threats->queen_threats |
                         threats->king_threats));
 }
-
