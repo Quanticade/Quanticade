@@ -154,7 +154,7 @@ int16_t calculate_corrhist_bonus(int16_t static_eval, int16_t search_score,
                CORR_HISTORY_MINMAX);
 }
 
-int16_t scale_corrhist_bonus(int16_t score, int16_t bonus) {
+static inline int16_t scale_corrhist_bonus(int16_t score, int16_t bonus) {
   return bonus - score * abs(bonus) / 1024;
 }
 
