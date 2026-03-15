@@ -31,6 +31,20 @@ struct raw_net net;
 
 const int INT8_PER_INT32 = sizeof(int) / sizeof(int8_t);
 
+#if defined(USE_SIMD) && (defined(USE_AVX2) || defined(USE_AVX512))
+static uint16_t NNZ_TABLE[256][8];
+
+static void init_nnz_table(void) {
+  for (int i = 0; i < 256; i++) {
+    int count = 0;
+    for (int j = 0; j < 8; j++) {
+      if (i & (1 << j))
+        NNZ_TABLE[i][count++] = (uint16_t)j;
+    }
+  }
+}
+#endif
+
 uint8_t buckets[64] = {7,7,7,7,7,7,7,7,
                        7,7,7,7,7,7,7,7,
                       7,7,7,7,7,7,7,7,
@@ -232,6 +246,9 @@ void nnue_init(const char *nnue_file_name) {
       exit(1);
     }
   }
+#if defined(USE_SIMD) && (defined(USE_AVX2) || defined(USE_AVX512))
+  init_nnz_table();
+#endif
   transpose();
 }
 
@@ -532,32 +549,44 @@ int nnue_evaluate(thread_t *thread, position_t *pos, accumulator_t *accumulator)
 
   const int NNZ_MAX    = L1_SIZE / INT8_PER_INT32;
   const int I32_STRIDE = sizeof(veci_t) / sizeof(int32_t);
-  uint16_t nnz_indices[NNZ_MAX];
+  uint16_t nnz_indices[NNZ_MAX + 8];
   int nnz_count = 0;
 
 #if defined(USE_AVX512)
   {
     const veci_t zero_vec = zero();
     for (int base = 0; base < NNZ_MAX; base += I32_STRIDE) {
-      __mmask16 nz = ~_mm512_cmpeq_epi32_mask(
+      uint16_t mask = (uint16_t)~_mm512_cmpeq_epi32_mask(
           _mm512_loadu_si512((const veci_t *)&l1Packs[base]), zero_vec);
-      while (nz) {
-        nnz_indices[nnz_count++] = (uint16_t)(base + __builtin_ctz(nz));
-        nz &= nz - 1;
-      }
+
+      uint8_t lo = (uint8_t)(mask & 0xFF);
+      __m128i lo_indices = _mm_add_epi16(
+          _mm_loadu_si128((const __m128i *)NNZ_TABLE[lo]),
+          _mm_set1_epi16((short)base));
+      _mm_storeu_si128((__m128i *)&nnz_indices[nnz_count], lo_indices);
+      nnz_count += __builtin_popcount(lo);
+
+      uint8_t hi = (uint8_t)(mask >> 8);
+      __m128i hi_indices = _mm_add_epi16(
+          _mm_loadu_si128((const __m128i *)NNZ_TABLE[hi]),
+          _mm_set1_epi16((short)(base + 8)));
+      _mm_storeu_si128((__m128i *)&nnz_indices[nnz_count], hi_indices);
+      nnz_count += __builtin_popcount(hi);
     }
   }
 #elif defined(USE_AVX2)
   {
     const veci_t zero_vec = zero();
     for (int base = 0; base < NNZ_MAX; base += I32_STRIDE) {
-      veci_t chunk = _mm256_loadu_si256((const veci_t *)&l1Packs[base]);
-      int nz       = ~_mm256_movemask_ps(_mm256_castsi256_ps(
-                         _mm256_cmpeq_epi32(chunk, zero_vec))) & 0xFF;
-      while (nz) {
-        nnz_indices[nnz_count++] = (uint16_t)(base + __builtin_ctz(nz));
-        nz &= nz - 1;
-      }
+      uint8_t byte = (uint8_t)(~_mm256_movemask_ps(_mm256_castsi256_ps(
+          _mm256_cmpeq_epi32(
+              _mm256_loadu_si256((const veci_t *)&l1Packs[base]),
+              zero_vec))));
+      __m128i indices = _mm_add_epi16(
+          _mm_loadu_si128((const __m128i *)NNZ_TABLE[byte]),
+          _mm_set1_epi16((short)base));
+      _mm_storeu_si128((__m128i *)&nnz_indices[nnz_count], indices);
+      nnz_count += __builtin_popcount(byte);
     }
   }
 #endif
