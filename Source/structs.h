@@ -79,6 +79,20 @@ typedef struct hash_keys {
   uint64_t non_pawn_key[2];
 } hash_keys_t;
 
+typedef struct lazy_acc_state {
+  uint8_t  dirty;
+  uint8_t  needs_refresh;
+  uint8_t  side;
+  uint8_t  color_flag;
+  uint8_t  white_king_sq;
+  uint8_t  black_king_sq;
+  uint8_t  white_bucket;
+  uint8_t  black_bucket;
+  uint16_t move;
+  uint8_t  mailbox[64];
+  uint64_t bitboards[12];
+} lazy_acc_state_t;
+
 typedef struct position {
   uint64_t bitboards[12];
   uint64_t occupancies[3];
@@ -120,6 +134,7 @@ typedef struct searchinfo {
   int16_t continuation_history[13][64][12][64];
   int16_t capture_history[12][13][64][64][2][2];
   int16_t pawn_history[2048][12][64];
+  lazy_acc_state_t lazy[MAX_PLY + 10];
   uint8_t depth;
   uint8_t seldepth;
   uint8_t stopped;
