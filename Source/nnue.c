@@ -498,8 +498,6 @@ int nnue_evaluate(thread_t *thread, position_t *pos, accumulator_t *accumulator)
 
   simd_t *layers = &thread->neurons;
 
-  memset(layers->l2_neurons, 0, sizeof(layers->l2_neurons));
-
   const float L1_NORMALISATION =
       (float)(1 << INPUT_SHIFT) / (float)(INPUT_QUANT * INPUT_QUANT * L1_QUANT);
 
@@ -554,55 +552,77 @@ int nnue_evaluate(thread_t *thread, position_t *pos, accumulator_t *accumulator)
 
 #if defined(USE_AVX512)
   {
-    const veci_t zero_vec = zero();
-    for (int base = 0; base < NNZ_MAX; base += I32_STRIDE) {
+    const veci_t    zero_vec  = zero();
+    const __m128i   increment = _mm_set1_epi16(16);
+    __m128i         base_lo   = _mm_setzero_si128();
+    __m128i         base_hi   = _mm_set1_epi16(8);
+    for (int i = 0; i < NNZ_MAX; i += I32_STRIDE) {
       uint16_t mask = (uint16_t)~_mm512_cmpeq_epi32_mask(
-          _mm512_loadu_si512((const veci_t *)&l1Packs[base]), zero_vec);
+          _mm512_loadu_si512((const veci_t *)&l1Packs[i]), zero_vec);
 
       uint8_t lo = (uint8_t)(mask & 0xFF);
-      __m128i lo_indices = _mm_add_epi16(
-          _mm_loadu_si128((const __m128i *)NNZ_TABLE[lo]),
-          _mm_set1_epi16((short)base));
-      _mm_storeu_si128((__m128i *)&nnz_indices[nnz_count], lo_indices);
+      _mm_storeu_si128((__m128i *)&nnz_indices[nnz_count],
+          _mm_add_epi16(_mm_loadu_si128((const __m128i *)NNZ_TABLE[lo]), base_lo));
       nnz_count += __builtin_popcount(lo);
 
       uint8_t hi = (uint8_t)(mask >> 8);
-      __m128i hi_indices = _mm_add_epi16(
-          _mm_loadu_si128((const __m128i *)NNZ_TABLE[hi]),
-          _mm_set1_epi16((short)(base + 8)));
-      _mm_storeu_si128((__m128i *)&nnz_indices[nnz_count], hi_indices);
+      _mm_storeu_si128((__m128i *)&nnz_indices[nnz_count],
+          _mm_add_epi16(_mm_loadu_si128((const __m128i *)NNZ_TABLE[hi]), base_hi));
       nnz_count += __builtin_popcount(hi);
+
+      base_lo = _mm_add_epi16(base_lo, increment);
+      base_hi = _mm_add_epi16(base_hi, increment);
     }
   }
 #elif defined(USE_AVX2)
   {
-    const veci_t zero_vec = zero();
-    for (int base = 0; base < NNZ_MAX; base += I32_STRIDE) {
+    const veci_t  zero_vec  = zero();
+    const __m128i increment = _mm_set1_epi16(8);
+    __m128i       base_vec  = _mm_setzero_si128();
+    for (int i = 0; i < NNZ_MAX; i += I32_STRIDE) {
       uint8_t byte = (uint8_t)(~_mm256_movemask_ps(_mm256_castsi256_ps(
           _mm256_cmpeq_epi32(
-              _mm256_loadu_si256((const veci_t *)&l1Packs[base]),
+              _mm256_loadu_si256((const veci_t *)&l1Packs[i]),
               zero_vec))));
-      __m128i indices = _mm_add_epi16(
-          _mm_loadu_si128((const __m128i *)NNZ_TABLE[byte]),
-          _mm_set1_epi16((short)base));
-      _mm_storeu_si128((__m128i *)&nnz_indices[nnz_count], indices);
+      _mm_storeu_si128((__m128i *)&nnz_indices[nnz_count],
+          _mm_add_epi16(_mm_loadu_si128((const __m128i *)NNZ_TABLE[byte]), base_vec));
       nnz_count += __builtin_popcount(byte);
+      base_vec = _mm_add_epi16(base_vec, increment);
     }
   }
 #endif
 
-  for (int n = 0; n < nnz_count; n++) {
-    const int pack_idx = nnz_indices[n];
-    const int l1       = pack_idx * INT8_PER_INT32;
-    for (int l2 = 0; l2 < L2_SIZE; l2 += sizeof(veci_t) / sizeof(int32_t)) {
-      veci_t u8 = set_epi32(l1Packs[pack_idx]);
-      veci_t i8 =
-          *((veci_t *)&nnue
-                .l1_weights[out_bucket][l1 * L2_SIZE + INT8_PER_INT32 * l2]);
-      *((veci_t *)&layers->l2_neurons[l2]) =
-          dpbusd_epi32(*((veci_t *)&layers->l2_neurons[l2]), u8, i8);
+  const int L2_VECS = L2_SIZE / I32_STRIDE;
+  veci_t regs[L2_VECS];
+  for (int r = 0; r < L2_VECS; r++) regs[r] = zero();
+
+  int n = 0;
+  for (; n + 1 < nnz_count; n += 2) {
+    const int pack0 = nnz_indices[n];
+    const int pack1 = nnz_indices[n + 1];
+    const int l1_0  = pack0 * INT8_PER_INT32;
+    const int l1_1  = pack1 * INT8_PER_INT32;
+    const veci_t u0 = set_epi32(l1Packs[pack0]);
+    const veci_t u1 = set_epi32(l1Packs[pack1]);
+    for (int r = 0; r < L2_VECS; r++) {
+      const veci_t i0 = *((veci_t *)&nnue.l1_weights[out_bucket][l1_0 * L2_SIZE + INT8_PER_INT32 * r * I32_STRIDE]);
+      const veci_t i1 = *((veci_t *)&nnue.l1_weights[out_bucket][l1_1 * L2_SIZE + INT8_PER_INT32 * r * I32_STRIDE]);
+      regs[r] = dpbusd_epi32x2(regs[r], u0, i0, u1, i1);
     }
   }
+  if (n < nnz_count) {
+    const int pack_idx = nnz_indices[n];
+    const int l1       = pack_idx * INT8_PER_INT32;
+    const veci_t u8    = set_epi32(l1Packs[pack_idx]);
+    for (int r = 0; r < L2_VECS; r++) {
+      const veci_t i8 = *((veci_t *)&nnue.l1_weights[out_bucket][l1 * L2_SIZE + INT8_PER_INT32 * r * I32_STRIDE]);
+      regs[r] = dpbusd_epi32(regs[r], u8, i8);
+    }
+  }
+
+  // Write accumulated results back to l2_neurons once
+  for (int r = 0; r < L2_VECS; r++)
+    *((veci_t *)&layers->l2_neurons[r * I32_STRIDE]) = regs[r];
 
   memcpy(layers->l3_neurons, nnue.l2_bias[out_bucket], sizeof(layers->l3_neurons));
 
@@ -654,6 +674,8 @@ int nnue_evaluate(thread_t *thread, position_t *pos, accumulator_t *accumulator)
 
   float result = nnue.l3_bias[out_bucket] + reduce_add_ps(result_sums);
 #else
+
+  memset(layers->l2_neurons, 0, sizeof(layers->l2_neurons));
 
   for (int l1 = 0; l1 < L1_SIZE / 2; l1++) {
     int16_t stmClipped1 = clamp((int)(stmAcc[l1]), 0, INPUT_QUANT);
