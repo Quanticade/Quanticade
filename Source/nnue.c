@@ -21,7 +21,7 @@ struct raw_net {
   float feature_bias[L1_SIZE];
   float l1_weights[OUTPUT_BUCKETS][L2_SIZE][L1_SIZE];
   float l1_bias[OUTPUT_BUCKETS][L2_SIZE];
-  float l2_weights[OUTPUT_BUCKETS][L3_SIZE][2*L2_SIZE];
+  float l2_weights[OUTPUT_BUCKETS][L3_SIZE][2 * L2_SIZE];
   float l2_bias[OUTPUT_BUCKETS][L3_SIZE];
   float l3_weights[OUTPUT_BUCKETS][L3_SIZE];
   float l3_bias[OUTPUT_BUCKETS];
@@ -31,7 +31,7 @@ struct raw_net net;
 
 const int INT8_PER_INT32 = sizeof(int) / sizeof(int8_t);
 
-#if defined(USE_SIMD) && (defined(USE_AVX2) || defined(USE_AVX512))
+#if defined(USE_SIMD)
 static uint16_t NNZ_TABLE[256][8];
 
 static void init_nnz_table(void) {
@@ -45,14 +45,10 @@ static void init_nnz_table(void) {
 }
 #endif
 
-uint8_t buckets[64] = {7,7,7,7,7,7,7,7,
-                       7,7,7,7,7,7,7,7,
-                      7,7,7,7,7,7,7,7,
-                      7,7,7,7,7,7,7,7,
-                      6,6,6,6,6,6,6,6,
-                      6,6,6,6,6,6,6,6,
-                      4,4,5,5,5,5,4,4,
-                      0,1,2,3,3,2,1,0};
+uint8_t buckets[64] = {7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+                       7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+                       6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+                       4, 4, 5, 5, 5, 5, 4, 4, 0, 1, 2, 3, 3, 2, 1, 0};
 
 #if !defined(_MSC_VER)
 INCBIN(EVAL, EVALFILE);
@@ -156,7 +152,7 @@ static inline void transpose(void) {
     nnue.feature_bias[l1] = round(net.feature_bias[l1] * INPUT_QUANT);
   }
   for (int b = 0; b < OUTPUT_BUCKETS; b++) {
-    for (int l2 = 0; l2 < 2*L2_SIZE; l2++) {
+    for (int l2 = 0; l2 < 2 * L2_SIZE; l2++) {
       for (int l3 = 0; l3 < L3_SIZE; l3++) {
         nnue.l2_weights[b][l2][l3] = net.l2_weights[b][l3][l2];
       }
@@ -246,7 +242,7 @@ void nnue_init(const char *nnue_file_name) {
       exit(1);
     }
   }
-#if defined(USE_SIMD) && (defined(USE_AVX2) || defined(USE_AVX512))
+#if defined(USE_SIMD)
   init_nnz_table();
 #endif
   transpose();
@@ -491,7 +487,8 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
   return (int16_t)(result * SCALE);
 }
 
-int nnue_evaluate(thread_t *thread, position_t *pos, accumulator_t *accumulator) {
+int nnue_evaluate(thread_t *thread, position_t *pos,
+                  accumulator_t *accumulator) {
   const uint8_t out_bucket = calculate_output_bucket(pos);
   const int16_t *stmAcc = accumulator->accumulator[pos->side];
   const int16_t *oppAcc = accumulator->accumulator[1 - pos->side];
@@ -502,177 +499,202 @@ int nnue_evaluate(thread_t *thread, position_t *pos, accumulator_t *accumulator)
       (float)(1 << INPUT_SHIFT) / (float)(INPUT_QUANT * INPUT_QUANT * L1_QUANT);
 
 #if defined(USE_SIMD)
-  const int FLOAT_VEC_SIZE = sizeof(veci_t) / sizeof(float);
+  // Stride constants derived from sizeof() work for all ISAs:
+  //   AVX2:   veci_t=256b → I16=16, I32=8, FLOAT=8   chunks=2
+  //   AVX512: veci_t=512b → I16=32, I32=16, FLOAT=16  chunks=1
+  //   NEON:   veci_t=128b → I16=8,  I32=4,  FLOAT=4   chunks=4
+  const int FLOAT_VEC_SIZE = sizeof(vecf_t) / sizeof(float);
   const int I16_VEC_SIZE = sizeof(veci_t) / sizeof(int16_t);
+  const int I32_STRIDE = sizeof(veci32_t) / sizeof(int32_t);
 
-  veci_t i16_zero = zero();
-  veci_t i16_quant = set_epi16((int16_t)INPUT_QUANT);
+  {
+    veci_t i16_zero = zero();
+    veci_t i16_quant = set_epi16((int16_t)INPUT_QUANT);
 
-  for (int l1 = 0; l1 < L1_SIZE / 2; l1 += 2 * I16_VEC_SIZE) {
-    // STM
-    veci_t clipped1 = clip_epi16(*((veci_t *)&stmAcc[l1]), i16_zero, i16_quant);
-    veci_t clipped2 =
-        min_epi16(*((veci_t *)&stmAcc[l1 + L1_SIZE / 2]), i16_quant);
-    veci_t shift = slli_epi16(clipped1, 16 - INPUT_SHIFT);
-    veci_t mul1 = mulhi_epi16(shift, clipped2);
+    for (int l1 = 0; l1 < L1_SIZE / 2; l1 += 2 * I16_VEC_SIZE) {
+      // STM
+      veci_t c1 = clip_epi16(*((veci_t *)&stmAcc[l1]), i16_zero, i16_quant);
+      veci_t c2 = min_epi16(*((veci_t *)&stmAcc[l1 + L1_SIZE / 2]), i16_quant);
+      veci_t mul1 = mulhi_epi16(slli_epi16(c1, 16 - INPUT_SHIFT), c2);
 
-    clipped1 = clip_epi16(*((veci_t *)&stmAcc[l1 + I16_VEC_SIZE]), i16_zero,
-                          i16_quant);
-    clipped2 = min_epi16(*((veci_t *)&stmAcc[l1 + I16_VEC_SIZE + L1_SIZE / 2]),
-                         i16_quant);
-    shift = slli_epi16(clipped1, 16 - INPUT_SHIFT);
-    veci_t mul2 = mulhi_epi16(shift, clipped2);
+      c1 = clip_epi16(*((veci_t *)&stmAcc[l1 + I16_VEC_SIZE]), i16_zero,
+                      i16_quant);
+      c2 = min_epi16(*((veci_t *)&stmAcc[l1 + I16_VEC_SIZE + L1_SIZE / 2]),
+                     i16_quant);
+      veci_t mul2 = mulhi_epi16(slli_epi16(c1, 16 - INPUT_SHIFT), c2);
 
-    veci_t u8s = packus_epi16(mul1, mul2);
-    vec_store_i((veci_t *)&layers->l1_neurons[l1], u8s);
+      vec_store_i((veci_t *)&layers->l1_neurons[l1], packus_epi16(mul1, mul2));
 
-    // NSTM
-    clipped1 = clip_epi16(*((veci_t *)&oppAcc[l1]), i16_zero, i16_quant);
-    clipped2 = min_epi16(*((veci_t *)&oppAcc[l1 + L1_SIZE / 2]), i16_quant);
-    shift = slli_epi16(clipped1, 16 - INPUT_SHIFT);
-    mul1 = mulhi_epi16(shift, clipped2);
+      // NSTM
+      c1 = clip_epi16(*((veci_t *)&oppAcc[l1]), i16_zero, i16_quant);
+      c2 = min_epi16(*((veci_t *)&oppAcc[l1 + L1_SIZE / 2]), i16_quant);
+      mul1 = mulhi_epi16(slli_epi16(c1, 16 - INPUT_SHIFT), c2);
 
-    clipped1 = clip_epi16(*((veci_t *)&oppAcc[l1 + I16_VEC_SIZE]), i16_zero,
-                          i16_quant);
-    clipped2 = min_epi16(*((veci_t *)&oppAcc[l1 + I16_VEC_SIZE + L1_SIZE / 2]),
-                         i16_quant);
-    shift = slli_epi16(clipped1, 16 - INPUT_SHIFT);
-    mul2 = mulhi_epi16(shift, clipped2);
+      c1 = clip_epi16(*((veci_t *)&oppAcc[l1 + I16_VEC_SIZE]), i16_zero,
+                      i16_quant);
+      c2 = min_epi16(*((veci_t *)&oppAcc[l1 + I16_VEC_SIZE + L1_SIZE / 2]),
+                     i16_quant);
+      mul2 = mulhi_epi16(slli_epi16(c1, 16 - INPUT_SHIFT), c2);
 
-    u8s = packus_epi16(mul1, mul2);
-    vec_store_i((veci_t *)&layers->l1_neurons[l1 + L1_SIZE / 2], u8s);
+      vec_store_i((veci_t *)&layers->l1_neurons[l1 + L1_SIZE / 2],
+                  packus_epi16(mul1, mul2));
+    }
   }
 
-  int *l1Packs = (int *)layers->l1_neurons;
-
-  const int NNZ_MAX    = L1_SIZE / INT8_PER_INT32;
-  const int I32_STRIDE = sizeof(veci_t) / sizeof(int32_t);
+  const int NNZ_MAX = L1_SIZE / INT8_PER_INT32;
+  const int32_t *l1Packs = (const int32_t *)layers->l1_neurons;
   uint16_t nnz_indices[NNZ_MAX + 8];
   int nnz_count = 0;
 
 #if defined(USE_AVX512)
   {
-    const veci_t    zero_vec  = zero();
-    const __m128i   increment = _mm_set1_epi16(16);
-    __m128i         base_lo   = _mm_setzero_si128();
-    __m128i         base_hi   = _mm_set1_epi16(8);
+    const veci_t zero_vec = zero();
+    const __m128i increment = _mm_set1_epi16(16);
+    __m128i base_lo = _mm_setzero_si128();
+    __m128i base_hi = _mm_set1_epi16(8);
     for (int i = 0; i < NNZ_MAX; i += I32_STRIDE) {
       uint16_t mask = (uint16_t)~_mm512_cmpeq_epi32_mask(
           _mm512_loadu_si512((const veci_t *)&l1Packs[i]), zero_vec);
-
       uint8_t lo = (uint8_t)(mask & 0xFF);
-      _mm_storeu_si128((__m128i *)&nnz_indices[nnz_count],
-          _mm_add_epi16(_mm_loadu_si128((const __m128i *)NNZ_TABLE[lo]), base_lo));
+      _mm_storeu_si128(
+          (__m128i *)&nnz_indices[nnz_count],
+          _mm_add_epi16(_mm_loadu_si128((const __m128i *)NNZ_TABLE[lo]),
+                        base_lo));
       nnz_count += __builtin_popcount(lo);
-
       uint8_t hi = (uint8_t)(mask >> 8);
-      _mm_storeu_si128((__m128i *)&nnz_indices[nnz_count],
-          _mm_add_epi16(_mm_loadu_si128((const __m128i *)NNZ_TABLE[hi]), base_hi));
+      _mm_storeu_si128(
+          (__m128i *)&nnz_indices[nnz_count],
+          _mm_add_epi16(_mm_loadu_si128((const __m128i *)NNZ_TABLE[hi]),
+                        base_hi));
       nnz_count += __builtin_popcount(hi);
-
       base_lo = _mm_add_epi16(base_lo, increment);
       base_hi = _mm_add_epi16(base_hi, increment);
     }
   }
 #elif defined(USE_AVX2)
   {
-    const veci_t  zero_vec  = zero();
+    const veci_t zero_vec = zero();
     const __m128i increment = _mm_set1_epi16(8);
-    __m128i       base_vec  = _mm_setzero_si128();
+    __m128i base_vec = _mm_setzero_si128();
     for (int i = 0; i < NNZ_MAX; i += I32_STRIDE) {
-      uint8_t byte = (uint8_t)(~_mm256_movemask_ps(_mm256_castsi256_ps(
-          _mm256_cmpeq_epi32(
-              _mm256_loadu_si256((const veci_t *)&l1Packs[i]),
-              zero_vec))));
-      _mm_storeu_si128((__m128i *)&nnz_indices[nnz_count],
-          _mm_add_epi16(_mm_loadu_si128((const __m128i *)NNZ_TABLE[byte]), base_vec));
+      uint8_t byte =
+          (uint8_t)(~_mm256_movemask_ps(_mm256_castsi256_ps(_mm256_cmpeq_epi32(
+              _mm256_loadu_si256((const veci_t *)&l1Packs[i]), zero_vec))));
+      _mm_storeu_si128(
+          (__m128i *)&nnz_indices[nnz_count],
+          _mm_add_epi16(_mm_loadu_si128((const __m128i *)NNZ_TABLE[byte]),
+                        base_vec));
       nnz_count += __builtin_popcount(byte);
       base_vec = _mm_add_epi16(base_vec, increment);
+    }
+  }
+#elif defined(USE_NEON)
+  {
+    const uint32x4_t posmask = {1, 2, 4, 8};
+    const uint16x8_t inc8 = vdupq_n_u16(8);
+    uint16x8_t base_v = vdupq_n_u16(0);
+    for (int i = 0; i < NNZ_MAX; i += 8) {
+      uint32x4_t chunk0 = vld1q_u32((const uint32_t *)&l1Packs[i]);
+      uint32_t lo = vaddvq_u32(vandq_u32(vtstq_u32(chunk0, chunk0), posmask));
+      uint32x4_t chunk1 = vld1q_u32((const uint32_t *)&l1Packs[i + 4]);
+      uint32_t hi = vaddvq_u32(vandq_u32(vtstq_u32(chunk1, chunk1), posmask));
+      uint8_t byte = (uint8_t)(lo | (hi << 4));
+      vst1q_u16(&nnz_indices[nnz_count],
+                vaddq_u16(vld1q_u16(NNZ_TABLE[byte]), base_v));
+      nnz_count += __builtin_popcount(byte);
+      base_v = vaddq_u16(base_v, inc8);
     }
   }
 #endif
 
   const int L2_VECS = L2_SIZE / I32_STRIDE;
-  veci_t regs[L2_VECS];
-  for (int r = 0; r < L2_VECS; r++) regs[r] = zero();
+  veci32_t regs[L2_VECS];
+  for (int r = 0; r < L2_VECS; r++)
+    regs[r] = zero_i32();
 
   int n = 0;
   for (; n + 1 < nnz_count; n += 2) {
-    const int pack0 = nnz_indices[n];
-    const int pack1 = nnz_indices[n + 1];
-    const int l1_0  = pack0 * INT8_PER_INT32;
-    const int l1_1  = pack1 * INT8_PER_INT32;
-    const veci_t u0 = set_epi32(l1Packs[pack0]);
-    const veci_t u1 = set_epi32(l1Packs[pack1]);
+    const int p0 = nnz_indices[n];
+    const int p1 = nnz_indices[n + 1];
+    const vecs8_t u0 = broadcast_pack(l1Packs[p0]);
+    const vecs8_t u1 = broadcast_pack(l1Packs[p1]);
+    const int o0 = p0 * INT8_PER_INT32 * L2_SIZE;
+    const int o1 = p1 * INT8_PER_INT32 * L2_SIZE;
     for (int r = 0; r < L2_VECS; r++) {
-      const veci_t i0 = *((veci_t *)&nnue.l1_weights[out_bucket][l1_0 * L2_SIZE + INT8_PER_INT32 * r * I32_STRIDE]);
-      const veci_t i1 = *((veci_t *)&nnue.l1_weights[out_bucket][l1_1 * L2_SIZE + INT8_PER_INT32 * r * I32_STRIDE]);
-      regs[r] = dpbusd_epi32x2(regs[r], u0, i0, u1, i1);
+      const vecs8_t w0 =
+          *((vecs8_t *)&nnue
+                .l1_weights[out_bucket][o0 + INT8_PER_INT32 * r * I32_STRIDE]);
+      const vecs8_t w1 =
+          *((vecs8_t *)&nnue
+                .l1_weights[out_bucket][o1 + INT8_PER_INT32 * r * I32_STRIDE]);
+      regs[r] = dpbusd_epi32x2(regs[r], u0, w0, u1, w1);
     }
   }
   if (n < nnz_count) {
-    const int pack_idx = nnz_indices[n];
-    const int l1       = pack_idx * INT8_PER_INT32;
-    const veci_t u8    = set_epi32(l1Packs[pack_idx]);
+    const int p0 = nnz_indices[n];
+    const vecs8_t u0 = broadcast_pack(l1Packs[p0]);
+    const int o0 = p0 * INT8_PER_INT32 * L2_SIZE;
     for (int r = 0; r < L2_VECS; r++) {
-      const veci_t i8 = *((veci_t *)&nnue.l1_weights[out_bucket][l1 * L2_SIZE + INT8_PER_INT32 * r * I32_STRIDE]);
-      regs[r] = dpbusd_epi32(regs[r], u8, i8);
+      const vecs8_t w0 =
+          *((vecs8_t *)&nnue
+                .l1_weights[out_bucket][o0 + INT8_PER_INT32 * r * I32_STRIDE]);
+      regs[r] = dpbusd_epi32(regs[r], u0, w0);
     }
   }
-
-  // Write accumulated results back to l2_neurons once
   for (int r = 0; r < L2_VECS; r++)
-    *((veci_t *)&layers->l2_neurons[r * I32_STRIDE]) = regs[r];
+    *((veci32_t *)&layers->l2_neurons[r * I32_STRIDE]) = regs[r];
 
-  memcpy(layers->l3_neurons, nnue.l2_bias[out_bucket], sizeof(layers->l3_neurons));
+  float result;
+  memcpy(layers->l3_neurons, nnue.l2_bias[out_bucket],
+         sizeof(layers->l3_neurons));
+  {
+    const vecf_t norm_ps = set_ps1(L1_NORMALISATION);
+    const vecf_t one_ps = set_ps1(1.0f);
+    const vecf_t zero_ps = set_ps1(0.0f);
 
-  vecf_t norm_ps = set_ps1(L1_NORMALISATION);
-  vecf_t one_ps = set_ps1(1.0f);
-  vecf_t zero_ps = set_ps1(0.0f);
-
-  for (int l2 = 0; l2 < L2_SIZE / FLOAT_VEC_SIZE; l2++) {
-    vecf_t converted =
-        cvtepi32_ps(*((veci_t *)&layers->l2_neurons[l2 * FLOAT_VEC_SIZE]));
-    vecf_t l2_result =
-        add_ps(mul_ps(converted, norm_ps),
-               *((vecf_t *)&nnue.l1_bias[out_bucket][l2 * FLOAT_VEC_SIZE]));
-    vecf_t l2_crelu = clip_ps(l2_result, one_ps, zero_ps);
-    vecf_t l2_csrelu = clip_ps(mul_ps(l2_result, l2_result), one_ps, zero_ps);
-    *((vecf_t *)&layers->l2_floats[l2 * FLOAT_VEC_SIZE]) = l2_crelu;
-    *((vecf_t *)&layers->l2_floats[l2 * FLOAT_VEC_SIZE + L2_SIZE]) = l2_csrelu;
-  }
-
-  for (int l2 = 0; l2 < 2*L2_SIZE; l2++) {
-    for (int l3 = 0; l3 < L3_SIZE / FLOAT_VEC_SIZE; l3++) {
-      *((vecf_t *)&layers->l3_neurons[l3 * FLOAT_VEC_SIZE]) = fmadd_ps(
-          set_ps1(layers->l2_floats[l2]),
-          *((vecf_t *)&nnue.l2_weights[out_bucket][l2][l3 * FLOAT_VEC_SIZE]),
-          *((vecf_t *)&layers->l3_neurons[l3 * FLOAT_VEC_SIZE]));
+    for (int l2 = 0; l2 < L2_SIZE / FLOAT_VEC_SIZE; l2++) {
+      vecf_t l2_result = add_ps(
+          mul_ps(cvtepi32_ps(
+                     *((veci32_t *)&layers->l2_neurons[l2 * FLOAT_VEC_SIZE])),
+                 norm_ps),
+          *((vecf_t *)&nnue.l1_bias[out_bucket][l2 * FLOAT_VEC_SIZE]));
+      *((vecf_t *)&layers->l2_floats[l2 * FLOAT_VEC_SIZE]) =
+          clip_ps(l2_result, one_ps, zero_ps);
+      *((vecf_t *)&layers->l2_floats[l2 * FLOAT_VEC_SIZE + L2_SIZE]) =
+          clip_ps(mul_ps(l2_result, l2_result), one_ps, zero_ps);
     }
-  }
 
-  const uint8_t chunks = 64 / sizeof(vecf_t);
-
-  vecf_t result_sums[chunks];
-  for (int i = 0; i < chunks; i++) {
-    result_sums[i] = zero_ps;
-  }
-
-  for (int l3 = 0; l3 < L3_SIZE / FLOAT_VEC_SIZE; l3 += chunks) {
-    for (int chunk = 0; chunk < chunks; chunk++) {
-      vecf_t l3_clipped =
-          clip_ps(*((vecf_t *)&layers->l3_neurons[(l3 + chunk) * FLOAT_VEC_SIZE]),
-                  one_ps, zero_ps);
-      vecf_t l3_activated = mul_ps(l3_clipped, l3_clipped);
-      result_sums[chunk] = fmadd_ps(
-          l3_activated,
-          *((vecf_t *)&nnue
-                .l3_weights[out_bucket][(l3 + chunk) * FLOAT_VEC_SIZE]),
-          result_sums[chunk]);
+    for (int l2 = 0; l2 < 2 * L2_SIZE; l2++) {
+      const vecf_t act = set_ps1(layers->l2_floats[l2]);
+      for (int l3 = 0; l3 < L3_SIZE / FLOAT_VEC_SIZE; l3++) {
+        *((vecf_t *)&layers->l3_neurons[l3 * FLOAT_VEC_SIZE]) = fmadd_ps(
+            act,
+            *((vecf_t *)&nnue.l2_weights[out_bucket][l2][l3 * FLOAT_VEC_SIZE]),
+            *((vecf_t *)&layers->l3_neurons[l3 * FLOAT_VEC_SIZE]));
+      }
     }
+
+    const int chunks = 64 / sizeof(vecf_t);
+    vecf_t result_sums[64 / sizeof(vecf_t)];
+    for (int i = 0; i < chunks; i++)
+      result_sums[i] = zero_ps;
+
+    for (int l3 = 0; l3 < L3_SIZE / FLOAT_VEC_SIZE; l3 += chunks) {
+      for (int c = 0; c < chunks; c++) {
+        vecf_t clipped =
+            clip_ps(*((vecf_t *)&layers->l3_neurons[(l3 + c) * FLOAT_VEC_SIZE]),
+                    one_ps, zero_ps);
+        result_sums[c] =
+            fmadd_ps(mul_ps(clipped, clipped),
+                     *((vecf_t *)&nnue
+                           .l3_weights[out_bucket][(l3 + c) * FLOAT_VEC_SIZE]),
+                     result_sums[c]);
+      }
+    }
+
+    result = nnue.l3_bias[out_bucket] + reduce_add_ps(result_sums);
   }
 
-  float result = nnue.l3_bias[out_bucket] + reduce_add_ps(result_sums);
 #else
 
   memset(layers->l2_neurons, 0, sizeof(layers->l2_neurons));
@@ -686,17 +708,19 @@ int nnue_evaluate(thread_t *thread, position_t *pos, accumulator_t *accumulator)
     int16_t oppClipped1 = clamp((int)(oppAcc[l1]), 0, INPUT_QUANT);
     int16_t oppClipped2 =
         clamp((int)(oppAcc[l1 + L1_SIZE / 2]), 0, INPUT_QUANT);
-    layers->l1_neurons[l1 + L1_SIZE / 2] = (oppClipped1 * oppClipped2) >> INPUT_SHIFT;
+    layers->l1_neurons[l1 + L1_SIZE / 2] =
+        (oppClipped1 * oppClipped2) >> INPUT_SHIFT;
   }
 
   for (int l1 = 0; l1 < L1_SIZE; l1++) {
     for (int l2 = 0; l2 < L2_SIZE; l2++) {
-      layers->l2_neurons[l2] +=
-          layers->l1_neurons[l1] * nnue.l1_weights[out_bucket][l1 * L2_SIZE + l2];
+      layers->l2_neurons[l2] += layers->l1_neurons[l1] *
+                                nnue.l1_weights[out_bucket][l1 * L2_SIZE + l2];
     }
   }
 
-  memcpy(layers->l3_neurons, nnue.l2_bias[out_bucket], sizeof(layers->l3_neurons));
+  memcpy(layers->l3_neurons, nnue.l2_bias[out_bucket],
+         sizeof(layers->l3_neurons));
 
   for (int l2 = 0; l2 < L2_SIZE; l2++) {
     float l2Result = (float)(layers->l2_neurons[l2]) * L1_NORMALISATION +
@@ -709,7 +733,8 @@ int nnue_evaluate(thread_t *thread, position_t *pos, accumulator_t *accumulator)
     }
 
     for (int l3 = 0; l3 < L3_SIZE; l3++) {
-      layers->l3_neurons[l3] += csrelu * nnue.l2_weights[out_bucket][l2 + L2_SIZE][l3];
+      layers->l3_neurons[l3] +=
+          csrelu * nnue.l2_weights[out_bucket][l2 + L2_SIZE][l3];
     }
   }
 

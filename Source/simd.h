@@ -30,7 +30,7 @@ static inline veci_t mulhi_epi16(veci_t shift, veci_t vector) {
 static inline veci_t packus_epi16(veci_t vec1, veci_t vec2) {
   veci_t temp = _mm512_packus_epi16(vec1, vec2);
   return _mm512_permutexvar_epi64(_mm512_setr_epi64(0, 2, 4, 6, 1, 3, 5, 7),
-                                    temp);
+                                  temp);
 }
 static inline void vec_store_i(veci_t *scalar, veci_t integer) {
   _mm512_store_si512(scalar, integer);
@@ -38,21 +38,25 @@ static inline void vec_store_i(veci_t *scalar, veci_t integer) {
 #if defined(__AVX512VNNI__)
 static inline veci_t dpbusd_epi32(veci_t sum, veci_t u, veci_t i) {
   // On Zen4 VNNI is slower so lets disable it by default
-  //return _mm512_dpbusd_epi32(sum, u, i);
-  veci_t sum32 = _mm512_madd_epi16(_mm512_maddubs_epi16(u, i), _mm512_set1_epi16(1));
+  // return _mm512_dpbusd_epi32(sum, u, i);
+  veci_t sum32 =
+      _mm512_madd_epi16(_mm512_maddubs_epi16(u, i), _mm512_set1_epi16(1));
   return _mm512_add_epi32(sum32, sum);
 }
 #else
 static inline veci_t dpbusd_epi32(veci_t sum, veci_t u, veci_t i) {
-  veci_t sum32 = _mm512_madd_epi16(_mm512_maddubs_epi16(u, i), _mm512_set1_epi16(1));
+  veci_t sum32 =
+      _mm512_madd_epi16(_mm512_maddubs_epi16(u, i), _mm512_set1_epi16(1));
   return _mm512_add_epi32(sum32, sum);
 }
 #endif
 
-static inline veci_t dpbusd_epi32x2(veci_t sum, veci_t u0, veci_t i0, veci_t u1, veci_t i1) {
-  veci_t p0    = _mm512_maddubs_epi16(u0, i0);
-  veci_t p1    = _mm512_maddubs_epi16(u1, i1);
-  veci_t sum32 = _mm512_madd_epi16(_mm512_add_epi16(p0, p1), _mm512_set1_epi16(1));
+static inline veci_t dpbusd_epi32x2(veci_t sum, veci_t u0, veci_t i0, veci_t u1,
+                                    veci_t i1) {
+  veci_t p0 = _mm512_maddubs_epi16(u0, i0);
+  veci_t p1 = _mm512_maddubs_epi16(u1, i1);
+  veci_t sum32 =
+      _mm512_madd_epi16(_mm512_add_epi16(p0, p1), _mm512_set1_epi16(1));
   return _mm512_add_epi32(sum32, sum);
 }
 static inline veci_t add_epi32(veci_t v1, veci_t v2) {
@@ -87,6 +91,10 @@ static inline vecf_t fmadd_ps(vecf_t a, vecf_t b, vecf_t c) {
 static inline float reduce_add_ps(vecf_t *v) {
   return _mm512_reduce_add_ps(v[0]);
 }
+typedef veci_t veci32_t;
+typedef veci_t vecs8_t;
+static inline veci32_t zero_i32(void) { return _mm512_setzero_si512(); }
+static inline vecs8_t broadcast_pack(int32_t p) { return _mm512_set1_epi32(p); }
 
 #elif defined(USE_AVX2)
 typedef __m256i veci_t;
@@ -118,10 +126,12 @@ static inline veci_t dpbusd_epi32(veci_t sum, veci_t u, veci_t i) {
   return _mm256_add_epi32(sum, sum32);
 }
 
-static inline veci_t dpbusd_epi32x2(veci_t sum, veci_t u0, veci_t i0, veci_t u1, veci_t i1) {
-  veci_t p0    = _mm256_maddubs_epi16(u0, i0);
-  veci_t p1    = _mm256_maddubs_epi16(u1, i1);
-  veci_t sum32 = _mm256_madd_epi16(_mm256_add_epi16(p0, p1), _mm256_set1_epi16(1));
+static inline veci_t dpbusd_epi32x2(veci_t sum, veci_t u0, veci_t i0, veci_t u1,
+                                    veci_t i1) {
+  veci_t p0 = _mm256_maddubs_epi16(u0, i0);
+  veci_t p1 = _mm256_maddubs_epi16(u1, i1);
+  veci_t sum32 =
+      _mm256_madd_epi16(_mm256_add_epi16(p0, p1), _mm256_set1_epi16(1));
   return _mm256_add_epi32(sum, sum32);
 }
 static inline veci_t add_epi32(veci_t v1, veci_t v2) {
@@ -163,41 +173,81 @@ static inline float reduce_add_ps(vecf_t *v) {
 
   return ((float *)&sum64)[0] + ((float *)&sum64)[1];
 }
+typedef veci_t veci32_t;
+typedef veci_t vecs8_t;
+static inline veci32_t zero_i32(void) { return _mm256_setzero_si256(); }
+static inline vecs8_t broadcast_pack(int32_t p) { return _mm256_set1_epi32(p); }
 
 #elif defined(USE_NEON)
-typedef int16x8_t vepi16;
-typedef int32x4_t vepi32;
+typedef int16x8_t veci_t;
+typedef int32x4_t veci32_t;
+typedef int8x16_t vecs8_t;
+typedef float32x4_t vecf_t;
 
-static inline vepi16 zero_epi16(void) { return vdupq_n_s16(0); }
-static inline vepi32 zero_epi32(void) { return vdupq_n_s32(0); }
-static inline vepi16 load_epi16(const int16_t *memory_address) {
-  return vld1q_s16((const int16_t *)memory_address);
+static inline veci_t zero(void) { return vdupq_n_s16(0); }
+static inline veci32_t zero_i32(void) { return vdupq_n_s32(0); }
+static inline veci_t load(const int16_t *p) { return vld1q_s16(p); }
+static inline veci_t set_epi16(int n) { return vdupq_n_s16((int16_t)n); }
+static inline vecs8_t broadcast_pack(int32_t p) {
+  return vreinterpretq_s8_u32(vdupq_n_u32((uint32_t)p));
 }
-static inline vepi32 load_epi32(const int32_t *memory_address) {
-  return vld1q_s32((const int32_t *)memory_address);
+static inline veci_t min_epi16(veci_t a, veci_t b) { return vminq_s16(a, b); }
+static inline veci_t clip_epi16(veci_t v, veci_t z, veci_t q) {
+  return vminq_s16(vmaxq_s16(v, z), q);
 }
-static inline vepi16 load_epi16_broadcast(int num) { return vdupq_n_s16(num); }
-static inline vepi32 load_epi32_broadcast(int num) { return vdupq_n_s32(num); }
-// static inline void store_epi16(void *memory_address, vepi16 vector) {
-// _mm256_store_si256(memory_address, vector); }
-static inline vepi32 add_epi32(vepi32 v1, vepi32 v2) {
-  return vaddq_s32(v1, v2);
+
+#define slli_epi16(v, n) vshlq_n_s16((v), (n))
+static inline veci_t mulhi_epi16(veci_t a, veci_t b) {
+  int32x4_t lo = vmull_s16(vget_low_s16(a), vget_low_s16(b));
+  int32x4_t hi = vmull_high_s16(a, b);
+  return vcombine_s16(vshrn_n_s32(lo, 16), vshrn_n_s32(hi, 16));
 }
-static inline vepi16 multiply_epi16(vepi16 v1, vepi16 v2) {
-  return vmulq_s16(v1, v2);
+static inline veci_t packus_epi16(veci_t a, veci_t b) {
+  return vreinterpretq_s16_u8(vcombine_u8(vqmovun_s16(a), vqmovun_s16(b)));
 }
-static inline vepi32 multiply_add_epi16(vepi16 v1, vepi16 v2) {
-  const vepi16 low = vmull_low_s16(v1, v2);
-  const vepi32 high = vmull_high_s16(v1, v2);
-  return vpaddq_s32(low, high);
+static inline void vec_store_i(veci_t *dst, veci_t v) {
+  vst1q_s16((int16_t *)dst, v);
 }
-static inline vepi16 clip(vepi16 vector, int l1q) {
-  return vminq_s16(vmaxq_s16(vector, zero_epi16()), load_epi16_broadcast(l1q));
+
+#if defined(__ARM_FEATURE_DOTPROD)
+static inline veci32_t dpbusd_epi32(veci32_t sum, vecs8_t u, vecs8_t w) {
+  return vdotq_s32(sum, u, w);
 }
-static inline int reduce_add_epi32(vepi32 v) {
-  int32x2_t sum1 = vpadd_s32(vget_low_s32(v), vget_high_s32(v));
-  int32x2_t sum2 = vpadd_s32(sum1, sum1);
-  return vget_lane_s32(sum2, 0);
+static inline veci32_t dpbusd_epi32x2(veci32_t sum, vecs8_t u0, vecs8_t w0,
+                                      vecs8_t u1, vecs8_t w1) {
+  return vdotq_s32(vdotq_s32(sum, u0, w0), u1, w1);
+}
+#else
+static inline veci32_t dpbusd_epi32(veci32_t sum, vecs8_t u, vecs8_t w) {
+  int16x8_t p0 = vmull_s8(vget_low_s8(u), vget_low_s8(w));
+  int16x8_t p1 = vmull_high_s8(u, w);
+  return vpadalq_s16(sum, vpaddq_s16(p0, p1));
+}
+static inline veci32_t dpbusd_epi32x2(veci32_t sum, vecs8_t u0, vecs8_t w0,
+                                      vecs8_t u1, vecs8_t w1) {
+  int16x8_t p0 = vmull_s8(vget_low_s8(u0), vget_low_s8(w0));
+  int16x8_t p1 = vmull_high_s8(u0, w0);
+  int16x8_t p2 = vmull_s8(vget_low_s8(u1), vget_low_s8(w1));
+  int16x8_t p3 = vmull_high_s8(u1, w1);
+  return vpadalq_s16(sum, vaddq_s16(vpaddq_s16(p0, p1), vpaddq_s16(p2, p3)));
+}
+#endif
+
+static inline vecf_t set_ps1(float n) { return vdupq_n_f32(n); }
+static inline vecf_t add_ps(vecf_t a, vecf_t b) { return vaddq_f32(a, b); }
+static inline vecf_t mul_ps(vecf_t a, vecf_t b) { return vmulq_f32(a, b); }
+static inline vecf_t fmadd_ps(vecf_t a, vecf_t b, vecf_t c) {
+  return vmlaq_f32(c, a, b);
+}
+static inline vecf_t clip_ps(vecf_t v, vecf_t mx, vecf_t mn) {
+  return vmaxq_f32(vminq_f32(v, mx), mn);
+}
+static inline vecf_t cvtepi32_ps(veci32_t v) { return vcvtq_f32_s32(v); }
+
+static inline float reduce_add_ps(vecf_t *v) {
+  vecf_t sum = vaddq_f32(vaddq_f32(v[0], v[1]), vaddq_f32(v[2], v[3]));
+  float32x2_t s = vadd_f32(vget_low_f32(sum), vget_high_f32(sum));
+  return vget_lane_f32(vpadd_f32(s, s), 0);
 }
 
 #endif

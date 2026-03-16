@@ -9,7 +9,7 @@ NATIVE       = -march=native
 AVX2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi
 BMI2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi -mbmi2
 AVX512FLAGS  = -DUSE_AVX512 -DUSE_SIMD -mavx512f -mavx512bw
-NEONFLAGS    = -DU#SE_NEON -DUSE_SIMD -flax-vector-conversions
+NEONFLAGS    = -DUSE_NEON -DUSE_SIMD -flax-vector-conversions
 
 .DEFAULT_GOAL := all
 
