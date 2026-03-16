@@ -883,10 +883,10 @@ accumulator_make_move(accumulator_t *accumulator,
                       accumulator_t *prev_accumulator,
                       uint8_t white_king_square, uint8_t black_king_square,
                       uint8_t white_bucket, uint8_t black_bucket, uint8_t side,
-                      int move, uint8_t *mailbox, uint8_t color_flag) {
+                      int move, uint8_t moving_piece, uint8_t captured_piece,
+                      uint8_t color_flag) {
   int from = get_move_source(move);
   int to = get_move_target(move);
-  int moving_piece = mailbox[from];
   int promoted_piece = get_move_promoted(!side, move);
   int capture = get_move_capture(move);
   int enpass = get_move_enpassant(move);
@@ -895,7 +895,6 @@ accumulator_make_move(accumulator_t *accumulator,
   if (promoted_piece) {
     uint8_t pawn = side == 0 ? p : P;
     if (capture) {
-      uint8_t captured_piece = mailbox[to];
       accumulator_addsubsub(accumulator, prev_accumulator, white_king_square,
                             black_king_square, white_bucket, black_bucket, pawn,
                             captured_piece, promoted_piece, from, to, to,
@@ -909,7 +908,6 @@ accumulator_make_move(accumulator_t *accumulator,
 
   else if (enpass) {
     uint8_t remove_square = to + ((side == white) ? -8 : 8);
-    uint8_t captured_piece = mailbox[remove_square];
     accumulator_addsubsub(accumulator, prev_accumulator, white_king_square,
                           black_king_square, white_bucket, black_bucket,
                           captured_piece, moving_piece, moving_piece,
@@ -917,7 +915,6 @@ accumulator_make_move(accumulator_t *accumulator,
   }
 
   else if (capture) {
-    uint8_t captured_piece = mailbox[to];
     accumulator_addsubsub(accumulator, prev_accumulator, white_king_square,
                           black_king_square, white_bucket, black_bucket,
                           captured_piece, moving_piece, moving_piece, to, from,
@@ -991,7 +988,7 @@ void apply_accumulator(thread_t *thread, int ply) {
                         &thread->accumulator[ply - 1],
                         s->white_king_sq, s->black_king_sq,
                         s->white_bucket,  s->black_bucket,
-                        s->side, s->move, s->mailbox,
+                        s->side, s->move, s->moving_piece, s->captured_piece,
                         s->needs_refresh ? s->color_flag : both);
 
   s->dirty = 0;
@@ -1006,6 +1003,9 @@ void null_move_copy_accumulator(thread_t *thread, int src_ply, int dst_ply) {
 void update_nnue(position_t *pos, thread_t *thread, uint8_t mailbox_copy[64],
                  uint16_t move) {
   lazy_acc_state_t *state = &thread->lazy[pos->ply];
+  const int from = get_move_source(move);
+  const int to   = get_move_target(move);
+
   state->dirty         = 1;
   state->move          = move;
   state->side          = pos->side;
@@ -1013,11 +1013,19 @@ void update_nnue(position_t *pos, thread_t *thread, uint8_t mailbox_copy[64],
   state->black_king_sq = get_lsb(pos->bitboards[k]);
   state->white_bucket  = get_king_bucket(white, state->white_king_sq);
   state->black_bucket  = get_king_bucket(black, state->black_king_sq);
+  state->moving_piece  = mailbox_copy[from];
+
+  if (get_move_enpassant(move)) {
+    const int ep_sq = to + ((pos->side == white) ? -8 : 8);
+    state->captured_piece = mailbox_copy[ep_sq];
+  } else {
+    state->captured_piece = mailbox_copy[to];
+  }
+
   state->needs_refresh = need_refresh(mailbox_copy, move);
   state->color_flag    = state->needs_refresh
                            ? (pos->side == black ? black : white)
                            : both;
-  memcpy(state->mailbox, mailbox_copy, 64);
   if (state->needs_refresh)
     memcpy(state->bitboards, pos->bitboards, 12 * sizeof(uint64_t));
 }

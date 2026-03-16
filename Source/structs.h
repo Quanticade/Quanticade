@@ -88,8 +88,9 @@ typedef struct lazy_acc_state {
   uint8_t  black_king_sq;
   uint8_t  white_bucket;
   uint8_t  black_bucket;
+  uint8_t  moving_piece;
+  uint8_t  captured_piece;
   uint16_t move;
-  uint8_t  mailbox[64];
   uint64_t bitboards[12];
 } lazy_acc_state_t;
 
