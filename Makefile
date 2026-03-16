@@ -10,6 +10,7 @@ AVX2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi
 BMI2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi -mbmi2
 AVX512FLAGS  = -DUSE_AVX512 -DUSE_SIMD -mavx512f -mavx512bw
 NEONFLAGS    = -DUSE_NEON -DUSE_SIMD -flax-vector-conversions
+NEON_DOTPRODFLAGS    = $(NEONFLAGS) -DUSE_NEON_DOTPROD
 
 .DEFAULT_GOAL := all
 
@@ -79,7 +80,12 @@ ifeq ($(ARCH_DETECTED),)
 	endif
 endif
 ifeq ($(ARCH_DETECTED),)
-	ifneq ($(findstring __aarch64__, $(PROPERTIES)),)
+	ifneq ($(findstring __ARM_FEATURE_DOTPROD, $(PROPERTIES)),)
+		ARCH_DETECTED = NEON_DOTPROD
+	endif
+endif
+ifeq ($(ARCH_DETECTED),)
+	ifneq ($(findstring __ARM_NEON, $(PROPERTIES)),)
 		ARCH_DETECTED = NEON
 	endif
 endif
@@ -96,6 +102,9 @@ else
 	endif
 	ifeq ($(ARCH_DETECTED), AVX2)
 		CFLAGS += $(AVX2FLAGS)
+	endif
+	ifeq ($(ARCH_DETECTED), NEON_DOTPROD)
+		CFLAGS += $(NEON_DOTPRODFLAGS)
 	endif
 	ifeq ($(ARCH_DETECTED), NEON)
 		CFLAGS += $(NEONFLAGS)
@@ -114,6 +123,9 @@ ifeq ($(build), native)
 	endif
 	ifeq ($(ARCH_DETECTED), AVX2)
 		CFLAGS += $(AVX2FLAGS)
+	endif
+	ifeq ($(ARCH_DETECTED), NEON_DOTPROD)
+		CFLAGS += $(NEON_DOTPRODFLAGS)
 	endif
 	ifeq ($(ARCH_DETECTED), NEON)
 		CFLAGS += $(NEONFLAGS)
@@ -162,6 +174,9 @@ ifeq ($(build), debug)
 	endif
 	ifeq ($(ARCH_DETECTED), AVX2)
 		CFLAGS += $(AVX2FLAGS)
+	endif
+	ifeq ($(ARCH_DETECTED), NEON_DOTPROD)
+		CFLAGS += $(NEON_DOTPRODFLAGS)
 	endif
 	ifeq ($(ARCH_DETECTED), NEON)
 		CFLAGS += $(NEONFLAGS)
