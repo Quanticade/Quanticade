@@ -9,6 +9,7 @@ NATIVE       = -march=native
 AVX2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi
 BMI2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi -mbmi2
 AVX512FLAGS  = -DUSE_AVX512 -DUSE_SIMD -mavx512f -mavx512bw
+AVX512ICLFLAGS  = $(AVX512FLAGS) -DUSE_AVX512ICL -mavx512cd -mavx512vl -mavx512dq -mavx512ifma -mavx512vbmi -mavx512vbmi2 -mavx512vpopcntdq -mavx512bitalg -mavx512vnni -mvpclmulqdq -mgfni -mvaes
 NEONFLAGS    = -DUSE_NEON -DUSE_SIMD -flax-vector-conversions
 NEON_DOTPRODFLAGS    = $(NEONFLAGS) -DUSE_NEON_DOTPROD
 
@@ -64,9 +65,15 @@ endif
 
 ARCH_DETECTED =
 PROPERTIES = $(shell echo | $(CC) -march=native -E -dM -)
-ifneq ($(findstring __AVX512F__, $(PROPERTIES)),)
-	ifneq ($(findstring __AVX512BW__, $(PROPERTIES)),)
-		ARCH_DETECTED = AVX512
+# All CPUs that support VBMI2 also support the rest of the icelake extensions
+ifneq ($(findstring __AVX512VBMI2__, $(PROPERTIES)),)
+	ARCH_DETECTED = AVX512ICL
+endif
+ifeq ($(ARCH_DETECTED),)
+	ifneq ($(findstring __AVX512F__, $(PROPERTIES)),)
+		ifneq ($(findstring __AVX512BW__, $(PROPERTIES)),)
+			ARCH_DETECTED = AVX512
+		endif
 	endif
 endif
 ifeq ($(ARCH_DETECTED),)
@@ -94,6 +101,9 @@ endif
 ifdef build
 	NATIVE =
 else
+	ifeq ($(ARCH_DETECTED), AVX512ICL)
+		CFLAGS += $(AVX512ICLFLAGS)
+	endif
 	ifeq ($(ARCH_DETECTED), AVX512)
 		CFLAGS += $(AVX512FLAGS)
 	endif
@@ -115,6 +125,9 @@ endif
 ifeq ($(build), native)
 	NATIVE     = -march=native
 	ARCH       = -x86-64-native
+	ifeq ($(ARCH_DETECTED), AVX512ICL)
+		CFLAGS += $(AVX512ICLFLAGS)
+	endif
 	ifeq ($(ARCH_DETECTED), AVX512)
 		CFLAGS += $(AVX512FLAGS)
 	endif
@@ -157,15 +170,24 @@ ifeq ($(build), x86-64-bmi2)
 endif
 
 ifeq ($(build), x86-64-avx512)
-	NATIVE    = -march=x86-64-v4 -mtune=znver4
+	NATIVE    = -march=x86-64-v4 -mtune=cooperlake
 	ARCH      = -x86-64-avx512
 	CFLAGS += $(AVX512FLAGS)
+endif
+
+ifeq ($(build), x86-64-avx512icl)
+	NATIVE    = -march=icelake-client -mtune=znver4
+	ARCH      = -x86-64-avx512icl
+	CFLAGS += $(AVX512ICLFLAGS)
 endif
 
 ifeq ($(build), debug)
 	CFLAGS = -O3 -g3 -fno-omit-frame-pointer -std=gnu++2a
 	NATIVE   = -msse -msse3 -mpopcnt
 	FLAGS    = -lpthread -lstdc++
+	ifeq ($(ARCH_DETECTED), AVX512ICL)
+		CFLAGS += $(AVX512ICLFLAGS)
+	endif
 	ifeq ($(ARCH_DETECTED), AVX512)
 		CFLAGS += $(AVX512FLAGS)
 	endif
