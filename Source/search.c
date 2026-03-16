@@ -832,7 +832,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     // preserve board state
     position_t pos_copy = *pos;
 
-    thread->accumulator[pos_copy.ply + 1] = thread->accumulator[pos_copy.ply];
+    null_move_copy_accumulator(thread, pos_copy.ply, pos_copy.ply + 1);
 
     // increment ply
     pos_copy.ply++;

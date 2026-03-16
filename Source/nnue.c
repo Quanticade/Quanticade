@@ -489,6 +489,7 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
 
 int nnue_evaluate(thread_t *thread, position_t *pos,
                   accumulator_t *accumulator) {
+  apply_accumulator(thread, pos->ply);
   const uint8_t out_bucket = calculate_output_bucket(pos);
   const int16_t *stmAcc = accumulator->accumulator[pos->side];
   const int16_t *oppAcc = accumulator->accumulator[1 - pos->side];
@@ -783,6 +784,11 @@ accumulator_addsub(accumulator_t *accumulator, accumulator_t *prev_accumulator,
   size_t white_idx_to = get_idx(white, piece2, to2, white_king_square, 0, 0);
   size_t black_idx_to = get_idx(black, piece2, to2, black_king_square, 0, 0);
 
+  __builtin_prefetch(&nnue.feature_weights[white_bucket][white_idx_from][0], 0, 1);
+__builtin_prefetch(&nnue.feature_weights[white_bucket][white_idx_to][0],   0, 1);
+__builtin_prefetch(&nnue.feature_weights[black_bucket][black_idx_from][0], 0, 1);
+__builtin_prefetch(&nnue.feature_weights[black_bucket][black_idx_to][0],   0, 1);
+
   for (int i = 0; i < L1_SIZE; ++i) {
     if (color_flag == 0 || color_flag == 2) {
       accumulator->accumulator[white][i] =
@@ -964,30 +970,54 @@ accumulator_make_move(accumulator_t *accumulator,
   }
 }
 
+void apply_accumulator(thread_t *thread, int ply) {
+  if (ply == 0 || !thread->lazy[ply].dirty)
+    return;
+
+  /* ensure ply-1 is ready before we read it as prev_accumulator */
+  apply_accumulator(thread, ply - 1);
+
+  lazy_acc_state_t *s = &thread->lazy[ply];
+
+  if (s->needs_refresh) {
+    /* rebuild a minimal position so refresh_accumulator can do its job */
+    position_t tmp;
+    tmp.side = s->side;
+    memcpy(tmp.bitboards, s->bitboards, 12 * sizeof(uint64_t));
+    refresh_accumulator(thread, &tmp, &thread->accumulator[ply]);
+  }
+
+  accumulator_make_move(&thread->accumulator[ply],
+                        &thread->accumulator[ply - 1],
+                        s->white_king_sq, s->black_king_sq,
+                        s->white_bucket,  s->black_bucket,
+                        s->side, s->move, s->mailbox,
+                        s->needs_refresh ? s->color_flag : both);
+
+  s->dirty = 0;
+}
+
+void null_move_copy_accumulator(thread_t *thread, int src_ply, int dst_ply) {
+  apply_accumulator(thread, src_ply);
+  thread->accumulator[dst_ply] = thread->accumulator[src_ply];
+  thread->lazy[dst_ply].dirty  = 0;
+}
+
 void update_nnue(position_t *pos, thread_t *thread, uint8_t mailbox_copy[64],
                  uint16_t move) {
-  uint8_t white_king_square = get_lsb(pos->bitboards[K]);
-  uint8_t black_king_square = get_lsb(pos->bitboards[k]);
-  uint8_t white_bucket = get_king_bucket(white, white_king_square);
-  uint8_t black_bucket = get_king_bucket(black, black_king_square);
-  if (need_refresh(mailbox_copy, move)) {
-    if (pos->side == black) {
-      refresh_accumulator(thread, pos, &thread->accumulator[pos->ply]);
-      accumulator_make_move(&thread->accumulator[pos->ply],
-                            &thread->accumulator[pos->ply - 1],
-                            white_king_square, black_king_square, white_bucket,
-                            black_bucket, pos->side, move, mailbox_copy, black);
-    } else if (pos->side == white) {
-      refresh_accumulator(thread, pos, &thread->accumulator[pos->ply]);
-      accumulator_make_move(&thread->accumulator[pos->ply],
-                            &thread->accumulator[pos->ply - 1],
-                            white_king_square, black_king_square, white_bucket,
-                            black_bucket, pos->side, move, mailbox_copy, white);
-    }
-  } else {
-    accumulator_make_move(&thread->accumulator[pos->ply],
-                          &thread->accumulator[pos->ply - 1], white_king_square,
-                          black_king_square, white_bucket, black_bucket,
-                          pos->side, move, mailbox_copy, both);
-  }
+  lazy_acc_state_t *state = &thread->lazy[pos->ply];
+  state->dirty         = 1;
+  state->move          = move;
+  state->side          = pos->side;
+  state->white_king_sq = get_lsb(pos->bitboards[K]);
+  state->black_king_sq = get_lsb(pos->bitboards[k]);
+  state->white_bucket  = get_king_bucket(white, state->white_king_sq);
+  state->black_bucket  = get_king_bucket(black, state->black_king_sq);
+  state->needs_refresh = need_refresh(mailbox_copy, move);
+  state->color_flag    = state->needs_refresh
+                           ? (pos->side == black ? black : white)
+                           : both;
+  memcpy(state->mailbox, mailbox_copy, 64);
+  if (state->needs_refresh)
+    memcpy(state->bitboards, pos->bitboards, 12 * sizeof(uint64_t));
 }
