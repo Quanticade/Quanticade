@@ -9,6 +9,7 @@
 #include "nnue.h"
 #include "pyrrhic/tbprobe.h"
 #include "see.h"
+#include "stats.h"
 #include "structs.h"
 #include "syzygy.h"
 #include "threads.h"
@@ -703,6 +704,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
 
   // is king in check
   uint8_t in_check = stm_in_check(pos);
+  ss->check = in_check;
 
   // recursion escape condition
   if (depth <= 0) {
@@ -731,7 +733,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       int16_t bonus =
           MIN(QUIET_HISTORY_MAX_TT,
               (QUIET_HISTORY_TT_FACTOR * depth - QUIET_HISTORY_TT_BASE));
-      update_quiet_history(thread, pos, ss, tt_move, bonus);
+      update_quiet_history(thread, ss, pos->side, tt_move, bonus);
     }
     return tt_score;
   }
@@ -785,6 +787,11 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   if (check_time(thread)) {
     stop_threads(thread, thread_count);
     return 0;
+  }
+
+  if (!ss->excluded_move && !in_check && (ss-1)->piece != NO_PIECE && !get_move_capture((ss-1)->move) && !(ss-1)->check && pos->ply > 1) {
+    int bonus = clamp(-(int)(ss->static_eval + (ss - 1)->static_eval), -213, 175) + 95;
+    update_quiet_history(thread, ss-1, ~pos->side, (ss-1)->move, bonus * 10);
   }
 
   if (!root_node && !in_check && !ss->excluded_move) {

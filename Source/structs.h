@@ -185,6 +185,7 @@ typedef struct searchstack {
   uint8_t piece;
   uint8_t null_move;
   uint8_t tt_pv;
+  uint8_t check;
 } searchstack_t;
 
 typedef struct nnue_settings {

@@ -235,14 +235,14 @@ void update_corrhist(thread_t *thread, position_t *pos, int16_t static_eval,
           bonus);
 }
 
-void update_quiet_history(thread_t *thread, position_t *pos, searchstack_t *ss,
+void update_quiet_history(thread_t *thread, searchstack_t *ss, uint8_t side,
                           int move, int bonus) {
   int target = get_move_target(move);
   int source = get_move_source(move);
-  thread->quiet_history[pos->side][source][target][is_square_threatened(
+  thread->quiet_history[side][source][target][is_square_threatened(
       ss, source)][is_square_threatened(ss, target)] +=
       bonus -
-      thread->quiet_history[pos->side][source][target][is_square_threatened(
+      thread->quiet_history[side][source][target][is_square_threatened(
           ss, source)][is_square_threatened(ss, target)] *
           abs(bonus) / HISTORY_MAX;
 }
@@ -370,11 +370,11 @@ void update_quiet_histories(thread_t *thread, position_t *pos,
     if (move == best_move) {
       update_continuation_histories(thread, pos, ss, best_move, cont_bonus);
       update_pawn_history(thread, pos, best_move, pawn_bonus);
-      update_quiet_history(thread, pos, ss, best_move, quiet_bonus);
+      update_quiet_history(thread, ss, pos->side, best_move, quiet_bonus);
     } else {
       update_continuation_histories(thread, pos, ss, move, cont_malus);
       update_pawn_history(thread, pos, move, pawn_malus);
-      update_quiet_history(thread, pos, ss, move, quiet_malus);
+      update_quiet_history(thread, ss, move, pos->side, quiet_malus);
     }
   }
 }
