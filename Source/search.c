@@ -790,8 +790,8 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   }
 
   if (!ss->excluded_move && !in_check && (ss-1)->piece != NO_PIECE && !get_move_capture((ss-1)->move) && !(ss-1)->check && pos->ply > 1) {
-    int bonus = clamp(-(int)(ss->static_eval + (ss - 1)->static_eval), -213, 175) + 95;
-    update_quiet_history(thread, ss-1, ~pos->side, (ss-1)->move, bonus * 10);
+    int bonus = clamp(-(int)(ss->static_eval + (ss - 1)->static_eval), -213, 175) + 69;
+    update_quiet_history(thread, ss-1, !pos->side, (ss-1)->move, bonus * 10);
   }
 
   if (!root_node && !in_check && !ss->excluded_move) {
