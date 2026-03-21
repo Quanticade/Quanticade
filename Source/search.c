@@ -390,7 +390,7 @@ static inline uint16_t select_next(picker_t *picker) {
 
   case STAGE_GENERATE_NOISY: {
     moves tmp;
-    generate_noisy(picker->pos, &tmp);
+    generate_noisy(picker->pos, &tmp, 0);
     score_noisy(picker->pos, picker->thread, picker->ss, &tmp,
                 &picker->good_noisy, &picker->bad_noisy, picker->tt_move);
     picker->stage = STAGE_GOOD_NOISY;
@@ -408,7 +408,7 @@ static inline uint16_t select_next(picker_t *picker) {
     /* fallthrough */
 
   case STAGE_GENERATE_QUIET:
-    generate_quiets(picker->pos, &picker->quiets);
+    generate_quiets(picker->pos, &picker->quiets, 0);
     score_quiet(picker->pos, picker->thread, picker->ss,
                 &picker->quiets, picker->tt_move);
     picker->stage = STAGE_QUIET;

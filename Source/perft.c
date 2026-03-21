@@ -12,7 +12,8 @@ static inline void perft_driver(position_t *pos, thread_t *thread, int depth) {
 
   if (depth == 1) {
     moves move_list[1];
-    generate_moves(pos, move_list);
+    generate_noisy(pos, move_list, 0);
+    generate_quiets(pos, move_list, 1);
     for (uint32_t i = 0; i < move_list->count; i++) {
       if (is_legal(pos, move_list->entry[i].move)) {
         thread->nodes++;
@@ -32,7 +33,8 @@ static inline void perft_driver(position_t *pos, thread_t *thread, int depth) {
   moves move_list[1];
 
   // generate moves
-  generate_moves(pos, move_list);
+  generate_noisy(pos, move_list, 0);
+  generate_quiets(pos, move_list, 1);
 
   // loop over generated moves
   for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
@@ -57,7 +59,8 @@ void perft_test(position_t *pos, thread_t *searchinfo, int depth) {
   moves move_list[1];
 
   // generate moves
-  generate_moves(pos, move_list);
+  generate_noisy(pos, move_list, 0);
+  generate_quiets(pos, move_list, 1);
 
   // init start time
   long start = get_time_ms();
