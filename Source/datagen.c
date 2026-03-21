@@ -7,32 +7,43 @@
 #include <stdlib.h>
 #include <string.h>
 
-int random_fen_from_file(const char *filename, char *out_fen, size_t max_len) {
+typedef struct {
+    char  **fens;
+    size_t  count;
+} fen_book_t;
+
+static fen_book_t load_book(const char *filename) {
+    fen_book_t book = {NULL, 0};
     FILE *f = fopen(filename, "r");
-    if (!f) return 0;
+    if (!f) return book;
 
-    char buffer[256];
-    uint64_t count = 0;
+    size_t lines = 0;
+    char buf[256];
+    while (fgets(buf, sizeof(buf), f)) lines++;
+    if (!lines) { fclose(f); return book; }
 
-    while (fgets(buffer, sizeof(buffer), f)) {
-        count++;
+    book.fens = malloc(lines * sizeof(char *));
+    if (!book.fens) { fclose(f); return book; }
 
-        if (rand() % count == 0) {
-            strncpy(out_fen, buffer, max_len - 1);
-            out_fen[max_len - 1] = '\0';
-
-            // remove newline
-            char *nl = strchr(out_fen, '\n');
-            if (nl) *nl = '\0';
-        }
+    rewind(f);
+    while (fgets(buf, sizeof(buf), f)) {
+        char *nl = strchr(buf, '\n');
+        if (nl) *nl = '\0';
+        book.fens[book.count++] = strdup(buf);
     }
-
     fclose(f);
-
-    return count > 0;
+    return book;
 }
 
-uint8_t play_rand_moves(position_t *pos, thread_t * thread, uint8_t rand_moves) {
+static void free_book(fen_book_t *book) {
+    for (size_t i = 0; i < book->count; i++)
+        free(book->fens[i]);
+    free(book->fens);
+    book->fens  = NULL;
+    book->count = 0;
+}
+
+uint8_t play_rand_moves(position_t *pos, thread_t *thread, uint8_t rand_moves) {
     moves pseudo_moves[1];
     moves legal_moves[1];
     legal_moves->count = 0;
@@ -42,11 +53,9 @@ uint8_t play_rand_moves(position_t *pos, thread_t * thread, uint8_t rand_moves) 
             add_move(legal_moves, pseudo_moves->entry[moves].move);
         }
     }
-
     if (legal_moves->count == 0) {
         return 0;
     }
-
     if (rand_moves == 0) {
         char fen[99];
         generate_fen(pos, fen);
@@ -64,7 +73,6 @@ uint8_t play_rand_moves(position_t *pos, thread_t * thread, uint8_t rand_moves) 
         printf("info string genfens %s\n", fen);
         return 1;
     }
-
     uint16_t move = legal_moves->entry[rand() % legal_moves->count].move;
     position_t pos_copy = *pos;
     make_move(&pos_copy, move);
@@ -73,31 +81,31 @@ uint8_t play_rand_moves(position_t *pos, thread_t * thread, uint8_t rand_moves) 
 
 void genfens(position_t *pos, thread_t *thread, uint64_t seed,
              uint16_t n_of_fens, const char *bookfile) {
-
     srand(seed);
 
+    fen_book_t book = {NULL, 0};
+    int use_book = bookfile && strcmp(bookfile, "None") != 0;
+    if (use_book) {
+        book = load_book(bookfile);
+        if (!book.count) return;
+    }
+
     int generated_fens = 0;
-
     while (generated_fens < n_of_fens) {
-
-        if (bookfile != NULL && strcmp(bookfile, "None") != 0) {
-            char fen[256];
-
-            if (!random_fen_from_file(bookfile, fen, sizeof(fen)))
-                return;
-
+        if (use_book) {
+            const char *fen = book.fens[rand() % book.count];
             char input[512];
             sprintf(input, "position fen %s", fen);
             parse_position(pos, thread, input);
             init_accumulator(pos, &thread->accumulator[pos->ply]);
             init_finny_tables(thread, pos);
         }
-
         position_t pos_copy = *pos;
-
         int random_moves = 6 + rand() % 4;
-
         if (play_rand_moves(&pos_copy, thread, random_moves))
             generated_fens++;
     }
+
+    if (use_book)
+        free_book(&book);
 }
