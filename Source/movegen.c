@@ -420,147 +420,134 @@ void generate_quiets(position_t *pos, moves *move_list, uint8_t no_reset) {
   int source_square, target_square;
   uint64_t bitboard, attacks;
 
-  uint8_t start     = pos->side == white ? P : p;
-  uint8_t end       = pos->side == white ? K : k;
-  uint8_t PAWN_PC   = start;
-  uint8_t KNIGHT_PC = pos->side == white ? N : n;
-  uint8_t BISHOP_PC = pos->side == white ? B : b;
-  uint8_t ROOK_PC   = pos->side == white ? R : r;
-  uint8_t QUEEN_PC  = pos->side == white ? Q : q;
-  uint8_t KING_PC   = end;
+  const uint8_t PAWN_PC   = pos->side == white ? P : p;
+  const uint8_t KNIGHT_PC = pos->side == white ? N : n;
+  const uint8_t BISHOP_PC = pos->side == white ? B : b;
+  const uint8_t ROOK_PC   = pos->side == white ? R : r;
+  const uint8_t QUEEN_PC  = pos->side == white ? Q : q;
+  const uint8_t KING_PC   = pos->side == white ? K : k;
 
-  for (uint8_t piece = start; piece <= end; piece++) {
-    bitboard = pos->bitboards[piece];
+  const uint64_t empty      = ~pos->occupancies[both];
+  const int      step       = pos->side == white ? -8  : 8;
+  const uint64_t promo_mask = pos->side == white ? RANK7_MASK : RANK2_MASK;
+  const uint64_t start_mask = pos->side == white ? RANK2_MASK : RANK7_MASK;
+  const uint64_t pawns      = pos->bitboards[PAWN_PC];
 
-    if (piece == PAWN_PC) {
-      uint64_t empty = ~pos->occupancies[both];
-      if (pos->side == white) {
-        uint64_t singles = ((pos->bitboards[P] & ~RANK7_MASK) >> 8) & empty;
-        while (singles) {
-          target_square = __builtin_ctzll(singles);
-          add_move(move_list, encode_move(target_square + 8, target_square, QUIET));
-          pop_bit(singles, target_square);
-        }
-        uint64_t doubles = (((pos->bitboards[P] & RANK2_MASK) >> 8) & empty) >> 8 & empty;
-        while (doubles) {
-          target_square = __builtin_ctzll(doubles);
-          add_move(move_list, encode_move(target_square + 16, target_square, DOUBLE_PUSH));
-          pop_bit(doubles, target_square);
-        }
-      } else {
-        uint64_t singles = ((pos->bitboards[p] & ~RANK2_MASK) << 8) & empty;
-        while (singles) {
-          target_square = __builtin_ctzll(singles);
-          add_move(move_list, encode_move(target_square - 8, target_square, QUIET));
-          pop_bit(singles, target_square);
-        }
-        uint64_t doubles = (((pos->bitboards[p] & RANK7_MASK) << 8) & empty) << 8 & empty;
-        while (doubles) {
-          target_square = __builtin_ctzll(doubles);
-          add_move(move_list, encode_move(target_square - 16, target_square, DOUBLE_PUSH));
-          pop_bit(doubles, target_square);
-        }
-      }
+  // pawns
+  uint64_t singles = pos->side == white
+      ? ((pawns & ~promo_mask) >> 8) & empty
+      : ((pawns & ~promo_mask) << 8) & empty;
+  while (singles) {
+    target_square = __builtin_ctzll(singles);
+    add_move(move_list, encode_move(target_square - step, target_square, QUIET));
+    pop_bit(singles, target_square);
+  }
+
+  uint64_t doubles = pos->side == white
+      ? (((pawns & start_mask) >> 8) & empty) >> 8 & empty
+      : (((pawns & start_mask) << 8) & empty) << 8 & empty;
+  while (doubles) {
+    target_square = __builtin_ctzll(doubles);
+    add_move(move_list, encode_move(target_square - 2 * step, target_square, DOUBLE_PUSH));
+    pop_bit(doubles, target_square);
+  }
+
+  // knights
+  bitboard = pos->bitboards[KNIGHT_PC];
+  while (bitboard) {
+    source_square = __builtin_ctzll(bitboard);
+    attacks = knight_attacks[source_square] & empty;
+    while (attacks) {
+      target_square = __builtin_ctzll(attacks);
+      add_move(move_list, encode_move(source_square, target_square, QUIET));
+      pop_bit(attacks, target_square);
     }
+    pop_bit(bitboard, source_square);
+  }
 
-    if (piece == KING_PC) {
-      if (pos->side == white) {
-        if (pos->castle & wk &&
-            !get_bit(pos->occupancies[both], f1) &&
-            !get_bit(pos->occupancies[both], g1) &&
-            !is_square_attacked(pos, e1, black) &&
-            !is_square_attacked(pos, f1, black))
-          add_move(move_list, encode_move(e1, g1, KING_CASTLE));
-
-        if (pos->castle & wq &&
-            !get_bit(pos->occupancies[both], d1) &&
-            !get_bit(pos->occupancies[both], c1) &&
-            !get_bit(pos->occupancies[both], b1) &&
-            !is_square_attacked(pos, e1, black) &&
-            !is_square_attacked(pos, d1, black))
-          add_move(move_list, encode_move(e1, c1, QUEEN_CASTLE));
-      } else {
-        if (pos->castle & bk &&
-            !get_bit(pos->occupancies[both], f8) &&
-            !get_bit(pos->occupancies[both], g8) &&
-            !is_square_attacked(pos, e8, white) &&
-            !is_square_attacked(pos, f8, white))
-          add_move(move_list, encode_move(e8, g8, KING_CASTLE));
-
-        if (pos->castle & bq &&
-            !get_bit(pos->occupancies[both], d8) &&
-            !get_bit(pos->occupancies[both], c8) &&
-            !get_bit(pos->occupancies[both], b8) &&
-            !is_square_attacked(pos, e8, white) &&
-            !is_square_attacked(pos, d8, white))
-          add_move(move_list, encode_move(e8, c8, QUEEN_CASTLE));
-      }
+  // bishops
+  bitboard = pos->bitboards[BISHOP_PC];
+  while (bitboard) {
+    source_square = __builtin_ctzll(bitboard);
+    attacks = get_bishop_attacks(source_square, pos->occupancies[both]) & empty;
+    while (attacks) {
+      target_square = __builtin_ctzll(attacks);
+      add_move(move_list, encode_move(source_square, target_square, QUIET));
+      pop_bit(attacks, target_square);
     }
+    pop_bit(bitboard, source_square);
+  }
 
-    if (piece == KNIGHT_PC) {
-      while (bitboard) {
-        source_square = __builtin_ctzll(bitboard);
-        attacks = knight_attacks[source_square] & ~pos->occupancies[both];
-        while (attacks) {
-          target_square = __builtin_ctzll(attacks);
-          add_move(move_list, encode_move(source_square, target_square, QUIET));
-          pop_bit(attacks, target_square);
-        }
-        pop_bit(bitboard, source_square);
-      }
+  // rooks
+  bitboard = pos->bitboards[ROOK_PC];
+  while (bitboard) {
+    source_square = __builtin_ctzll(bitboard);
+    attacks = get_rook_attacks(source_square, pos->occupancies[both]) & empty;
+    while (attacks) {
+      target_square = __builtin_ctzll(attacks);
+      add_move(move_list, encode_move(source_square, target_square, QUIET));
+      pop_bit(attacks, target_square);
     }
+    pop_bit(bitboard, source_square);
+  }
 
-    if (piece == BISHOP_PC) {
-      while (bitboard) {
-        source_square = __builtin_ctzll(bitboard);
-        attacks = get_bishop_attacks(source_square, pos->occupancies[both]) & ~pos->occupancies[both];
-        while (attacks) {
-          target_square = __builtin_ctzll(attacks);
-          add_move(move_list, encode_move(source_square, target_square, QUIET));
-          pop_bit(attacks, target_square);
-        }
-        pop_bit(bitboard, source_square);
-      }
+  // queens
+  bitboard = pos->bitboards[QUEEN_PC];
+  while (bitboard) {
+    source_square = __builtin_ctzll(bitboard);
+    attacks = get_queen_attacks(source_square, pos->occupancies[both]) & empty;
+    while (attacks) {
+      target_square = __builtin_ctzll(attacks);
+      add_move(move_list, encode_move(source_square, target_square, QUIET));
+      pop_bit(attacks, target_square);
     }
+    pop_bit(bitboard, source_square);
+  }
 
-    if (piece == ROOK_PC) {
-      while (bitboard) {
-        source_square = __builtin_ctzll(bitboard);
-        attacks = get_rook_attacks(source_square, pos->occupancies[both]) & ~pos->occupancies[both];
-        while (attacks) {
-          target_square = __builtin_ctzll(attacks);
-          add_move(move_list, encode_move(source_square, target_square, QUIET));
-          pop_bit(attacks, target_square);
-        }
-        pop_bit(bitboard, source_square);
-      }
+  // king moves
+  bitboard = pos->bitboards[KING_PC];
+  while (bitboard) {
+    source_square = __builtin_ctzll(bitboard);
+    attacks = king_attacks[source_square] & empty;
+    while (attacks) {
+      target_square = __builtin_ctzll(attacks);
+      add_move(move_list, encode_move(source_square, target_square, QUIET));
+      pop_bit(attacks, target_square);
     }
+    pop_bit(bitboard, source_square);
+  }
 
-    if (piece == QUEEN_PC) {
-      while (bitboard) {
-        source_square = __builtin_ctzll(bitboard);
-        attacks = get_queen_attacks(source_square, pos->occupancies[both]) & ~pos->occupancies[both];
-        while (attacks) {
-          target_square = __builtin_ctzll(attacks);
-          add_move(move_list, encode_move(source_square, target_square, QUIET));
-          pop_bit(attacks, target_square);
-        }
-        pop_bit(bitboard, source_square);
-      }
-    }
+  // castling
+  if (pos->side == white) {
+    if (pos->castle & wk &&
+        !get_bit(pos->occupancies[both], f1) &&
+        !get_bit(pos->occupancies[both], g1) &&
+        !is_square_attacked(pos, e1, black) &&
+        !is_square_attacked(pos, f1, black))
+      add_move(move_list, encode_move(e1, g1, KING_CASTLE));
 
-    if (piece == KING_PC) {
-      while (bitboard) {
-        source_square = __builtin_ctzll(bitboard);
-        attacks = king_attacks[source_square] & ~pos->occupancies[both];
-        while (attacks) {
-          target_square = __builtin_ctzll(attacks);
-          add_move(move_list, encode_move(source_square, target_square, QUIET));
-          pop_bit(attacks, target_square);
-        }
-        pop_bit(bitboard, source_square);
-      }
-    }
+    if (pos->castle & wq &&
+        !get_bit(pos->occupancies[both], d1) &&
+        !get_bit(pos->occupancies[both], c1) &&
+        !get_bit(pos->occupancies[both], b1) &&
+        !is_square_attacked(pos, e1, black) &&
+        !is_square_attacked(pos, d1, black))
+      add_move(move_list, encode_move(e1, c1, QUEEN_CASTLE));
+  } else {
+    if (pos->castle & bk &&
+        !get_bit(pos->occupancies[both], f8) &&
+        !get_bit(pos->occupancies[both], g8) &&
+        !is_square_attacked(pos, e8, white) &&
+        !is_square_attacked(pos, f8, white))
+      add_move(move_list, encode_move(e8, g8, KING_CASTLE));
+
+    if (pos->castle & bq &&
+        !get_bit(pos->occupancies[both], d8) &&
+        !get_bit(pos->occupancies[both], c8) &&
+        !get_bit(pos->occupancies[both], b8) &&
+        !is_square_attacked(pos, e8, white) &&
+        !is_square_attacked(pos, d8, white))
+      add_move(move_list, encode_move(e8, c8, QUEEN_CASTLE));
   }
 }
 
@@ -571,161 +558,118 @@ void generate_noisy(position_t *pos, moves *move_list, uint8_t no_reset) {
   int source_square, target_square;
   uint64_t bitboard, attacks;
 
-  uint8_t start     = pos->side == white ? P : p;
-  uint8_t end       = pos->side == white ? K : k;
-  uint8_t PAWN_PC   = start;
-  uint8_t KNIGHT_PC = pos->side == white ? N : n;
-  uint8_t BISHOP_PC = pos->side == white ? B : b;
-  uint8_t ROOK_PC   = pos->side == white ? R : r;
-  uint8_t QUEEN_PC  = pos->side == white ? Q : q;
-  uint8_t KING_PC   = end;
+  const uint8_t PAWN_PC   = pos->side == white ? P : p;
+  const uint8_t KNIGHT_PC = pos->side == white ? N : n;
+  const uint8_t BISHOP_PC = pos->side == white ? B : b;
+  const uint8_t ROOK_PC   = pos->side == white ? R : r;
+  const uint8_t QUEEN_PC  = pos->side == white ? Q : q;
+  const uint8_t KING_PC   = pos->side == white ? K : k;
 
-  uint64_t enemy = pos->side == white ? pos->occupancies[black]
-                                      : pos->occupancies[white];
+  const uint64_t enemy = pos->side == white ? pos->occupancies[black]
+                                            : pos->occupancies[white];
 
-  for (uint8_t piece = start; piece <= end; piece++) {
-    bitboard = pos->bitboards[piece];
+  const int      step       = pos->side == white ? -8 : 8;
+  const uint64_t promo_mask = pos->side == white ? RANK7_MASK : RANK2_MASK;
 
-    if (piece == PAWN_PC) {
-      if (pos->side == white) {
-        while (bitboard) {
-          source_square = __builtin_ctzll(bitboard);
-          target_square = source_square - 8;
+  // pawns
+  bitboard = pos->bitboards[PAWN_PC];
+  while (bitboard) {
+    source_square = __builtin_ctzll(bitboard);
+    target_square = source_square + step;
 
-          if (source_square >= a7 && source_square <= h7 &&
-              !(target_square < a8) &&
-              !get_bit(pos->occupancies[both], target_square)) {
-            add_move(move_list, encode_move(source_square, target_square, QUEEN_PROMOTION));
-            add_move(move_list, encode_move(source_square, target_square, ROOK_PROMOTION));
-            add_move(move_list, encode_move(source_square, target_square, BISHOP_PROMOTION));
-            add_move(move_list, encode_move(source_square, target_square, KNIGHT_PROMOTION));
-          }
+    if ((BB(source_square) & promo_mask) &&
+        !get_bit(pos->occupancies[both], target_square)) {
+      add_move(move_list, encode_move(source_square, target_square, QUEEN_PROMOTION));
+      add_move(move_list, encode_move(source_square, target_square, ROOK_PROMOTION));
+      add_move(move_list, encode_move(source_square, target_square, BISHOP_PROMOTION));
+      add_move(move_list, encode_move(source_square, target_square, KNIGHT_PROMOTION));
+    }
 
-          attacks = pawn_attacks[white][source_square] & enemy;
-          while (attacks) {
-            target_square = __builtin_ctzll(attacks);
-            if (source_square >= a7 && source_square <= h7) {
-              add_move(move_list, encode_move(source_square, target_square, QUEEN_CAPTURE_PROMOTION));
-              add_move(move_list, encode_move(source_square, target_square, ROOK_CAPTURE_PROMOTION));
-              add_move(move_list, encode_move(source_square, target_square, BISHOP_CAPTURE_PROMOTION));
-              add_move(move_list, encode_move(source_square, target_square, KNIGHT_CAPTURE_PROMOTION));
-            } else {
-              add_move(move_list, encode_move(source_square, target_square, CAPTURE));
-            }
-            pop_bit(attacks, target_square);
-          }
-
-          if (pos->enpassant != no_sq) {
-            uint64_t ep = pawn_attacks[white][source_square] & (1ULL << pos->enpassant);
-            if (ep)
-              add_move(move_list, encode_move(source_square, __builtin_ctzll(ep), ENPASSANT_CAPTURE));
-          }
-
-          pop_bit(bitboard, source_square);
-        }
+    attacks = pawn_attacks[pos->side][source_square] & enemy;
+    while (attacks) {
+      target_square = __builtin_ctzll(attacks);
+      if (BB(source_square) & promo_mask) {
+        add_move(move_list, encode_move(source_square, target_square, QUEEN_CAPTURE_PROMOTION));
+        add_move(move_list, encode_move(source_square, target_square, ROOK_CAPTURE_PROMOTION));
+        add_move(move_list, encode_move(source_square, target_square, BISHOP_CAPTURE_PROMOTION));
+        add_move(move_list, encode_move(source_square, target_square, KNIGHT_CAPTURE_PROMOTION));
       } else {
-        while (bitboard) {
-          source_square = __builtin_ctzll(bitboard);
-          target_square = source_square + 8;
-
-          if (source_square >= a2 && source_square <= h2 &&
-              !(target_square > h1) &&
-              !get_bit(pos->occupancies[both], target_square)) {
-            add_move(move_list, encode_move(source_square, target_square, QUEEN_PROMOTION));
-            add_move(move_list, encode_move(source_square, target_square, ROOK_PROMOTION));
-            add_move(move_list, encode_move(source_square, target_square, BISHOP_PROMOTION));
-            add_move(move_list, encode_move(source_square, target_square, KNIGHT_PROMOTION));
-          }
-
-          attacks = pawn_attacks[black][source_square] & enemy;
-          while (attacks) {
-            target_square = __builtin_ctzll(attacks);
-            if (source_square >= a2 && source_square <= h2) {
-              add_move(move_list, encode_move(source_square, target_square, QUEEN_CAPTURE_PROMOTION));
-              add_move(move_list, encode_move(source_square, target_square, ROOK_CAPTURE_PROMOTION));
-              add_move(move_list, encode_move(source_square, target_square, BISHOP_CAPTURE_PROMOTION));
-              add_move(move_list, encode_move(source_square, target_square, KNIGHT_CAPTURE_PROMOTION));
-            } else {
-              add_move(move_list, encode_move(source_square, target_square, CAPTURE));
-            }
-            pop_bit(attacks, target_square);
-          }
-
-          // En passant
-          if (pos->enpassant != no_sq) {
-            uint64_t ep = pawn_attacks[black][source_square] & (1ULL << pos->enpassant);
-            if (ep)
-              add_move(move_list, encode_move(source_square, __builtin_ctzll(ep), ENPASSANT_CAPTURE));
-          }
-
-          pop_bit(bitboard, source_square);
-        }
+        add_move(move_list, encode_move(source_square, target_square, CAPTURE));
       }
+      pop_bit(attacks, target_square);
     }
 
-    if (piece == KNIGHT_PC) {
-      while (bitboard) {
-        source_square = __builtin_ctzll(bitboard);
-        attacks = knight_attacks[source_square] & enemy;
-        while (attacks) {
-          target_square = __builtin_ctzll(attacks);
-          add_move(move_list, encode_move(source_square, target_square, CAPTURE));
-          pop_bit(attacks, target_square);
-        }
-        pop_bit(bitboard, source_square);
-      }
+    if (pos->enpassant != no_sq) {
+      uint64_t ep = pawn_attacks[pos->side][source_square] & (1ULL << pos->enpassant);
+      if (ep)
+        add_move(move_list, encode_move(source_square, __builtin_ctzll(ep), ENPASSANT_CAPTURE));
     }
 
-    if (piece == BISHOP_PC) {
-      while (bitboard) {
-        source_square = __builtin_ctzll(bitboard);
-        attacks = get_bishop_attacks(source_square, pos->occupancies[both]) & enemy;
-        while (attacks) {
-          target_square = __builtin_ctzll(attacks);
-          add_move(move_list, encode_move(source_square, target_square, CAPTURE));
-          pop_bit(attacks, target_square);
-        }
-        pop_bit(bitboard, source_square);
-      }
-    }
+    pop_bit(bitboard, source_square);
+  }
 
-    if (piece == ROOK_PC) {
-      while (bitboard) {
-        source_square = __builtin_ctzll(bitboard);
-        attacks = get_rook_attacks(source_square, pos->occupancies[both]) & enemy;
-        while (attacks) {
-          target_square = __builtin_ctzll(attacks);
-          add_move(move_list, encode_move(source_square, target_square, CAPTURE));
-          pop_bit(attacks, target_square);
-        }
-        pop_bit(bitboard, source_square);
-      }
+  // knights
+  bitboard = pos->bitboards[KNIGHT_PC];
+  while (bitboard) {
+    source_square = __builtin_ctzll(bitboard);
+    attacks = knight_attacks[source_square] & enemy;
+    while (attacks) {
+      target_square = __builtin_ctzll(attacks);
+      add_move(move_list, encode_move(source_square, target_square, CAPTURE));
+      pop_bit(attacks, target_square);
     }
+    pop_bit(bitboard, source_square);
+  }
 
-    if (piece == QUEEN_PC) {
-      while (bitboard) {
-        source_square = __builtin_ctzll(bitboard);
-        attacks = get_queen_attacks(source_square, pos->occupancies[both]) & enemy;
-        while (attacks) {
-          target_square = __builtin_ctzll(attacks);
-          add_move(move_list, encode_move(source_square, target_square, CAPTURE));
-          pop_bit(attacks, target_square);
-        }
-        pop_bit(bitboard, source_square);
-      }
+  // bishops
+  bitboard = pos->bitboards[BISHOP_PC];
+  while (bitboard) {
+    source_square = __builtin_ctzll(bitboard);
+    attacks = get_bishop_attacks(source_square, pos->occupancies[both]) & enemy;
+    while (attacks) {
+      target_square = __builtin_ctzll(attacks);
+      add_move(move_list, encode_move(source_square, target_square, CAPTURE));
+      pop_bit(attacks, target_square);
     }
+    pop_bit(bitboard, source_square);
+  }
 
-    if (piece == KING_PC) {
-      while (bitboard) {
-        source_square = __builtin_ctzll(bitboard);
-        attacks = king_attacks[source_square] & enemy;
-        while (attacks) {
-          target_square = __builtin_ctzll(attacks);
-          add_move(move_list, encode_move(source_square, target_square, CAPTURE));
-          pop_bit(attacks, target_square);
-        }
-        pop_bit(bitboard, source_square);
-      }
+  // rooks
+  bitboard = pos->bitboards[ROOK_PC];
+  while (bitboard) {
+    source_square = __builtin_ctzll(bitboard);
+    attacks = get_rook_attacks(source_square, pos->occupancies[both]) & enemy;
+    while (attacks) {
+      target_square = __builtin_ctzll(attacks);
+      add_move(move_list, encode_move(source_square, target_square, CAPTURE));
+      pop_bit(attacks, target_square);
     }
+    pop_bit(bitboard, source_square);
+  }
+
+  // queens
+  bitboard = pos->bitboards[QUEEN_PC];
+  while (bitboard) {
+    source_square = __builtin_ctzll(bitboard);
+    attacks = get_queen_attacks(source_square, pos->occupancies[both]) & enemy;
+    while (attacks) {
+      target_square = __builtin_ctzll(attacks);
+      add_move(move_list, encode_move(source_square, target_square, CAPTURE));
+      pop_bit(attacks, target_square);
+    }
+    pop_bit(bitboard, source_square);
+  }
+
+  // king
+  bitboard = pos->bitboards[KING_PC];
+  while (bitboard) {
+    source_square = __builtin_ctzll(bitboard);
+    attacks = king_attacks[source_square] & enemy;
+    while (attacks) {
+      target_square = __builtin_ctzll(attacks);
+      add_move(move_list, encode_move(source_square, target_square, CAPTURE));
+      pop_bit(attacks, target_square);
+    }
+    pop_bit(bitboard, source_square);
   }
 }
