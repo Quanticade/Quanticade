@@ -15,6 +15,7 @@
 #include "threads.h"
 #include "transposition.h"
 #include "utils.h"
+#include <ctype.h>
 #include <inttypes.h>
 #include <pthread.h>
 #include <stdint.h>
@@ -23,6 +24,14 @@
 #include <string.h>
 
 extern nnue_settings_t nnue_settings;
+
+static inline int istrncmp(const char *a, const char *b, size_t n) {
+  for (size_t i = 0; i < n; i++) {
+    const int diff = tolower((unsigned char)a[i]) - tolower((unsigned char)b[i]);
+    if (diff != 0 || a[i] == '\0') return diff;
+  }
+  return 0;
+}
 
 const int default_hash_size = 16;
 
@@ -91,7 +100,7 @@ char *bench_positions[] = {
     "3br1k1/p1pn3p/1p3n2/5pNq/2P1p3/1PN3PP/P2Q1PB1/4R1K1 w - - 0 23",
     "2r2b2/5p2/5k2/p1r1pP2/P2pB3/1P3P2/K1P3R1/7R w - - 23 93"};
 
-#define start_position                                                         \
+#define start_position \
   "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 "
 
 const char *square_to_coordinates[] = {
@@ -102,6 +111,7 @@ const char *square_to_coordinates[] = {
     "e3", "f3", "g3", "h3", "a2", "b2", "c2", "d2", "e2", "f2", "g2",
     "h2", "a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1",
 };
+
 int char_pieces[] = {
     ['P'] = P, ['N'] = N, ['B'] = B, ['R'] = R, ['Q'] = Q, ['K'] = K,
     ['p'] = p, ['n'] = n, ['b'] = b, ['r'] = r, ['q'] = q, ['k'] = k};
@@ -113,418 +123,200 @@ char piece_chars[] = {
 char promoted_pieces[] = {[Q] = 'q', [R] = 'r', [B] = 'b', [N] = 'n',
                           [q] = 'q', [r] = 'r', [b] = 'b', [n] = 'n'};
 
-//  parse user/GUI move string input (e.g. "e7e8q")
 static inline int parse_move(position_t *pos, thread_t *thread,
-                             char *move_string) {
-  // create move list instance
+                              char *move_string) {
   moves move_list[1];
-
-  // generate moves
   generate_noisy(pos, move_list, 0);
   generate_quiets(pos, move_list, 1);
 
-  // parse source square
-  int source_square = (move_string[0] - 'a') + (8 - (move_string[1] - '0')) * 8;
+  const int source_square = (move_string[0] - 'a') + (8 - (move_string[1] - '0')) * 8;
   thread->starttime = 0;
-  // parse target square
-  int target_square = (move_string[2] - 'a') + (8 - (move_string[3] - '0')) * 8;
+  const int target_square = (move_string[2] - 'a') + (8 - (move_string[3] - '0')) * 8;
 
-  // loop over the moves within a move list
   for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
-    // init move
-    int move = move_list->entry[move_count].move;
+    const int move = move_list->entry[move_count].move;
 
-    // make sure source & target squares are available within the generated move
-    if (source_square == get_move_source(move) &&
-        target_square == get_move_target(move)) {
-      // init promoted piece
-      int promoted_piece = get_move_promoted(pos->side, move);
+    if (source_square != get_move_source(move) ||
+        target_square != get_move_target(move))
+      continue;
 
-      // promoted piece is available
-      if (promoted_piece) {
-        // promoted to queen
-        if ((promoted_piece == Q || promoted_piece == q) &&
-            move_string[4] == 'q')
-          // return legal move
-          return move;
-
-        // promoted to rook
-        else if ((promoted_piece == R || promoted_piece == r) &&
-                 move_string[4] == 'r')
-          // return legal move
-          return move;
-
-        // promoted to bishop
-        else if ((promoted_piece == B || promoted_piece == b) &&
-                 move_string[4] == 'b')
-          // return legal move
-          return move;
-
-        // promoted to knight
-        else if ((promoted_piece == N || promoted_piece == n) &&
-                 move_string[4] == 'n')
-          // return legal move
-          return move;
-
-        // continue the loop on possible wrong promotions (e.g. "e7e8f")
-        continue;
-      }
-
-      // return legal move
-      return move;
+    const int promoted_piece = get_move_promoted(pos->side, move);
+    if (promoted_piece) {
+      if (move_string[4] && promoted_pieces[promoted_piece] == move_string[4]) return move;
+      continue;
     }
+
+    return move;
   }
 
-  // return illegal move
   return 0;
 }
 
 static inline void reset_board(position_t *pos, thread_t *thread) {
-  // reset board position (bitboards)
   memset(pos->bitboards, 0ULL, sizeof(pos->bitboards));
-
-  // reset occupancies (bitboards)
   memset(pos->occupancies, 0ULL, sizeof(pos->occupancies));
-
-  // reset game state variables
   pos->side = 0;
   pos->enpassant = no_sq;
   pos->castle = 0;
   pos->checkers = 0;
   pos->checker_count = 0;
-
-  // reset repetition index
   thread->repetition_index = 0;
-
   pos->fifty = 0;
-
-  // reset repetition table
   memset(thread->repetition_table, 0ULL, sizeof(thread->repetition_table));
 }
 
 void generate_fen(position_t *pos, char *fen) {
   char *ptr = fen;
 
-  // loop over board ranks
   for (int rank = 0; rank < 8; rank++) {
     int empty = 0;
 
-    // loop over board files
     for (int file = 0; file < 8; file++) {
-      int square = rank * 8 + file;
-      int piece = pos->mailbox[square];
-
-      // if square has a piece
+      const int piece = pos->mailbox[rank * 8 + file];
       if (piece != NO_PIECE) {
-        // write empty square count if any
-        if (empty > 0) {
-          *ptr++ = '0' + empty;
-          empty = 0;
-        }
-
-        // write piece character
+        if (empty > 0) { *ptr++ = '0' + empty; empty = 0; }
         *ptr++ = piece_chars[piece];
       } else {
-        // increment empty square counter
         empty++;
       }
     }
 
-    // write remaining empty squares
-    if (empty > 0) {
-      *ptr++ = '0' + empty;
-    }
-
-    // add rank separator (except after last rank)
-    if (rank < 7) {
-      *ptr++ = '/';
-    }
+    if (empty > 0) *ptr++ = '0' + empty;
+    if (rank < 7)  *ptr++ = '/';
   }
 
-  // add space before side to move
   *ptr++ = ' ';
-
-  // write side to move
   *ptr++ = (pos->side == white) ? 'w' : 'b';
-
-  // add space before castling rights
   *ptr++ = ' ';
 
-  // write castling rights
   if (pos->castle == 0) {
     *ptr++ = '-';
   } else {
-    if (pos->castle & wk)
-      *ptr++ = 'K';
-    if (pos->castle & wq)
-      *ptr++ = 'Q';
-    if (pos->castle & bk)
-      *ptr++ = 'k';
-    if (pos->castle & bq)
-      *ptr++ = 'q';
+    if (pos->castle & wk) *ptr++ = 'K';
+    if (pos->castle & wq) *ptr++ = 'Q';
+    if (pos->castle & bk) *ptr++ = 'k';
+    if (pos->castle & bq) *ptr++ = 'q';
   }
 
-  // add space before en passant square
   *ptr++ = ' ';
-
-  // write en passant square
   if (pos->enpassant == no_sq) {
     *ptr++ = '-';
   } else {
-    int file = pos->enpassant % 8;
-    int rank = pos->enpassant / 8;
-    *ptr++ = 'a' + file;
-    *ptr++ = '1' + (7 - rank);
+    *ptr++ = 'a' + (pos->enpassant % 8);
+    *ptr++ = '1' + (7 - pos->enpassant / 8);
   }
 
-  // add space before half move counter
   *ptr++ = ' ';
-
-  // write half move counter
-  int fifty_len = sprintf(ptr, "%d", pos->fifty);
-  ptr += fifty_len;
-
-  // add space before full move counter
+  ptr += sprintf(ptr, "%d", pos->fifty);
   *ptr++ = ' ';
-
   sprintf(ptr, "%d", pos->fullmove);
 }
 
 static inline void parse_fen(position_t *pos, thread_t *thread, char *fen) {
-  // prepare for new game
   reset_board(pos, thread);
 
-  // loop over board ranks
   for (int rank = 0; rank < 8; rank++) {
-    // loop over board files
     for (int file = 0; file < 8; file++) {
-      // init current square
-      int square = rank * 8 + file;
+      const int square = rank * 8 + file;
 
-      // match ascii pieces within FEN string
       if ((*fen >= 'a' && *fen <= 'z') || (*fen >= 'A' && *fen <= 'Z')) {
-        // init piece type
-        int piece = char_pieces[*(uint8_t *)fen];
-
-        // set piece on corresponding bitboard
+        const int piece = char_pieces[*(uint8_t *)fen];
         set_bit(pos->bitboards[piece], square);
         pos->mailbox[square] = piece;
-        // increment pointer to FEN string
         fen++;
       }
 
-      // match empty square numbers within FEN string
       if (*fen >= '0' && *fen <= '9') {
-        // init offset (convert char 0 to int 0)
-        int offset = *fen - '0';
-
-        // define piece variable
-        int piece = -1;
-
-        uint8_t bb_piece = pos->mailbox[square];
-        // if there is a piece on current square
-        if (bb_piece != NO_PIECE && get_bit(pos->bitboards[bb_piece], square))
-          // get piece code
-          piece = bb_piece;
-
-        // on empty current square
-        if (piece == -1)
-          // decrement file
+        const int offset = *fen - '0';
+        const uint8_t bb_piece = pos->mailbox[square];
+        if (!(bb_piece != NO_PIECE && get_bit(pos->bitboards[bb_piece], square)))
           file--;
-
-        // adjust file counter
         file += offset;
-
-        // increment pointer to FEN string
         fen++;
       }
 
-      // match rank separator
-      if (*fen == '/')
-        // increment pointer to FEN string
-        fen++;
+      if (*fen == '/') fen++;
     }
   }
 
-  // got to parsing side to move (increment pointer to FEN string)
   fen++;
-
-  // parse side to move
-  (*fen == 'w') ? (pos->side = white) : (pos->side = black);
-
-  // go to parsing castling rights
+  pos->side = (*fen == 'w') ? white : black;
   fen += 2;
 
-  // parse castling rights
-  while (*fen != ' ') {
-    switch (*fen) {
-    case 'K':
-      pos->castle |= wk;
-      break;
-    case 'Q':
-      pos->castle |= wq;
-      break;
-    case 'k':
-      pos->castle |= bk;
-      break;
-    case 'q':
-      pos->castle |= bq;
-      break;
-    case '-':
-      break;
+  while (*fen && *fen != ' ') {
+    switch (*fen++) {
+    case 'K': pos->castle |= wk; break;
+    case 'Q': pos->castle |= wq; break;
+    case 'k': pos->castle |= bk; break;
+    case 'q': pos->castle |= bq; break;
     }
-
-    // increment pointer to FEN string
-    fen++;
   }
 
-  // got to parsing enpassant square (increment pointer to FEN string)
   fen++;
-
-  // parse enpassant square
   if (*fen != '-') {
-    // parse enpassant file & rank
-    int file = fen[0] - 'a';
-    int rank = 8 - (fen[1] - '0');
-
-    // init enpassant square
-    pos->enpassant = rank * 8 + file;
-    fen += 2; // skip both characters
-  }
-  // no enpassant square
-  else {
-    pos->enpassant = no_sq;
-    fen++; // skip '-'
-  }
-
-  // go to parsing half move counter (increment pointer to FEN string)
-  fen++;
-
-  // parse half move counter to init fifty move counter
-  pos->fifty = atoi(fen);
-
-  // skip to full move counter
-  while (*fen && *fen != ' ')
-    fen++;
-
-  // parse full move counter
-  if (*fen == ' ') {
-    fen++;
-    pos->fullmove = atoi(fen);
+    pos->enpassant = (8 - (fen[1] - '0')) * 8 + (fen[0] - 'a');
+    fen += 2;
   } else {
-    // default to 1 if not provided
-    pos->fullmove = 1;
+    pos->enpassant = no_sq;
+    fen++;
   }
 
-  // loop over white pieces bitboards
-  for (int piece = P; piece <= K; piece++)
-    // populate white occupancy bitboard
-    pos->occupancies[white] |= pos->bitboards[piece];
+  fen++;
+  pos->fifty = atoi(fen);
+  while (*fen && *fen != ' ') fen++;
+  pos->fullmove = (*fen == ' ') ? atoi(fen + 1) : 1;
 
-  // loop over black pieces bitboards
-  for (int piece = p; piece <= k; piece++)
-    // populate white occupancy bitboard
-    pos->occupancies[black] |= pos->bitboards[piece];
+  for (int piece = P; piece <= K; piece++) pos->occupancies[white] |= pos->bitboards[piece];
+  for (int piece = p; piece <= k; piece++) pos->occupancies[black] |= pos->bitboards[piece];
+  pos->occupancies[both] = pos->occupancies[white] | pos->occupancies[black];
 
-  // init all occupancies
-  pos->occupancies[both] |= pos->occupancies[white];
-  pos->occupancies[both] |= pos->occupancies[black];
-
-  // init hash key
   pos->hash_keys.hash_key = generate_hash_key(pos);
   pos->hash_keys.pawn_key = generate_pawn_key(pos);
   pos->hash_keys.non_pawn_key[white] = generate_white_non_pawn_key(pos);
   pos->hash_keys.non_pawn_key[black] = generate_black_non_pawn_key(pos);
-  pos->checkers =
-      attackers_to(pos,
-                   (pos->side == white) ? get_lsb(pos->bitboards[K])
-                                        : get_lsb(pos->bitboards[k]),
-                   pos->occupancies[both]) &
-      pos->occupancies[pos->side ^ 1];
+
+  pos->checkers = attackers_to(pos,
+                               (pos->side == white) ? get_lsb(pos->bitboards[K])
+                                                    : get_lsb(pos->bitboards[k]),
+                               pos->occupancies[both]) &
+                  pos->occupancies[pos->side ^ 1];
   pos->checker_count = popcount(pos->checkers);
   update_slider_pins(pos, white);
   update_slider_pins(pos, black);
 }
 
-// parse UCI "position" command
-void parse_position(position_t *pos, thread_t *thread,
-                                  char *command) {
-  // shift pointer to the right where next token begins
+void parse_position(position_t *pos, thread_t *thread, char *command) {
   command += 9;
 
-  // init pointer to the current character in the command string
-  char *current_char = command;
+  for (int i = 0; i < 64; ++i) pos->mailbox[i] = NO_PIECE;
 
-  for (int i = 0; i < 64; ++i) {
-    pos->mailbox[i] = NO_PIECE;
-  }
-
-  // parse UCI "startpos" command
-  if (strncmp(command, "startpos", 8) == 0)
-    // init chess board with start position
+  if (strncmp(command, "startpos", 8) == 0) {
     parse_fen(pos, thread, start_position);
-
-  // parse UCI "fen" command
-  else {
-    // make sure "fen" command is available within command string
-    current_char = strstr(command, "fen");
-
-    // if no "fen" command is available within command string
-    if (current_char == NULL)
-      // init chess board with start position
-      parse_fen(pos, thread, start_position);
-
-    // found "fen" substring
-    else {
-      // shift pointer to the right where next token begins
-      current_char += 4;
-
-      // init chess board with position from FEN string
-      parse_fen(pos, thread, current_char);
-    }
+  } else {
+    char *fen = strstr(command, "fen");
+    parse_fen(pos, thread, fen ? fen + 4 : start_position);
   }
 
-  // parse moves after position
-  current_char = strstr(command, "moves");
+  char *moves = strstr(command, "moves");
+  if (!moves) return;
 
-  // moves available
-  if (current_char != NULL) {
-    // shift pointer to the right where next token begins
-    current_char += 6;
+  moves += 6;
+  while (*moves) {
+    const int move = parse_move(pos, thread, moves);
+    if (!move) break;
 
-    // loop over moves within a move string
-    while (*current_char) {
-      // parse next move
-      int move = parse_move(pos, thread, current_char);
-
-      // if no more moves
-      if (move == 0)
-        // break out of the loop
-        break;
-
-      // increment repetition index
+    if (thread->repetition_index + 1 < (int)(sizeof(thread->repetition_table) / sizeof(thread->repetition_table[0]))) {
       thread->repetition_index++;
-
-      // write hash key into a repetition table
-      thread->repetition_table[thread->repetition_index] =
-          pos->hash_keys.hash_key;
-
-      // make move on the chess board
-      make_move(pos, move);
-
-      // move current character pointer to the end of current move
-      while (*current_char && *current_char != ' ')
-        current_char++;
-
-      // go to the next move
-      current_char++;
+      thread->repetition_table[thread->repetition_index] = pos->hash_keys.hash_key;
     }
+    make_move(pos, move);
+
+    while (*moves && *moves != ' ') moves++;
+    moves++;
   }
 }
 
-void time_control(position_t *pos, thread_t *threads,
-                                char *line) {
-  // reset time control
+void time_control(position_t *pos, thread_t *threads, char *line) {
   threads->stopped = 0;
   threads->quit = 0;
   threads->starttime = 0;
@@ -532,71 +324,46 @@ void time_control(position_t *pos, thread_t *threads,
 
   threads[0].starttime = get_time_ms();
 
-  // init argument
   char *argument = NULL;
 
-  // infinite search
-  if ((argument = strstr(line, "infinite"))) {
-  }
-
   if (pos->side == white) {
-    if ((argument = strstr(line, "winc"))) {
-      limits.inc = atoi(argument + 5);
-    }
-    if ((argument = strstr(line, "wtime"))) {
-      limits.time = atoi(argument + 6);
-      limits.timeset = 1;
-    }
+    if ((argument = strstr(line, "winc")))  limits.inc  = atoi(argument + 5);
+    if ((argument = strstr(line, "wtime"))) { limits.time = atoi(argument + 6); limits.timeset = 1; }
   } else {
-    if ((argument = strstr(line, "binc"))) {
-      limits.inc = atoi(argument + 5);
-    }
-    if ((argument = strstr(line, "btime"))) {
-      limits.time = atoi(argument + 6);
-      limits.timeset = 1;
-    }
+    if ((argument = strstr(line, "binc")))  limits.inc  = atoi(argument + 5);
+    if ((argument = strstr(line, "btime"))) { limits.time = atoi(argument + 6); limits.timeset = 1; }
   }
-  // match UCI "movestogo" command
-  if ((argument = strstr(line, "movestogo")))
-    // parse number of moves to go
-    limits.movestogo = atoi(argument + 10);
 
-  // match UCI "movetime" command
+  if ((argument = strstr(line, "movestogo"))) limits.movestogo = atoi(argument + 10);
+
   if ((argument = strstr(line, "movetime"))) {
-    // parse amount of time allowed to spend to make a move
     limits.time = atoi(argument + 9);
     limits.movestogo = 1;
     limits.timeset = 1;
   }
+
   if ((argument = strstr(line, "nodes"))) {
-    // parse amount of time allowed to spend to make a move
     limits.node_limit_soft = atoi(argument + 6);
     limits.node_limit_hard = soft_nodes ? 10000000 : atoi(argument + 6);
     limits.depth = MAX_PLY;
     limits.nodes_set = 1;
   }
-  // match UCI "depth" command
+
   if ((argument = strstr(line, "depth"))) {
-    // parse search depth
     limits.depth = atoi(argument + 6);
   } else {
     limits.depth = limits.depth == 0 ? MAX_PLY : limits.depth;
 
     if (limits.timeset) {
-      // Engine <--> GUI communication safety margin
       limits.time -= MIN(limits.time / 2, move_overhead);
-      int64_t base_time = 0;
-      if (limits.movestogo > 0) {
-        base_time = (limits.time / limits.movestogo) + limits.inc;
-      } else {
-        base_time =
-            limits.time * DEF_TIME_MULTIPLIER + limits.inc * DEF_INC_MULTIPLIER;
-      }
 
-      limits.max_time = MAX(1, limits.time * MAX_TIME_MULTIPLIER);
+      const int64_t base_time = (limits.movestogo > 0)
+          ? (limits.time / limits.movestogo) + limits.inc
+          : limits.time * DEF_TIME_MULTIPLIER + limits.inc * DEF_INC_MULTIPLIER;
+
+      limits.max_time   = MAX(1, limits.time * MAX_TIME_MULTIPLIER);
       limits.hard_limit = threads->starttime + limits.max_time;
-      limits.base_soft =
-          MIN(base_time * SOFT_LIMIT_MULTIPLIER, limits.max_time);
+      limits.base_soft  = MIN(base_time * SOFT_LIMIT_MULTIPLIER, limits.max_time);
       limits.soft_limit = threads->starttime + limits.base_soft;
     }
   }
@@ -604,24 +371,19 @@ void time_control(position_t *pos, thread_t *threads,
 
 static inline void *parse_go(void *searchthread_info) {
   searchthreadinfo_t *sti = (searchthreadinfo_t *)searchthread_info;
-  position_t *pos = sti->pos;
-  thread_t *threads = sti->threads;
-  char *line = sti->line;
-  char *argument = NULL;
+  char *perft_arg = strstr(sti->line, "perft");
 
-  if ((argument = strstr(line, "perft"))) {
-    limits.depth = atoi(argument + 6);
-    perft_test(pos, threads, limits.depth);
+  if (perft_arg) {
+    limits.depth = atoi(perft_arg + 6);
+    perft_test(sti->pos, sti->threads, limits.depth);
     return NULL;
   }
 
-  time_control(pos, threads, line);
-
-  search_position(pos, threads);
+  time_control(sti->pos, sti->threads, sti->line);
+  search_position(sti->pos, sti->threads);
   return NULL;
 }
 
-// print move (for UCI purposes)
 void print_move(int move) {
   if (is_move_promotion(move))
     printf("%s%s%c", square_to_coordinates[get_move_source(move)],
@@ -632,49 +394,258 @@ void print_move(int move) {
            square_to_coordinates[get_move_target(move)]);
 }
 
-// main UCI loop
+typedef struct {
+  position_t         *pos;
+  thread_t          **threads;
+  int                *thread_count;
+  int                 max_hash;
+  pthread_t          *search_thread;
+  uint8_t            *started;
+  searchthreadinfo_t *sti;
+  char               *input;
+} uci_ctx_t;
+
+static void stop_search(uci_ctx_t *ctx) {
+  stop_threads(*ctx->threads, *ctx->thread_count);
+  if (*ctx->started) {
+    pthread_join(*ctx->search_thread, NULL);
+    *ctx->started = 0;
+  }
+}
+
+static void handle_isready(uci_ctx_t *ctx, char *args) {
+  (void)ctx; (void)args;
+  printf("readyok\n");
+}
+
+static void handle_position(uci_ctx_t *ctx, char *args) {
+  (void)args;
+  parse_position(ctx->pos, *ctx->threads, ctx->input);
+  init_accumulator(ctx->pos, &(*ctx->threads)->accumulator[ctx->pos->ply]);
+  init_finny_tables(*ctx->threads, ctx->pos);
+}
+
+static void handle_ucinewgame(uci_ctx_t *ctx, char *args) {
+  (void)args;
+  clear_hash_table();
+  for (int i = 0; i < *ctx->thread_count; ++i) {
+    thread_t *t = &(*ctx->threads)[i];
+    memset(t->quiet_history,                 0, sizeof(t->quiet_history));
+    memset(t->capture_history,               0, sizeof(t->capture_history));
+    memset(t->continuation_history,          0, sizeof(t->continuation_history));
+    memset(t->correction_history,            0, sizeof(t->correction_history));
+    memset(t->pawn_history,                  0, sizeof(t->pawn_history));
+    memset(t->w_non_pawn_correction_history, 0, sizeof(t->w_non_pawn_correction_history));
+    memset(t->b_non_pawn_correction_history, 0, sizeof(t->b_non_pawn_correction_history));
+  }
+}
+
+static void handle_go(uci_ctx_t *ctx, char *args) {
+  (void)args;
+  if (*ctx->started) pthread_join(*ctx->search_thread, NULL);
+  printf("info string NNUE evaluation using %s\n", nnue_settings.nnue_file);
+  strncpy(ctx->sti->line, ctx->input, sizeof(ctx->sti->line) - 1);
+  ctx->sti->line[sizeof(ctx->sti->line) - 1] = '\0';
+  pthread_create(ctx->search_thread, NULL, &parse_go, ctx->sti);
+  *ctx->started = 1;
+}
+
+static void handle_stop(uci_ctx_t *ctx, char *args) {
+  (void)args;
+  stop_search(ctx);
+}
+
+static void handle_quit(uci_ctx_t *ctx, char *args) {
+  (void)args;
+  stop_search(ctx);
+}
+
+static void handle_uci(uci_ctx_t *ctx, char *args) {
+  (void)args;
+  printf("id name Quanticade %s\n", version);
+  printf("id author DarkNeutrino\n\n");
+  printf("option name Hash type spin default %d min 4 max %d\n", default_hash_size, ctx->max_hash);
+  printf("option name Threads type spin default %d min %d max %d\n", 1, 1, 1024);
+  printf("option name MoveOverhead type spin default 10 min 0 max 5000\n");
+  printf("option name EvalFile type string default %s\n", nnue_settings.nnue_file);
+  printf("option name Clear Hash type button\n");
+  printf("option name SoftNodes type check default false\n");
+  printf("option name DisableNormalization type check default false\n");
+  printf("option name Minimal type check default false\n");
+  print_spsa_table_uci();
+  printf("uciok\n");
+}
+
+static void handle_spsa(uci_ctx_t *ctx, char *args) {
+  (void)ctx; (void)args;
+  print_spsa_table();
+}
+
+typedef struct {
+  const char *prefix;
+  void (*handler)(uci_ctx_t *, char *);
+  uint8_t quit_after;
+} uci_command_t;
+
+static const uci_command_t uci_commands[] = {
+  { "isready",    handle_isready,    0 },
+  { "position",   handle_position,   0 },
+  { "ucinewgame", handle_ucinewgame, 0 },
+  { "go",         handle_go,         0 },
+  { "stop",       handle_stop,       0 },
+  { "quit",       handle_quit,       1 },
+  { "uci",        handle_uci,        0 },
+  { "spsa",       handle_spsa,       0 },
+};
+
+static void setoption_hash(uci_ctx_t *ctx, char *value) {
+  int mb = atoi(value);
+  mb = MAX(4, MIN(mb, ctx->max_hash));
+  init_hash_table(mb);
+}
+
+static void setoption_threads(uci_ctx_t *ctx, char *value) {
+  *ctx->thread_count = MAX(1, atoi(value));
+#ifndef _WIN32
+  free(*ctx->threads);
+#else
+  _aligned_free(*ctx->threads);
+#endif
+  *ctx->threads = init_threads(*ctx->thread_count);
+  ctx->sti->threads = *ctx->threads;
+}
+
+static void setoption_eval_file(uci_ctx_t *ctx, char *value) {
+  (void)ctx;
+  char *new_path = strdup(value);
+  if (!new_path) return;
+  free(nnue_settings.nnue_file);
+  nnue_settings.nnue_file = new_path;
+  nnue_init(nnue_settings.nnue_file);
+}
+
+static void setoption_clear_hash(uci_ctx_t *ctx, char *value) {
+  (void)ctx; (void)value;
+  clear_hash_table();
+}
+
+static void setoption_syzygy_path(uci_ctx_t *ctx, char *value) {
+  (void)ctx;
+  printf("info string set SyzygyPath to %s\n", value);
+}
+
+typedef struct {
+  const char *name;
+  void (*handler)(uci_ctx_t *, char *);
+} setoption_entry_t;
+
+static void setoption_bool(uci_ctx_t *ctx, char *value, uint8_t *target) {
+  (void)ctx;
+  *target = (istrncmp(value, "true", 5) == 0) ? 1 : 0;
+}
+
+#define SETOPTION_BOOL(name, global) \
+  static void setoption_##name(uci_ctx_t *ctx, char *value) { \
+    setoption_bool(ctx, value, &global); \
+  }
+
+SETOPTION_BOOL(soft_nodes,   soft_nodes)
+SETOPTION_BOOL(disable_norm, disable_norm)
+SETOPTION_BOOL(minimal,      minimal)
+
+static void setoption_move_overhead(uci_ctx_t *ctx, char *value) {
+  (void)ctx;
+  move_overhead = atoi(value);
+}
+
+static const setoption_entry_t setoption_table[] = {
+  { "Hash",                 setoption_hash          },
+  { "Threads",              setoption_threads       },
+  { "MoveOverhead",         setoption_move_overhead },
+  { "EvalFile",             setoption_eval_file     },
+  { "Clear Hash",           setoption_clear_hash    },
+  { "SyzygyPath",           setoption_syzygy_path   },
+  { "SoftNodes",            setoption_soft_nodes    },
+  { "DisableNormalization", setoption_disable_norm  },
+  { "Minimal",              setoption_minimal       },
+};
+
+static void handle_setoption(uci_ctx_t *ctx, char *input) {
+  char *name_start = NULL;
+  for (char *p = input; *p; p++) {
+    if (istrncmp(p, "name ", 5) == 0) { name_start = p + 5; break; }
+  }
+  if (!name_start) return;
+
+  char *value_start = strstr(name_start, " value ");
+  char name[256]  = {0};
+  char value[256] = {0};
+
+  if (value_start) {
+    const size_t name_len = MIN((size_t)(value_start - name_start), sizeof(name) - 1);
+    strncpy(name, name_start, name_len);
+    strncpy(value, value_start + 7, sizeof(value) - 1);
+    value[strcspn(value, "\r\n")] = '\0';
+  } else {
+    strncpy(name, name_start, sizeof(name) - 1);
+    name[strcspn(name, "\r\n")] = '\0';
+  }
+
+  static const int n = sizeof(setoption_table) / sizeof(setoption_table[0]);
+  for (int i = 0; i < n; ++i) {
+    if (istrncmp(name, setoption_table[i].name, sizeof(name)) == 0) {
+      setoption_table[i].handler(ctx, value);
+      return;
+    }
+  }
+
+  handle_spsa_change(input);
+}
+
 void uci_loop(position_t *pos, int argc, char *argv[]) {
-  // max hash MB
-  int max_hash = 524288;
+  const int max_hash = 524288;
 
   thread_t *threads = init_threads(thread_count);
 
   pthread_t search_thread;
   uint8_t started = 0;
-  searchthreadinfo_t sti;
-  sti.threads = threads;
-  sti.pos = pos;
+  searchthreadinfo_t sti = { .threads = threads, .pos = pos };
 
-// reset STDIN & STDOUT buffers
 #ifndef WIN64
   setbuf(stdin, NULL);
 #endif
   setbuf(stdout, NULL);
 
-  // define user / GUI input buffer
   char input[10000];
 
-  // print engine info
   printf("Quanticade %s by DarkNeutrino\n", version);
 
-  // Setup engine with start position as default
   parse_position(pos, threads, "position startpos");
   init_accumulator(pos, &threads->accumulator[pos->ply]);
   init_finny_tables(threads, pos);
+
+  uci_ctx_t ctx = {
+    .pos           = pos,
+    .threads       = &threads,
+    .thread_count  = &thread_count,
+    .max_hash      = max_hash,
+    .search_thread = &search_thread,
+    .started       = &started,
+    .sti           = &sti,
+    .input         = input,
+  };
 
   if (argc >= 2) {
     if (strncmp("bench", argv[1], 5) == 0) {
       minimal = 1;
       uint64_t total_nodes = 0;
-      uint64_t start_time = get_time_ms();
-      for (int pos_index = 0; pos_index < 50; ++pos_index) {
+      const uint64_t start_time = get_time_ms();
+      for (int i = 0; i < 50; ++i) {
         memset(input, 0, sizeof(input));
         strcpy(input, "position fen ");
-        strcat(input, bench_positions[pos_index]);
+        strcat(input, bench_positions[i]);
         memset(threads, 0, sizeof(thread_t));
-        printf("\nPosition %d/%d (%s)\n", pos_index, 49,
-               bench_positions[pos_index]);
-
+        printf("\nPosition %d/%d (%s)\n", i, 49, bench_positions[i]);
         parse_position(pos, threads, input);
         init_accumulator(pos, &threads->accumulator[pos->ply]);
         init_finny_tables(threads, pos);
@@ -682,9 +653,8 @@ void uci_loop(position_t *pos, int argc, char *argv[]) {
         search_position(pos, threads);
         total_nodes += threads->nodes;
       }
-      uint64_t total_time = get_time_ms() - start_time;
-      printf("\n%" PRIu64 " nodes %" PRIu64 " nps\n", total_nodes,
-             (total_nodes / (total_time + 1) * 1000));
+      printf("\n%" PRIu64 " nodes %" PRIu64 " nps\n",
+             total_nodes, total_nodes / (get_time_ms() - start_time + 1) * 1000);
       return;
     } else if (strncmp("genfens", argv[1], 7) == 0) {
       minimal = 1;
@@ -692,175 +662,46 @@ void uci_loop(position_t *pos, int argc, char *argv[]) {
       uint64_t seed = 0ULL;
       char book[256];
       int n_of_char_read = 0;
-      if (sscanf(argv[1], "genfens %d seed %99" SCNu64 " book %s %n",
-                 &n_of_fens, &seed, book, &n_of_char_read)) {
-        // Parse additional stuff here if needed in future
-      }
+      sscanf(argv[1], "genfens %d seed %99" SCNu64 " book %s %n",
+             &n_of_fens, &seed, book, &n_of_char_read);
       genfens(pos, threads, seed, n_of_fens, book);
       return;
     }
   }
 
-  // main loop
-  while (1) {
-    // reset user /GUI input
-    memset(input, 0, sizeof(input));
+  static const int n_commands = sizeof(uci_commands) / sizeof(uci_commands[0]);
 
-    // make sure output reaches the GUI
+  while (1) {
+    memset(input, 0, sizeof(input));
     fflush(stdout);
 
-    // get user / GUI input
-    if (!fgets(input, 10000, stdin))
-      // continue the loop
-      continue;
+    if (!fgets(input, sizeof(input), stdin)) continue;
 
-    // make sure input is available
-    if (input[0] == '\n')
-      // continue the loop
-      continue;
-
-    // parse UCI "isready" command
-    if (strncmp(input, "isready", 7) == 0) {
-      printf("readyok\n");
+    // If no newline was read, the line was too long — drain the rest and discard
+    if (!strchr(input, '\n')) {
+      int ch;
+      while ((ch = getchar()) != '\n' && ch != EOF);
       continue;
     }
 
-    // parse UCI "position" command
-    else if (strncmp(input, "position", 8) == 0) {
-      // call parse position function
-      parse_position(pos, threads, input);
-      init_accumulator(pos, &threads->accumulator[pos->ply]);
-      init_finny_tables(threads, pos);
+    if (input[0] == '\n') continue;
+
+    if (strncmp(input, "setoption", 9) == 0) {
+      handle_setoption(&ctx, input);
+      continue;
     }
-    // parse UCI "ucinewgame" command
-    else if (strncmp(input, "ucinewgame", 10) == 0) {
-      // clear hash table
-      clear_hash_table();
-      for (int i = 0; i < thread_count; ++i) {
-        memset(threads[i].quiet_history, 0, sizeof(threads[i].quiet_history));
-        memset(threads[i].capture_history, 0,
-               sizeof(threads[i].capture_history));
-        memset(threads[i].continuation_history, 0,
-               sizeof(threads[i].continuation_history));
-        memset(threads[i].correction_history, 0,
-               sizeof(threads[i].correction_history));
-        memset(threads[i].pawn_history, 0, sizeof(threads[i].pawn_history));
-        memset(threads[i].w_non_pawn_correction_history, 0,
-               sizeof(threads[i].w_non_pawn_correction_history));
-        memset(threads[i].b_non_pawn_correction_history, 0,
-               sizeof(threads[i].b_non_pawn_correction_history));
+
+    for (int i = 0; i < n_commands; ++i) {
+      const size_t len = strlen(uci_commands[i].prefix);
+      if (strncmp(input, uci_commands[i].prefix, len) == 0) {
+        uci_commands[i].handler(&ctx, input + len);
+        if (uci_commands[i].quit_after) goto done;
+        break;
       }
-    }
-    // parse UCI "go" command
-    else if (strncmp(input, "go", 2) == 0) {
-      if (started) {
-        pthread_join(search_thread, NULL);
-      }
-      // call parse go function
-      printf("info string NNUE evaluation using %s\n", nnue_settings.nnue_file);
-      strncpy(sti.line, input, 10000);
-      pthread_create(&search_thread, NULL, &parse_go, &sti);
-      started = 1;
-    }
-
-    else if (strncmp(input, "stop", 4) == 0) {
-      stop_threads(threads, thread_count);
-      if (started) {
-        pthread_join(search_thread, NULL);
-        started = 0;
-      }
-    }
-    // parse UCI "quit" command
-    else if (strncmp(input, "quit", 4) == 0) {
-      // quit from the UCI loop (terminate program)
-      stop_threads(threads, thread_count);
-      if (started) {
-        pthread_join(search_thread, NULL);
-      }
-      break;
-    }
-
-    // parse UCI "uci" command
-    else if (strncmp(input, "uci", 3) == 0) {
-      // print engine info
-      printf("id name Quanticade %s\n", version);
-      printf("id author DarkNeutrino\n\n");
-      printf("option name Hash type spin default %d min 4 max %d\n",
-             default_hash_size, max_hash);
-      printf("option name Threads type spin default %d min %d max %d\n", 1, 1,
-             1024);
-      printf("option name MoveOverhead type spin default 10 min 0 max 5000\n");
-      printf("option name EvalFile type string default %s\n",
-             nnue_settings.nnue_file);
-      printf("option name Clear Hash type button\n");
-      printf("option name SoftNodes type spin default 0 min 0 max 1\n");
-      printf(
-          "option name DisableNormalization type spin default 0 min 0 max 1\n");
-      printf("option name Minimal type spin default 0 min 0 max 1\n");
-      // SPSA
-      print_spsa_table_uci();
-      // uciok
-      printf("uciok\n");
-    } else if (strncmp(input, "spsa", 4) == 0) {
-      print_spsa_table();
-    }
-
-    else if (!strncmp(input, "setoption name Hash value ", 26)) {
-      int mb = 0;
-      // init MB
-      sscanf(input, "%*s %*s %*s %*s %d", &mb);
-
-      // adjust MB if going beyond the allowed bounds
-      if (mb < 4)
-        mb = 4;
-      if (mb > max_hash)
-        mb = max_hash;
-
-      // set hash table size in MB
-      init_hash_table(mb);
-    }
-
-    else if (!strncmp(input, "setoption name Threads value ", 29)) {
-      sscanf(input, "%*s %*s %*s %*s %d", &thread_count);
-#ifndef _WIN32
-      free(threads);
-#else
-      _aligned_free(threads);
-#endif
-      threads = init_threads(thread_count);
-      sti.threads = threads;
-    }
-
-    else if (!strncmp(input, "setoption name MoveOverhead value ", 34)) {
-      sscanf(input, "%*s %*s %*s %*s %d", &move_overhead);
-    }
-
-    else if (!strncmp(input, "setoption name EvalFile value ", 30)) {
-      free(nnue_settings.nnue_file);
-      uint16_t length = strlen(input);
-      nnue_settings.nnue_file = calloc(length - 30, 1);
-      sscanf(input, "%*s %*s %*s %*s %s", nnue_settings.nnue_file);
-      nnue_init(nnue_settings.nnue_file);
-    }
-
-    else if (!strncmp(input, "setoption name Clear Hash", 25)) {
-      clear_hash_table();
-    } else if (!strncmp(input, "setoption name SyzygyPath value ", 32)) {
-      char *ptr = input + 32;
-      // tb_init(ptr);
-      printf("info string set SyzygyPath to %s\n", ptr);
-    } else if (!strncmp(input, "setoption name SoftNodes value ", 31)) {
-      sscanf(input, "%*s %*s %*s %*s %hhu", &soft_nodes);
-    } else if (!strncmp(input, "setoption name DisableNormalization value ",
-                        42)) {
-      sscanf(input, "%*s %*s %*s %*s %hhu", &disable_norm);
-    } else if (!strncmp(input, "setoption name Minimal value ",
-                        29)) {
-      sscanf(input, "%*s %*s %*s %*s %hhu", &minimal);
-    } else {
-      handle_spsa_change(input);
     }
   }
+
+done:
 #ifndef _WIN32
   free(threads);
 #else
