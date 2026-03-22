@@ -120,7 +120,8 @@ static inline int parse_move(position_t *pos, thread_t *thread,
   moves move_list[1];
 
   // generate moves
-  generate_moves(pos, move_list);
+  generate_noisy(pos, move_list, 0);
+  generate_quiets(pos, move_list, 1);
 
   // parse source square
   int source_square = (move_string[0] - 'a') + (8 - (move_string[1] - '0')) * 8;

@@ -47,7 +47,8 @@ uint8_t play_rand_moves(position_t *pos, thread_t *thread, uint8_t rand_moves) {
     moves pseudo_moves[1];
     moves legal_moves[1];
     legal_moves->count = 0;
-    generate_moves(pos, pseudo_moves);
+    generate_noisy(pos, pseudo_moves, 0);
+    generate_quiets(pos, pseudo_moves, 1);
     for (uint16_t moves = 0; moves < pseudo_moves->count; ++moves) {
         if (is_pseudo_legal(pos, pseudo_moves->entry[moves].move) && is_legal(pos, pseudo_moves->entry[moves].move)) {
             add_move(legal_moves, pseudo_moves->entry[moves].move);
