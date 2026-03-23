@@ -1138,22 +1138,22 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     position_t pos_copy = *pos;
 
     // increment ply
-    pos->ply++;
+    pos_copy.ply++;
 
     // increment repetition index & store hash key
     thread->repetition_index++;
     thread->repetition_table[thread->repetition_index] =
-        pos->hash_keys.hash_key;
+        pos_copy.hash_keys.hash_key;
 
     // make sure to make only legal moves
-    make_move(pos, move);
+    make_move(&pos_copy, move);
 
-    calculate_threats(pos, ss + 1);
+    calculate_threats(&pos_copy, ss + 1);
 
-    update_nnue(pos, thread, pos_copy.mailbox, move);
+    update_nnue(&pos_copy, thread, pos->mailbox, move);
 
     ss->move = move;
-    ss->piece = pos_copy.mailbox[get_move_source(move)];
+    ss->piece = pos->mailbox[get_move_source(move)];
 
     // increment nodes count
     thread->nodes++;
@@ -1185,7 +1185,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       R -= ss->tt_pv * LMR_TT_PV;
       R += (ss->tt_pv && tt_hit && tt_score <= alpha) * LMR_TT_SCORE;
       R -= (ss->tt_pv && cutnode) * LMR_TT_PV_CUTNODE;
-      R -= stm_in_check(pos) * LMR_IN_CHECK;
+      R -= stm_in_check(&pos_copy) * LMR_IN_CHECK;
       R += (ss->cutoff_cnt > 3) * LMR_CUTOFF_CNT;
       R -= improving * LMR_IMPROVING;
 
@@ -1195,7 +1195,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       int reduced_depth =
           MAX(1, MIN(new_depth - R, new_depth + cutnode)) + pv_node;
 
-      current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
+      current_score = -negamax(&pos_copy, thread, ss + 1, -alpha - 1, -alpha,
                                reduced_depth, 1, NON_PV);
       ss->reduction = 0;
 
@@ -1205,30 +1205,27 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
         new_depth -= (current_score < best_score + LMR_SHALLOWER_MARGIN);
 
         if (new_depth > reduced_depth) {
-          current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
+          current_score = -negamax(&pos_copy, thread, ss + 1, -alpha - 1, -alpha,
                                    new_depth, !cutnode, NON_PV);
         }
       }
       // Full Depth Search
     } else if (!pv_node || moves_seen > 1) {
-      current_score = -negamax(pos, thread, ss + 1, -alpha - 1, -alpha,
+      current_score = -negamax(&pos_copy, thread, ss + 1, -alpha - 1, -alpha,
                                new_depth, !cutnode, NON_PV);
     }
 
     // Principal Variation Search
     if (pv_node && (moves_seen == 1 || current_score > alpha)) {
       current_score =
-          -negamax(pos, thread, ss + 1, -beta, -alpha, new_depth, 0, PV_NODE);
+          -negamax(&pos_copy, thread, ss + 1, -beta, -alpha, new_depth, 0, PV_NODE);
     }
-
-    // decrement ply
-    pos->ply--;
 
     // decrement repetition index
     thread->repetition_index--;
 
     // take move back
-    *pos = pos_copy;
+    //*pos = pos_copy;
 
     if (thread->index == 0 && root_node) {
       nodes_spent_table[move >> 4] += thread->nodes - nodes_before_search;
