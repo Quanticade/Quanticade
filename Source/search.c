@@ -827,8 +827,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
       pos->ply > thread->nmp_min_ply && ss->eval >= beta &&
       ss->static_eval >= beta - NMP_MULTIPLIER * depth + NMP_BASE_ADD &&
       ss->eval >= ss->static_eval && !only_pawns(pos)) {
-    int R = depth / NMP_DIVISER + NMP_BASE_REDUCTION;
-    R = MIN(R, depth);
+    int32_t r = (5154 + 271 * depth + 535 * clamp(ss->static_eval - beta,0, 1073) / 128) / 1024;
     // preserve board state
     position_t pos_copy = *pos;
 
@@ -871,7 +870,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     /* search moves with reduced depth to find beta cutoffs
        depth - 1 - R where R is a reduction limit */
     current_score = -negamax(&pos_copy, thread, ss + 1, -beta, -beta + 1,
-                             depth - R, !cutnode, NON_PV);
+                             depth - r, !cutnode, NON_PV);
 
     (ss + 1)->null_move = 0;
 
