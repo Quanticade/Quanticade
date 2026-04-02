@@ -421,7 +421,7 @@ static void handle_isready(uci_ctx_t *ctx, char *args) {
 static void handle_position(uci_ctx_t *ctx, char *args) {
   (void)args;
   parse_position(ctx->pos, *ctx->threads, ctx->input);
-  init_accumulator(ctx->pos, &(*ctx->threads)->accumulator[ctx->pos->ply]);
+  init_accumulator(ctx->pos, &(*ctx->threads)->accumulator[ctx->threads[0]->ply]);
   init_finny_tables(*ctx->threads, ctx->pos);
 }
 
@@ -621,7 +621,7 @@ void uci_loop(position_t *pos, int argc, char *argv[]) {
   printf("Quanticade %s by DarkNeutrino\n", version);
 
   parse_position(pos, threads, "position startpos");
-  init_accumulator(pos, &threads->accumulator[pos->ply]);
+  init_accumulator(pos, &threads->accumulator[threads[0].ply]);
   init_finny_tables(threads, pos);
 
   uci_ctx_t ctx = {
@@ -647,7 +647,7 @@ void uci_loop(position_t *pos, int argc, char *argv[]) {
         memset(threads, 0, sizeof(thread_t));
         printf("\nPosition %d/%d (%s)\n", i, 49, bench_positions[i]);
         parse_position(pos, threads, input);
-        init_accumulator(pos, &threads->accumulator[pos->ply]);
+        init_accumulator(pos, &threads->accumulator[threads[0].ply]);
         init_finny_tables(threads, pos);
         time_control(pos, threads, "go depth 13");
         search_position(pos, threads);
