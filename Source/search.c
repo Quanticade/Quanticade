@@ -528,7 +528,8 @@ static inline int16_t quiescence(position_t *pos, thread_t *thread,
   }
 
   picker_t picker;
-  init_picker(&picker, pos, thread, ss, tt_move, in_check);
+  const uint8_t generate_all = in_check || (!pv_node && tt_move && tt_entry->flag != HASH_FLAG_UPPER_BOUND && !(is_move_promotion(tt_move) || get_move_capture(tt_move)));
+  init_picker(&picker, pos, thread, ss, tt_move, generate_all);
 
   moves capture_list[1];
   capture_list->count = 0;
