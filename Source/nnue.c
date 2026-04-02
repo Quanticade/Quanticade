@@ -489,7 +489,7 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
 
 int nnue_evaluate(thread_t *thread, position_t *pos,
                   accumulator_t *accumulator) {
-  apply_accumulator(thread, pos->ply);
+  apply_accumulator(thread, thread->ply);
   const uint8_t out_bucket = calculate_output_bucket(pos);
   const int16_t *stmAcc = accumulator->accumulator[pos->side];
   const int16_t *oppAcc = accumulator->accumulator[1 - pos->side];
@@ -1002,7 +1002,7 @@ void null_move_copy_accumulator(thread_t *thread, int src_ply, int dst_ply) {
 
 void update_nnue(position_t *pos, thread_t *thread, uint8_t mailbox_copy[64],
                  uint16_t move) {
-  lazy_acc_state_t *state = &thread->lazy[pos->ply];
+  lazy_acc_state_t *state = &thread->lazy[thread->ply];
   const int from = get_move_source(move);
   const int to   = get_move_target(move);
 

@@ -64,7 +64,7 @@ uint8_t play_rand_moves(position_t *pos, thread_t *thread, uint8_t rand_moves) {
         strcpy(input, "position fen ");
         strcat(input, fen);
         parse_position(pos, thread, input);
-        init_accumulator(pos, &thread->accumulator[pos->ply]);
+        init_accumulator(pos, &thread->accumulator[thread->ply]);
         init_finny_tables(thread, pos);
         time_control(pos, thread, "go depth 10");
         search_position(pos, thread);
@@ -98,7 +98,7 @@ void genfens(position_t *pos, thread_t *thread, uint64_t seed,
             char input[512];
             sprintf(input, "position fen %s", fen);
             parse_position(pos, thread, input);
-            init_accumulator(pos, &thread->accumulator[pos->ply]);
+            init_accumulator(pos, &thread->accumulator[thread->ply]);
             init_finny_tables(thread, pos);
         }
         position_t pos_copy = *pos;
