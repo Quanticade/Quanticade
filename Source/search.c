@@ -268,7 +268,8 @@ static inline move_t pick_next_best_move(moves *move_list, uint16_t *index) {
 static inline void score_noisy(position_t *pos, thread_t *thread,
                                 searchstack_t *ss, moves *noisy_list,
                                 moves *good_noisy, moves *bad_noisy,
-                                uint16_t tt_move) {
+                                uint16_t tt_move, uint8_t has_see_margin,
+                                int16_t see_margin) {
   for (uint32_t i = 0; i < noisy_list->count; i++) {
     move_t entry = noisy_list->entry[i];
     uint16_t move = entry.move;
@@ -294,7 +295,13 @@ static inline void score_noisy(position_t *pos, thread_t *thread,
                    MO_CAPT_HIST_MULT;
     entry.score /= 1024;
 
-    int see_threshold = -MO_SEE_THRESHOLD - entry.score / MO_SEE_HISTORY_DIVISER;
+    int see_threshold;
+    if (has_see_margin) {
+      see_threshold = see_margin;
+    } else {
+      see_threshold = -MO_SEE_THRESHOLD - entry.score / MO_SEE_HISTORY_DIVISER;
+    }
+
     if (SEE(pos, move, see_threshold))
       good_noisy->entry[good_noisy->count++] = entry;
     else
@@ -355,6 +362,8 @@ typedef struct {
   uint16_t        tt_move;
   uint8_t         generate_all;
   uint8_t         skip_quiets;
+  uint8_t         has_see_margin;
+  int16_t         see_margin;
   position_t     *pos;
   thread_t       *thread;
   searchstack_t  *ss;
@@ -373,6 +382,8 @@ static inline void init_picker(picker_t *picker, position_t *pos,
   picker->tt_move           = tt_move;
   picker->generate_all      = generate_all;
   picker->skip_quiets       = 0;
+  picker->has_see_margin    = 0;
+  picker->see_margin        = 0;
   picker->pos               = pos;
   picker->thread            = thread;
   picker->ss                = ss;
@@ -394,7 +405,8 @@ static inline uint16_t select_next(picker_t *picker) {
     moves tmp;
     generate_noisy(picker->pos, &tmp, 0);
     score_noisy(picker->pos, picker->thread, picker->ss, &tmp,
-                &picker->good_noisy, &picker->bad_noisy, picker->tt_move);
+                &picker->good_noisy, &picker->bad_noisy, picker->tt_move,
+                picker->has_see_margin, picker->see_margin);
     picker->stage = STAGE_GOOD_NOISY;
     /* fallthrough */
   }
@@ -929,15 +941,12 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
     // Generate captures and good promotions for ProbCut
     picker_t probcut_picker;
     init_picker(&probcut_picker, pos, thread, ss, 0, 0);
+    probcut_picker.has_see_margin = 1;
+    probcut_picker.see_margin = PROBCUT_SEE_THRESHOLD;
 
     // Try moves that look promising
     uint16_t move;
     while ((move = select_next(&probcut_picker)) != 0) {
-
-      // Skip moves that don't pass SEE threshold
-      if (!SEE(pos, move, PROBCUT_SEE_THRESHOLD)) {
-        continue;
-      }
 
       if (!is_legal(pos, move)) {
         continue;
