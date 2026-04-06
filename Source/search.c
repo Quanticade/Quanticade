@@ -354,6 +354,7 @@ typedef struct {
   uint16_t        quiet_index;
   uint16_t        tt_move;
   uint8_t         generate_all;
+  uint8_t         skip_quiets;
   position_t     *pos;
   thread_t       *thread;
   searchstack_t  *ss;
@@ -371,6 +372,7 @@ static inline void init_picker(picker_t *picker, position_t *pos,
   picker->quiet_index       = 0;
   picker->tt_move           = tt_move;
   picker->generate_all      = generate_all;
+  picker->skip_quiets       = 0;
   picker->pos               = pos;
   picker->thread            = thread;
   picker->ss                = ss;
@@ -408,19 +410,27 @@ static inline uint16_t select_next(picker_t *picker) {
     /* fallthrough */
 
   case STAGE_GENERATE_QUIET:
-    generate_quiets(picker->pos, &picker->quiets, 0);
-    score_quiet(picker->pos, picker->thread, picker->ss,
-                &picker->quiets, picker->tt_move);
-    picker->stage = STAGE_QUIET;
+    if (picker->skip_quiets) {
+      picker->stage = STAGE_BAD_NOISY;
+    } else {
+      generate_quiets(picker->pos, &picker->quiets, 0);
+      score_quiet(picker->pos, picker->thread, picker->ss,
+                  &picker->quiets, picker->tt_move);
+      picker->stage = STAGE_QUIET;
+    }
     /* fallthrough */
 
   case STAGE_QUIET:
-    while (picker->quiet_index < picker->quiets.count) {
-      uint16_t move = pick_next_best_move(&picker->quiets, &picker->quiet_index).move;
-      if (move != picker->tt_move)
-        return move;
+    if (picker->skip_quiets) {
+      picker->stage = STAGE_BAD_NOISY;
+    } else {
+      while (picker->quiet_index < picker->quiets.count) {
+        uint16_t move = pick_next_best_move(&picker->quiets, &picker->quiet_index).move;
+        if (move != picker->tt_move)
+          return move;
+      }
+      picker->stage = STAGE_BAD_NOISY;
     }
-    picker->stage = STAGE_BAD_NOISY;
     /* fallthrough */
 
   case STAGE_BAD_NOISY:
@@ -1008,7 +1018,6 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
   current_score = NO_SCORE;
 
   uint16_t best_move = 0;
-  uint8_t skip_quiets = 0;
 
   const int16_t original_alpha = alpha;
 
@@ -1019,10 +1028,6 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
         (get_move_capture(move) == 0 && is_move_promotion(move) == 0);
 
     if (move == ss->excluded_move) {
-      continue;
-    }
-
-    if (skip_quiets && quiet) {
       continue;
     }
 
@@ -1060,7 +1065,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
                                   [improving ||
                                    ss->static_eval >= beta + LMP_BETA_MARGIN] &&
           !only_pawns(pos)) {
-        skip_quiets = 1;
+        picker.skip_quiets = 1;
       }
 
       int r = lmr[quiet][MIN(63, depth)][MIN(63, moves_seen)];
@@ -1073,7 +1078,7 @@ static inline int16_t negamax(position_t *pos, thread_t *thread,
                   ss->history_score / FP_HISTORY_DIVISOR <=
               alpha &&
           !might_give_check(pos, move)) {
-        skip_quiets = 1;
+        picker.skip_quiets = 1;
         continue;
       }
 
