@@ -102,7 +102,6 @@ typedef struct position {
   uint64_t checkers;
   uint16_t fullmove;
   uint8_t checker_count;
-  uint8_t ply;
   uint8_t fifty;
   uint8_t mailbox[64];
   uint8_t side;
@@ -121,7 +120,8 @@ typedef struct searchinfo {
   accumulator_t accumulator[MAX_PLY + 10];
   uint64_t nodes;
   uint64_t starttime;
-  position_t pos;
+  position_t positions[MAX_PLY + 10];
+  uint8_t ply;
   uint64_t repetition_table[2000];
   uint32_t repetition_index;
   uint32_t nmp_min_ply;
