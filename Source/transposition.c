@@ -5,7 +5,6 @@
 #include "uci.h"
 #include <pthread.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -176,8 +175,6 @@ void init_hash_table(uint64_t mb) {
     tt.hash_entry      = (tt_bucket_t *)mem;
     tt_alloc_size      = alloc_size;
     tt_used_huge_pages = 1;
-    printf("    Hash table allocated with 1 GiB huge pages (%.1f MB)\n",
-           (double)alloc_size / (1024.0 * 1024.0));
     clear_hash_table();
     return;
   }
@@ -192,14 +189,9 @@ void init_hash_table(uint64_t mb) {
     tt.hash_entry      = (tt_bucket_t *)mem;
     tt_alloc_size      = alloc_size;
     tt_used_huge_pages = 1;
-    printf("    Hash table allocated with 2 MiB huge pages (%.1f MB)\n",
-           (double)alloc_size / (1024.0 * 1024.0));
     clear_hash_table();
     return;
   }
-
-  // Huge pages unavailable — fall through to regular allocation
-  printf("    Huge pages unavailable, falling back to regular allocation\n");
 #endif
 
   // allocate memory
@@ -207,8 +199,6 @@ void init_hash_table(uint64_t mb) {
 
   // if allocation has failed
   if (tt.hash_entry == NULL) {
-    printf("    Couldn't allocate memory for hash table, trying with half\n");
-
     // try to allocate with half size
     init_hash_table(mb / 2);
     return;
@@ -217,8 +207,12 @@ void init_hash_table(uint64_t mb) {
   // if allocation succeeded
   tt_alloc_size      = alloc_size;
   tt_used_huge_pages = 0;
-  printf("    Hash table allocated normally (%.1f MB)\n",
-         (double)alloc_size / (1024.0 * 1024.0));
+
+#ifdef __linux__
+  // hint THP to promote pages to huge pages when possible
+  madvise(tt.hash_entry, alloc_size, MADV_HUGEPAGE);
+#endif
+
   clear_hash_table();
 }
 
