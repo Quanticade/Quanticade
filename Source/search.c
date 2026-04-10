@@ -48,7 +48,7 @@ int NMP_RED_MIN = 3;
 int IIR_DEPTH = 4;
 int SEE_DEPTH = 10;
 int ASP_DEPTH = 4;
-int SE_DEPTH = 6;
+int SE_DEPTH = 5;
 int PROBCUT_DEPTH = 5;
 int PROBCUT_SHALLOW_DEPTH = 3;
 int SE_DEPTH_REDUCTION = 6;
@@ -1088,7 +1088,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     // A rather simple idea that if our TT move is accurate we run a reduced
     // search to see if we can beat this score. If not we extend the TT move
     // search
-    if (ply < thread->depth * 2 && !root_node && depth >= SE_DEPTH &&
+    if (ply < thread->depth * 2 && !root_node && depth >= SE_DEPTH + ss->tt_pv &&
         move == tt_move && !ss->excluded_move &&
         tt_depth >= depth - SE_DEPTH_REDUCTION &&
         tt_flag != HASH_FLAG_UPPER_BOUND && abs(tt_score) < MATE_SCORE) {
