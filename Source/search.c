@@ -189,7 +189,7 @@ void scale_time(thread_t *thread, uint8_t best_move_stability,
   double eval = EVAL_TIME_ADDITION - eval_stability * EVAL_TIME_MULTIPLIER;
   limits.soft_limit =
       MIN(thread->starttime + limits.base_soft *
-                                  bestmove_scale[best_move_stability] * eval *
+                                  (1.8 - (0.1 * best_move_stability)) * eval *
                                   node_scaling_factor,
           limits.max_time + thread->starttime);
 }
@@ -1451,7 +1451,7 @@ void *iterative_deepening(void *thread_void) {
                           : (average_score + thread->score) / 2;
 
       if (thread->pv.pv_table[0][0] == prev_best_move) {
-        best_move_stability = MIN(best_move_stability + 1, 4);
+        best_move_stability = MIN(best_move_stability + 1, 9);
       } else {
         prev_best_move = thread->pv.pv_table[0][0];
         best_move_stability = 0;
