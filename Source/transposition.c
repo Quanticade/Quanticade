@@ -14,6 +14,11 @@
 #ifndef MAP_HUGETLB
 #define MAP_HUGETLB 0x40000
 #endif
+#ifndef MAP_HUGE_SHIFT
+#define MAP_HUGE_SHIFT 26
+#endif
+#define MAP_HUGE_2MB (21 << MAP_HUGE_SHIFT)
+#define MAP_HUGE_1GB (30 << MAP_HUGE_SHIFT)
 #endif
 
 tt_t tt;
@@ -161,17 +166,33 @@ void init_hash_table(uint64_t mb) {
   free_hash_table();
 
 #ifdef __linux__
-  // Attempt huge-page backed allocation (2 MiB pages)
+  // Attempt 1 GiB huge pages first
   void *mem = mmap(NULL, alloc_size,
                    PROT_READ | PROT_WRITE,
-                   MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB,
+                   MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_1GB,
                    -1, 0);
 
   if (mem != MAP_FAILED) {
     tt.hash_entry      = (tt_bucket_t *)mem;
     tt_alloc_size      = alloc_size;
     tt_used_huge_pages = 1;
-    printf("    Hash table allocated with huge pages (%.1f MB)\n",
+    printf("    Hash table allocated with 1 GiB huge pages (%.1f MB)\n",
+           (double)alloc_size / (1024.0 * 1024.0));
+    clear_hash_table();
+    return;
+  }
+
+  // Fall back to 2 MiB huge pages
+  mem = mmap(NULL, alloc_size,
+             PROT_READ | PROT_WRITE,
+             MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_2MB,
+             -1, 0);
+
+  if (mem != MAP_FAILED) {
+    tt.hash_entry      = (tt_bucket_t *)mem;
+    tt_alloc_size      = alloc_size;
+    tt_used_huge_pages = 1;
+    printf("    Hash table allocated with 2 MiB huge pages (%.1f MB)\n",
            (double)alloc_size / (1024.0 * 1024.0));
     clear_hash_table();
     return;
