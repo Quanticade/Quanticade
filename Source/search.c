@@ -1130,6 +1130,10 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       else if (cutnode) {
         extensions -= 2;
       }
+
+      else if (tt_score <= alpha) {
+        extensions -= 1;
+      }
     }
 
     // Copy current position to the next ply slot and advance.
