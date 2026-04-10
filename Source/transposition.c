@@ -9,12 +9,22 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef __linux__
+#include <sys/mman.h>
+#ifndef MAP_HUGETLB
+#define MAP_HUGETLB 0x40000
+#endif
+#endif
+
 tt_t tt;
 extern keys_t keys;
 
 extern int thread_count;
 
 __extension__ typedef unsigned __int128 uint128_t;
+
+static size_t tt_alloc_size     = 0;
+static int    tt_used_huge_pages = 0;
 
 int hash_full(void) {
   uint64_t used = 0;
@@ -119,6 +129,24 @@ void clear_hash_table(void) {
   }
 }
 
+void free_hash_table(void) {
+  if (tt.hash_entry == NULL) return;
+
+#ifdef __linux__
+  if (tt_used_huge_pages) {
+    munmap(tt.hash_entry, tt_alloc_size);
+    tt_used_huge_pages = 0;
+  } else {
+    free(tt.hash_entry);
+  }
+#else
+  free(tt.hash_entry);
+#endif
+
+  tt.hash_entry  = NULL;
+  tt_alloc_size  = 0;
+}
+
 // dynamically allocate memory for hash table
 void init_hash_table(uint64_t mb) {
   // init hash size
@@ -127,14 +155,34 @@ void init_hash_table(uint64_t mb) {
   // init number of hash entries
   tt.num_of_entries = hash_size / sizeof(tt_bucket_t);
 
+  size_t alloc_size = tt.num_of_entries * sizeof(tt_bucket_t);
+
   // free hash table if not empty
-  if (tt.hash_entry != NULL) {
-    // free hash table dynamic memory
-    free(tt.hash_entry);
+  free_hash_table();
+
+#ifdef __linux__
+  // Attempt huge-page backed allocation (2 MiB pages)
+  void *mem = mmap(NULL, alloc_size,
+                   PROT_READ | PROT_WRITE,
+                   MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB,
+                   -1, 0);
+
+  if (mem != MAP_FAILED) {
+    tt.hash_entry      = (tt_bucket_t *)mem;
+    tt_alloc_size      = alloc_size;
+    tt_used_huge_pages = 1;
+    printf("    Hash table allocated with huge pages (%.1f MB)\n",
+           (double)alloc_size / (1024.0 * 1024.0));
+    clear_hash_table();
+    return;
   }
 
+  // Huge pages unavailable — fall through to regular allocation
+  printf("    Huge pages unavailable, falling back to regular allocation\n");
+#endif
+
   // allocate memory
-  tt.hash_entry = malloc(tt.num_of_entries * sizeof(tt_bucket_t));
+  tt.hash_entry = malloc(alloc_size);
 
   // if allocation has failed
   if (tt.hash_entry == NULL) {
@@ -142,13 +190,15 @@ void init_hash_table(uint64_t mb) {
 
     // try to allocate with half size
     init_hash_table(mb / 2);
+    return;
   }
 
   // if allocation succeeded
-  else {
-    // clear hash table
-    clear_hash_table();
-  }
+  tt_alloc_size      = alloc_size;
+  tt_used_huge_pages = 0;
+  printf("    Hash table allocated normally (%.1f MB)\n",
+         (double)alloc_size / (1024.0 * 1024.0));
+  clear_hash_table();
 }
 
 uint8_t can_use_score(int alpha, int beta, int tt_score, uint8_t flag) {
@@ -217,10 +267,10 @@ void write_hash_entry(tt_entry_t *tt_entry, position_t *pos, const uint8_t ply, 
     score += ply;
 
   // write hash entry data
-  tt_entry->hash_key = get_hash_low_bits(pos->hash_keys.hash_key);
-  tt_entry->score = score;
+  tt_entry->hash_key   = get_hash_low_bits(pos->hash_keys.hash_key);
+  tt_entry->score      = score;
   tt_entry->static_eval = static_eval;
-  tt_entry->flag = hash_flag;
-  tt_entry->tt_pv = tt_pv;
-  tt_entry->depth = depth;
+  tt_entry->flag       = hash_flag;
+  tt_entry->tt_pv      = tt_pv;
+  tt_entry->depth      = depth;
 }

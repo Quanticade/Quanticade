@@ -112,7 +112,7 @@ int main(int argc, char *argv[]) {
   uci_loop(&pos, argc, argv);
 
   // free hash table memory on exit
-  free(tt.hash_entry);
+  free_hash_table();
   free(nnue_settings.nnue_file);
 
   return 0;
