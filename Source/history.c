@@ -155,7 +155,7 @@ int16_t calculate_corrhist_bonus(int16_t static_eval, int16_t search_score,
 }
 
 int16_t scale_corrhist_bonus(int16_t score, int16_t bonus) {
-  return bonus - score * abs(bonus) / 1024;
+  return bonus - score * abs(bonus) / 16384;
 }
 
 uint8_t static_eval_within_bounds(int16_t static_eval, int16_t score,
@@ -186,7 +186,7 @@ int16_t adjust_static_eval(thread_t *thread, int16_t static_eval) {
       NON_PAWN_CORR_HISTORY_MULTIPLIER;
   const int correction =
       pawn_correction + white_non_pawn_correction + black_non_pawn_correction;
-  const int adjusted_score = static_eval + (correction / 1024);
+  const int adjusted_score = static_eval + (correction / 16384);
   return clamp(adjusted_score, -MATE_SCORE + 1, MATE_SCORE - 1);
 }
 
@@ -207,7 +207,7 @@ int16_t correction_value(thread_t *thread) {
       NON_PAWN_CORR_HISTORY_MULTIPLIER;
   const int correction =
       pawn_correction + white_non_pawn_correction + black_non_pawn_correction;
-  return correction / 1024;
+  return correction / 16384;
 }
 
 void update_corrhist(thread_t *thread, int16_t static_eval,
