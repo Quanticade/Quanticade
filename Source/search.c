@@ -1130,6 +1130,13 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       else if (cutnode) {
         extensions -= 2;
       }
+    } 
+    // Low Depth Singular Extensions (LDSE)
+    else if (depth <= 7
+                && !in_check
+                && ss->static_eval <= alpha - 25
+                && tt_flag == HASH_FLAG_LOWER_BOUND) {
+                extensions = 1;
     }
 
     // Copy current position to the next ply slot and advance.
