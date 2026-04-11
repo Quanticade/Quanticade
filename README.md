@@ -2,11 +2,8 @@
 
 ## Overview
 
-Quanticade is a strong uci command-line chess engine written in C in development since late 2023 with NNUE trained on Lc0 Data.
+Quanticade is a strong uci command-line chess engine written in C in development since late 2023 with NNUE trained on selfplay data.
 Quanticade usually ranks around the 15th place in the world.
-
-**Quanticade is currently in selfgen catching up mode. Meaning the Lc0 net is being removed for a fully self generated data net.
-master branch will have Lc0 net and will receive no commits until selfgen branch catches up in strength**
 
 ## Playing Strength
 
