@@ -1064,7 +1064,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       r += !pv_node;
       int lmr_depth = MAX(1, depth - 1 - MAX(r, 1));
       // Futility Pruning
-      if (current_score > -MATE_SCORE && lmr_depth <= FP_DEPTH && !in_check &&
+      if (lmr_depth <= FP_DEPTH && !in_check &&
           quiet &&
           ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION +
                   ss->history_score / FP_HISTORY_DIVISOR <=
@@ -1347,7 +1347,7 @@ static void print_thinking(thread_t *thread, int16_t score,
 
 static inline uint8_t aspiration_windows(thread_t *thread, searchstack_t *ss,
                                          int16_t alpha, int16_t beta) {
-  uint16_t window = ASP_WINDOW;
+  int32_t window = ASP_WINDOW;
 
   uint8_t fail_high_count = 0;
 
