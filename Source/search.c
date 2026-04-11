@@ -986,7 +986,9 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         write_hash_entry(tt_entry, pos, ply, probcut_score, raw_static_eval,
                          probcut_depth + 1, move, HASH_FLAG_LOWER_BOUND,
                          ss->tt_pv);
-        return probcut_score;
+        if (abs(probcut_score) <= MATE_SCORE) {
+          return (3 * probcut_score + beta) / 4;
+        }
       }
     }
   }
