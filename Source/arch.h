@@ -6,7 +6,7 @@
 #define L2_SIZE 16
 #define L3_SIZE 32
 #define OUTPUT_BUCKETS 8
-#define KING_BUCKETS 8
+#define KING_BUCKETS 16
 #define SCALE 400
 #define INPUT_QUANT 255
 #define L1_QUANT 128
