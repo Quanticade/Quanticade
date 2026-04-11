@@ -1,8 +1,10 @@
 build
 Tools/*.nnue
 Tools*.bak
+*.nnue
 .tmp
 .cache
 .vscode
 Quanticade
 Quanticade.d
+compile_commands.json

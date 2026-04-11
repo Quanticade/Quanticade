@@ -1,4 +1,5 @@
 #include "nnue.h"
+#include "arch.h"
 #include "bitboards.h"
 #include "enums.h"
 #include "incbin/incbin.h"
@@ -20,7 +21,7 @@ struct raw_net {
   float feature_bias[L1_SIZE];
   float l1_weights[OUTPUT_BUCKETS][L2_SIZE][L1_SIZE];
   float l1_bias[OUTPUT_BUCKETS][L2_SIZE];
-  float l2_weights[OUTPUT_BUCKETS][L3_SIZE][L2_SIZE];
+  float l2_weights[OUTPUT_BUCKETS][L3_SIZE][2 * L2_SIZE];
   float l2_bias[OUTPUT_BUCKETS][L3_SIZE];
   float l3_weights[OUTPUT_BUCKETS][L3_SIZE];
   float l3_bias[OUTPUT_BUCKETS];
@@ -30,11 +31,24 @@ struct raw_net net;
 
 const int INT8_PER_INT32 = sizeof(int) / sizeof(int8_t);
 
-uint8_t buckets[64] = {12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
-                       12, 12, 12, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11,
-                       11, 11, 11, 11, 11, 11, 10, 10, 10, 10, 10, 10, 10,
-                       10, 8,  8,  9,  9,  9,  9,  8,  8,  4,  5,  6,  7,
-                       7,  6,  5,  4,  0,  1,  2,  3,  3,  2,  1,  0};
+#if defined(USE_SIMD) && !defined(USE_AVX512ICL)
+static uint16_t NNZ_TABLE[256][8];
+
+static void init_nnz_table(void) {
+  for (int i = 0; i < 256; i++) {
+    int count = 0;
+    for (int j = 0; j < 8; j++) {
+      if (i & (1 << j))
+        NNZ_TABLE[i][count++] = (uint16_t)j;
+    }
+  }
+}
+#endif
+
+uint8_t buckets[64] = {7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+                       7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+                       6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+                       4, 4, 5, 5, 5, 5, 4, 4, 0, 1, 2, 3, 3, 2, 1, 0};
 
 #if !defined(_MSC_VER)
 INCBIN(EVAL, EVALFILE);
@@ -76,6 +90,10 @@ static inline float screlu_float(float value) {
   return clipped * clipped;
 }
 
+static inline float crelu_float(float value) {
+  return clamp_float(value, 0.0f, 1.0f);
+}
+
 #ifndef USE_SIMD
 
 static int32_t clamp_int32(int32_t d, int32_t min, int32_t max) {
@@ -90,10 +108,6 @@ static inline int32_t screlu(int16_t value) {
 
 static inline int16_t crelu(int16_t value) {
   return clamp_int32((int32_t)value, 0, INPUT_QUANT);
-}
-
-static inline float crelu_float(float value) {
-  return clamp_float(value, 0.0f, 1.0f);
 }
 
 #endif
@@ -138,7 +152,7 @@ static inline void transpose(void) {
     nnue.feature_bias[l1] = round(net.feature_bias[l1] * INPUT_QUANT);
   }
   for (int b = 0; b < OUTPUT_BUCKETS; b++) {
-    for (int l2 = 0; l2 < L2_SIZE; l2++) {
+    for (int l2 = 0; l2 < 2 * L2_SIZE; l2++) {
       for (int l3 = 0; l3 < L3_SIZE; l3++) {
         nnue.l2_weights[b][l2][l3] = net.l2_weights[b][l3][l2];
       }
@@ -228,6 +242,9 @@ void nnue_init(const char *nnue_file_name) {
       exit(1);
     }
   }
+#if defined(USE_SIMD) && !defined(USE_AVX512ICL)
+  init_nnz_table();
+#endif
   transpose();
 }
 
@@ -448,10 +465,15 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
   for (int l2 = 0; l2 < L2_SIZE; l2++) {
     float l2Result = (float)(l2Neurons[l2]) * L1_NORMALISATION +
                      (nnue.l1_bias[out_bucket][l2]);
-    float l2Activated = screlu_float(l2Result);
+    float crelu = crelu_float(l2Result);
+    float csrelu = crelu_float(l2Result * l2Result);
 
     for (int l3 = 0; l3 < L3_SIZE; l3++) {
-      l3Neurons[l3] += l2Activated * nnue.l2_weights[out_bucket][l2][l3];
+      l3Neurons[l3] += crelu * nnue.l2_weights[out_bucket][l2][l3];
+    }
+
+    for (int l3 = 0; l3 < L3_SIZE; l3++) {
+      l3Neurons[l3] += csrelu * nnue.l2_weights[out_bucket][l2 + L2_SIZE][l3];
     }
   }
 
@@ -465,122 +487,240 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
   return (int16_t)(result * SCALE);
 }
 
-int nnue_evaluate(thread_t *thread, position_t *pos, accumulator_t *accumulator) {
+int nnue_evaluate(thread_t *thread, position_t *pos,
+                  accumulator_t *accumulator) {
+  apply_accumulator(thread, thread->ply);
   const uint8_t out_bucket = calculate_output_bucket(pos);
   const int16_t *stmAcc = accumulator->accumulator[pos->side];
   const int16_t *oppAcc = accumulator->accumulator[1 - pos->side];
 
   simd_t *layers = &thread->neurons;
 
-  memset(layers->l2_neurons, 0, sizeof(layers->l2_neurons));
-
   const float L1_NORMALISATION =
       (float)(1 << INPUT_SHIFT) / (float)(INPUT_QUANT * INPUT_QUANT * L1_QUANT);
 
 #if defined(USE_SIMD)
-  const int FLOAT_VEC_SIZE = sizeof(veci_t) / sizeof(float);
+  // Stride constants derived from sizeof() work for all ISAs:
+  //   AVX2:   veci_t=256b → I16=16, I32=8, FLOAT=8   chunks=2
+  //   AVX512: veci_t=512b → I16=32, I32=16, FLOAT=16  chunks=1
+  //   NEON:   veci_t=128b → I16=8,  I32=4,  FLOAT=4   chunks=4
+  const int FLOAT_VEC_SIZE = sizeof(vecf_t) / sizeof(float);
   const int I16_VEC_SIZE = sizeof(veci_t) / sizeof(int16_t);
+  const int I32_STRIDE = sizeof(veci32_t) / sizeof(int32_t);
 
-  veci_t i16_zero = zero();
-  veci_t i16_quant = set_epi16((int16_t)INPUT_QUANT);
+  {
+    veci_t i16_zero = zero();
+    veci_t i16_quant = set_epi16((int16_t)INPUT_QUANT);
 
-  for (int l1 = 0; l1 < L1_SIZE / 2; l1 += 2 * I16_VEC_SIZE) {
-    // STM
-    veci_t clipped1 = clip_epi16(*((veci_t *)&stmAcc[l1]), i16_zero, i16_quant);
-    veci_t clipped2 =
-        min_epi16(*((veci_t *)&stmAcc[l1 + L1_SIZE / 2]), i16_quant);
-    veci_t shift = slli_epi16(clipped1, 16 - INPUT_SHIFT);
-    veci_t mul1 = mulhi_epi16(shift, clipped2);
+    for (int l1 = 0; l1 < L1_SIZE / 2; l1 += 2 * I16_VEC_SIZE) {
+      // STM
+      veci_t c1 = clip_epi16(*((veci_t *)&stmAcc[l1]), i16_zero, i16_quant);
+      veci_t c2 = min_epi16(*((veci_t *)&stmAcc[l1 + L1_SIZE / 2]), i16_quant);
+      veci_t mul1 = mulhi_epi16(slli_epi16(c1, 16 - INPUT_SHIFT), c2);
 
-    clipped1 = clip_epi16(*((veci_t *)&stmAcc[l1 + I16_VEC_SIZE]), i16_zero,
-                          i16_quant);
-    clipped2 = min_epi16(*((veci_t *)&stmAcc[l1 + I16_VEC_SIZE + L1_SIZE / 2]),
-                         i16_quant);
-    shift = slli_epi16(clipped1, 16 - INPUT_SHIFT);
-    veci_t mul2 = mulhi_epi16(shift, clipped2);
+      c1 = clip_epi16(*((veci_t *)&stmAcc[l1 + I16_VEC_SIZE]), i16_zero,
+                      i16_quant);
+      c2 = min_epi16(*((veci_t *)&stmAcc[l1 + I16_VEC_SIZE + L1_SIZE / 2]),
+                     i16_quant);
+      veci_t mul2 = mulhi_epi16(slli_epi16(c1, 16 - INPUT_SHIFT), c2);
 
-    veci_t u8s = packus_epi16(mul1, mul2);
-    vec_store_i((veci_t *)&layers->l1_neurons[l1], u8s);
+      vec_store_i((veci_t *)&layers->l1_neurons[l1], packus_epi16(mul1, mul2));
 
-    // NSTM
-    clipped1 = clip_epi16(*((veci_t *)&oppAcc[l1]), i16_zero, i16_quant);
-    clipped2 = min_epi16(*((veci_t *)&oppAcc[l1 + L1_SIZE / 2]), i16_quant);
-    shift = slli_epi16(clipped1, 16 - INPUT_SHIFT);
-    mul1 = mulhi_epi16(shift, clipped2);
+      // NSTM
+      c1 = clip_epi16(*((veci_t *)&oppAcc[l1]), i16_zero, i16_quant);
+      c2 = min_epi16(*((veci_t *)&oppAcc[l1 + L1_SIZE / 2]), i16_quant);
+      mul1 = mulhi_epi16(slli_epi16(c1, 16 - INPUT_SHIFT), c2);
 
-    clipped1 = clip_epi16(*((veci_t *)&oppAcc[l1 + I16_VEC_SIZE]), i16_zero,
-                          i16_quant);
-    clipped2 = min_epi16(*((veci_t *)&oppAcc[l1 + I16_VEC_SIZE + L1_SIZE / 2]),
-                         i16_quant);
-    shift = slli_epi16(clipped1, 16 - INPUT_SHIFT);
-    mul2 = mulhi_epi16(shift, clipped2);
+      c1 = clip_epi16(*((veci_t *)&oppAcc[l1 + I16_VEC_SIZE]), i16_zero,
+                      i16_quant);
+      c2 = min_epi16(*((veci_t *)&oppAcc[l1 + I16_VEC_SIZE + L1_SIZE / 2]),
+                     i16_quant);
+      mul2 = mulhi_epi16(slli_epi16(c1, 16 - INPUT_SHIFT), c2);
 
-    u8s = packus_epi16(mul1, mul2);
-    vec_store_i((veci_t *)&layers->l1_neurons[l1 + L1_SIZE / 2], u8s);
-  }
-
-  int *l1Packs = (int *)layers->l1_neurons;
-
-  for (int l1 = 0; l1 < L1_SIZE; l1 += INT8_PER_INT32) {
-    for (int l2 = 0; l2 < L2_SIZE; l2 += sizeof(veci_t) / sizeof(int32_t)) {
-      veci_t u8 = set_epi32(l1Packs[l1 / INT8_PER_INT32]);
-      veci_t i8 =
-          *((veci_t *)&nnue
-                .l1_weights[out_bucket][l1 * L2_SIZE + INT8_PER_INT32 * l2]);
-      *((veci_t *)&layers->l2_neurons[l2]) =
-          dpbusd_epi32(*((veci_t *)&layers->l2_neurons[l2]), u8, i8);
+      vec_store_i((veci_t *)&layers->l1_neurons[l1 + L1_SIZE / 2],
+                  packus_epi16(mul1, mul2));
     }
   }
 
-  memcpy(layers->l3_neurons, nnue.l2_bias[out_bucket], sizeof(layers->l3_neurons));
+  const int NNZ_MAX = L1_SIZE / INT8_PER_INT32;
+  const int32_t *l1Packs = (const int32_t *)layers->l1_neurons;
+  uint16_t nnz_indices[NNZ_MAX + 16];
+  int nnz_count = 0;
 
-  vecf_t norm_ps = set_ps1(L1_NORMALISATION);
-  vecf_t one_ps = set_ps1(1.0f);
-  vecf_t zero_ps = set_ps1(0.0f);
-
-  for (int l2 = 0; l2 < L2_SIZE / FLOAT_VEC_SIZE; l2++) {
-    vecf_t converted =
-        cvtepi32_ps(*((veci_t *)&layers->l2_neurons[l2 * FLOAT_VEC_SIZE]));
-    vecf_t l2_result =
-        add_ps(mul_ps(converted, norm_ps),
-               *((vecf_t *)&nnue.l1_bias[out_bucket][l2 * FLOAT_VEC_SIZE]));
-    vecf_t l2_clipped = clip_ps(l2_result, one_ps, zero_ps);
-    *((vecf_t *)&layers->l2_floats[l2 * FLOAT_VEC_SIZE]) =
-        mul_ps(l2_clipped, l2_clipped);
-  }
-
-  for (int l2 = 0; l2 < L2_SIZE; l2++) {
-    for (int l3 = 0; l3 < L3_SIZE / FLOAT_VEC_SIZE; l3++) {
-      *((vecf_t *)&layers->l3_neurons[l3 * FLOAT_VEC_SIZE]) = fmadd_ps(
-          set_ps1(layers->l2_floats[l2]),
-          *((vecf_t *)&nnue.l2_weights[out_bucket][l2][l3 * FLOAT_VEC_SIZE]),
-          *((vecf_t *)&layers->l3_neurons[l3 * FLOAT_VEC_SIZE]));
+#if defined(USE_AVX512ICL)
+  {
+    const veci_t zero_vec = zero();
+    const veci_t inc_vec = set_epi16(32);
+    __m512i base_indices = _mm512_set_epi16(
+      31, 30, 29, 28, 27, 26, 25, 24,
+      23, 22, 21, 20, 19, 18, 17, 16,
+      15, 14, 13, 12, 11, 10, 9, 8,
+      7, 6, 5, 4, 3, 2, 1, 0
+    );
+    for (int base = 0; base < NNZ_MAX; base += I32_STRIDE * 2) {
+      uint16_t lo = (uint16_t)_mm512_cmpneq_epi32_mask(
+        _mm512_loadu_si512((const veci_t *)&l1Packs[base]), zero_vec);
+      uint16_t hi = (uint16_t)_mm512_cmpneq_epi32_mask(
+        _mm512_loadu_si512((const veci_t *)&l1Packs[base + I32_STRIDE]), zero_vec);
+      uint32_t mask = _mm512_kunpackw(hi, lo);
+      __m512i indices = _mm512_maskz_compress_epi16(mask, base_indices);
+      _mm512_storeu_si512(&nnz_indices[nnz_count], indices);
+      base_indices = _mm512_add_epi16(base_indices, inc_vec);
+      nnz_count += __builtin_popcount(mask);
     }
   }
-
-  const uint8_t chunks = 64 / sizeof(vecf_t);
-
-  vecf_t result_sums[chunks];
-  for (int i = 0; i < chunks; i++) {
-    result_sums[i] = zero_ps;
-  }
-
-  for (int l3 = 0; l3 < L3_SIZE / FLOAT_VEC_SIZE; l3 += chunks) {
-    for (int chunk = 0; chunk < chunks; chunk++) {
-      vecf_t l3_clipped =
-          clip_ps(*((vecf_t *)&layers->l3_neurons[(l3 + chunk) * FLOAT_VEC_SIZE]),
-                  one_ps, zero_ps);
-      vecf_t l3_activated = mul_ps(l3_clipped, l3_clipped);
-      result_sums[chunk] = fmadd_ps(
-          l3_activated,
-          *((vecf_t *)&nnue
-                .l3_weights[out_bucket][(l3 + chunk) * FLOAT_VEC_SIZE]),
-          result_sums[chunk]);
+#elif defined(USE_AVX512)
+  {
+    const veci_t zero_vec = zero();
+    const __m128i increment = _mm_set1_epi16(16);
+    __m128i base_lo = _mm_setzero_si128();
+    __m128i base_hi = _mm_set1_epi16(8);
+    for (int i = 0; i < NNZ_MAX; i += I32_STRIDE) {
+      uint16_t mask = (uint16_t)~_mm512_cmpeq_epi32_mask(
+          _mm512_loadu_si512((const veci_t *)&l1Packs[i]), zero_vec);
+      uint8_t lo = (uint8_t)(mask & 0xFF);
+      _mm_storeu_si128(
+          (__m128i *)&nnz_indices[nnz_count],
+          _mm_add_epi16(_mm_loadu_si128((const __m128i *)NNZ_TABLE[lo]),
+                        base_lo));
+      nnz_count += __builtin_popcount(lo);
+      uint8_t hi = (uint8_t)(mask >> 8);
+      _mm_storeu_si128(
+          (__m128i *)&nnz_indices[nnz_count],
+          _mm_add_epi16(_mm_loadu_si128((const __m128i *)NNZ_TABLE[hi]),
+                        base_hi));
+      nnz_count += __builtin_popcount(hi);
+      base_lo = _mm_add_epi16(base_lo, increment);
+      base_hi = _mm_add_epi16(base_hi, increment);
     }
   }
+#elif defined(USE_AVX2)
+  {
+    const veci_t zero_vec = zero();
+    const __m128i increment = _mm_set1_epi16(8);
+    __m128i base_vec = _mm_setzero_si128();
+    for (int i = 0; i < NNZ_MAX; i += I32_STRIDE) {
+      uint8_t byte =
+          (uint8_t)(~_mm256_movemask_ps(_mm256_castsi256_ps(_mm256_cmpeq_epi32(
+              _mm256_loadu_si256((const veci_t *)&l1Packs[i]), zero_vec))));
+      _mm_storeu_si128(
+          (__m128i *)&nnz_indices[nnz_count],
+          _mm_add_epi16(_mm_loadu_si128((const __m128i *)NNZ_TABLE[byte]),
+                        base_vec));
+      nnz_count += __builtin_popcount(byte);
+      base_vec = _mm_add_epi16(base_vec, increment);
+    }
+  }
+#elif defined(USE_NEON)
+  {
+    const uint32x4_t posmask = {1, 2, 4, 8};
+    const uint16x8_t inc8 = vdupq_n_u16(8);
+    uint16x8_t base_v = vdupq_n_u16(0);
+    for (int i = 0; i < NNZ_MAX; i += 8) {
+      uint32x4_t chunk0 = vld1q_u32((const uint32_t *)&l1Packs[i]);
+      uint32_t lo = vaddvq_u32(vandq_u32(vtstq_u32(chunk0, chunk0), posmask));
+      uint32x4_t chunk1 = vld1q_u32((const uint32_t *)&l1Packs[i + 4]);
+      uint32_t hi = vaddvq_u32(vandq_u32(vtstq_u32(chunk1, chunk1), posmask));
+      uint8_t byte = (uint8_t)(lo | (hi << 4));
+      vst1q_u16(&nnz_indices[nnz_count],
+                vaddq_u16(vld1q_u16(NNZ_TABLE[byte]), base_v));
+      nnz_count += __builtin_popcount(byte);
+      base_v = vaddq_u16(base_v, inc8);
+    }
+  }
+#endif
 
-  float result = nnue.l3_bias[out_bucket] + reduce_add_ps(result_sums);
+  const int L2_VECS = L2_SIZE / I32_STRIDE;
+  veci32_t regs[L2_VECS];
+  for (int r = 0; r < L2_VECS; r++)
+    regs[r] = zero_i32();
+
+  int n = 0;
+  for (; n + 1 < nnz_count; n += 2) {
+    const int p0 = nnz_indices[n];
+    const int p1 = nnz_indices[n + 1];
+    const vecs8_t u0 = broadcast_pack(l1Packs[p0]);
+    const vecs8_t u1 = broadcast_pack(l1Packs[p1]);
+    const int o0 = p0 * INT8_PER_INT32 * L2_SIZE;
+    const int o1 = p1 * INT8_PER_INT32 * L2_SIZE;
+    for (int r = 0; r < L2_VECS; r++) {
+      const vecs8_t w0 =
+          *((vecs8_t *)&nnue
+                .l1_weights[out_bucket][o0 + INT8_PER_INT32 * r * I32_STRIDE]);
+      const vecs8_t w1 =
+          *((vecs8_t *)&nnue
+                .l1_weights[out_bucket][o1 + INT8_PER_INT32 * r * I32_STRIDE]);
+      regs[r] = dpbusd_epi32x2(regs[r], u0, w0, u1, w1);
+    }
+  }
+  if (n < nnz_count) {
+    const int p0 = nnz_indices[n];
+    const vecs8_t u0 = broadcast_pack(l1Packs[p0]);
+    const int o0 = p0 * INT8_PER_INT32 * L2_SIZE;
+    for (int r = 0; r < L2_VECS; r++) {
+      const vecs8_t w0 =
+          *((vecs8_t *)&nnue
+                .l1_weights[out_bucket][o0 + INT8_PER_INT32 * r * I32_STRIDE]);
+      regs[r] = dpbusd_epi32(regs[r], u0, w0);
+    }
+  }
+  for (int r = 0; r < L2_VECS; r++)
+    *((veci32_t *)&layers->l2_neurons[r * I32_STRIDE]) = regs[r];
+
+  float result;
+  memcpy(layers->l3_neurons, nnue.l2_bias[out_bucket],
+         sizeof(layers->l3_neurons));
+  {
+    const vecf_t norm_ps = set_ps1(L1_NORMALISATION);
+    const vecf_t one_ps = set_ps1(1.0f);
+    const vecf_t zero_ps = set_ps1(0.0f);
+
+    for (int l2 = 0; l2 < L2_SIZE / FLOAT_VEC_SIZE; l2++) {
+      vecf_t l2_result = add_ps(
+          mul_ps(cvtepi32_ps(
+                     *((veci32_t *)&layers->l2_neurons[l2 * FLOAT_VEC_SIZE])),
+                 norm_ps),
+          *((vecf_t *)&nnue.l1_bias[out_bucket][l2 * FLOAT_VEC_SIZE]));
+      *((vecf_t *)&layers->l2_floats[l2 * FLOAT_VEC_SIZE]) =
+          clip_ps(l2_result, one_ps, zero_ps);
+      *((vecf_t *)&layers->l2_floats[l2 * FLOAT_VEC_SIZE + L2_SIZE]) =
+          clip_ps(mul_ps(l2_result, l2_result), one_ps, zero_ps);
+    }
+
+    for (int l2 = 0; l2 < 2 * L2_SIZE; l2++) {
+      const vecf_t act = set_ps1(layers->l2_floats[l2]);
+      for (int l3 = 0; l3 < L3_SIZE / FLOAT_VEC_SIZE; l3++) {
+        *((vecf_t *)&layers->l3_neurons[l3 * FLOAT_VEC_SIZE]) = fmadd_ps(
+            act,
+            *((vecf_t *)&nnue.l2_weights[out_bucket][l2][l3 * FLOAT_VEC_SIZE]),
+            *((vecf_t *)&layers->l3_neurons[l3 * FLOAT_VEC_SIZE]));
+      }
+    }
+
+    const int chunks = 64 / sizeof(vecf_t);
+    vecf_t result_sums[64 / sizeof(vecf_t)];
+    for (int i = 0; i < chunks; i++)
+      result_sums[i] = zero_ps;
+
+    for (int l3 = 0; l3 < L3_SIZE / FLOAT_VEC_SIZE; l3 += chunks) {
+      for (int c = 0; c < chunks; c++) {
+        vecf_t clipped =
+            clip_ps(*((vecf_t *)&layers->l3_neurons[(l3 + c) * FLOAT_VEC_SIZE]),
+                    one_ps, zero_ps);
+        result_sums[c] =
+            fmadd_ps(mul_ps(clipped, clipped),
+                     *((vecf_t *)&nnue
+                           .l3_weights[out_bucket][(l3 + c) * FLOAT_VEC_SIZE]),
+                     result_sums[c]);
+      }
+    }
+
+    result = nnue.l3_bias[out_bucket] + reduce_add_ps(result_sums);
+  }
+
 #else
+
+  memset(layers->l2_neurons, 0, sizeof(layers->l2_neurons));
 
   for (int l1 = 0; l1 < L1_SIZE / 2; l1++) {
     int16_t stmClipped1 = clamp((int)(stmAcc[l1]), 0, INPUT_QUANT);
@@ -591,33 +731,39 @@ int nnue_evaluate(thread_t *thread, position_t *pos, accumulator_t *accumulator)
     int16_t oppClipped1 = clamp((int)(oppAcc[l1]), 0, INPUT_QUANT);
     int16_t oppClipped2 =
         clamp((int)(oppAcc[l1 + L1_SIZE / 2]), 0, INPUT_QUANT);
-    layers->l1_neurons[l1 + L1_SIZE / 2] = (oppClipped1 * oppClipped2) >> INPUT_SHIFT;
+    layers->l1_neurons[l1 + L1_SIZE / 2] =
+        (oppClipped1 * oppClipped2) >> INPUT_SHIFT;
   }
 
   for (int l1 = 0; l1 < L1_SIZE; l1++) {
     for (int l2 = 0; l2 < L2_SIZE; l2++) {
-      layers->l2_neurons[l2] +=
-          layers->l1_neurons[l1] * nnue.l1_weights[out_bucket][l1 * L2_SIZE + l2];
+      layers->l2_neurons[l2] += layers->l1_neurons[l1] *
+                                nnue.l1_weights[out_bucket][l1 * L2_SIZE + l2];
     }
   }
 
-  memcpy(layers->l3_neurons, nnue.l2_bias[out_bucket], sizeof(layers->l3_neurons));
+  memcpy(layers->l3_neurons, nnue.l2_bias[out_bucket],
+         sizeof(layers->l3_neurons));
 
   for (int l2 = 0; l2 < L2_SIZE; l2++) {
     float l2Result = (float)(layers->l2_neurons[l2]) * L1_NORMALISATION +
                      (nnue.l1_bias[out_bucket][l2]);
-    float l2Activated = crelu_float(l2Result);
-    l2Activated *= l2Activated;
+    float crelu = crelu_float(l2Result);
+    float csrelu = crelu_float(l2Result * l2Result);
 
     for (int l3 = 0; l3 < L3_SIZE; l3++) {
-      layers->l3_neurons[l3] += l2Activated * nnue.l2_weights[out_bucket][l2][l3];
+      layers->l3_neurons[l3] += crelu * nnue.l2_weights[out_bucket][l2][l3];
+    }
+
+    for (int l3 = 0; l3 < L3_SIZE; l3++) {
+      layers->l3_neurons[l3] +=
+          csrelu * nnue.l2_weights[out_bucket][l2 + L2_SIZE][l3];
     }
   }
 
   float result = nnue.l3_bias[out_bucket];
   for (int l3 = 0; l3 < L3_SIZE; l3++) {
-    float l3Activated = crelu_float(layers->l3_neurons[l3]);
-    l3Activated *= l3Activated;
+    float l3Activated = screlu_float(layers->l3_neurons[l3]);
     result += l3Activated * nnue.l3_weights[out_bucket][l3];
   }
 
@@ -637,6 +783,11 @@ accumulator_addsub(accumulator_t *accumulator, accumulator_t *prev_accumulator,
       get_idx(black, piece1, from1, black_king_square, 0, 0);
   size_t white_idx_to = get_idx(white, piece2, to2, white_king_square, 0, 0);
   size_t black_idx_to = get_idx(black, piece2, to2, black_king_square, 0, 0);
+
+  __builtin_prefetch(&nnue.feature_weights[white_bucket][white_idx_from][0], 0, 1);
+__builtin_prefetch(&nnue.feature_weights[white_bucket][white_idx_to][0],   0, 1);
+__builtin_prefetch(&nnue.feature_weights[black_bucket][black_idx_from][0], 0, 1);
+__builtin_prefetch(&nnue.feature_weights[black_bucket][black_idx_to][0],   0, 1);
 
   for (int i = 0; i < L1_SIZE; ++i) {
     if (color_flag == 0 || color_flag == 2) {
@@ -732,10 +883,10 @@ accumulator_make_move(accumulator_t *accumulator,
                       accumulator_t *prev_accumulator,
                       uint8_t white_king_square, uint8_t black_king_square,
                       uint8_t white_bucket, uint8_t black_bucket, uint8_t side,
-                      int move, uint8_t *mailbox, uint8_t color_flag) {
+                      int move, uint8_t moving_piece, uint8_t captured_piece,
+                      uint8_t color_flag) {
   int from = get_move_source(move);
   int to = get_move_target(move);
-  int moving_piece = mailbox[from];
   int promoted_piece = get_move_promoted(!side, move);
   int capture = get_move_capture(move);
   int enpass = get_move_enpassant(move);
@@ -744,7 +895,6 @@ accumulator_make_move(accumulator_t *accumulator,
   if (promoted_piece) {
     uint8_t pawn = side == 0 ? p : P;
     if (capture) {
-      uint8_t captured_piece = mailbox[to];
       accumulator_addsubsub(accumulator, prev_accumulator, white_king_square,
                             black_king_square, white_bucket, black_bucket, pawn,
                             captured_piece, promoted_piece, from, to, to,
@@ -758,7 +908,6 @@ accumulator_make_move(accumulator_t *accumulator,
 
   else if (enpass) {
     uint8_t remove_square = to + ((side == white) ? -8 : 8);
-    uint8_t captured_piece = mailbox[remove_square];
     accumulator_addsubsub(accumulator, prev_accumulator, white_king_square,
                           black_king_square, white_bucket, black_bucket,
                           captured_piece, moving_piece, moving_piece,
@@ -766,7 +915,6 @@ accumulator_make_move(accumulator_t *accumulator,
   }
 
   else if (capture) {
-    uint8_t captured_piece = mailbox[to];
     accumulator_addsubsub(accumulator, prev_accumulator, white_king_square,
                           black_king_square, white_bucket, black_bucket,
                           captured_piece, moving_piece, moving_piece, to, from,
@@ -819,30 +967,65 @@ accumulator_make_move(accumulator_t *accumulator,
   }
 }
 
+void apply_accumulator(thread_t *thread, int ply) {
+  if (ply == 0 || !thread->lazy[ply].dirty)
+    return;
+
+  /* ensure ply-1 is ready before we read it as prev_accumulator */
+  apply_accumulator(thread, ply - 1);
+
+  lazy_acc_state_t *s = &thread->lazy[ply];
+
+  if (s->needs_refresh) {
+    /* rebuild a minimal position so refresh_accumulator can do its job */
+    position_t tmp;
+    tmp.side = s->side;
+    memcpy(tmp.bitboards, s->bitboards, 12 * sizeof(uint64_t));
+    refresh_accumulator(thread, &tmp, &thread->accumulator[ply]);
+  }
+
+  accumulator_make_move(&thread->accumulator[ply],
+                        &thread->accumulator[ply - 1],
+                        s->white_king_sq, s->black_king_sq,
+                        s->white_bucket,  s->black_bucket,
+                        s->side, s->move, s->moving_piece, s->captured_piece,
+                        s->needs_refresh ? s->color_flag : both);
+
+  s->dirty = 0;
+}
+
+void null_move_copy_accumulator(thread_t *thread, int src_ply, int dst_ply) {
+  apply_accumulator(thread, src_ply);
+  thread->accumulator[dst_ply] = thread->accumulator[src_ply];
+  thread->lazy[dst_ply].dirty  = 0;
+}
+
 void update_nnue(position_t *pos, thread_t *thread, uint8_t mailbox_copy[64],
                  uint16_t move) {
-  uint8_t white_king_square = get_lsb(pos->bitboards[K]);
-  uint8_t black_king_square = get_lsb(pos->bitboards[k]);
-  uint8_t white_bucket = get_king_bucket(white, white_king_square);
-  uint8_t black_bucket = get_king_bucket(black, black_king_square);
-  if (need_refresh(mailbox_copy, move)) {
-    if (pos->side == black) {
-      refresh_accumulator(thread, pos, &thread->accumulator[pos->ply]);
-      accumulator_make_move(&thread->accumulator[pos->ply],
-                            &thread->accumulator[pos->ply - 1],
-                            white_king_square, black_king_square, white_bucket,
-                            black_bucket, pos->side, move, mailbox_copy, black);
-    } else if (pos->side == white) {
-      refresh_accumulator(thread, pos, &thread->accumulator[pos->ply]);
-      accumulator_make_move(&thread->accumulator[pos->ply],
-                            &thread->accumulator[pos->ply - 1],
-                            white_king_square, black_king_square, white_bucket,
-                            black_bucket, pos->side, move, mailbox_copy, white);
-    }
+  lazy_acc_state_t *state = &thread->lazy[thread->ply];
+  const int from = get_move_source(move);
+  const int to   = get_move_target(move);
+
+  state->dirty         = 1;
+  state->move          = move;
+  state->side          = pos->side;
+  state->white_king_sq = get_lsb(pos->bitboards[K]);
+  state->black_king_sq = get_lsb(pos->bitboards[k]);
+  state->white_bucket  = get_king_bucket(white, state->white_king_sq);
+  state->black_bucket  = get_king_bucket(black, state->black_king_sq);
+  state->moving_piece  = mailbox_copy[from];
+
+  if (get_move_enpassant(move)) {
+    const int ep_sq = to + ((pos->side == white) ? -8 : 8);
+    state->captured_piece = mailbox_copy[ep_sq];
   } else {
-    accumulator_make_move(&thread->accumulator[pos->ply],
-                          &thread->accumulator[pos->ply - 1], white_king_square,
-                          black_king_square, white_bucket, black_bucket,
-                          pos->side, move, mailbox_copy, both);
+    state->captured_piece = mailbox_copy[to];
   }
+
+  state->needs_refresh = need_refresh(mailbox_copy, move);
+  state->color_flag    = state->needs_refresh
+                           ? (pos->side == black ? black : white)
+                           : both;
+  if (state->needs_refresh)
+    memcpy(state->bitboards, pos->bitboards, 12 * sizeof(uint64_t));
 }

@@ -5,9 +5,20 @@
 #include "uci.h"
 #include <pthread.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef __linux__
+#include <sys/mman.h>
+#ifndef MAP_HUGETLB
+#define MAP_HUGETLB 0x40000
+#endif
+#ifndef MAP_HUGE_SHIFT
+#define MAP_HUGE_SHIFT 26
+#endif
+#define MAP_HUGE_2MB (21 << MAP_HUGE_SHIFT)
+#define MAP_HUGE_1GB (30 << MAP_HUGE_SHIFT)
+#endif
 
 tt_t tt;
 extern keys_t keys;
@@ -15,6 +26,9 @@ extern keys_t keys;
 extern int thread_count;
 
 __extension__ typedef unsigned __int128 uint128_t;
+
+static size_t tt_alloc_size     = 0;
+static int    tt_used_huge_pages = 0;
 
 int hash_full(void) {
   uint64_t used = 0;
@@ -119,6 +133,24 @@ void clear_hash_table(void) {
   }
 }
 
+void free_hash_table(void) {
+  if (tt.hash_entry == NULL) return;
+
+#ifdef __linux__
+  if (tt_used_huge_pages) {
+    munmap(tt.hash_entry, tt_alloc_size);
+    tt_used_huge_pages = 0;
+  } else {
+    free(tt.hash_entry);
+  }
+#else
+  free(tt.hash_entry);
+#endif
+
+  tt.hash_entry  = NULL;
+  tt_alloc_size  = 0;
+}
+
 // dynamically allocate memory for hash table
 void init_hash_table(uint64_t mb) {
   // init hash size
@@ -127,28 +159,61 @@ void init_hash_table(uint64_t mb) {
   // init number of hash entries
   tt.num_of_entries = hash_size / sizeof(tt_bucket_t);
 
+  size_t alloc_size = tt.num_of_entries * sizeof(tt_bucket_t);
+
   // free hash table if not empty
-  if (tt.hash_entry != NULL) {
-    // free hash table dynamic memory
-    free(tt.hash_entry);
+  free_hash_table();
+
+#ifdef __linux__
+  // Attempt 1 GiB huge pages first
+  void *mem = mmap(NULL, alloc_size,
+                   PROT_READ | PROT_WRITE,
+                   MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_1GB,
+                   -1, 0);
+
+  if (mem != MAP_FAILED) {
+    tt.hash_entry      = (tt_bucket_t *)mem;
+    tt_alloc_size      = alloc_size;
+    tt_used_huge_pages = 1;
+    clear_hash_table();
+    return;
   }
 
+  // Fall back to 2 MiB huge pages
+  mem = mmap(NULL, alloc_size,
+             PROT_READ | PROT_WRITE,
+             MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_2MB,
+             -1, 0);
+
+  if (mem != MAP_FAILED) {
+    tt.hash_entry      = (tt_bucket_t *)mem;
+    tt_alloc_size      = alloc_size;
+    tt_used_huge_pages = 1;
+    clear_hash_table();
+    return;
+  }
+#endif
+
   // allocate memory
-  tt.hash_entry = malloc(tt.num_of_entries * sizeof(tt_bucket_t));
+  tt.hash_entry = malloc(alloc_size);
 
   // if allocation has failed
   if (tt.hash_entry == NULL) {
-    printf("    Couldn't allocate memory for hash table, trying with half\n");
-
     // try to allocate with half size
     init_hash_table(mb / 2);
+    return;
   }
 
   // if allocation succeeded
-  else {
-    // clear hash table
-    clear_hash_table();
-  }
+  tt_alloc_size      = alloc_size;
+  tt_used_huge_pages = 0;
+
+#ifdef __linux__
+  // hint THP to promote pages to huge pages when possible
+  madvise(tt.hash_entry, alloc_size, MADV_HUGEPAGE);
+#endif
+
+  clear_hash_table();
 }
 
 uint8_t can_use_score(int alpha, int beta, int tt_score, uint8_t flag) {
@@ -161,12 +226,12 @@ uint8_t can_use_score(int alpha, int beta, int tt_score, uint8_t flag) {
   return 0;
 }
 
-int16_t score_from_tt(position_t *pos, int16_t score) {
+int16_t score_from_tt(const uint8_t ply, int16_t score) {
 
   if (score < -MATE_SCORE)
-    score += pos->ply;
+    score += ply;
   if (score > MATE_SCORE)
-    score -= pos->ply;
+    score -= ply;
   return score;
 }
 
@@ -195,7 +260,7 @@ tt_entry_t *read_hash_entry(position_t *pos, uint8_t *tt_hit) {
 }
 
 // write hash entry data
-void write_hash_entry(tt_entry_t *tt_entry, position_t *pos, int16_t score,
+void write_hash_entry(tt_entry_t *tt_entry, position_t *pos, const uint8_t ply, int16_t score,
                       int16_t static_eval, uint8_t depth, uint16_t move,
                       uint8_t hash_flag, uint8_t tt_pv) {
   uint8_t replace =
@@ -212,15 +277,15 @@ void write_hash_entry(tt_entry_t *tt_entry, position_t *pos, int16_t score,
   // store score independent from the actual path
   // from root node (position) to current node (position)
   if (score < -MATE_SCORE)
-    score -= pos->ply;
+    score -= ply;
   if (score > MATE_SCORE)
-    score += pos->ply;
+    score += ply;
 
   // write hash entry data
-  tt_entry->hash_key = get_hash_low_bits(pos->hash_keys.hash_key);
-  tt_entry->score = score;
+  tt_entry->hash_key   = get_hash_low_bits(pos->hash_keys.hash_key);
+  tt_entry->score      = score;
   tt_entry->static_eval = static_eval;
-  tt_entry->flag = hash_flag;
-  tt_entry->tt_pv = tt_pv;
-  tt_entry->depth = depth;
+  tt_entry->flag       = hash_flag;
+  tt_entry->tt_pv      = tt_pv;
+  tt_entry->depth      = depth;
 }

@@ -1,6 +1,7 @@
 #ifndef STRUCTS_H
 #define STRUCTS_H
 
+#include "arch.h"
 #include "bitboards.h"
 #include <stdint.h>
 
@@ -57,15 +58,14 @@ typedef struct keys {
 } keys_t;
 
 typedef struct simd {
- _Alignas(64) int8_t l1_neurons[1536];
- _Alignas(64) int l2_neurons[16];
- _Alignas(64) float l3_neurons[32];
- _Alignas(64) float l2_floats[16];
+ _Alignas(64) int8_t l1_neurons[L1_SIZE];
+ _Alignas(64) int l2_neurons[L2_SIZE];
+ _Alignas(64) float l3_neurons[L3_SIZE];
+ _Alignas(64) float l2_floats[2*L2_SIZE];
 } simd_t;
 
 typedef struct accumulator {
-  _Alignas(64) int16_t accumulator[2][1536]; // This is very cursed but for now
-                                             // lets have it this way
+  _Alignas(64) int16_t accumulator[2][L1_SIZE];
 } accumulator_t;
 
 typedef struct finny_table {
@@ -79,6 +79,21 @@ typedef struct hash_keys {
   uint64_t non_pawn_key[2];
 } hash_keys_t;
 
+typedef struct lazy_acc_state {
+  uint8_t  dirty;
+  uint8_t  needs_refresh;
+  uint8_t  side;
+  uint8_t  color_flag;
+  uint8_t  white_king_sq;
+  uint8_t  black_king_sq;
+  uint8_t  white_bucket;
+  uint8_t  black_bucket;
+  uint8_t  moving_piece;
+  uint8_t  captured_piece;
+  uint16_t move;
+  uint64_t bitboards[12];
+} lazy_acc_state_t;
+
 typedef struct position {
   uint64_t bitboards[12];
   uint64_t occupancies[3];
@@ -87,7 +102,6 @@ typedef struct position {
   uint64_t checkers;
   uint16_t fullmove;
   uint8_t checker_count;
-  uint8_t ply;
   uint8_t fifty;
   uint8_t mailbox[64];
   uint8_t side;
@@ -102,11 +116,12 @@ typedef struct PV {
 
 typedef struct searchinfo {
   simd_t neurons;
-  finny_table_t finny_tables[2][13];
+  finny_table_t finny_tables[2][KING_BUCKETS];
   accumulator_t accumulator[MAX_PLY + 10];
   uint64_t nodes;
   uint64_t starttime;
-  position_t pos;
+  position_t positions[MAX_PLY + 10];
+  uint8_t ply;
   uint64_t repetition_table[2000];
   uint32_t repetition_index;
   uint32_t nmp_min_ply;
@@ -120,6 +135,7 @@ typedef struct searchinfo {
   int16_t continuation_history[13][64][12][64];
   int16_t capture_history[12][13][64][64][2][2];
   int16_t pawn_history[2048][12][64];
+  lazy_acc_state_t lazy[MAX_PLY + 10];
   uint8_t depth;
   uint8_t seldepth;
   uint8_t stopped;

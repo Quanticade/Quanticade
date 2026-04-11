@@ -166,8 +166,8 @@ uint8_t static_eval_within_bounds(int16_t static_eval, int16_t score,
          !(failed_low && static_eval < score);
 }
 
-int16_t adjust_static_eval(thread_t *thread, position_t *pos,
-                           int16_t static_eval) {
+int16_t adjust_static_eval(thread_t *thread, int16_t static_eval) {
+  position_t *pos = &thread->positions[thread->ply];
   const float fifty_move_scaler =
       (float)((FIFTY_MOVE_SCALING - (float)pos->fifty) / 200);
   static_eval = static_eval * fifty_move_scaler;
@@ -190,7 +190,8 @@ int16_t adjust_static_eval(thread_t *thread, position_t *pos,
   return clamp(adjusted_score, -MATE_SCORE + 1, MATE_SCORE - 1);
 }
 
-int16_t correction_value(thread_t *thread, position_t *pos) {
+int16_t correction_value(thread_t *thread) {
+  position_t *pos = &thread->positions[thread->ply];
   const int pawn_correction =
       thread->correction_history[pos->side][pos->hash_keys.pawn_key & 16383] *
       PAWN_CORR_HISTORY_MULTIPLIER;
@@ -209,34 +210,35 @@ int16_t correction_value(thread_t *thread, position_t *pos) {
   return correction / 1024;
 }
 
-void update_corrhist(thread_t *thread, position_t *pos, int16_t static_eval,
+void update_corrhist(thread_t *thread, int16_t static_eval,
                      int16_t score, uint8_t depth) {
+  position_t *pos = &thread->positions[thread->ply];
   int16_t bonus = calculate_corrhist_bonus(static_eval, score, depth);
+
   thread->correction_history[pos->side][pos->hash_keys.pawn_key & 16383] +=
       scale_corrhist_bonus(
-          thread
-              ->correction_history[pos->side][pos->hash_keys.pawn_key & 16383],
+          thread->correction_history[pos->side]
+                                    [pos->hash_keys.pawn_key & 16383],
           bonus);
 
   thread->w_non_pawn_correction_history
-      [thread->pos.side][thread->pos.hash_keys.non_pawn_key[white] & 16383] +=
+      [pos->side][pos->hash_keys.non_pawn_key[white] & 16383] +=
       scale_corrhist_bonus(
           thread->w_non_pawn_correction_history
-              [thread->pos.side]
-              [thread->pos.hash_keys.non_pawn_key[white] & 16383],
+              [pos->side][pos->hash_keys.non_pawn_key[white] & 16383],
           bonus);
 
   thread->b_non_pawn_correction_history
-      [thread->pos.side][thread->pos.hash_keys.non_pawn_key[black] & 16383] +=
+      [pos->side][pos->hash_keys.non_pawn_key[black] & 16383] +=
       scale_corrhist_bonus(
           thread->b_non_pawn_correction_history
-              [thread->pos.side]
-              [thread->pos.hash_keys.non_pawn_key[black] & 16383],
+              [pos->side][pos->hash_keys.non_pawn_key[black] & 16383],
           bonus);
 }
 
-void update_quiet_history(thread_t *thread, position_t *pos, searchstack_t *ss,
+void update_quiet_history(thread_t *thread, searchstack_t *ss,
                           int move, int bonus) {
+  position_t *pos = &thread->positions[thread->ply];
   int target = get_move_target(move);
   int source = get_move_source(move);
   thread->quiet_history[pos->side][source][target][is_square_threatened(
@@ -247,9 +249,9 @@ void update_quiet_history(thread_t *thread, position_t *pos, searchstack_t *ss,
           abs(bonus) / HISTORY_MAX;
 }
 
-static inline void update_capture_history(thread_t *thread, position_t *pos,
-                                          searchstack_t *ss, int move,
-                                          int bonus) {
+static inline void update_capture_history(thread_t *thread, searchstack_t *ss,
+                                          int move, int bonus) {
+  position_t *pos = &thread->positions[thread->ply];
   int from = get_move_source(move);
   int target = get_move_target(move);
   int prev_target_piece = get_move_enpassant(move) == 0
@@ -267,25 +269,11 @@ static inline void update_capture_history(thread_t *thread, position_t *pos,
           abs(bonus) / HISTORY_MAX;
 }
 
-/*static inline void update_continuation_history(thread_t *thread,
-                                               position_t *pos,
-                                               searchstack_t *ss, int move,
-                                               int bonus) {
-  int prev_piece = ss->piece;
-  int prev_target = get_move_target(ss->move);
-  int piece = pos->mailbox[get_move_source(move)];
-  int target = get_move_target(move);
-  thread->continuation_history[prev_piece][prev_target][piece][target] +=
-      bonus -
-      thread->continuation_history[prev_piece][prev_target][piece][target] *
-          abs(bonus) / HISTORY_MAX;
-}*/
-
-int16_t get_conthist_score(thread_t *thread, position_t *pos, searchstack_t *ss,
+int16_t get_conthist_score(thread_t *thread, searchstack_t *ss,
                            int move, uint8_t ply) {
-  if (pos->ply >= ply && (ss - ply)->piece != NO_PIECE) {
+  if (thread->ply >= ply && (ss - ply)->piece != NO_PIECE) {
     return thread->continuation_history[(ss - ply)->piece][get_move_target(
-        (ss - ply)->move)][pos->mailbox[get_move_source(move)]]
+        (ss - ply)->move)][thread->positions[thread->ply].mailbox[get_move_source(move)]]
                                        [get_move_target(move)];
   } else {
     return 0;
@@ -293,16 +281,16 @@ int16_t get_conthist_score(thread_t *thread, position_t *pos, searchstack_t *ss,
 }
 
 static inline void update_continuation_histories(thread_t *thread,
-                                                 position_t *pos,
                                                  searchstack_t *ss, int move,
                                                  int bonus) {
+  position_t *pos = &thread->positions[thread->ply];
   uint8_t count = sizeof(cont_hist_updates) / sizeof(uint8_t);
-  int64_t total_score = get_conthist_score(thread, pos, ss, move, 1) +
-                        get_conthist_score(thread, pos, ss, move, 2) +
-                        get_conthist_score(thread, pos, ss, move, 4);
+  int64_t total_score = get_conthist_score(thread, ss, move, 1) +
+                        get_conthist_score(thread, ss, move, 2) +
+                        get_conthist_score(thread, ss, move, 4);
   for (uint8_t i = 0; i < count; ++i) {
     int prev_piece = (ss - cont_hist_updates[i])->piece;
-    if (pos->ply >= cont_hist_updates[i] && prev_piece != NO_PIECE) {
+    if (thread->ply >= cont_hist_updates[i] && prev_piece != NO_PIECE) {
       int prev_target = get_move_target((ss - cont_hist_updates[i])->move);
       int piece = pos->mailbox[get_move_source(move)];
       int target = get_move_target(move);
@@ -312,8 +300,8 @@ static inline void update_continuation_histories(thread_t *thread,
   }
 }
 
-static inline void update_pawn_history(thread_t *thread, position_t *pos,
-                                       int move, int bonus) {
+static inline void update_pawn_history(thread_t *thread, int move, int bonus) {
+  position_t *pos = &thread->positions[thread->ply];
   int target = get_move_target(move);
   int source = get_move_source(move);
   thread->pawn_history[pos->hash_keys.pawn_key % 2048][pos->mailbox[source]]
@@ -323,9 +311,9 @@ static inline void update_pawn_history(thread_t *thread, position_t *pos,
                   abs(bonus) / HISTORY_MAX;
 }
 
-void update_capture_history_moves(thread_t *thread, position_t *pos,
-                                  searchstack_t *ss, moves *capture_moves,
-                                  int best_move, uint8_t depth) {
+void update_capture_history_moves(thread_t *thread, searchstack_t *ss,
+                                  moves *capture_moves, int best_move,
+                                  uint8_t depth) {
   int capt_bonus =
       MIN(CAPTURE_HISTORY_BASE_BONUS + CAPTURE_HISTORY_FACTOR_BONUS * depth,
           CAPTURE_HISTORY_BONUS_MAX);
@@ -334,17 +322,16 @@ void update_capture_history_moves(thread_t *thread, position_t *pos,
            CAPTURE_HISTORY_MALUS_MAX);
   for (uint32_t i = 0; i < capture_moves->count; ++i) {
     if (capture_moves->entry[i].move == best_move) {
-      update_capture_history(thread, pos, ss, best_move, capt_bonus);
+      update_capture_history(thread, ss, best_move, capt_bonus);
     } else {
-      update_capture_history(thread, pos, ss, capture_moves->entry[i].move,
+      update_capture_history(thread, ss, capture_moves->entry[i].move,
                              capt_malus);
     }
   }
 }
 
-void update_quiet_histories(thread_t *thread, position_t *pos,
-                            searchstack_t *ss, moves *quiet_moves,
-                            int best_move, uint8_t depth) {
+void update_quiet_histories(thread_t *thread, searchstack_t *ss,
+                            moves *quiet_moves, int best_move, uint8_t depth) {
   int cont_bonus =
       MIN(CONT_HISTORY_BASE_BONUS + CONT_HISTORY_FACTOR_BONUS * depth,
           CONT_HISTORY_BONUS_MAX);
@@ -368,13 +355,13 @@ void update_quiet_histories(thread_t *thread, position_t *pos,
   for (uint32_t i = 0; i < quiet_moves->count; ++i) {
     uint16_t move = quiet_moves->entry[i].move;
     if (move == best_move) {
-      update_continuation_histories(thread, pos, ss, best_move, cont_bonus);
-      update_pawn_history(thread, pos, best_move, pawn_bonus);
-      update_quiet_history(thread, pos, ss, best_move, quiet_bonus);
+      update_continuation_histories(thread, ss, best_move, cont_bonus);
+      update_pawn_history(thread, best_move, pawn_bonus);
+      update_quiet_history(thread, ss, best_move, quiet_bonus);
     } else {
-      update_continuation_histories(thread, pos, ss, move, cont_malus);
-      update_pawn_history(thread, pos, move, pawn_malus);
-      update_quiet_history(thread, pos, ss, move, quiet_malus);
+      update_continuation_histories(thread, ss, move, cont_malus);
+      update_pawn_history(thread, move, pawn_malus);
+      update_quiet_history(thread, ss, move, quiet_malus);
     }
   }
 }
