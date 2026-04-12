@@ -332,6 +332,10 @@ static inline void score_quiet(thread_t *thread, searchstack_t *ss,
                             [pos->mailbox[source]][target] *
             MO_PAWN_HIST_MULT;
     entry->score /= 1024;
+
+    if (is_direct_check(pos, move)) {
+      entry->score += 5000;
+    }
   }
 }
 
