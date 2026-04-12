@@ -445,7 +445,7 @@ int is_square_attacked(position_t *pos, int square, int side) {
 }
 
 // Returns 1 if the move might give check
-uint8_t might_give_check(position_t *pos, uint16_t mv) {
+uint8_t is_direct_check(position_t *pos, uint16_t mv) {
   uint8_t from = get_move_source(mv);
   uint8_t to = get_move_target(mv);
   uint8_t side = pos->side;

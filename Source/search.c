@@ -1069,7 +1069,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
           ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION +
                   ss->history_score / FP_HISTORY_DIVISOR <=
               alpha &&
-          !might_give_check(pos, move)) {
+          !is_direct_check(pos, move)) {
         picker.skip_quiets = 1;
         continue;
       }
