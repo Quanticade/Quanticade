@@ -3,7 +3,7 @@
 
 #include "structs.h"
 
-#define version "Cronus 3.0"
+#define version "Phoenix 4.0 Dev"
 
 #define MIN(A, B) ((A) < (B) ? (A) : (B))
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
