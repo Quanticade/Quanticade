@@ -1058,7 +1058,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
           moves_seen >= LMP_MARGIN[initial_depth]
                                   [improving ||
                                    ss->static_eval >= beta + LMP_BETA_MARGIN] &&
-          !only_pawns(pos)) {
+          !only_pawns(pos) && !is_direct_check(pos, move)) {
         picker.skip_quiets = 1;
       }
 
