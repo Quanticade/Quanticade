@@ -778,15 +778,17 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   (void)correction;
 
   uint8_t initial_depth = depth;
-  uint8_t improving = 0;
+  int32_t improvement = 0;
   uint8_t opponent_worsening = 0;
 
-  if ((ss - 2)->static_eval != NO_SCORE) {
-    improving = ss->static_eval > (ss - 2)->static_eval;
+  if ((ss - 2)->static_eval != NO_SCORE && !in_check) {
+    improvement = ss->static_eval > (ss - 2)->static_eval;
   }
   if (!in_check) {
     opponent_worsening = ss->static_eval + (ss - 1)->static_eval > 1;
   }
+
+  uint8_t improving = improvement > 0;
 
   (ss + 2)->cutoff_cnt = 0;
 
