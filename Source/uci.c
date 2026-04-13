@@ -11,6 +11,7 @@
 #include "pyrrhic/tbprobe.h"
 #include "search.h"
 #include "spsa.h"
+#include "stats.h"
 #include "structs.h"
 #include "threads.h"
 #include "transposition.h"

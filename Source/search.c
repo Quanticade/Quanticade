@@ -11,6 +11,7 @@
 #include "see.h"
 #include "structs.h"
 #include "syzygy.h"
+#include "stats.h"
 #include "threads.h"
 #include "transposition.h"
 #include "uci.h"
@@ -62,8 +63,8 @@ int RFP_MARGIN = 57;
 int RFP_BASE_MARGIN = 26;
 int RFP_IMPROVING = 62;
 int RFP_OPP_WORSENING = 14;
-int FP_MULTIPLIER = 137;
-int FP_ADDITION = 163;
+int FP_MULTIPLIER = 136;
+int FP_ADDITION = 140;
 int FP_HISTORY_DIVISOR = 30;
 int NMP_RED_DIVISER = 144;
 int NMP_BASE_ADD = 189;
@@ -1061,11 +1062,11 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
           !only_pawns(pos)) {
         picker.skip_quiets = 1;
       }
-
+      
       // Futility Pruning
-      if (depth <= FP_DEPTH && !in_check &&
+      if (current_score > -MATE_SCORE && depth <= FP_DEPTH && !in_check &&
           quiet &&
-          ss->static_eval + depth * FP_MULTIPLIER + FP_ADDITION +
+          ss->static_eval + depth * FP_MULTIPLIER - FP_ADDITION +
                   ss->history_score / FP_HISTORY_DIVISOR <=
               alpha &&
           !is_direct_check(pos, move)) {
