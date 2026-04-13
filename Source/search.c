@@ -1054,7 +1054,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
     if (!root_node && best_score > -MATE_SCORE) {
       // Late Move Pruning
-      if (!pv_node && quiet &&
+      if (!in_check && quiet &&
           moves_seen >= LMP_MARGIN[initial_depth]
                                   [improving ||
                                    ss->static_eval >= beta + LMP_BETA_MARGIN] &&
