@@ -1062,13 +1062,10 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         picker.skip_quiets = 1;
       }
 
-      int r = lmr[quiet][MIN(63, depth)][MIN(63, moves_seen)];
-      r += !pv_node;
-      int lmr_depth = MAX(1, depth - 1 - MAX(r, 1));
       // Futility Pruning
-      if (current_score > -MATE_SCORE && lmr_depth <= FP_DEPTH && !in_check &&
+      if (depth <= FP_DEPTH && !in_check &&
           quiet &&
-          ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION +
+          ss->static_eval + depth * FP_MULTIPLIER + FP_ADDITION +
                   ss->history_score / FP_HISTORY_DIVISOR <=
               alpha &&
           !is_direct_check(pos, move)) {
