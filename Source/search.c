@@ -1079,8 +1079,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       // SEE PVS Pruning
       if (depth <= SEE_DEPTH &&
           !SEE(pos, move,
-               SEE_MARGIN[depth][!get_move_capture(move)] -
-                   ss->history_score / SEE_HISTORY_DIVISOR))
+               MIN(SEE_MARGIN[depth][!get_move_capture(move)] -
+                   ss->history_score / SEE_HISTORY_DIVISOR, 0)))
         continue;
     }
 
