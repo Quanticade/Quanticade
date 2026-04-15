@@ -332,27 +332,27 @@ void init_spsa_table(void) {
   add_double_spsa(STRINGIFY(LMP_MARGIN_WORSENING_BASE),
                   &LMP_MARGIN_WORSENING_BASE, 1.0,
                   SPSA_MAX(LMP_MARGIN_WORSENING_BASE),
-                  RATE_DOUBLE(LMP_MARGIN_WORSENING_BASE), init_reductions, 1);
+                  RATE_DOUBLE(LMP_MARGIN_WORSENING_BASE), NULL, 1);
   add_double_spsa(STRINGIFY(LMP_MARGIN_WORSENING_FACTOR),
                   &LMP_MARGIN_WORSENING_FACTOR, 0.1,
                   SPSA_MAX(LMP_MARGIN_WORSENING_FACTOR),
-                  RATE_DOUBLE(LMP_MARGIN_WORSENING_FACTOR), init_reductions, 1);
+                  RATE_DOUBLE(LMP_MARGIN_WORSENING_FACTOR), NULL, 1);
   add_double_spsa(STRINGIFY(LMP_MARGIN_WORSENING_POWER),
                   &LMP_MARGIN_WORSENING_POWER, 1.0,
                   SPSA_MAX(LMP_MARGIN_WORSENING_POWER),
-                  RATE_DOUBLE(LMP_MARGIN_WORSENING_POWER), init_reductions, 1);
+                  RATE_DOUBLE(LMP_MARGIN_WORSENING_POWER), NULL, 1);
   add_double_spsa(STRINGIFY(LMP_MARGIN_IMPROVING_BASE),
                   &LMP_MARGIN_IMPROVING_BASE, 1.0,
                   SPSA_MAX(LMP_MARGIN_IMPROVING_BASE),
-                  RATE_DOUBLE(LMP_MARGIN_IMPROVING_BASE), init_reductions, 1);
+                  RATE_DOUBLE(LMP_MARGIN_IMPROVING_BASE), NULL, 1);
   add_double_spsa(STRINGIFY(LMP_MARGIN_IMPROVING_FACTOR),
                   &LMP_MARGIN_IMPROVING_FACTOR, 0.1,
                   SPSA_MAX(LMP_MARGIN_IMPROVING_FACTOR),
-                  RATE_DOUBLE(LMP_MARGIN_IMPROVING_FACTOR), init_reductions, 1);
+                  RATE_DOUBLE(LMP_MARGIN_IMPROVING_FACTOR), NULL, 1);
   add_double_spsa(STRINGIFY(LMP_MARGIN_IMPROVING_POWER),
                   &LMP_MARGIN_IMPROVING_POWER, 1.0,
                   SPSA_MAX(LMP_MARGIN_IMPROVING_POWER),
-                  RATE_DOUBLE(LMP_MARGIN_IMPROVING_POWER), init_reductions, 1);
+                  RATE_DOUBLE(LMP_MARGIN_IMPROVING_POWER), NULL, 1);
 
   add_double_spsa(STRINGIFY(LMR_OFFSET_QUIET), &LMR_OFFSET_QUIET, 0.1,
                   SPSA_MAX(LMR_OFFSET_QUIET), RATE_DOUBLE(LMR_OFFSET_QUIET),

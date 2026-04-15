@@ -142,10 +142,6 @@ int mvv[] = {131, 362, 308, 486, 1328, 0};
 
 int lmr[2][MAX_PLY + 1][256];
 
-int SEE_MARGIN[MAX_PLY + 1][2];
-
-int LMP_MARGIN[MAX_PLY + 1][2];
-
 double bestmove_scale[5] = {2.4330002014493437f, 1.3609459164691797f,
                             1.1046029589586195f, 0.89894271250319f,
                             0.7130907026145579f};
@@ -155,16 +151,6 @@ uint64_t nodes_spent_table[4096] = {0};
 // Initializes the late move reduction array
 void init_reductions(void) {
   for (int depth = 0; depth <= MAX_PLY; depth++) {
-    SEE_MARGIN[depth][0] = -SEE_CAPTURE * depth * depth;
-    SEE_MARGIN[depth][1] = -SEE_QUIET * depth;
-    LMP_MARGIN[depth][0] =
-        LMP_MARGIN_WORSENING_BASE +
-        LMP_MARGIN_WORSENING_FACTOR *
-            pow(depth, LMP_MARGIN_WORSENING_POWER); // non-improving
-    LMP_MARGIN[depth][1] =
-        LMP_MARGIN_IMPROVING_BASE +
-        LMP_MARGIN_IMPROVING_FACTOR *
-            pow(depth, LMP_MARGIN_IMPROVING_POWER); // improving
     for (int move = 0; move < 256; move++) {
       if (move == 0 || depth == 0) {
         lmr[0][depth][move] = 0;
@@ -1053,12 +1039,21 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     ss->history_score /= 1024;
 
     if (!root_node && best_score > -MATE_SCORE) {
+      int lmp_treshold;
+
+      if (improving || ss->static_eval >= beta + LMP_BETA_MARGIN) {
+        lmp_treshold = LMP_MARGIN_IMPROVING_BASE +
+        LMP_MARGIN_IMPROVING_FACTOR *
+            pow(initial_depth, LMP_MARGIN_IMPROVING_POWER);
+      } else {
+        lmp_treshold = LMP_MARGIN_WORSENING_BASE +
+        LMP_MARGIN_WORSENING_FACTOR *
+            pow(initial_depth, LMP_MARGIN_WORSENING_POWER);
+      }
+
       // Late Move Pruning
       if (!pv_node && quiet &&
-          moves_seen >= LMP_MARGIN[initial_depth]
-                                  [improving ||
-                                   ss->static_eval >= beta + LMP_BETA_MARGIN] &&
-          !only_pawns(pos)) {
+          moves_seen >= lmp_treshold && !only_pawns(pos)) {
         picker.skip_quiets = 1;
       }
 
@@ -1076,17 +1071,17 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         continue;
       }
 
-      int treshhold;
+      int see_treshold;
       if (!get_move_capture(move)) {
-        treshhold = -SEE_QUIET * depth;
+        see_treshold = -SEE_QUIET * depth;
       } else {
-        treshhold = -SEE_CAPTURE * depth * depth;
+        see_treshold = -SEE_CAPTURE * depth * depth;
       }
 
       // SEE PVS Pruning
       if (depth <= SEE_DEPTH &&
           !SEE(pos, move,
-               treshhold -
+               see_treshold -
                    ss->history_score / SEE_HISTORY_DIVISOR))
         continue;
     }
