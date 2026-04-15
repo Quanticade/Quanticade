@@ -1076,10 +1076,17 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         continue;
       }
 
+      int treshhold;
+      if (!get_move_capture(move)) {
+        treshhold = -SEE_QUIET * depth;
+      } else {
+        treshhold = -SEE_CAPTURE * depth * depth;
+      }
+
       // SEE PVS Pruning
       if (depth <= SEE_DEPTH &&
           !SEE(pos, move,
-               SEE_MARGIN[depth][!get_move_capture(move)] -
+               treshhold -
                    ss->history_score / SEE_HISTORY_DIVISOR))
         continue;
     }
