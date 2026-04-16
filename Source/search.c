@@ -1041,13 +1041,12 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     if (!root_node && best_score > -MATE_SCORE) {
       int lmp_treshold;
 
-      if (improving || ss->static_eval >= beta + LMP_BETA_MARGIN) {
-        lmp_treshold =
-            (7910 + 1577 * initial_depth * initial_depth + 307 * initial_depth) >> 11;
-      } else {
-        lmp_treshold =
-            (6057 + 328 * initial_depth * initial_depth + 922 * initial_depth) >> 11;
-      }
+    // All coefficients scaled for Shift 12 (divide by 4096)
+    if (improving || ss->static_eval >= beta + LMP_BETA_MARGIN) {
+      lmp_treshold = (3416 * initial_depth * initial_depth + 972 * initial_depth + 10780) >> 12;
+    } else {
+      lmp_treshold = (216 * initial_depth * initial_depth + 6500 * initial_depth + 500) >> 12;
+    }
 
       // Late Move Pruning
       if (!pv_node && quiet && moves_seen >= lmp_treshold && !only_pawns(pos)) {
