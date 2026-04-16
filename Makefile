@@ -44,17 +44,23 @@ endif
 
 # Detect Windows
 ifeq ($(OS), Windows_NT)
-	uname_S  := Windows
-	SUFFIX   := .exe
-	CFLAGS += -static
-	# Detect MSYS2 environment (CLANG64/MINGW64)
-	ifneq ($(MSYSTEM),)
-		FLAGS = -pthread
-	endif
+    uname_S  := Windows
+    SUFFIX   := .exe
+    CFLAGS  += -static
+    
+    # Increase stack size to 4MB for MinGW/GCC/Clang on Windows
+    STACK_SIZE := -Wl,--stack,4194304
+    FLAGS      += $(STACK_SIZE)
+    LDFLAGS    += $(STACK_SIZE)
+
+    # Detect MSYS2 environment (CLANG64/MINGW64)
+    ifneq ($(MSYSTEM),)
+        FLAGS += -pthread
+    endif
 else
-	FLAGS    = -pthread -lm
-	SUFFIX  :=
-	uname_S := $(shell uname -s)
+    FLAGS    = -pthread -lm
+    SUFFIX  :=
+    uname_S := $(shell uname -s)
 endif
 
 # Different native flag for macOS
