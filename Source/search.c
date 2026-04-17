@@ -1015,6 +1015,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       continue;
     }
 
+    moves_seen++;
+
     ss->history_score =
         quiet
             ? thread->quiet_history[pos->side][get_move_source(move)]
@@ -1053,11 +1055,11 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
       // Late Move Pruning
       if (!pv_node && quiet &&
-          moves_seen >= lmp_treshold && !only_pawns(pos)) {
+          moves_seen - 1 >= lmp_treshold && !only_pawns(pos)) {
         picker.skip_quiets = 1;
       }
 
-      int r = lmr[quiet][MIN(63, depth)][MIN(63, moves_seen)];
+      int r = lmr[quiet][MIN(63, depth)][MIN(63, moves_seen - 1)];
       r += !pv_node;
       int lmr_depth = MAX(1, depth - 1 - MAX(r, 1));
       // Futility Pruning
@@ -1164,7 +1166,6 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
     // increment nodes count
     thread->nodes++;
-    moves_seen++;
 
     if (quiet) {
       add_move(quiet_list, move);
