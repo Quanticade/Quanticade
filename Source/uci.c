@@ -355,15 +355,16 @@ void time_control(position_t *pos, thread_t *threads, char *line) {
     limits.depth = limits.depth == 0 ? MAX_PLY : limits.depth;
 
     if (limits.timeset) {
-      limits.time -= MIN(limits.time / 2, move_overhead);
+      bool movetime = !!strstr(line, "movetime");
+      if (!movetime) limits.time -= MIN(limits.time / 2, move_overhead);
 
       const int64_t base_time = (limits.movestogo > 0)
           ? (int64_t)((double)limits.time / limits.movestogo + limits.inc)
           : (int64_t)(limits.time * DEF_TIME_MULTIPLIER + limits.inc * DEF_INC_MULTIPLIER);
 
-      limits.max_time   = MAX(1, limits.time * MAX_TIME_MULTIPLIER);
+      limits.max_time   = MAX(1, limits.time * (movetime ? 1.0 : MAX_TIME_MULTIPLIER));
       limits.hard_limit = threads->starttime + limits.max_time;
-      limits.base_soft  = MIN(base_time * SOFT_LIMIT_MULTIPLIER, limits.max_time);
+      limits.base_soft  = movetime ? 0x7fffffff : MIN(base_time * SOFT_LIMIT_MULTIPLIER, limits.max_time);
       limits.soft_limit = threads->starttime + limits.base_soft;
     }
   }
