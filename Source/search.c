@@ -8,6 +8,7 @@
 #include "movegen.h"
 #include "nnue.h"
 #include "pyrrhic/tbprobe.h"
+#include "stats.h"
 #include "see.h"
 #include "structs.h"
 #include "syzygy.h"
@@ -86,7 +87,7 @@ int LMR_TT_PV_CUTNODE = 887;
 int LMR_TT_SCORE = 868;
 int LMR_CUTOFF_CNT = 809;
 int LMR_IMPROVING = 988;
-int LMR_DEEPER_MARGIN = 30;
+int LMR_DEEPER_MARGIN = 35;
 int LMR_SHALLOWER_MARGIN = 6;
 int LMP_BETA_MARGIN = 15;
 int ASP_WINDOW = 13;
@@ -1216,8 +1217,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       ss->reduction = 0;
 
       if (current_score > alpha && R != 0) {
-        new_depth += (current_score > best_score + LMR_DEEPER_MARGIN +
-                                          round(LMR_DEEPER_MULT * new_depth));
+        new_depth += (current_score > best_score + LMR_DEEPER_MARGIN);
         new_depth -= (current_score < best_score + LMR_SHALLOWER_MARGIN);
 
         if (new_depth > reduced_depth) {
