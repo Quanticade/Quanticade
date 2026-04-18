@@ -643,6 +643,14 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
   return best_score;
 }
 
+static inline void update_pv(PV_t *pv, uint8_t ply, uint16_t move) {
+  const uint8_t child_len = pv->pv_length[ply + 1];
+  pv->pv_table[ply][0] = move;
+  memcpy(&pv->pv_table[ply][1], pv->pv_table[ply + 1],
+         child_len * sizeof(uint16_t));
+  pv->pv_length[ply] = child_len + 1;
+}
+
 // negamax alpha beta search
 static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
                               int16_t alpha, int16_t beta, int depth,
@@ -658,8 +666,9 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     return evaluate(thread, pos, &thread->accumulator[ply]);
   }
 
-  // init PV length
-  thread->pv.pv_length[ply] = ply;
+  // Reset PV length for this ply so stale continuations aren't inherited
+  // if no alpha improvement occurs here.
+  thread->pv.pv_length[ply] = 0;
 
   // variable to store current move's score (from the static evaluation
   // perspective)
@@ -1250,21 +1259,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         // PV node (position)
         alpha = current_score;
 
-        if (pv_node) {
-          // write PV move
-          thread->pv.pv_table[ply][ply] = move;
-
-          // loop over the next ply
-          for (int next_ply = ply + 1;
-              next_ply < thread->pv.pv_length[ply + 1]; next_ply++) {
-            // copy move from deeper ply into a current ply's line
-            thread->pv.pv_table[ply][next_ply] =
-                thread->pv.pv_table[ply + 1][next_ply];
-          }
-
-          // adjust PV length
-          thread->pv.pv_length[ply] = thread->pv.pv_length[ply + 1];
-        }
+        if (pv_node)
+          update_pv(&thread->pv, ply, move);
 
         // fail-hard beta cutoff
         if (alpha >= beta) {
@@ -1546,9 +1542,6 @@ void search_position(position_t *pos, thread_t *threads) {
     pthread_join(pthreads[i], NULL);
   }
 
-  if (minimal) {
-    print_thinking(&threads[0], threads->score, threads[0].depth);
-  }
   // print best move
   printf("bestmove ");
   if (threads->pv.pv_table[0][0]) {

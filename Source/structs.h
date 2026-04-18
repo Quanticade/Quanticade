@@ -110,7 +110,7 @@ typedef struct position {
 } position_t;
 
 typedef struct PV {
-  uint16_t pv_length[MAX_PLY + 1];
+  uint8_t  pv_length[MAX_PLY + 1];
   uint16_t pv_table[MAX_PLY + 1][MAX_PLY + 1];
 } PV_t;
 
