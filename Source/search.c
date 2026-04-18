@@ -1250,18 +1250,21 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         // PV node (position)
         alpha = current_score;
 
-        // write PV move
-        thread->pv.pv_table[ply][ply] = move;
+        if (pv_node) {
+          // write PV move
+          thread->pv.pv_table[ply][ply] = move;
 
-        // loop over the next ply
-        for (int next_ply = ply + 1;
-             next_ply < thread->pv.pv_length[ply + 1]; next_ply++)
-          // copy move from deeper ply into a current ply's line
-          thread->pv.pv_table[ply][next_ply] =
-              thread->pv.pv_table[ply + 1][next_ply];
+          // loop over the next ply
+          for (int next_ply = ply + 1;
+              next_ply < thread->pv.pv_length[ply + 1]; next_ply++) {
+            // copy move from deeper ply into a current ply's line
+            thread->pv.pv_table[ply][next_ply] =
+                thread->pv.pv_table[ply + 1][next_ply];
+          }
 
-        // adjust PV length
-        thread->pv.pv_length[ply] = thread->pv.pv_length[ply + 1];
+          // adjust PV length
+          thread->pv.pv_length[ply] = thread->pv.pv_length[ply + 1];
+        }
 
         // fail-hard beta cutoff
         if (alpha >= beta) {
