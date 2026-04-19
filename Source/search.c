@@ -1055,11 +1055,11 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       if (improving || ss->static_eval >= beta + LMP_BETA_MARGIN) {
         lmp_treshold = LMP_MARGIN_IMPROVING_BASE +
         LMP_MARGIN_IMPROVING_FACTOR *
-            pow(initial_depth, LMP_MARGIN_IMPROVING_POWER);
+            pow(initial_depth, LMP_MARGIN_IMPROVING_POWER) + (double)ss->history_score / 32;
       } else {
         lmp_treshold = LMP_MARGIN_WORSENING_BASE +
         LMP_MARGIN_WORSENING_FACTOR *
-            pow(initial_depth, LMP_MARGIN_WORSENING_POWER);
+            pow(initial_depth, LMP_MARGIN_WORSENING_POWER) + (double)ss->history_score / 32;
       }
 
       // Late Move Pruning
