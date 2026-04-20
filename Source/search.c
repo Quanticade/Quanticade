@@ -1218,6 +1218,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
       if (current_score > alpha && R != 0) {
         new_depth += (current_score > best_score + LMR_DEEPER_MARGIN);
+        new_depth += (current_score > best_score + 500);
         new_depth -= (current_score < best_score + LMR_SHALLOWER_MARGIN);
 
         if (new_depth > reduced_depth) {
