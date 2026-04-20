@@ -44,7 +44,7 @@ int PAWN_CORR_HISTORY_MULTIPLIER = 35;
 int NON_PAWN_CORR_HISTORY_MULTIPLIER = 22;
 
 int FIFTY_MOVE_SCALING = 193;
-int HISTORY_MAX = 8192;
+int HISTORY_MAX = 16384;
 
 uint8_t cont_hist_updates[] = {1, 2, 4};
 
