@@ -1,11 +1,12 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#include "structs.h"
+#include <stdint.h>
 
 int clamp(int d, int min, int max);
 uint64_t get_time_ms(void);
-int input_waiting(void);
-void read_input(thread_t *thread);
+uint8_t is_win(int16_t score);
+uint8_t is_loss(int16_t score);
+uint8_t is_decisive(int16_t score);
 
 #endif
