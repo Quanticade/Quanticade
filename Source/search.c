@@ -516,7 +516,7 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
         write_hash_entry(tt_entry, pos, ply, NO_SCORE, raw_static_eval, 0, 0,
                          HASH_FLAG_NONE, tt_was_pv);
       }
-      if (abs(best_score) < MATE_SCORE && abs(beta) < MATE_SCORE) {
+      if (!is_decisive(best_score) && !is_decisive(beta)) {
         best_score = (best_score + beta) / 2;
       }
       // node (position) fails high
@@ -552,7 +552,7 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
 
     moves_seen++;
 
-    if (best_score > -MATE_SCORE) {
+    if (!is_loss(best_score)) {
       if (!SEE(pos, move, -QS_SEE_THRESHOLD))
         continue;
 
@@ -673,7 +673,6 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
   // variable to store current move's score (from the static evaluation
   // perspective)
-  int16_t current_score = NO_SCORE;
   int16_t raw_static_eval = NO_SCORE;
 
   uint16_t tt_move = 0;
@@ -821,7 +820,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
   // Reverse Futility Pruning
   if (!ss->tt_pv && !ss->excluded_move && depth <= RFP_DEPTH &&
-      beta > -MATE_SCORE && ss->eval < MATE_SCORE &&
+      !is_loss(beta) && !is_win(ss->eval) &&
       ss->eval >= beta + RFP_BASE_MARGIN + RFP_MARGIN * depth -
                       RFP_IMPROVING * improving -
                       RFP_OPP_WORSENING * opponent_worsening) {
@@ -833,7 +832,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   if (cutnode && !in_check && !ss->excluded_move && !ss->null_move &&
       ply > thread->nmp_min_ply && ss->eval >= beta &&
       ss->static_eval >= beta - NMP_MULTIPLIER * depth + NMP_BASE_ADD &&
-      ss->eval >= ss->static_eval && !only_pawns(pos)) {
+      ss->eval >= ss->static_eval && !is_loss(beta) && !only_pawns(pos)) {
     int R = depth / NMP_DIVISER + NMP_BASE_REDUCTION;
     R = MIN(R, depth);
 
@@ -878,7 +877,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
     /* search moves with reduced depth to find beta cutoffs
        depth - 1 - R where R is a reduction limit */
-    current_score = -negamax(thread, ss + 1, -beta, -beta + 1,
+    int16_t score = -negamax(thread, ss + 1, -beta, -beta + 1,
                              depth - R, !cutnode, NON_PV);
 
     (ss + 1)->null_move = 0;
@@ -893,9 +892,9 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     }
 
     // fail-hard beta cutoff
-    if (current_score >= beta) {
+    if (score >= beta && !is_win(score)) {
       if (thread->nmp_min_ply != 0 || depth <= 14) {
-        return current_score >= MATE_SCORE ? beta : current_score;
+        return score;
       }
       thread->nmp_min_ply = ply + 3 * (depth - R) / 4;
 
@@ -914,8 +913,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
   // ProbCut pruning
   if (!pv_node && !in_check && !ss->excluded_move && depth >= PROBCUT_DEPTH &&
-      abs(beta) < MATE_SCORE &&
-      (!tt_hit || tt_depth + 3 < depth || tt_score >= probcut_beta)) {
+      !is_win(beta) &&
+      (!tt_hit || tt_depth + 3 < depth || (tt_score >= probcut_beta && !is_decisive(tt_score)))) {
     int probcut_depth = depth - PROBCUT_SHALLOW_DEPTH - 1;
     probcut_depth = MAX(1, probcut_depth);
 
@@ -1005,7 +1004,6 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   capture_list->count = 0;
 
   int16_t best_score = NO_SCORE;
-  current_score = NO_SCORE;
 
   uint16_t best_move = 0;
 
@@ -1050,7 +1048,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
                       SEARCH_MVV_MULT;
     ss->history_score /= 1024;
 
-    if (!root_node && best_score > -MATE_SCORE) {
+    if (!root_node && !is_loss(best_score)) {
       int lmp_treshold;
 
       if (improving || ss->static_eval >= beta + LMP_BETA_MARGIN) {
@@ -1190,6 +1188,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     // PVS & LMR
     int new_depth = depth + extensions - 1;
 
+    int16_t score = NO_SCORE;
+
     // LMR
     if (depth >= 2 && moves_seen > 1 + root_node) {
       int R = lmr[quiet][depth][MIN(255, moves_seen)] * 1024;
@@ -1212,28 +1212,28 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       int reduced_depth =
           MAX(1, MIN(new_depth - R, new_depth + cutnode)) + pv_node;
 
-      current_score = -negamax(thread, ss + 1, -alpha - 1, -alpha,
+      score = -negamax(thread, ss + 1, -alpha - 1, -alpha,
                                reduced_depth, 1, NON_PV);
       ss->reduction = 0;
 
-      if (current_score > alpha && R != 0) {
-        new_depth += (current_score > best_score + LMR_DEEPER_MARGIN);
-        new_depth -= (current_score < best_score + LMR_SHALLOWER_MARGIN);
+      if (score > alpha && R != 0) {
+        new_depth += (score > best_score + LMR_DEEPER_MARGIN);
+        new_depth -= (score < best_score + LMR_SHALLOWER_MARGIN);
 
         if (new_depth > reduced_depth) {
-          current_score = -negamax(thread, ss + 1, -alpha - 1, -alpha,
+          score = -negamax(thread, ss + 1, -alpha - 1, -alpha,
                                    new_depth, !cutnode, NON_PV);
         }
       }
       // Full Depth Search
     } else if (!pv_node || moves_seen > 1) {
-      current_score = -negamax(thread, ss + 1, -alpha - 1, -alpha,
+      score = -negamax(thread, ss + 1, -alpha - 1, -alpha,
                                new_depth, !cutnode, NON_PV);
     }
 
     // Principal Variation Search
-    if (pv_node && (moves_seen == 1 || current_score > alpha)) {
-      current_score =
+    if (pv_node && (moves_seen == 1 || score > alpha)) {
+      score =
           -negamax(thread, ss + 1, -beta, -alpha, new_depth, 0, PV_NODE);
     }
 
@@ -1251,13 +1251,13 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     }
 
     // found a better move
-    if (current_score > best_score) {
-      best_score = current_score;
-      if (current_score > alpha) {
+    if (score > best_score) {
+      best_score = score;
+      if (score > alpha) {
         best_move = move;
 
         // PV node (position)
-        alpha = current_score;
+        alpha = score;
 
         if (pv_node)
           update_pv(&thread->pv, ply, move);
@@ -1291,8 +1291,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       return 0;
   }
 
-  if (best_score >= beta && abs(best_score) < MATE_SCORE &&
-      abs(beta) < MATE_SCORE) {
+  if (!root_node && best_score >= beta && !is_decisive(best_score) && !is_decisive(alpha)) {
     best_score = (best_score * depth + beta) / (depth + 1);
   }
 
