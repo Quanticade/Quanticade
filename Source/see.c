@@ -90,8 +90,10 @@ int SEE(position_t *pos, int move, int threshold) {
   // Let occupied suppose that the move was actually made
   occupied = pos->occupancies[both];
   occupied = (occupied ^ (1ull << from)) | (1ull << to);
-  if (enpassant)
-    occupied ^= (1ull << pos->enpassant);
+  if (enpassant) {
+    int ep_sq = pos->side == white ? to + 8 : to - 8;
+    occupied ^= (1ull << ep_sq);
+  }
 
   // Get all pieces which attack the target square. And with occupied
   // so that we do not let the same piece attack twice
