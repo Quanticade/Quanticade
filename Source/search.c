@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <threads.h>
 
 extern volatile uint8_t ABORT_SIGNAL;
 
@@ -1360,7 +1361,7 @@ void *iterative_deepening(void *thread_void) {
   position_t *pos = &thread->positions[0];
 
   uint16_t prev_best_move = 0;
-  int16_t average_score = NO_SCORE;
+  int16_t average_score = thread[0].previous_best_score;
   uint8_t best_move_stability = 0;
   uint8_t eval_stability = 0;
 
@@ -1410,10 +1411,10 @@ void *iterative_deepening(void *thread_void) {
       }
 
       if (thread->depth >= ASP_DEPTH) {
-        window += thread->score * thread->score / ASP_WINDOW_DIVISER;
+        window += average_score * average_score / ASP_WINDOW_DIVISER;
 
-        alpha = MAX(-INF, thread->score - window);
-        beta = MIN(INF, thread->score + window);
+        alpha = MAX(-INF, average_score - window);
+        beta = MIN(INF, average_score + window);
       }
 
       // find best move within a given position
@@ -1441,6 +1442,9 @@ void *iterative_deepening(void *thread_void) {
           ++fail_high_count;
         }
       } else {
+        average_score = average_score == NO_SCORE
+                        ? thread->score
+                        : (average_score + thread->score) / 2;
         break;
       }
 
@@ -1448,10 +1452,6 @@ void *iterative_deepening(void *thread_void) {
     }
 
     if (thread->index == 0) {
-      average_score = average_score == NO_SCORE
-                          ? thread->score
-                          : (average_score + thread->score) / 2;
-
       if (thread->pv.pv_table[0][0] == prev_best_move) {
         best_move_stability = MIN(best_move_stability + 1, 4);
       } else {
@@ -1490,6 +1490,7 @@ void *iterative_deepening(void *thread_void) {
       return NULL;
     }
   }
+  thread[0].previous_best_score = thread[0].score;
   return NULL;
 }
 
