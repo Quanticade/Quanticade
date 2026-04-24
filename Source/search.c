@@ -8,8 +8,8 @@
 #include "movegen.h"
 #include "nnue.h"
 #include "pyrrhic/tbprobe.h"
-#include "stats.h"
 #include "see.h"
+#include "stats.h"
 #include "structs.h"
 #include "syzygy.h"
 #include "threads.h"
@@ -254,8 +254,8 @@ static inline move_t pick_next_best_move(moves *move_list, uint16_t *index) {
 
 // Scores noisy moves and splits them into good/bad lists based on SEE
 static inline void score_noisy(thread_t *thread, searchstack_t *ss,
-                                moves *noisy_list, moves *good_noisy,
-                                moves *bad_noisy, uint16_t tt_move) {
+                               moves *noisy_list, moves *good_noisy,
+                               moves *bad_noisy, uint16_t tt_move) {
   position_t *pos = &thread->positions[thread->ply];
   for (uint32_t i = 0; i < noisy_list->count; i++) {
     move_t entry = noisy_list->entry[i];
@@ -275,14 +275,15 @@ static inline void score_noisy(thread_t *thread, searchstack_t *ss,
     else
       target_piece = pos->mailbox[target];
 
-    entry.score  = mvv[target_piece % 6] * MO_MVV_MULT;
-    entry.score += thread->capture_history[pos->mailbox[source]][target_piece]
-                                          [source][target]
-                                          [source_threatened][target_threatened] *
-                   MO_CAPT_HIST_MULT;
+    entry.score = mvv[target_piece % 6] * MO_MVV_MULT;
+    entry.score +=
+        thread->capture_history[pos->mailbox[source]][target_piece][source]
+                               [target][source_threatened][target_threatened] *
+        MO_CAPT_HIST_MULT;
     entry.score /= 1024;
 
-    int see_threshold = -MO_SEE_THRESHOLD - entry.score / MO_SEE_HISTORY_DIVISER;
+    int see_threshold =
+        -MO_SEE_THRESHOLD - entry.score / MO_SEE_HISTORY_DIVISER;
     if (SEE(pos, move, see_threshold))
       good_noisy->entry[good_noisy->count++] = entry;
     else
@@ -292,7 +293,7 @@ static inline void score_noisy(thread_t *thread, searchstack_t *ss,
 
 // Scores quiet moves in place
 static inline void score_quiet(thread_t *thread, searchstack_t *ss,
-                                moves *quiet_list, uint16_t tt_move) {
+                               moves *quiet_list, uint16_t tt_move) {
   position_t *pos = &thread->positions[thread->ply];
   for (uint32_t i = 0; i < quiet_list->count; i++) {
     move_t *entry = &quiet_list->entry[i];
@@ -309,8 +310,8 @@ static inline void score_quiet(thread_t *thread, searchstack_t *ss,
     uint8_t target_threatened = is_square_threatened(ss, target);
 
     entry->score =
-        thread->quiet_history[pos->side][source][target]
-                             [source_threatened][target_threatened] *
+        thread->quiet_history[pos->side][source][target][source_threatened]
+                             [target_threatened] *
             MO_QUIET_HIST_MULT +
         get_conthist_score(thread, ss, move, 1) * MO_CONT1_HIST_MULT +
         get_conthist_score(thread, ss, move, 2) * MO_CONT2_HIST_MULT +
@@ -333,35 +334,35 @@ typedef enum {
 } picker_stage_t;
 
 typedef struct {
-  picker_stage_t  stage;
-  moves           good_noisy;
-  moves           bad_noisy;
-  moves           quiets;
-  uint16_t        good_noisy_index;
-  uint16_t        bad_noisy_index;
-  uint16_t        quiet_index;
-  uint16_t        tt_move;
-  uint8_t         generate_all;
-  uint8_t         skip_quiets;
-  thread_t       *thread;
-  searchstack_t  *ss;
+  picker_stage_t stage;
+  moves good_noisy;
+  moves bad_noisy;
+  moves quiets;
+  uint16_t good_noisy_index;
+  uint16_t bad_noisy_index;
+  uint16_t quiet_index;
+  uint16_t tt_move;
+  uint8_t generate_all;
+  uint8_t skip_quiets;
+  thread_t *thread;
+  searchstack_t *ss;
 } picker_t;
 
 static inline void init_picker(picker_t *picker, thread_t *thread,
-                                searchstack_t *ss, uint16_t tt_move,
-                                uint8_t generate_all) {
-  picker->stage             = STAGE_TABLE;
-  picker->good_noisy.count  = 0;
-  picker->bad_noisy.count   = 0;
-  picker->quiets.count      = 0;
-  picker->good_noisy_index  = 0;
-  picker->bad_noisy_index   = 0;
-  picker->quiet_index       = 0;
-  picker->tt_move           = tt_move;
-  picker->generate_all      = generate_all;
-  picker->skip_quiets       = 0;
-  picker->thread            = thread;
-  picker->ss                = ss;
+                               searchstack_t *ss, uint16_t tt_move,
+                               uint8_t generate_all) {
+  picker->stage = STAGE_TABLE;
+  picker->good_noisy.count = 0;
+  picker->bad_noisy.count = 0;
+  picker->quiets.count = 0;
+  picker->good_noisy_index = 0;
+  picker->bad_noisy_index = 0;
+  picker->quiet_index = 0;
+  picker->tt_move = tt_move;
+  picker->generate_all = generate_all;
+  picker->skip_quiets = 0;
+  picker->thread = thread;
+  picker->ss = ss;
 }
 
 static inline uint16_t select_next(picker_t *picker) {
@@ -371,25 +372,26 @@ static inline uint16_t select_next(picker_t *picker) {
 
   case STAGE_TABLE:
     picker->stage = STAGE_GENERATE_NOISY;
-    if (picker->tt_move != 0
-        && (picker->generate_all || get_move_capture(picker->tt_move) || is_move_promotion(picker->tt_move))
-        && is_pseudo_legal(pos, picker->tt_move)
-        && is_legal(pos, picker->tt_move))
+    if (picker->tt_move != 0 &&
+        (picker->generate_all || get_move_capture(picker->tt_move) ||
+         is_move_promotion(picker->tt_move)) &&
+        is_pseudo_legal(pos, picker->tt_move) && is_legal(pos, picker->tt_move))
       return picker->tt_move;
     /* fallthrough */
 
   case STAGE_GENERATE_NOISY: {
     moves tmp;
     generate_noisy(pos, &tmp, 0);
-    score_noisy(picker->thread, picker->ss, &tmp,
-                &picker->good_noisy, &picker->bad_noisy, picker->tt_move);
+    score_noisy(picker->thread, picker->ss, &tmp, &picker->good_noisy,
+                &picker->bad_noisy, picker->tt_move);
     picker->stage = STAGE_GOOD_NOISY;
     /* fallthrough */
   }
 
   case STAGE_GOOD_NOISY:
     while (picker->good_noisy_index < picker->good_noisy.count)
-      return pick_next_best_move(&picker->good_noisy, &picker->good_noisy_index).move;
+      return pick_next_best_move(&picker->good_noisy, &picker->good_noisy_index)
+          .move;
     if (!picker->generate_all) {
       picker->stage = STAGE_DONE;
       return 0;
@@ -402,8 +404,7 @@ static inline uint16_t select_next(picker_t *picker) {
       picker->stage = STAGE_BAD_NOISY;
     } else {
       generate_quiets(pos, &picker->quiets, 0);
-      score_quiet(picker->thread, picker->ss,
-                  &picker->quiets, picker->tt_move);
+      score_quiet(picker->thread, picker->ss, &picker->quiets, picker->tt_move);
       picker->stage = STAGE_QUIET;
     }
     /* fallthrough */
@@ -413,7 +414,8 @@ static inline uint16_t select_next(picker_t *picker) {
       picker->stage = STAGE_BAD_NOISY;
     } else {
       while (picker->quiet_index < picker->quiets.count) {
-        uint16_t move = pick_next_best_move(&picker->quiets, &picker->quiet_index).move;
+        uint16_t move =
+            pick_next_best_move(&picker->quiets, &picker->quiet_index).move;
         if (move != picker->tt_move)
           return move;
       }
@@ -423,7 +425,8 @@ static inline uint16_t select_next(picker_t *picker) {
 
   case STAGE_BAD_NOISY:
     while (picker->bad_noisy_index < picker->bad_noisy.count)
-      return pick_next_best_move(&picker->bad_noisy, &picker->bad_noisy_index).move;
+      return pick_next_best_move(&picker->bad_noisy, &picker->bad_noisy_index)
+          .move;
     picker->stage = STAGE_DONE;
     /* fallthrough */
 
@@ -437,8 +440,7 @@ static inline uint16_t select_next(picker_t *picker) {
 
 // quiescence search
 static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
-                                 int16_t alpha, int16_t beta,
-                                 uint8_t pv_node) {
+                                 int16_t alpha, int16_t beta, uint8_t pv_node) {
   const uint8_t ply = thread->ply;
   // Derive current position from the thread's position stack.
   position_t *pos = &thread->positions[ply];
@@ -536,7 +538,7 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
   capture_list->count = 0;
 
   uint16_t previous_square = 0;
-  uint16_t moves_seen      = 0;
+  uint16_t moves_seen = 0;
 
   if ((ss - 1)->move != 0) {
     previous_square = get_move_target((ss - 1)->move);
@@ -599,7 +601,8 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
     // score current move
     score = -quiescence(thread, ss + 1, -beta, -alpha, pv_node);
 
-    // restore ply (position is unchanged at thread->ply, no board restore needed)
+    // restore ply (position is unchanged at thread->ply, no board restore
+    // needed)
     thread->ply--;
     thread->repetition_index--;
 
@@ -638,8 +641,8 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
     hash_flag = HASH_FLAG_UPPER_BOUND;
   }
 
-  write_hash_entry(tt_entry, pos, ply, best_score, raw_static_eval, 0, best_move,
-                   hash_flag, tt_was_pv);
+  write_hash_entry(tt_entry, pos, ply, best_score, raw_static_eval, 0,
+                   best_move, hash_flag, tt_was_pv);
 
   return best_score;
 }
@@ -749,10 +752,9 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   } else if (ss->excluded_move) {
     raw_static_eval = ss->eval = ss->static_eval;
   } else if (tt_hit) {
-    raw_static_eval =
-        tt_static_eval != NO_SCORE
-            ? tt_static_eval
-            : evaluate(thread, pos, &thread->accumulator[ply]);
+    raw_static_eval = tt_static_eval != NO_SCORE
+                          ? tt_static_eval
+                          : evaluate(thread, pos, &thread->accumulator[ply]);
     ss->eval = ss->static_eval = adjust_static_eval(thread, raw_static_eval);
 
     if (tt_score != NO_SCORE &&
@@ -811,8 +813,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   // Razoring
   if (!pv_node && !in_check && !ss->excluded_move && depth <= RAZOR_DEPTH &&
       ss->static_eval + RAZOR_MARGIN * depth < alpha) {
-    const int16_t razor_score =
-        quiescence(thread, ss, alpha, beta, NON_PV);
+    const int16_t razor_score = quiescence(thread, ss, alpha, beta, NON_PV);
     if (razor_score <= alpha) {
       return razor_score;
     }
@@ -848,8 +849,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
     // hash enpassant if available
     if (null_pos->enpassant != no_sq)
-      null_pos->hash_keys.hash_key ^=
-          keys.enpassant_keys[null_pos->enpassant];
+      null_pos->hash_keys.hash_key ^= keys.enpassant_keys[null_pos->enpassant];
 
     // reset enpassant capture square
     null_pos->enpassant = no_sq;
@@ -877,8 +877,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
     /* search moves with reduced depth to find beta cutoffs
        depth - 1 - R where R is a reduction limit */
-    int16_t score = -negamax(thread, ss + 1, -beta, -beta + 1,
-                             depth - R, !cutnode, NON_PV);
+    int16_t score =
+        -negamax(thread, ss + 1, -beta, -beta + 1, depth - R, !cutnode, NON_PV);
 
     (ss + 1)->null_move = 0;
 
@@ -914,7 +914,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   // ProbCut pruning
   if (!pv_node && !in_check && !ss->excluded_move && depth >= PROBCUT_DEPTH &&
       !is_win(beta) &&
-      (!tt_hit || tt_depth + 3 < depth || (tt_score >= probcut_beta && !is_decisive(tt_score)))) {
+      (!tt_hit || tt_depth + 3 < depth ||
+       (tt_score >= probcut_beta && !is_decisive(tt_score)))) {
     int probcut_depth = depth - PROBCUT_SHALLOW_DEPTH - 1;
     probcut_depth = MAX(1, probcut_depth);
 
@@ -958,8 +959,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       prefetch_hash_entry(next_pos->hash_keys.hash_key);
 
       // Shallow search with raised beta
-      int16_t probcut_score = -quiescence(thread, ss + 1, -probcut_beta,
-                                          -probcut_beta + 1, NON_PV);
+      int16_t probcut_score =
+          -quiescence(thread, ss + 1, -probcut_beta, -probcut_beta + 1, NON_PV);
 
       // If qsearch doesn't fail high, try a deeper search
       if (probcut_score >= probcut_beta) {
@@ -1053,17 +1054,16 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
       if (improving || ss->static_eval >= beta + LMP_BETA_MARGIN) {
         lmp_treshold = LMP_MARGIN_IMPROVING_BASE +
-        LMP_MARGIN_IMPROVING_FACTOR *
-            pow(initial_depth, LMP_MARGIN_IMPROVING_POWER);
+                       LMP_MARGIN_IMPROVING_FACTOR *
+                           pow(initial_depth, LMP_MARGIN_IMPROVING_POWER);
       } else {
         lmp_treshold = LMP_MARGIN_WORSENING_BASE +
-        LMP_MARGIN_WORSENING_FACTOR *
-            pow(initial_depth, LMP_MARGIN_WORSENING_POWER);
+                       LMP_MARGIN_WORSENING_FACTOR *
+                           pow(initial_depth, LMP_MARGIN_WORSENING_POWER);
       }
 
       // Late Move Pruning
-      if (!pv_node && quiet &&
-          moves_seen >= lmp_treshold && !only_pawns(pos)) {
+      if (!pv_node && quiet && moves_seen >= lmp_treshold && !only_pawns(pos)) {
         picker.skip_quiets = 1;
       }
 
@@ -1071,8 +1071,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       r += !pv_node;
       int lmr_depth = MAX(1, depth - 1 - MAX(r, 1));
       // Futility Pruning
-      if (lmr_depth <= FP_DEPTH && !in_check &&
-          quiet &&
+      if (lmr_depth <= FP_DEPTH && !in_check && quiet &&
           ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION +
                   ss->history_score / FP_HISTORY_DIVISOR <=
               alpha &&
@@ -1091,8 +1090,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       // SEE PVS Pruning
       if (depth <= SEE_DEPTH &&
           !SEE(pos, move,
-               see_treshold -
-                   ss->history_score / SEE_HISTORY_DIVISOR))
+               see_treshold - ss->history_score / SEE_HISTORY_DIVISOR))
         continue;
     }
 
@@ -1106,14 +1104,15 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         move == tt_move && !ss->excluded_move &&
         tt_depth >= depth - SE_DEPTH_REDUCTION &&
         tt_flag != HASH_FLAG_UPPER_BOUND && abs(tt_score) < MATE_SCORE) {
-      const int s_beta = tt_score - (60 + 66 * (ss->tt_pv && !pv_node)) * depth / 55;
+      const int s_beta =
+          tt_score - (60 + 66 * (ss->tt_pv && !pv_node)) * depth / 55;
       const int s_depth = depth / 2;
 
       ss->excluded_move = move;
 
       // Singular search at the same ply (thread->ply is unchanged)
-      const int16_t s_score = negamax(thread, ss, s_beta - 1, s_beta,
-                                      s_depth, cutnode, NON_PV);
+      const int16_t s_score =
+          negamax(thread, ss, s_beta - 1, s_beta, s_depth, cutnode, NON_PV);
 
       ss->excluded_move = 0;
 
@@ -1144,13 +1143,11 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       else if (cutnode) {
         extensions -= 2;
       }
-    } 
+    }
     // Low Depth Singular Extensions (LDSE)
-    else if (depth <= 7
-                && !in_check
-                && ss->static_eval <= alpha - 25
-                && tt_flag == HASH_FLAG_LOWER_BOUND) {
-                extensions = 1;
+    else if (depth <= 7 && !in_check && ss->static_eval <= alpha - 25 &&
+             tt_flag == HASH_FLAG_LOWER_BOUND) {
+      extensions = 1;
     }
 
     // Copy current position to the next ply slot and advance.
@@ -1202,7 +1199,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       R -= ss->tt_pv * LMR_TT_PV;
       R += (ss->tt_pv && tt_hit && tt_score <= alpha) * LMR_TT_SCORE;
       R -= (ss->tt_pv && cutnode) * LMR_TT_PV_CUTNODE;
-      R -= stm_in_check(next_pos) * LMR_IN_CHECK;  // check on the new position
+      R -= stm_in_check(next_pos) * LMR_IN_CHECK; // check on the new position
       R += (ss->cutoff_cnt > 3) * LMR_CUTOFF_CNT;
       R -= improving * LMR_IMPROVING;
 
@@ -1212,8 +1209,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       int reduced_depth =
           MAX(1, MIN(new_depth - R, new_depth + cutnode)) + pv_node;
 
-      score = -negamax(thread, ss + 1, -alpha - 1, -alpha,
-                               reduced_depth, 1, NON_PV);
+      score = -negamax(thread, ss + 1, -alpha - 1, -alpha, reduced_depth, 1,
+                       NON_PV);
       ss->reduction = 0;
 
       if (score > alpha && R != 0) {
@@ -1221,20 +1218,19 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         new_depth -= (score < best_score + LMR_SHALLOWER_MARGIN);
 
         if (new_depth > reduced_depth) {
-          score = -negamax(thread, ss + 1, -alpha - 1, -alpha,
-                                   new_depth, !cutnode, NON_PV);
+          score = -negamax(thread, ss + 1, -alpha - 1, -alpha, new_depth,
+                           !cutnode, NON_PV);
         }
       }
       // Full Depth Search
     } else if (!pv_node || moves_seen > 1) {
-      score = -negamax(thread, ss + 1, -alpha - 1, -alpha,
-                               new_depth, !cutnode, NON_PV);
+      score = -negamax(thread, ss + 1, -alpha - 1, -alpha, new_depth, !cutnode,
+                       NON_PV);
     }
 
     // Principal Variation Search
     if (pv_node && (moves_seen == 1 || score > alpha)) {
-      score =
-          -negamax(thread, ss + 1, -beta, -alpha, new_depth, 0, PV_NODE);
+      score = -negamax(thread, ss + 1, -beta, -alpha, new_depth, 0, PV_NODE);
     }
 
     // restore ply (original position at thread->ply is unchanged)
@@ -1291,7 +1287,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       return 0;
   }
 
-  if (!root_node && best_score >= beta && !is_decisive(best_score) && !is_decisive(alpha)) {
+  if (!root_node && best_score >= beta && !is_decisive(best_score) &&
+      !is_decisive(alpha)) {
     best_score = (best_score * depth + beta) / (depth + 1);
   }
 
@@ -1335,7 +1332,7 @@ static void print_thinking(thread_t *thread, int16_t score,
     if (disable_norm) {
       printf("cp %d ", score);
     } else {
-    printf("cp %d ", 100 * score / 215);
+      printf("cp %d ", 100 * score / 215);
     }
   }
   printf("nodes %" PRIu64 " ", nodes);
@@ -1417,7 +1414,8 @@ void *iterative_deepening(void *thread_void) {
       }
 
       // find best move within a given position
-      // negamax reads root position from thread->positions[0] via thread->ply==0
+      // negamax reads root position from thread->positions[0] via
+      // thread->ply==0
       thread->score = negamax(thread, ss + 7, alpha, beta,
                               thread->depth - fail_high_count, 0, PV_NODE);
 
@@ -1441,6 +1439,9 @@ void *iterative_deepening(void *thread_void) {
           ++fail_high_count;
         }
       } else {
+        average_score = average_score == NO_SCORE
+                            ? thread->score
+                            : (average_score + thread->score) / 2;
         break;
       }
 
@@ -1448,10 +1449,6 @@ void *iterative_deepening(void *thread_void) {
     }
 
     if (thread->index == 0) {
-      average_score = average_score == NO_SCORE
-                          ? thread->score
-                          : (average_score + thread->score) / 2;
-
       if (thread->pv.pv_table[0][0] == prev_best_move) {
         best_move_stability = MIN(best_move_stability + 1, 4);
       } else {
@@ -1494,8 +1491,8 @@ void *iterative_deepening(void *thread_void) {
 }
 
 // search position for the best move
-//TODO: Pass in const ply so we can always restore it to
-//original without search changing it
+// TODO: Pass in const ply so we can always restore it to
+// original without search changing it
 void search_position(position_t *pos, thread_t *threads) {
   pthread_t pthreads[thread_count];
   for (int i = 0; i < thread_count; ++i) {
