@@ -166,7 +166,7 @@ void init_reductions(void) {
   }
 }
 
-void scale_time(thread_t *thread, uint8_t best_move_stability,
+void scale_time(thread_t *thread, uint8_t best_move_stability, double score_trend,
                 uint8_t eval_stability, uint16_t move) {
   double not_bm_nodes_fraction =
       1 - (double)nodes_spent_table[move >> 4] / (double)thread->nodes;
@@ -177,7 +177,7 @@ void scale_time(thread_t *thread, uint8_t best_move_stability,
   limits.soft_limit =
       MIN(thread->starttime + limits.base_soft *
                                   bestmove_scale[best_move_stability] * eval *
-                                  node_scaling_factor,
+                                  node_scaling_factor * score_trend,
           limits.max_time + thread->starttime);
 }
 
@@ -1464,8 +1464,10 @@ void *iterative_deepening(void *thread_void) {
         eval_stability = 0;
       }
 
+      double score_trend = MAX(MIN((0.8 + 0.05 * (thread->previous_best_score - thread->score)), 1.45), 0.8);
+
       if (limits.timeset && thread->depth > 7) {
-        scale_time(thread, best_move_stability, eval_stability,
+        scale_time(thread, best_move_stability, eval_stability, score_trend,
                    thread->pv.pv_table[0][0]);
       }
     }
@@ -1488,6 +1490,7 @@ void *iterative_deepening(void *thread_void) {
       return NULL;
     }
   }
+  thread->previous_best_score = thread->score;
   return NULL;
 }
 

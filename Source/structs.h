@@ -128,6 +128,7 @@ typedef struct searchinfo {
   PV_t pv;
   uint16_t index;
   int16_t score;
+  int16_t previous_best_score;
   int16_t correction_history[2][16384];
   int16_t b_non_pawn_correction_history[2][16384];
   int16_t w_non_pawn_correction_history[2][16384];
