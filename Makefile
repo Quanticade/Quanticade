@@ -264,7 +264,7 @@ $(TMPDIR):
 
 
 # Usual disservin yoink for makefile related stuff
-pgo:
+pgo: $(EVALFILE)
 	$(CC) $(CFLAGS) $(PGO_GEN) $(NATIVE) $(INSTRUCTIONS) -MMD -MP -o $(EXE) $(SOURCES) -lm $(LDFLAGS)
 	./$(EXE) bench
 	$(PGO_MERGE)
