@@ -166,8 +166,8 @@ void init_reductions(void) {
   }
 }
 
-void scale_time(thread_t *thread, uint8_t best_move_stability, double score_trend,
-                uint8_t eval_stability, uint16_t move) {
+void scale_time(thread_t *thread, uint8_t best_move_stability,
+                uint8_t eval_stability, double score_trend, uint16_t move) {
   double not_bm_nodes_fraction =
       1 - (double)nodes_spent_table[move >> 4] / (double)thread->nodes;
   double node_scaling_factor =
@@ -1464,7 +1464,7 @@ void *iterative_deepening(void *thread_void) {
         eval_stability = 0;
       }
 
-      double score_trend = MAX(MIN((0.8 + 0.05 * (thread->previous_best_score - thread->score)), 1.45), 0.8);
+      double score_trend = dclamp(0.8 + 0.05 * (thread->previous_best_score - thread->score), 0.8, 1.45);
 
       if (limits.timeset && thread->depth > 7) {
         scale_time(thread, best_move_stability, eval_stability, score_trend,
