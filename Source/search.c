@@ -996,6 +996,59 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     depth--;
   }
 
+  int extensions = 0;
+
+  // Singular Extensions
+  // A rather simple idea that if our TT move is accurate we run a reduced
+  // search to see if we can beat this score. If not we extend the TT move
+  // search
+  if (ply < thread->depth * 2 && !root_node && depth >= SE_DEPTH &&
+      !ss->excluded_move && tt_depth >= depth - SE_DEPTH_REDUCTION &&
+      tt_flag != HASH_FLAG_UPPER_BOUND && abs(tt_score) < MATE_SCORE) {
+    const int s_beta =
+        tt_score - (60 + 66 * (ss->tt_pv && !pv_node)) * depth / 55;
+    const int s_depth = depth / 2;
+
+    ss->excluded_move = tt_move;
+
+    // Singular search at the same ply (thread->ply is unchanged)
+    const int16_t s_score =
+        negamax(thread, ss, s_beta - 1, s_beta, s_depth, cutnode, NON_PV);
+
+    ss->excluded_move = 0;
+
+    // No move beat tt score so we extend the search
+    if (s_score < s_beta) {
+      const int16_t double_margin =
+          SE_DOUBLE_MARGIN + SE_PV_DOUBLE_MARGIN * pv_node;
+      const int16_t triple_margin = SE_TRIPLE_MARGIN;
+      extensions++;
+      extensions += s_score < s_beta - double_margin;
+      extensions += s_score < s_beta - triple_margin;
+    }
+
+    // Multicut: Singular search failed high so if singular beta beats our
+    // beta we can assume the main search will also fail high and thus we can
+    // just cutoff here
+    else if (s_beta >= beta) {
+      return s_beta;
+    }
+
+    // Negative Extensions
+    else if (tt_score >= beta) {
+      extensions -= 2 + !pv_node;
+    }
+
+    else if (cutnode) {
+      extensions -= 2;
+    }
+  }
+  // Low Depth Singular Extensions (LDSE)
+  else if (depth <= 7 && !in_check && ss->static_eval <= alpha - 25 &&
+           tt_flag == HASH_FLAG_LOWER_BOUND) {
+    extensions = 1;
+  }
+
   picker_t picker;
   init_picker(&picker, thread, ss, tt_move, 1);
 
@@ -1094,62 +1147,6 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         continue;
     }
 
-    int extensions = 0;
-
-    // Singular Extensions
-    // A rather simple idea that if our TT move is accurate we run a reduced
-    // search to see if we can beat this score. If not we extend the TT move
-    // search
-    if (ply < thread->depth * 2 && !root_node && depth >= SE_DEPTH &&
-        move == tt_move && !ss->excluded_move &&
-        tt_depth >= depth - SE_DEPTH_REDUCTION &&
-        tt_flag != HASH_FLAG_UPPER_BOUND && abs(tt_score) < MATE_SCORE) {
-      const int s_beta =
-          tt_score - (60 + 66 * (ss->tt_pv && !pv_node)) * depth / 55;
-      const int s_depth = depth / 2;
-
-      ss->excluded_move = move;
-
-      // Singular search at the same ply (thread->ply is unchanged)
-      const int16_t s_score =
-          negamax(thread, ss, s_beta - 1, s_beta, s_depth, cutnode, NON_PV);
-
-      ss->excluded_move = 0;
-
-      // No move beat tt score so we extend the search
-      if (s_score < s_beta) {
-        const int16_t double_margin =
-            SE_DOUBLE_MARGIN + SE_PV_DOUBLE_MARGIN * pv_node;
-        const int16_t triple_margin = SE_TRIPLE_MARGIN;
-        extensions++;
-        extensions += s_score < s_beta - double_margin;
-        if (!get_move_capture(move)) {
-          extensions += s_score < s_beta - triple_margin;
-        }
-      }
-
-      // Multicut: Singular search failed high so if singular beta beats our
-      // beta we can assume the main search will also fail high and thus we can
-      // just cutoff here
-      else if (s_beta >= beta) {
-        return s_beta;
-      }
-
-      // Negative Extensions
-      else if (tt_score >= beta) {
-        extensions -= 2 + !pv_node;
-      }
-
-      else if (cutnode) {
-        extensions -= 2;
-      }
-    }
-    // Low Depth Singular Extensions (LDSE)
-    else if (depth <= 7 && !in_check && ss->static_eval <= alpha - 25 &&
-             tt_flag == HASH_FLAG_LOWER_BOUND) {
-      extensions = 1;
-    }
-
     // Copy current position to the next ply slot and advance.
     thread->positions[++thread->ply] = *pos;
     position_t *next_pos = &thread->positions[thread->ply];
@@ -1183,7 +1180,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     uint64_t nodes_before_search = thread->nodes;
 
     // PVS & LMR
-    int new_depth = depth + extensions - 1;
+    int new_depth = moves_seen == 1 ? depth + extensions - 1 : depth - 1;
 
     int16_t score = NO_SCORE;
 
