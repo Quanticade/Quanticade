@@ -1024,7 +1024,9 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       const int16_t triple_margin = SE_TRIPLE_MARGIN;
       extensions++;
       extensions += s_score < s_beta - double_margin;
-      extensions += s_score < s_beta - triple_margin;
+      if (!get_move_capture(tt_move)) {
+        extensions += s_score < s_beta - triple_margin;
+      }
     }
 
     // Multicut: Singular search failed high so if singular beta beats our
