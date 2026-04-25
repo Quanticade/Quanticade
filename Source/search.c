@@ -1430,10 +1430,13 @@ void *iterative_deepening(void *thread_void) {
 
         alpha = MAX(-INF, alpha - window);
         fail_high_count = 0;
+        window += 28 * window / 128;
       }
 
       else if (thread->score >= beta) {
         beta = MIN(INF, beta + window);
+
+        window += 62 * window / 128;
 
         if (alpha < 2000) {
           ++fail_high_count;
@@ -1444,8 +1447,6 @@ void *iterative_deepening(void *thread_void) {
                             : (average_score + thread->score) / 2;
         break;
       }
-
-      window += ASP_WINDOW_MULTIPLIER * window / 1024;
     }
 
     if (thread->index == 0) {
