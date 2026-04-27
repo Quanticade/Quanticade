@@ -56,6 +56,9 @@ int SE_DEPTH_REDUCTION = 6;
 int IIR_DEPTH_REDUCTION = 3;
 int EVAL_STABILITY_VAR = 9;
 int QS_SEE_THRESHOLD = 7;
+int SE_PV_DOUBLE_MARGIN = 1;
+int SE_DOUBLE_MARGIN = 0;
+int LMR_SHALLOWER_MARGIN = 6;
 
 // SPSA Tuned params
 int RAZOR_MARGIN = 266;
@@ -72,9 +75,10 @@ int NMP_MULTIPLIER = 20;
 int SEE_QUIET = 41;
 int SEE_CAPTURE = 29;
 int SEE_HISTORY_DIVISOR = 39;
-int SE_PV_DOUBLE_MARGIN = 1;
-int SE_DOUBLE_MARGIN = 0;
 int SE_TRIPLE_MARGIN = 37;
+int SE_BETA_BASE = 60;
+int SE_BETA_MULTIPLIER = 66;
+int LDSE_MARGIN = 25;
 int LMR_PV_NODE = 870;
 int LMR_HISTORY_QUIET = 1171;
 int LMR_HISTORY_NOISY = 1068;
@@ -88,7 +92,6 @@ int LMR_TT_SCORE = 868;
 int LMR_CUTOFF_CNT = 809;
 int LMR_IMPROVING = 988;
 int LMR_DEEPER_MARGIN = 35;
-int LMR_SHALLOWER_MARGIN = 6;
 int LMP_BETA_MARGIN = 15;
 int ASP_WINDOW = 13;
 int QS_FUTILITY_THRESHOLD = 92;
@@ -1006,7 +1009,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       !ss->excluded_move && tt_depth >= depth - SE_DEPTH_REDUCTION &&
       tt_flag != HASH_FLAG_UPPER_BOUND && abs(tt_score) < MATE_SCORE) {
     const int s_beta =
-        tt_score - (60 + 66 * (ss->tt_pv && !pv_node)) * depth / 55;
+        tt_score - (SE_BETA_BASE + SE_BETA_MULTIPLIER * (ss->tt_pv && !pv_node)) * depth / 55;
     const int s_depth = depth / 2;
 
     ss->excluded_move = tt_move;
@@ -1046,7 +1049,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     }
   }
   // Low Depth Singular Extensions (LDSE)
-  else if (depth <= 7 && !in_check && ss->static_eval <= alpha - 25 &&
+  else if (depth <= 7 && !in_check && ss->static_eval <= alpha - LDSE_MARGIN &&
            tt_flag == HASH_FLAG_LOWER_BOUND) {
     extensions = 1;
   }
