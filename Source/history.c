@@ -241,11 +241,18 @@ void update_quiet_history(thread_t *thread, searchstack_t *ss,
   position_t *pos = &thread->positions[thread->ply];
   int target = get_move_target(move);
   int source = get_move_source(move);
-  thread->quiet_history[pos->side][source][target][is_square_threatened(
-      ss, source)][is_square_threatened(ss, target)] +=
+  int piece = pos->mailbox[source];
+  uint8_t src_threatened = is_square_threatened(ss, source);
+  uint8_t tgt_threatened = is_square_threatened(ss, target);
+
+  thread->quiet_history[pos->side][source][target][src_threatened][tgt_threatened] +=
       bonus -
-      thread->quiet_history[pos->side][source][target][is_square_threatened(
-          ss, source)][is_square_threatened(ss, target)] *
+      thread->quiet_history[pos->side][source][target][src_threatened][tgt_threatened] *
+          abs(bonus) / HISTORY_MAX;
+
+  thread->piece_quiet_history[pos->side][piece][target][src_threatened][tgt_threatened] +=
+      bonus -
+      thread->piece_quiet_history[pos->side][piece][target][src_threatened][tgt_threatened] *
           abs(bonus) / HISTORY_MAX;
 }
 
