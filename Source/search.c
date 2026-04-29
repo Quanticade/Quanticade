@@ -1306,9 +1306,9 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
     if (!in_check &&
         !(get_move_capture(best_move) || is_move_promotion(best_move)) &&
-        (hash_flag != HASH_FLAG_LOWER_BOUND || best_score > raw_static_eval) &&
-        (hash_flag != HASH_FLAG_UPPER_BOUND || best_score <= raw_static_eval)) {
-      update_corrhist(thread, raw_static_eval, best_score, depth);
+        (hash_flag != HASH_FLAG_LOWER_BOUND || best_score > ss->static_eval) &&
+        (hash_flag != HASH_FLAG_UPPER_BOUND || best_score <= ss->static_eval)) {
+      update_corrhist(thread, ss->static_eval, best_score, depth);
     }
   }
 
