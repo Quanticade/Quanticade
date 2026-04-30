@@ -120,6 +120,37 @@ int SEARCH_PAWN_HIST_MULT = 1024;
 int SEARCH_CAPT_HIST_MULT = 1024;
 int SEARCH_MVV_MULT = 1024;
 
+int QUIET_HISTORY_MALUS_MAX = 1019;
+int QUIET_HISTORY_BONUS_MAX = 1122;
+int QUIET_HISTORY_BASE_BONUS = 11;
+int QUIET_HISTORY_FACTOR_BONUS = 155;
+int QUIET_HISTORY_BASE_MALUS = 7;
+int QUIET_HISTORY_FACTOR_MALUS = 219;
+int QUIET_HISTORY_MAX_TT = 1395;
+int QUIET_HISTORY_TT_FACTOR = 128;
+int QUIET_HISTORY_TT_BASE = 73;
+
+int CAPTURE_HISTORY_MALUS_MAX = 895;
+int CAPTURE_HISTORY_BONUS_MAX = 1562;
+int CAPTURE_HISTORY_BASE_BONUS = 11;
+int CAPTURE_HISTORY_FACTOR_BONUS = 154;
+int CAPTURE_HISTORY_BASE_MALUS = 10;
+int CAPTURE_HISTORY_FACTOR_MALUS = 241;
+
+int CONT_HISTORY_MALUS_MAX = 1253;
+int CONT_HISTORY_BONUS_MAX = 2419;
+int CONT_HISTORY_BASE_BONUS = 9;
+int CONT_HISTORY_FACTOR_BONUS = 181;
+int CONT_HISTORY_BASE_MALUS = 8;
+int CONT_HISTORY_FACTOR_MALUS = 235;
+
+int PAWN_HISTORY_MALUS_MAX = 945;
+int PAWN_HISTORY_BONUS_MAX = 1350;
+int PAWN_HISTORY_BASE_BONUS = 9;
+int PAWN_HISTORY_FACTOR_BONUS = 191;
+int PAWN_HISTORY_BASE_MALUS = 10;
+int PAWN_HISTORY_FACTOR_MALUS = 138;
+
 double LMP_MARGIN_WORSENING_BASE = 1.405891757145538;
 double LMP_MARGIN_WORSENING_FACTOR = 0.4116244371474249;
 double LMP_MARGIN_WORSENING_POWER = 1.5932724818048056;
@@ -621,7 +652,16 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
         best_move = move;
         // fail-hard beta cutoff
         if (alpha >= beta) {
-          update_capture_history_moves(thread, ss, capture_list, best_move, 1);
+          int capt_bonus = 165;
+          int capt_malus = -251;
+          for (uint32_t i = 0; i < capture_list->count; ++i) {
+            if (capture_list->entry[i].move == best_move) {
+              update_capture_history(thread, ss, best_move, capt_bonus);
+            } else {
+              update_capture_history(thread, ss, capture_list->entry[i].move,
+                                     capt_malus);
+            }
+          }
           break;
         }
       }
@@ -1007,8 +1047,9 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   if (ply < thread->depth * 2 && !root_node && depth >= SE_DEPTH &&
       !ss->excluded_move && tt_depth >= depth - SE_DEPTH_REDUCTION &&
       tt_flag != HASH_FLAG_UPPER_BOUND && abs(tt_score) < MATE_SCORE) {
-    const int s_beta =
-        tt_score - (SE_BETA_BASE + SE_BETA_MULTIPLIER * (ss->tt_pv && !pv_node)) * depth / 55;
+    const int s_beta = tt_score - (SE_BETA_BASE + SE_BETA_MULTIPLIER *
+                                                      (ss->tt_pv && !pv_node)) *
+                                      depth / 55;
     const int s_depth = depth / 2;
 
     ss->excluded_move = tt_move;
@@ -1263,11 +1304,55 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         if (alpha >= beta) {
           // on quiet moves
           if (quiet) {
-            update_quiet_histories(thread, ss, quiet_list, best_move, depth);
+            int cont_bonus =
+                MIN(CONT_HISTORY_BASE_BONUS + CONT_HISTORY_FACTOR_BONUS * depth,
+                    CONT_HISTORY_BONUS_MAX);
+            int cont_malus = -MIN(CONT_HISTORY_BASE_MALUS +
+                                      CONT_HISTORY_FACTOR_MALUS * depth,
+                                  CONT_HISTORY_MALUS_MAX);
+
+            int quiet_bonus = MIN(QUIET_HISTORY_BASE_BONUS +
+                                      QUIET_HISTORY_FACTOR_BONUS * depth,
+                                  QUIET_HISTORY_BONUS_MAX);
+            int quiet_malus = -MIN(QUIET_HISTORY_BASE_MALUS +
+                                       QUIET_HISTORY_FACTOR_MALUS * depth,
+                                   QUIET_HISTORY_MALUS_MAX);
+
+            int pawn_bonus =
+                MIN(PAWN_HISTORY_BASE_BONUS + PAWN_HISTORY_FACTOR_BONUS * depth,
+                    PAWN_HISTORY_BONUS_MAX);
+            int pawn_malus = -MIN(PAWN_HISTORY_BASE_MALUS +
+                                      PAWN_HISTORY_FACTOR_MALUS * depth,
+                                  PAWN_HISTORY_MALUS_MAX);
+            for (uint32_t i = 0; i < quiet_list->count; ++i) {
+              uint16_t move = quiet_list->entry[i].move;
+              if (move == best_move) {
+                update_continuation_histories(thread, ss, best_move,
+                                              cont_bonus);
+                update_pawn_history(thread, best_move, pawn_bonus);
+                update_quiet_history(thread, ss, best_move, quiet_bonus);
+              } else {
+                update_continuation_histories(thread, ss, move, cont_malus);
+                update_pawn_history(thread, move, pawn_malus);
+                update_quiet_history(thread, ss, move, quiet_malus);
+              }
+            }
           }
 
-          update_capture_history_moves(thread, ss, capture_list, best_move,
-                                       depth);
+          int capt_bonus = MIN(CAPTURE_HISTORY_BASE_BONUS +
+                                   CAPTURE_HISTORY_FACTOR_BONUS * depth,
+                               CAPTURE_HISTORY_BONUS_MAX);
+          int capt_malus = -MIN(CAPTURE_HISTORY_BASE_MALUS +
+                                    CAPTURE_HISTORY_FACTOR_MALUS * depth,
+                                CAPTURE_HISTORY_MALUS_MAX);
+          for (uint32_t i = 0; i < capture_list->count; ++i) {
+            if (capture_list->entry[i].move == best_move) {
+              update_capture_history(thread, ss, best_move, capt_bonus);
+            } else {
+              update_capture_history(thread, ss, capture_list->entry[i].move,
+                                     capt_malus);
+            }
+          }
           ss->cutoff_cnt++;
           break;
         }
