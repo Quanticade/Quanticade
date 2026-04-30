@@ -782,7 +782,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       int16_t bonus =
           MIN(QUIET_HISTORY_MAX_TT,
               (QUIET_HISTORY_TT_FACTOR * depth - QUIET_HISTORY_TT_BASE));
-      update_quiet_history(thread, ss, tt_move, bonus);
+      update_quiet_history(thread, ss, pos->side, tt_move, bonus);
     }
     return tt_score;
   }
@@ -1106,7 +1106,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
   uint16_t best_move = 0;
 
-  const int16_t original_alpha = alpha;
+  uint8_t bound = HASH_FLAG_UPPER_BOUND;
 
   // loop over moves within a movelist
   uint16_t move;
@@ -1293,6 +1293,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       best_score = score;
       if (score > alpha) {
         best_move = move;
+        bound = HASH_FLAG_EXACT;
 
         // PV node (position)
         alpha = score;
@@ -1302,6 +1303,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
         // fail-hard beta cutoff
         if (alpha >= beta) {
+          bound = HASH_FLAG_LOWER_BOUND;
           // on quiet moves
           if (!(get_move_capture(best_move) || is_move_promotion(best_move))) {
             int cont_bonus =
@@ -1330,11 +1332,12 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
                 update_continuation_histories(thread, ss, best_move,
                                               cont_bonus);
                 update_pawn_history(thread, best_move, pawn_bonus);
-                update_quiet_history(thread, ss, best_move, quiet_bonus);
+                update_quiet_history(thread, ss, pos->side, best_move,
+                                     quiet_bonus);
               } else {
                 update_continuation_histories(thread, ss, move, cont_malus);
                 update_pawn_history(thread, move, pawn_malus);
-                update_quiet_history(thread, ss, move, quiet_malus);
+                update_quiet_history(thread, ss, pos->side, move, quiet_malus);
               }
             }
           }
@@ -1360,6 +1363,17 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     }
   }
 
+  //Prior Counter Move Bonus
+  if (!root_node && bound == HASH_FLAG_UPPER_BOUND &&
+      !(get_move_capture((ss - 1)->move) ||
+        is_move_promotion((ss - 1)->move))) {
+    int quiet_bonus =
+        MIN(QUIET_HISTORY_BASE_BONUS + QUIET_HISTORY_FACTOR_BONUS * depth,
+            QUIET_HISTORY_BONUS_MAX);
+    update_quiet_history(thread, ss, thread->positions[ply - 1].side,
+                         (ss - 1)->move, quiet_bonus);
+  }
+
   // we don't have any legal moves to make in the current postion
   if (moves_seen == 0) {
     // king is in check
@@ -1379,20 +1393,14 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   }
 
   if (!ss->excluded_move) {
-    uint8_t hash_flag = HASH_FLAG_EXACT;
-    if (alpha >= beta) {
-      hash_flag = HASH_FLAG_LOWER_BOUND;
-    } else if (alpha <= original_alpha) {
-      hash_flag = HASH_FLAG_UPPER_BOUND;
-    }
     // store hash entry with the score equal to alpha
     write_hash_entry(tt_entry, pos, ply, best_score, raw_static_eval, depth,
-                     best_move, hash_flag, ss->tt_pv);
+                     best_move, bound, ss->tt_pv);
 
     if (!in_check &&
         !(get_move_capture(best_move) || is_move_promotion(best_move)) &&
-        (hash_flag != HASH_FLAG_LOWER_BOUND || best_score > raw_static_eval) &&
-        (hash_flag != HASH_FLAG_UPPER_BOUND || best_score <= raw_static_eval)) {
+        (bound != HASH_FLAG_LOWER_BOUND || best_score > raw_static_eval) &&
+        (bound != HASH_FLAG_UPPER_BOUND || best_score <= raw_static_eval)) {
       update_corrhist(thread, raw_static_eval, best_score, depth);
     }
   }

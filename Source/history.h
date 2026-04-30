@@ -13,8 +13,8 @@ int16_t adjust_static_eval(thread_t *thread, int16_t static_eval);
 int16_t correction_value(thread_t *thread);
 int16_t get_conthist_score(thread_t *thread, searchstack_t *ss, int move,
                            uint8_t ply);
-void update_quiet_history(thread_t *thread, searchstack_t *ss, int move,
-                          int bonus);
+void update_quiet_history(thread_t *thread, searchstack_t *ss, uint8_t side,
+                          int move, int bonus);
 void update_capture_history(thread_t *thread, searchstack_t *ss, int move,
                             int bonus);
 void update_continuation_histories(thread_t *thread, searchstack_t *ss,
