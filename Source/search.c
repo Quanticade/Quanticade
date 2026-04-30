@@ -1306,14 +1306,14 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
           if (!(get_move_capture(best_move) || is_move_promotion(best_move))) {
             int cont_bonus =
                 MIN(CONT_HISTORY_BASE_BONUS + CONT_HISTORY_FACTOR_BONUS * depth,
-                    CONT_HISTORY_BONUS_MAX);
+                    CONT_HISTORY_BONUS_MAX) - 64 * cutnode;
             int cont_malus = -MIN(CONT_HISTORY_BASE_MALUS +
                                       CONT_HISTORY_FACTOR_MALUS * depth,
                                   CONT_HISTORY_MALUS_MAX);
 
             int quiet_bonus = MIN(QUIET_HISTORY_BASE_BONUS +
                                       QUIET_HISTORY_FACTOR_BONUS * depth,
-                                  QUIET_HISTORY_BONUS_MAX);
+                                  QUIET_HISTORY_BONUS_MAX) - 64 * cutnode;
             int quiet_malus = -MIN(QUIET_HISTORY_BASE_MALUS +
                                        QUIET_HISTORY_FACTOR_MALUS * depth,
                                    QUIET_HISTORY_MALUS_MAX);
