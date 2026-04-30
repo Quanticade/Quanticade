@@ -1303,7 +1303,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         // fail-hard beta cutoff
         if (alpha >= beta) {
           // on quiet moves
-          if (quiet) {
+          if (!(get_move_capture(best_move) || is_move_promotion(best_move))) {
             int cont_bonus =
                 MIN(CONT_HISTORY_BASE_BONUS + CONT_HISTORY_FACTOR_BONUS * depth,
                     CONT_HISTORY_BONUS_MAX);
