@@ -1306,25 +1306,27 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
           bound = HASH_FLAG_LOWER_BOUND;
           // on quiet moves
           if (!(get_move_capture(best_move) || is_move_promotion(best_move))) {
+            int history_depth = depth;
+            history_depth += (!in_check && ss->eval <= alpha);
             int cont_bonus =
-                MIN(CONT_HISTORY_BASE_BONUS + CONT_HISTORY_FACTOR_BONUS * depth,
+                MIN(CONT_HISTORY_BASE_BONUS + CONT_HISTORY_FACTOR_BONUS * history_depth,
                     CONT_HISTORY_BONUS_MAX);
             int cont_malus = -MIN(CONT_HISTORY_BASE_MALUS +
-                                      CONT_HISTORY_FACTOR_MALUS * depth,
+                                      CONT_HISTORY_FACTOR_MALUS * history_depth,
                                   CONT_HISTORY_MALUS_MAX);
 
             int quiet_bonus = MIN(QUIET_HISTORY_BASE_BONUS +
-                                      QUIET_HISTORY_FACTOR_BONUS * depth,
+                                      QUIET_HISTORY_FACTOR_BONUS * history_depth,
                                   QUIET_HISTORY_BONUS_MAX);
             int quiet_malus = -MIN(QUIET_HISTORY_BASE_MALUS +
-                                       QUIET_HISTORY_FACTOR_MALUS * depth,
+                                       QUIET_HISTORY_FACTOR_MALUS * history_depth,
                                    QUIET_HISTORY_MALUS_MAX);
 
             int pawn_bonus =
-                MIN(PAWN_HISTORY_BASE_BONUS + PAWN_HISTORY_FACTOR_BONUS * depth,
+                MIN(PAWN_HISTORY_BASE_BONUS + PAWN_HISTORY_FACTOR_BONUS * history_depth,
                     PAWN_HISTORY_BONUS_MAX);
             int pawn_malus = -MIN(PAWN_HISTORY_BASE_MALUS +
-                                      PAWN_HISTORY_FACTOR_MALUS * depth,
+                                      PAWN_HISTORY_FACTOR_MALUS * history_depth,
                                   PAWN_HISTORY_MALUS_MAX);
             for (uint32_t i = 0; i < quiet_list->count; ++i) {
               uint16_t move = quiet_list->entry[i].move;
