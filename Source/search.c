@@ -592,7 +592,7 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
         continue;
 
       if (get_move_target(move) != previous_square) {
-        if (moves_seen >= 3) {
+        if (moves_seen >= 3 && !is_direct_check(pos, move)) {
           continue;
         }
       }
