@@ -1178,6 +1178,11 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         continue;
       }
 
+      if (quiet && depth <= 4 && ss->history_score < -2300 * depth * depth) {
+        picker.skip_quiets = 1;
+        continue;
+      }
+
       int see_treshold;
       if (!get_move_capture(move)) {
         see_treshold = -SEE_QUIET * depth;
