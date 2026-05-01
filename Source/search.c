@@ -951,7 +951,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     }
   }
 
-  const int16_t probcut_beta = beta + PROBCUT_MARGIN;
+  const int16_t probcut_beta = beta + PROBCUT_MARGIN - 50 * improving;
 
   // ProbCut pruning
   if (!pv_node && !in_check && !ss->excluded_move && depth >= PROBCUT_DEPTH &&
