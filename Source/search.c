@@ -1106,7 +1106,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
   uint16_t best_move = 0;
 
-  const int16_t original_alpha = alpha;
+  uint8_t bound = HASH_FLAG_UPPER_BOUND;
 
   // loop over moves within a movelist
   uint16_t move;
@@ -1293,6 +1293,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       best_score = score;
       if (score > alpha) {
         best_move = move;
+        bound = HASH_FLAG_EXACT;
 
         // PV node (position)
         alpha = score;
@@ -1302,6 +1303,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
         // fail-hard beta cutoff
         if (alpha >= beta) {
+          bound = HASH_FLAG_LOWER_BOUND;
           // on quiet moves
           if (!(get_move_capture(best_move) || is_move_promotion(best_move))) {
             int cont_bonus =
@@ -1379,20 +1381,14 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   }
 
   if (!ss->excluded_move) {
-    uint8_t hash_flag = HASH_FLAG_EXACT;
-    if (alpha >= beta) {
-      hash_flag = HASH_FLAG_LOWER_BOUND;
-    } else if (alpha <= original_alpha) {
-      hash_flag = HASH_FLAG_UPPER_BOUND;
-    }
     // store hash entry with the score equal to alpha
     write_hash_entry(tt_entry, pos, ply, best_score, raw_static_eval, depth,
-                     best_move, hash_flag, ss->tt_pv);
+                     best_move, bound, ss->tt_pv);
 
     if (!in_check &&
         !(get_move_capture(best_move) || is_move_promotion(best_move)) &&
-        (hash_flag != HASH_FLAG_LOWER_BOUND || best_score > raw_static_eval) &&
-        (hash_flag != HASH_FLAG_UPPER_BOUND || best_score <= raw_static_eval)) {
+        (bound != HASH_FLAG_LOWER_BOUND || best_score > raw_static_eval) &&
+        (bound != HASH_FLAG_UPPER_BOUND || best_score <= raw_static_eval)) {
       update_corrhist(thread, raw_static_eval, best_score, depth);
     }
   }
