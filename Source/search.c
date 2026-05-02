@@ -1064,12 +1064,10 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     if (s_score < s_beta) {
       const int16_t double_margin =
           SE_DOUBLE_MARGIN + SE_PV_DOUBLE_MARGIN * pv_node;
-      const int16_t triple_margin = SE_TRIPLE_MARGIN;
+      const int16_t triple_margin = SE_TRIPLE_MARGIN + 300 * get_move_capture(tt_move);
       extensions++;
       extensions += s_score < s_beta - double_margin;
-      if (!get_move_capture(tt_move)) {
-        extensions += s_score < s_beta - triple_margin;
-      }
+      extensions += s_score < s_beta - triple_margin;
     }
 
     // Multicut: Singular search failed high so if singular beta beats our
