@@ -823,7 +823,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   if ((ss - 2)->static_eval != NO_SCORE && !in_check) {
     improvement = ss->static_eval - (ss - 2)->static_eval;
   }
-  if ((ss - 4)->static_eval != NO_SCORE && !in_check) {
+  else if ((ss - 4)->static_eval != NO_SCORE && !in_check) {
     improvement = ss->static_eval - (ss - 4)->static_eval;
   }
   if (!in_check) {
