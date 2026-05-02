@@ -1183,6 +1183,11 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         continue;
       }
 
+      int noisy_futility_margin = ss->static_eval + 150 * depth;
+      if (!in_check && depth < 10 && picker.stage == STAGE_BAD_NOISY && noisy_futility_margin <= alpha && !is_direct_check(pos, move)) {
+        break;
+      }
+
       int see_treshold;
       if (!get_move_capture(move)) {
         see_treshold = -SEE_QUIET * depth;
