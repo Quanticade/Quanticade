@@ -141,17 +141,17 @@ int16_t adjust_static_eval(thread_t *thread, int16_t static_eval) {
       (float)((FIFTY_MOVE_SCALING - (float)pos->fifty) / 200);
   static_eval = static_eval * fifty_move_scaler;
   const int pawn_correction =
-      thread->correction_history[pos->side][pos->hash_keys.pawn_key & 16383] *
+      thread->correction_history[pos->side][pos->hash_keys.pawn_key & 65535] *
       PAWN_CORR_HISTORY_MULTIPLIER;
   const int white_non_pawn_correction =
       thread->w_non_pawn_correction_history[pos->side]
                                            [pos->hash_keys.non_pawn_key[white] &
-                                            16383] *
+                                            65535] *
       NON_PAWN_CORR_HISTORY_MULTIPLIER;
   const int black_non_pawn_correction =
       thread->b_non_pawn_correction_history[pos->side]
                                            [pos->hash_keys.non_pawn_key[black] &
-                                            16383] *
+                                            65535] *
       NON_PAWN_CORR_HISTORY_MULTIPLIER;
   const int correction =
       pawn_correction + white_non_pawn_correction + black_non_pawn_correction;
@@ -162,17 +162,17 @@ int16_t adjust_static_eval(thread_t *thread, int16_t static_eval) {
 int16_t correction_value(thread_t *thread) {
   position_t *pos = &thread->positions[thread->ply];
   const int pawn_correction =
-      thread->correction_history[pos->side][pos->hash_keys.pawn_key & 16383] *
+      thread->correction_history[pos->side][pos->hash_keys.pawn_key & 65535] *
       PAWN_CORR_HISTORY_MULTIPLIER;
   const int white_non_pawn_correction =
       thread->w_non_pawn_correction_history[pos->side]
                                            [pos->hash_keys.non_pawn_key[white] &
-                                            16383] *
+                                            65535] *
       NON_PAWN_CORR_HISTORY_MULTIPLIER;
   const int black_non_pawn_correction =
       thread->b_non_pawn_correction_history[pos->side]
                                            [pos->hash_keys.non_pawn_key[black] &
-                                            16383] *
+                                            65535] *
       NON_PAWN_CORR_HISTORY_MULTIPLIER;
   const int correction =
       pawn_correction + white_non_pawn_correction + black_non_pawn_correction;
@@ -184,26 +184,26 @@ void update_corrhist(thread_t *thread, int16_t static_eval, int16_t score,
   position_t *pos = &thread->positions[thread->ply];
   int16_t bonus = calculate_corrhist_bonus(static_eval, score, depth);
 
-  thread->correction_history[pos->side][pos->hash_keys.pawn_key & 16383] +=
+  thread->correction_history[pos->side][pos->hash_keys.pawn_key & 65535] +=
       scale_corrhist_bonus(
           thread
-              ->correction_history[pos->side][pos->hash_keys.pawn_key & 16383],
+              ->correction_history[pos->side][pos->hash_keys.pawn_key & 65535],
           bonus);
 
   thread->w_non_pawn_correction_history[pos->side]
                                        [pos->hash_keys.non_pawn_key[white] &
-                                        16383] +=
+                                        65535] +=
       scale_corrhist_bonus(
           thread->w_non_pawn_correction_history
-              [pos->side][pos->hash_keys.non_pawn_key[white] & 16383],
+              [pos->side][pos->hash_keys.non_pawn_key[white] & 65535],
           bonus);
 
   thread->b_non_pawn_correction_history[pos->side]
                                        [pos->hash_keys.non_pawn_key[black] &
-                                        16383] +=
+                                        65535] +=
       scale_corrhist_bonus(
           thread->b_non_pawn_correction_history
-              [pos->side][pos->hash_keys.non_pawn_key[black] & 16383],
+              [pos->side][pos->hash_keys.non_pawn_key[black] & 65535],
           bonus);
 }
 
