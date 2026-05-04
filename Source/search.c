@@ -1277,7 +1277,15 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       }
       // Full Depth Search
     } else if (!pv_node || moves_seen > 1) {
-      score = -negamax(thread, ss + 1, -alpha - 1, -alpha, new_depth, !cutnode,
+      int R = 250 * (log2(depth) * log2(moves_seen));
+
+      R += (!ss->tt_pv && cutnode) * 1024;
+      R += !improving * 1024;
+      R += ((ss+1)->cutoff_cnt > 2) * 1024;
+      R -= (move == tt_move) * 2048;
+
+      int reduced_depth = new_depth - (R > 1536);
+      score = -negamax(thread, ss + 1, -alpha - 1, -alpha, reduced_depth, !cutnode,
                        NON_PV);
     }
 
