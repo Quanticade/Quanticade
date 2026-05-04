@@ -1184,7 +1184,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       }
 
       int noisy_futility_margin = ss->static_eval + 150 * depth;
-      if (!in_check && depth < 10 && picker.stage == STAGE_BAD_NOISY && noisy_futility_margin <= alpha && !is_direct_check(pos, move)) {
+      if (!in_check && depth < 10 && picker.stage == STAGE_BAD_NOISY &&
+          noisy_futility_margin <= alpha && !is_direct_check(pos, move)) {
         break;
       }
 
@@ -1254,7 +1255,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       R -= stm_in_check(next_pos) * LMR_IN_CHECK; // check on the new position
       R += (ss->cutoff_cnt > 3) * LMR_CUTOFF_CNT;
       R -= improving * LMR_IMPROVING;
-      R += (bound == HASH_FLAG_EXACT) * 1024;;
+      R += (bound == HASH_FLAG_EXACT) * 1024;
+      ;
 
       ss->reduction = R;
 
@@ -1319,23 +1321,25 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
           if (!(get_move_capture(best_move) || is_move_promotion(best_move))) {
             int history_depth = depth;
             history_depth += (!in_check && ss->eval <= alpha);
-            int cont_bonus =
-                MIN(CONT_HISTORY_BASE_BONUS + CONT_HISTORY_FACTOR_BONUS * history_depth,
-                    CONT_HISTORY_BONUS_MAX);
+            int cont_bonus = MIN(CONT_HISTORY_BASE_BONUS +
+                                     CONT_HISTORY_FACTOR_BONUS * history_depth,
+                                 CONT_HISTORY_BONUS_MAX);
             int cont_malus = -MIN(CONT_HISTORY_BASE_MALUS +
                                       CONT_HISTORY_FACTOR_MALUS * history_depth,
                                   CONT_HISTORY_MALUS_MAX);
 
-            int quiet_bonus = MIN(QUIET_HISTORY_BASE_BONUS +
-                                      QUIET_HISTORY_FACTOR_BONUS * history_depth,
-                                  QUIET_HISTORY_BONUS_MAX);
-            int quiet_malus = -MIN(QUIET_HISTORY_BASE_MALUS +
-                                       QUIET_HISTORY_FACTOR_MALUS * history_depth,
-                                   QUIET_HISTORY_MALUS_MAX);
+            int quiet_bonus =
+                MIN(QUIET_HISTORY_BASE_BONUS +
+                        QUIET_HISTORY_FACTOR_BONUS * history_depth,
+                    QUIET_HISTORY_BONUS_MAX);
+            int quiet_malus =
+                -MIN(QUIET_HISTORY_BASE_MALUS +
+                         QUIET_HISTORY_FACTOR_MALUS * history_depth,
+                     QUIET_HISTORY_MALUS_MAX);
 
-            int pawn_bonus =
-                MIN(PAWN_HISTORY_BASE_BONUS + PAWN_HISTORY_FACTOR_BONUS * history_depth,
-                    PAWN_HISTORY_BONUS_MAX);
+            int pawn_bonus = MIN(PAWN_HISTORY_BASE_BONUS +
+                                     PAWN_HISTORY_FACTOR_BONUS * history_depth,
+                                 PAWN_HISTORY_BONUS_MAX);
             int pawn_malus = -MIN(PAWN_HISTORY_BASE_MALUS +
                                       PAWN_HISTORY_FACTOR_MALUS * history_depth,
                                   PAWN_HISTORY_MALUS_MAX);
@@ -1376,15 +1380,14 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     }
   }
 
-  //Prior Counter Move Bonus
-  if (!root_node && bound == HASH_FLAG_UPPER_BOUND &&
+  // Prior Counter Move Bonus
+  if (!root_node && bound == HASH_FLAG_UPPER_BOUND && (ss - 1)->move &&
       !(get_move_capture((ss - 1)->move) ||
-        is_move_promotion((ss - 1)->move))) {
-    int quiet_bonus =
-        MIN(QUIET_HISTORY_BASE_BONUS + QUIET_HISTORY_FACTOR_BONUS * depth,
-            QUIET_HISTORY_BONUS_MAX);
-    update_quiet_history(thread, ss, thread->positions[ply - 1].side,
-                         (ss - 1)->move, quiet_bonus);
+        is_move_promotion((ss - 1)->move)) &&
+      (cutnode || pv_node)) {
+    int quiet_bonus = MIN(35 - 165 * depth, 2400);
+    update_quiet_history(thread, ss, pos->side ^ 1, (ss - 1)->move,
+                         quiet_bonus);
   }
 
   // we don't have any legal moves to make in the current postion
