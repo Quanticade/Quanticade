@@ -12,6 +12,7 @@ int CORR_HISTORY_MINMAX = 341;
 int PAWN_CORR_HISTORY_MULTIPLIER = 36;
 int NON_PAWN_CORR_HISTORY_MULTIPLIER = 23;
 int FIFTY_MOVE_SCALING = 187;
+int CORR_HISTORY_BONUS_SCALER = 128;
 
 int HISTORY_MAX = 8192;
 
@@ -119,7 +120,7 @@ uint64_t generate_black_non_pawn_key(position_t *pos) {
 
 int16_t calculate_corrhist_bonus(int16_t static_eval, int16_t search_score,
                                  uint8_t depth) {
-  return clamp((search_score - static_eval) * depth / 8, -CORR_HISTORY_MINMAX,
+  return clamp((search_score - static_eval) * depth * CORR_HISTORY_BONUS_SCALER / 1024, -CORR_HISTORY_MINMAX,
                CORR_HISTORY_MINMAX);
 }
 
