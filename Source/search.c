@@ -683,6 +683,10 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
     hash_flag = HASH_FLAG_UPPER_BOUND;
   }
 
+  if (!pv_node && !is_decisive(best_score) && !is_decisive(beta) && best_score >= beta) {
+    best_score = (best_score + beta) / 2;
+  }
+
   write_hash_entry(tt_entry, pos, ply, best_score, raw_static_eval, 0,
                    best_move, hash_flag, tt_was_pv);
 
