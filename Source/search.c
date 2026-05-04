@@ -1386,7 +1386,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         is_move_promotion((ss - 1)->move)) &&
       (cutnode || pv_node)) {
     int quiet_bonus = MIN(35 - 165 * depth, 2400);
-    update_quiet_history(thread, ss, pos->side ^ 1, (ss - 1)->move,
+    update_quiet_history(thread, ss-1, pos->side ^ 1, (ss - 1)->move,
                          quiet_bonus);
   }
 
