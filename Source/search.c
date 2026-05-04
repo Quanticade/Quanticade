@@ -1397,13 +1397,13 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     // store hash entry with the score equal to alpha
     write_hash_entry(tt_entry, pos, ply, best_score, raw_static_eval, depth,
                      best_move, bound, ss->tt_pv);
+  }
 
-    if (!in_check &&
+  if (!in_check &&
         !(get_move_capture(best_move) || is_move_promotion(best_move)) &&
         (bound != HASH_FLAG_LOWER_BOUND || best_score > raw_static_eval) &&
         (bound != HASH_FLAG_UPPER_BOUND || best_score <= raw_static_eval)) {
-      update_corrhist(thread, raw_static_eval, best_score, depth);
-    }
+    update_corrhist(thread, raw_static_eval, best_score, depth);
   }
 
   // node (position) fails low
