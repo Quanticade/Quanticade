@@ -315,6 +315,8 @@ static inline void score_noisy(thread_t *thread, searchstack_t *ss,
         MO_CAPT_HIST_MULT;
     entry.score /= 1024;
 
+    entry.score += 4000 * ((get_move_promoted(pos->side, move) % 6) == QUEEN);
+
     int see_threshold =
         -MO_SEE_THRESHOLD - entry.score / MO_SEE_HISTORY_DIVISER;
     if (SEE(pos, move, see_threshold))
