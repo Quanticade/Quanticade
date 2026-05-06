@@ -1197,7 +1197,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
       int see_treshold;
       if (!get_move_capture(move)) {
-        see_treshold = -SEE_QUIET * depth;
+        see_treshold = -(39 * depth) - (3 * depth * depth);
       } else {
         see_treshold = -SEE_CAPTURE * depth * depth;
       }
