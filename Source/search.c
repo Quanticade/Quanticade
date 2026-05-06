@@ -93,13 +93,16 @@ int LMR_CUTOFF_CNT = 853;
 int LMR_IMPROVING = 986;
 int LMR_DEEPER_MARGIN = 33;
 int LMP_BETA_MARGIN = 15;
+int LMR_CORRECTION = 2048;
+int LMR_HASH_FLAG_EXACT = 1024;
 int ASP_WINDOW = 14;
 int QS_FUTILITY_THRESHOLD = 87;
 int MO_SEE_THRESHOLD = 104;
 int LMR_QUIET_HIST_DIV = 6576;
 int LMR_CAPT_HIST_DIV = 8306;
 int ASP_WINDOW_DIVISER = 28335;
-int ASP_WINDOW_MULTIPLIER = 431;
+int ASP_WINDOW_FAIL_LOW = 28;
+int ASP_WINDOW_FAIL_HIGH = 62;
 int HINDSIGH_REDUCTION_ADD = 2903;
 int HINDSIGH_REDUCTION_RED = 2022;
 int HINDSIGN_REDUCTION_EVAL_MARGIN = 92;
@@ -119,6 +122,8 @@ int SEARCH_CONT2_HIST_MULT = 1024;
 int SEARCH_PAWN_HIST_MULT = 1024;
 int SEARCH_CAPT_HIST_MULT = 1024;
 int SEARCH_MVV_MULT = 1024;
+int HISTORY_PRUNING_MARGIN = 2300;
+int BNFP_MARGIN = 150;
 
 int QUIET_HISTORY_MALUS_MAX = 1019;
 int QUIET_HISTORY_BONUS_MAX = 1122;
@@ -136,6 +141,8 @@ int CAPTURE_HISTORY_BASE_BONUS = 11;
 int CAPTURE_HISTORY_FACTOR_BONUS = 154;
 int CAPTURE_HISTORY_BASE_MALUS = 10;
 int CAPTURE_HISTORY_FACTOR_MALUS = 241;
+int CAPTURE_HISTORY_QS_BONUS = 165;
+int CAPTURE_HISTORY_QS_MALUS = 251;
 
 int CONT_HISTORY_MALUS_MAX = 1253;
 int CONT_HISTORY_BONUS_MAX = 2419;
@@ -652,8 +659,8 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
         best_move = move;
         // fail-hard beta cutoff
         if (alpha >= beta) {
-          int capt_bonus = 165;
-          int capt_malus = -251;
+          int capt_bonus = CAPTURE_HISTORY_QS_BONUS;
+          int capt_malus = -CAPTURE_HISTORY_QS_MALUS;
           for (uint32_t i = 0; i < capture_list->count; ++i) {
             if (capture_list->entry[i].move == best_move) {
               update_capture_history(thread, ss, best_move, capt_bonus);
@@ -1178,12 +1185,12 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         continue;
       }
 
-      if (quiet && depth <= 10 && ss->history_score < -2300 * depth * depth) {
+      if (quiet && depth <= 10 && ss->history_score < -HISTORY_PRUNING_MARGIN * depth * depth) {
         picker.skip_quiets = 1;
         continue;
       }
 
-      int noisy_futility_margin = ss->static_eval + 150 * depth;
+      int noisy_futility_margin = ss->static_eval + BNFP_MARGIN * depth;
       if (!in_check && depth < 10 && picker.stage == STAGE_BAD_NOISY && noisy_futility_margin <= alpha && !is_direct_check(pos, move)) {
         break;
       }
@@ -1254,8 +1261,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       R -= stm_in_check(next_pos) * LMR_IN_CHECK; // check on the new position
       R += (ss->cutoff_cnt > 3) * LMR_CUTOFF_CNT;
       R -= improving * LMR_IMPROVING;
-      R += (bound == HASH_FLAG_EXACT) * 1024;;
-      R -= 2048 * abs(correction) / 1024;
+      R += (bound == HASH_FLAG_EXACT) * LMR_HASH_FLAG_EXACT;
+      R -= LMR_CORRECTION * abs(correction) / 1024;
 
       ss->reduction = R;
 
@@ -1526,13 +1533,13 @@ void *iterative_deepening(void *thread_void) {
 
         alpha = MAX(-INF, alpha - window);
         fail_high_count = 0;
-        window += 28 * window / 128;
+        window += ASP_WINDOW_FAIL_LOW * window / 128;
       }
 
       else if (thread->score >= beta) {
         beta = MIN(INF, beta + window);
 
-        window += 62 * window / 128;
+        window += ASP_WINDOW_FAIL_HIGH * window / 128;
 
         if (alpha < 2000) {
           ++fail_high_count;
