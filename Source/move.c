@@ -48,3 +48,7 @@ uint8_t get_move_castling(uint16_t move) {
     uint8_t castling = move & 15;
     return (castling > 1 && castling < 4) ? castling : 0;
 }
+
+uint8_t is_noisy(uint16_t move) {
+    return get_move_capture(move) || (is_move_promotion(move) && get_move_promoted(white, move) == QUEEN);
+}

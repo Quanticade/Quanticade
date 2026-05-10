@@ -2,6 +2,7 @@
 #define MOVE_H
 
 #include "structs.h"
+#include <stdint.h>
 
 #define QUIET 0
 #define DOUBLE_PUSH 1
@@ -28,5 +29,6 @@ uint8_t get_move_capture(uint16_t move);
 uint8_t get_move_double(uint16_t move);
 uint8_t get_move_enpassant(uint16_t move);
 uint8_t get_move_castling(uint16_t move);
+uint8_t is_noisy(uint16_t move);
 
 #endif

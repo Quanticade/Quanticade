@@ -1118,8 +1118,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   // loop over moves within a movelist
   uint16_t move;
   while ((move = select_next(&picker)) != 0) {
-    uint8_t quiet =
-        (get_move_capture(move) == 0 && is_move_promotion(move) == 0);
+    uint8_t quiet = !is_noisy(move);
 
     if (move == ss->excluded_move) {
       continue;
@@ -1324,7 +1323,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         if (alpha >= beta) {
           bound = HASH_FLAG_LOWER_BOUND;
           // on quiet moves
-          if (!(get_move_capture(best_move) || is_move_promotion(best_move))) {
+          if (!is_noisy(best_move)) {
             int history_depth = depth;
             history_depth += (!in_check && ss->eval <= alpha);
             int cont_bonus =
@@ -1408,7 +1407,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   }
 
   if (!in_check &&
-        !(get_move_capture(best_move) || is_move_promotion(best_move)) &&
+        !is_noisy(best_move) &&
         (bound != HASH_FLAG_LOWER_BOUND || best_score > raw_static_eval) &&
         (bound != HASH_FLAG_UPPER_BOUND || best_score <= raw_static_eval)) {
     update_corrhist(thread, raw_static_eval, best_score, depth);
