@@ -1634,6 +1634,13 @@ void search_position(position_t *pos, thread_t *threads) {
     pthread_join(pthreads[i], NULL);
   }
 
+  if (minimal) {
+    if (threads[0].pv.pv_length[0]) {
+      // print search info
+      print_thinking(&threads[0], threads[0].score, threads[0].depth - 1);
+    }
+  }
+
   // print best move
   printf("bestmove ");
   if (threads->pv.pv_table[0][0]) {
