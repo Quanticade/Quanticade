@@ -172,7 +172,7 @@ extern double bestmove_scale[5];
 
 void add_double_spsa(char name[], double *value, double min, double max,
                      double rate, void (*func)(void), uint8_t tunable) {
-  strcpy(spsa[spsa_index].name, name);
+  snprintf(spsa[spsa_index].name, sizeof(spsa[spsa_index].name), "%s", name);
   spsa[spsa_index].value = value;
   spsa[spsa_index].min.min_float = min;
   spsa[spsa_index].max.max_float = max;
@@ -185,7 +185,7 @@ void add_double_spsa(char name[], double *value, double min, double max,
 
 void add_int_spsa(char name[], int *value, int min, int max, double rate,
                   void (*func)(void), uint8_t tunable) {
-  strcpy(spsa[spsa_index].name, name);
+  snprintf(spsa[spsa_index].name, sizeof(spsa[spsa_index].name), "%s", name);
   spsa[spsa_index].value = value;
   spsa[spsa_index].min.min_int = min;
   spsa[spsa_index].max.max_int = max;
@@ -465,9 +465,8 @@ void print_spsa_table(void) {
 
 void handle_spsa_change(char input[10000]) {
   for (int i = 0; i < spsa_index; i++) {
-    char option[500] = "setoption name ";
-    strcat(option, spsa[i].name);
-    strcat(option, " value ");
+    char option[500];
+    snprintf(option, sizeof(option), "setoption name %s value ", spsa[i].name);
     if (!strncmp(input, option, strlen(option))) {
       if (spsa[i].is_float) {
         sscanf(input, "%*s %*s %*s %*s %lf", (double *)spsa[i].value);
