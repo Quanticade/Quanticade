@@ -74,7 +74,8 @@ int NMP_BASE_ADD = 197;
 int NMP_MULTIPLIER = 21;
 int SEE_QUIET = 42;
 int SEE_CAPTURE = 29;
-int SEE_HISTORY_DIVISOR = 37;
+int SEE_QUIET_HISTORY_DIVISOR = 37;
+int SEE_NOISY_HISTORY_DIVISOR = 37;
 int SE_TRIPLE_MARGIN = 37;
 int SE_BETA_BASE = 64;
 int SE_BETA_MULTIPLIER = 66;
@@ -1197,15 +1198,15 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
       int see_treshold;
       if (!get_move_capture(move)) {
-        see_treshold = -SEE_QUIET * depth;
+        see_treshold = -SEE_QUIET * depth - ss->history_score / SEE_QUIET_HISTORY_DIVISOR;
       } else {
-        see_treshold = -SEE_CAPTURE * depth * depth;
+        see_treshold = -SEE_CAPTURE * depth * depth - ss->history_score / SEE_NOISY_HISTORY_DIVISOR;
       }
 
       // SEE PVS Pruning
       if (depth <= SEE_DEPTH &&
           !SEE(pos, move,
-               see_treshold - ss->history_score / SEE_HISTORY_DIVISOR))
+               see_treshold))
         continue;
     }
 
