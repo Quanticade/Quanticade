@@ -720,7 +720,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     return evaluate(thread, pos, &thread->accumulator[ply]);
   }
 
-  // Reset PV length for this ply so stale continuations aren't inherited
+  // Reset PV Length for this ply so stale continuations aren't inherited
   // if no alpha improvement occurs here.
   thread->pv.pv_length[ply] = 0;
 
@@ -1599,6 +1599,8 @@ void *iterative_deepening(void *thread_void) {
 // TODO: Pass in const ply so we can always restore it to
 // original without search changing it
 void search_position(position_t *pos, thread_t *threads) {
+  increment_tt_age();
+
   pthread_t pthreads[thread_count];
   for (int i = 0; i < thread_count; ++i) {
     threads[i].nodes = 0;

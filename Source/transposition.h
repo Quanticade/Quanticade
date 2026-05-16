@@ -15,6 +15,9 @@ extern tt_t tt;
 #define HASH_FLAG_LOWER_BOUND 2
 #define HASH_FLAG_UPPER_BOUND 3
 
+extern uint8_t tt_age;
+void increment_tt_age(void);
+
 void clear_hash_table(void);
 void free_hash_table(void);
 void prefetch_hash_entry(uint64_t hash_key);
