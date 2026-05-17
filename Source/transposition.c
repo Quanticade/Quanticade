@@ -3,6 +3,7 @@
 #include "enums.h"
 #include "structs.h"
 #include "uci.h"
+#include <limits.h>
 #include <pthread.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -30,13 +31,22 @@ __extension__ typedef unsigned __int128 uint128_t;
 static size_t tt_alloc_size     = 0;
 static int    tt_used_huge_pages = 0;
 
+uint8_t tt_age = 0;
+
+void increment_tt_age(void) {
+  tt_age = (tt_age + 1) & 0x1F;
+}
+
+#define AGE_WEIGHT 4
+
 int hash_full(void) {
   uint64_t used = 0;
   int samples = 1000;
 
   for (int i = 0; i < samples; ++i) {
     for (int j = 0; j < 3; j++) {
-      if (tt.hash_entry[i].tt_entries[j].hash_key != 0) {
+      tt_entry_t *entry = &tt.hash_entry[i].tt_entries[j];
+      if (entry->hash_key != 0 && entry->age == tt_age) {
         used++;
       }
     }
@@ -239,7 +249,7 @@ int16_t score_from_tt(const uint8_t ply, int16_t score) {
 tt_entry_t *read_hash_entry(position_t *pos, uint8_t *tt_hit) {
   tt_bucket_t *bucket = &tt.hash_entry[get_hash_index(pos->hash_keys.hash_key)];
   tt_entry_t *replace = &bucket->tt_entries[0];
-  uint8_t min_depth = 255;
+  int best_score = INT_MIN;
 
   for (uint8_t i = 0; i < 3; i++) {
     tt_entry_t *entry = &bucket->tt_entries[i];
@@ -249,9 +259,12 @@ tt_entry_t *read_hash_entry(position_t *pos, uint8_t *tt_hit) {
       return entry;
     }
 
-    if (entry->depth < min_depth) {
-      replace = entry;
-      min_depth = entry->depth;
+    int age_delta = ((int)tt_age - (int)entry->age) & 0x1F;
+    int score     = age_delta * AGE_WEIGHT - (int)entry->depth;
+
+    if (score > best_score) {
+      best_score = score;
+      replace    = entry;
     }
   }
 
@@ -263,12 +276,19 @@ tt_entry_t *read_hash_entry(position_t *pos, uint8_t *tt_hit) {
 void write_hash_entry(tt_entry_t *tt_entry, position_t *pos, const uint8_t ply, int16_t score,
                       int16_t static_eval, uint8_t depth, uint16_t move,
                       uint8_t hash_flag, uint8_t tt_pv) {
-  uint8_t replace =
-      tt_entry->hash_key != get_hash_low_bits(pos->hash_keys.hash_key) ||
-      depth + 4 + 2 * tt_pv > tt_entry->depth || hash_flag == HASH_FLAG_EXACT;
+  uint16_t key16    = get_hash_low_bits(pos->hash_keys.hash_key);
+  uint8_t  same_pos = (tt_entry->hash_key == key16);
+  int      age_delta = ((int)tt_age - (int)tt_entry->age) & 0x1F;
 
-  if (move || tt_entry->hash_key != get_hash_low_bits(pos->hash_keys.hash_key))
+  // Always preserve the best move we know for this position
+  if (move || !same_pos)
     tt_entry->move = move;
+
+  uint8_t replace =
+      !same_pos                                    ||  // different position
+      age_delta > 0                                ||  // entry is from a prior search
+      depth + 4 + 2 * tt_pv > tt_entry->depth     ||  // deeper search
+      hash_flag == HASH_FLAG_EXACT;                    // exact bound always wins
 
   if (!replace) {
     return;
@@ -282,10 +302,11 @@ void write_hash_entry(tt_entry_t *tt_entry, position_t *pos, const uint8_t ply, 
     score += ply;
 
   // write hash entry data
-  tt_entry->hash_key   = get_hash_low_bits(pos->hash_keys.hash_key);
-  tt_entry->score      = score;
+  tt_entry->hash_key    = key16;
+  tt_entry->score       = score;
   tt_entry->static_eval = static_eval;
-  tt_entry->flag       = hash_flag;
-  tt_entry->tt_pv      = tt_pv;
-  tt_entry->depth      = depth;
+  tt_entry->flag        = hash_flag;
+  tt_entry->tt_pv       = tt_pv;
+  tt_entry->depth       = depth;
+  tt_entry->age         = tt_age;
 }
