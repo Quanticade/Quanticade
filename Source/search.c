@@ -556,7 +556,7 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
     // fail-hard beta cutoff
     if (best_score >= beta) {
       if (!tt_hit) {
-        write_hash_entry(tt_entry, pos, ply, NO_SCORE, raw_static_eval, 0, 0,
+        write_hash_entry(pos, ply, NO_SCORE, raw_static_eval, 0, 0,
                          HASH_FLAG_NONE, tt_was_pv);
       }
       if (!is_decisive(best_score) && !is_decisive(beta)) {
@@ -691,7 +691,7 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
     hash_flag = HASH_FLAG_UPPER_BOUND;
   }
 
-  write_hash_entry(tt_entry, pos, ply, best_score, raw_static_eval, 0,
+  write_hash_entry(pos, ply, best_score, raw_static_eval, 0,
                    best_move, hash_flag, tt_was_pv);
 
   return best_score;
@@ -817,7 +817,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     raw_static_eval = evaluate(thread, pos, &thread->accumulator[ply]);
     ss->eval = ss->static_eval = adjust_static_eval(thread, raw_static_eval);
 
-    write_hash_entry(tt_entry, pos, ply, NO_SCORE, raw_static_eval, 0, 0,
+    write_hash_entry(pos, ply, NO_SCORE, raw_static_eval, 0, 0,
                      HASH_FLAG_NONE, ss->tt_pv);
   }
 
@@ -1031,7 +1031,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       // If shallow search failed high, we can prune
       if (probcut_score >= probcut_beta) {
         // Store in transposition table
-        write_hash_entry(tt_entry, pos, ply, probcut_score, raw_static_eval,
+        write_hash_entry(pos, ply, probcut_score, raw_static_eval,
                          probcut_depth + 1, move, HASH_FLAG_LOWER_BOUND,
                          ss->tt_pv);
         return probcut_score;
@@ -1404,7 +1404,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
   if (!ss->excluded_move) {
     // store hash entry with the score equal to alpha
-    write_hash_entry(tt_entry, pos, ply, best_score, raw_static_eval, depth,
+    write_hash_entry(pos, ply, best_score, raw_static_eval, depth,
                      best_move, bound, ss->tt_pv);
   }
 

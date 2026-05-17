@@ -28,14 +28,12 @@ extern int thread_count;
 
 __extension__ typedef unsigned __int128 uint128_t;
 
-static size_t tt_alloc_size     = 0;
-static int    tt_used_huge_pages = 0;
+static size_t tt_alloc_size = 0;
+static int tt_used_huge_pages = 0;
 
 uint8_t tt_age = 0;
 
-void increment_tt_age(void) {
-  tt_age = (tt_age + 1) & 0x1F;
-}
+void increment_tt_age(void) { tt_age = (tt_age + 1) & 0x1F; }
 
 #define AGE_WEIGHT 4
 
@@ -144,7 +142,8 @@ void clear_hash_table(void) {
 }
 
 void free_hash_table(void) {
-  if (tt.hash_entry == NULL) return;
+  if (tt.hash_entry == NULL)
+    return;
 
 #ifdef __linux__
   if (tt_used_huge_pages) {
@@ -157,8 +156,8 @@ void free_hash_table(void) {
   free(tt.hash_entry);
 #endif
 
-  tt.hash_entry  = NULL;
-  tt_alloc_size  = 0;
+  tt.hash_entry = NULL;
+  tt_alloc_size = 0;
 }
 
 // dynamically allocate memory for hash table
@@ -176,28 +175,25 @@ void init_hash_table(uint64_t mb) {
 
 #ifdef __linux__
   // Attempt 1 GiB huge pages first
-  void *mem = mmap(NULL, alloc_size,
-                   PROT_READ | PROT_WRITE,
-                   MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_1GB,
-                   -1, 0);
+  void *mem =
+      mmap(NULL, alloc_size, PROT_READ | PROT_WRITE,
+           MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_1GB, -1, 0);
 
   if (mem != MAP_FAILED) {
-    tt.hash_entry      = (tt_bucket_t *)mem;
-    tt_alloc_size      = alloc_size;
+    tt.hash_entry = (tt_bucket_t *)mem;
+    tt_alloc_size = alloc_size;
     tt_used_huge_pages = 1;
     clear_hash_table();
     return;
   }
 
   // Fall back to 2 MiB huge pages
-  mem = mmap(NULL, alloc_size,
-             PROT_READ | PROT_WRITE,
-             MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_2MB,
-             -1, 0);
+  mem = mmap(NULL, alloc_size, PROT_READ | PROT_WRITE,
+             MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_2MB, -1, 0);
 
   if (mem != MAP_FAILED) {
-    tt.hash_entry      = (tt_bucket_t *)mem;
-    tt_alloc_size      = alloc_size;
+    tt.hash_entry = (tt_bucket_t *)mem;
+    tt_alloc_size = alloc_size;
     tt_used_huge_pages = 1;
     clear_hash_table();
     return;
@@ -215,7 +211,7 @@ void init_hash_table(uint64_t mb) {
   }
 
   // if allocation succeeded
-  tt_alloc_size      = alloc_size;
+  tt_alloc_size = alloc_size;
   tt_used_huge_pages = 0;
 
 #ifdef __linux__
@@ -248,8 +244,6 @@ int16_t score_from_tt(const uint8_t ply, int16_t score) {
 // read hash entry data
 tt_entry_t *read_hash_entry(position_t *pos, uint8_t *tt_hit) {
   tt_bucket_t *bucket = &tt.hash_entry[get_hash_index(pos->hash_keys.hash_key)];
-  tt_entry_t *replace = &bucket->tt_entries[0];
-  int best_score = INT_MIN;
 
   for (uint8_t i = 0; i < 3; i++) {
     tt_entry_t *entry = &bucket->tt_entries[i];
@@ -258,37 +252,51 @@ tt_entry_t *read_hash_entry(position_t *pos, uint8_t *tt_hit) {
       *tt_hit = 1;
       return entry;
     }
-
-    int age_delta = ((int)tt_age - (int)entry->age) & 0x1F;
-    int score     = age_delta * AGE_WEIGHT - (int)entry->depth;
-
-    if (score > best_score) {
-      best_score = score;
-      replace    = entry;
-    }
   }
 
   // if hash entry doesn't exist
-  return replace;
+  return NULL;
 }
 
 // write hash entry data
-void write_hash_entry(tt_entry_t *tt_entry, position_t *pos, const uint8_t ply, int16_t score,
+void write_hash_entry(position_t *pos, const uint8_t ply, int16_t score,
                       int16_t static_eval, uint8_t depth, uint16_t move,
                       uint8_t hash_flag, uint8_t tt_pv) {
-  uint16_t key16    = get_hash_low_bits(pos->hash_keys.hash_key);
-  uint8_t  same_pos = (tt_entry->hash_key == key16);
-  int      age_delta = ((int)tt_age - (int)tt_entry->age) & 0x1F;
+  tt_bucket_t *bucket = &tt.hash_entry[get_hash_index(pos->hash_keys.hash_key)];
+  uint16_t key16 = get_hash_low_bits(pos->hash_keys.hash_key);
+
+  int index = 0;
+  int minimum = INT_MAX;
+
+  for (int i = 0; i < 3; i++) {
+    tt_entry_t *entry = &bucket->tt_entries[i];
+
+    if (entry->hash_key == key16 || entry->flag == HASH_FLAG_NONE) {
+      index = i;
+      break;
+    }
+
+    int age_delta = ((int)tt_age - (int)entry->age) & 0x1F;
+    int quality = (int)entry->depth - AGE_WEIGHT * age_delta;
+
+    if (quality < minimum) {
+      minimum = quality;
+      index = i;
+    }
+  }
+
+  tt_entry_t *tt_entry  = &bucket->tt_entries[index];
+  uint8_t same_pos = (tt_entry->hash_key == key16);
+  int age_delta = ((int)tt_age - (int)tt_entry->age) & 0x1F;
 
   // Always preserve the best move we know for this position
   if (move || !same_pos)
     tt_entry->move = move;
 
-  uint8_t replace =
-      !same_pos                                    ||  // different position
-      age_delta > 0                                ||  // entry is from a prior search
-      depth + 4 + 2 * tt_pv > tt_entry->depth     ||  // deeper search
-      hash_flag == HASH_FLAG_EXACT;                    // exact bound always wins
+  uint8_t replace = !same_pos ||     // different position
+                    age_delta > 0 || // entry is from a prior search
+                    depth + 4 + 2 * tt_pv > tt_entry->depth || // deeper search
+                    hash_flag == HASH_FLAG_EXACT; // exact bound always wins
 
   if (!replace) {
     return;
@@ -302,11 +310,11 @@ void write_hash_entry(tt_entry_t *tt_entry, position_t *pos, const uint8_t ply, 
     score += ply;
 
   // write hash entry data
-  tt_entry->hash_key    = key16;
-  tt_entry->score       = score;
+  tt_entry->hash_key = key16;
+  tt_entry->score = score;
   tt_entry->static_eval = static_eval;
-  tt_entry->flag        = hash_flag;
-  tt_entry->tt_pv       = tt_pv;
-  tt_entry->depth       = depth;
-  tt_entry->age         = tt_age;
+  tt_entry->flag = hash_flag;
+  tt_entry->tt_pv = tt_pv;
+  tt_entry->depth = depth;
+  tt_entry->age = tt_age;
 }
