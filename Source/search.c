@@ -874,7 +874,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       !is_loss(beta) && !is_win(ss->eval) &&
       ss->eval >= beta + RFP_BASE_MARGIN + RFP_MARGIN * depth -
                       RFP_IMPROVING * improving -
-                      RFP_OPP_WORSENING * opponent_worsening) {
+                      RFP_OPP_WORSENING * opponent_worsening +
+                      512 * abs(correction) / 1024) {
     // evaluation margin substracted from static evaluation score
     return beta + (ss->eval - beta) / 3;
   }
