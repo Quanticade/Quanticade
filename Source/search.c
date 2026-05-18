@@ -123,7 +123,7 @@ int MO_CONT4_HIST_MULT = 1026;
 int MO_PAWN_HIST_MULT = 939;
 int MO_CAPT_HIST_MULT = 1198;
 int MO_MVV_MULT = 15226;
-int HISTORY_PRUNING_MARGIN = 2400;
+int HISTORY_PRUNING_MARGIN = 1024;
 int BNFP_MARGIN = 151;
 
 int QUIET_HISTORY_MALUS_MAX = 1069;
@@ -1186,13 +1186,12 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         continue;
       }
 
-      if (quiet && depth <= 10 && ss->history_score < -HISTORY_PRUNING_MARGIN * depth * depth) {
-        picker.skip_quiets = 1;
+      if (quiet && !in_check && depth <= 5 && ss->history_score < -HISTORY_PRUNING_MARGIN * depth) {
         continue;
       }
 
       int noisy_futility_margin = ss->static_eval + BNFP_MARGIN * depth;
-      if (!in_check && depth < 10 && picker.stage == STAGE_BAD_NOISY && noisy_futility_margin <= alpha && !is_direct_check(pos, move)) {
+      if (!in_check && depth < 5 && picker.stage == STAGE_BAD_NOISY && noisy_futility_margin <= alpha && !is_direct_check(pos, move)) {
         break;
       }
 
