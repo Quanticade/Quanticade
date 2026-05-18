@@ -148,6 +148,8 @@ extern int FIFTY_MOVE_SCALING;
 extern int CORR_HISTORY_BONUS_SCALER;
 extern int HISTORY_MAX;
 
+extern int EVAL_SCALE;
+
 // TM
 extern double DEF_TIME_MULTIPLIER;
 extern double DEF_INC_MULTIPLIER;
@@ -336,6 +338,7 @@ void init_spsa_table(void) {
   SPSA_INT(FIFTY_MOVE_SCALING, 1);
   SPSA_INT(CORR_HISTORY_BONUS_SCALER, 1);
   SPSA_INT(HISTORY_MAX, 0);
+  SPSA_INT(EVAL_SCALE, 1);
   SPSA_INT_NAME("SEE_PAWN", SEEPieceValues[PAWN], 1);
   SPSA_INT_NAME("SEE_KNIGHT", SEEPieceValues[KNIGHT], 1);
   SPSA_INT_NAME("SEE_BISHOP", SEEPieceValues[BISHOP], 1);

@@ -13,7 +13,7 @@ int CORR_HISTORY_MINMAX = 351;
 int PAWN_CORR_HISTORY_MULTIPLIER = 2523;
 int NON_PAWN_CORR_HISTORY_MULTIPLIER = 1559;
 
-int FIFTY_MOVE_SCALING = 180;
+int FIFTY_MOVE_SCALING = 200;
 int CORR_HISTORY_BONUS_SCALER = 130;
 
 int HISTORY_MAX = 8192;
@@ -141,7 +141,7 @@ uint8_t static_eval_within_bounds(int16_t static_eval, int16_t score,
 int16_t adjust_static_eval(thread_t *thread, int16_t static_eval) {
   position_t *pos = &thread->positions[thread->ply];
   const float fifty_move_scaler =
-      (float)((FIFTY_MOVE_SCALING - (float)pos->fifty) / 200);
+      (float)((FIFTY_MOVE_SCALING - (float)pos->fifty) / FIFTY_MOVE_SCALING);
   static_eval = static_eval * fifty_move_scaler;
   const int pawn_correction =
       thread->correction_history[pos->side][pos->hash_keys.pawn_key & 16383] *
