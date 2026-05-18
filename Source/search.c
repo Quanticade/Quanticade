@@ -1191,7 +1191,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       }
 
       int noisy_futility_margin = ss->static_eval + BNFP_MARGIN * depth;
-      if (!in_check && depth < 5 && picker.stage == STAGE_BAD_NOISY && noisy_futility_margin <= alpha && !is_direct_check(pos, move)) {
+      if (!in_check && depth < 10 && picker.stage == STAGE_BAD_NOISY && noisy_futility_margin <= alpha && !is_direct_check(pos, move)) {
         break;
       }
 
