@@ -14,6 +14,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+int EVAL_SCALE = 360;
+
 nnue_t nnue;
 
 struct raw_net {
@@ -488,7 +490,7 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
   }
   // TODO reduce add
 
-  return (int16_t)(result * SCALE);
+  return (int16_t)(result * EVAL_SCALE);
 }
 
 int nnue_evaluate(thread_t *thread, position_t *pos,
@@ -772,7 +774,7 @@ int nnue_evaluate(thread_t *thread, position_t *pos,
   }
 
 #endif
-  return (int16_t)(result * SCALE);
+  return (int16_t)(result * EVAL_SCALE);
 }
 
 static inline void
