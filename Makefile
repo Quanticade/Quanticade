@@ -29,7 +29,7 @@ WGET := $(shell command -v wget 2>/dev/null)
 
 # Detect Clang
 ifeq ($(CC), clang)
-	CFLAGS = -g -std=gnu11 -fuse-ld=lld -funroll-loops -O3 -flto -fno-exceptions -DIS_64BIT -DNDEBUG $(WARNINGS)
+	CFLAGS = -g -std=gnu11 -fuse-ld=lld -funroll-loops -O3 -flto -fno-exceptions -DIS_64BIT -DNDEBUG -DGIT_HASH=\"$(shell git rev-parse --short HEAD)\" $(WARNINGS)
 endif
 
 # Detect Windows
