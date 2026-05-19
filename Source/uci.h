@@ -3,7 +3,7 @@
 
 #include "structs.h"
 
-#define version "Phoenix 4.0 Dev"
+#define version "Phoenix 4.0 Dev " GIT_HASH
 
 #define MIN(A, B) ((A) < (B) ? (A) : (B))
 #define MAX(A, B) ((A) > (B) ? (A) : (B))

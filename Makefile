@@ -13,6 +13,8 @@ AVX512ICLFLAGS  = $(AVX512FLAGS) -DUSE_AVX512ICL -mavx512cd -mavx512vl -mavx512d
 NEONFLAGS    = -DUSE_NEON -DUSE_SIMD -flax-vector-conversions
 NEON_DOTPRODFLAGS    = $(NEONFLAGS) -DUSE_NEON_DOTPROD
 
+CFLAGS += -DGIT_HASH=\"$(shell git rev-parse --short HEAD)\"
+
 .DEFAULT_GOAL := all
 
 # engine name
