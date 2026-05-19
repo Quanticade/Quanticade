@@ -409,18 +409,22 @@ void time_control(position_t *pos, thread_t *threads, char *line) {
         limits.soft_limit = threads->starttime + limits.base_soft;
       } else {
         limits.time -= MIN(limits.time / 2, move_overhead);
+        const uint8_t cyclic_tc = limits.movestogo != 0;
+        const uint8_t movestogo = cyclic_tc ? MIN(limits.movestogo, 50) : 50;
         const int64_t base_time =
-            (limits.movestogo > 0)
-                ? (int64_t)((double)limits.time / limits.movestogo + limits.inc)
-                : (int64_t)(limits.time * DEF_TIME_MULTIPLIER +
-                            limits.inc * DEF_INC_MULTIPLIER);
+            MAX(1, limits.time + limits.inc * (movestogo - 1) -
+                       move_overhead * (2 + movestogo));
 
-        limits.max_time =
-            MAX(1, limits.time * (movetime ? 1.0 : MAX_TIME_MULTIPLIER));
+        double soft_scale = 0;
+        if (cyclic_tc) {
+          soft_scale =
+              MIN(0.90 / movestogo, 0.88 * limits.time / (double)base_time);
+        } else {
+          soft_scale = MIN(0.025, 0.20 * limits.time / (double)base_time);
+        }
+        limits.max_time = MAX(1, limits.time * MAX_TIME_MULTIPLIER - move_overhead);
         limits.hard_limit = threads->starttime + limits.max_time;
-        limits.base_soft =
-            movetime ? 0x7fffffff
-                     : MIN(base_time * SOFT_LIMIT_MULTIPLIER, limits.max_time);
+        limits.base_soft = base_time * soft_scale;
         limits.soft_limit = threads->starttime + limits.base_soft;
       }
     }
