@@ -822,7 +822,6 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   }
 
   int16_t correction = correction_value(thread);
-  (void)correction;
 
   uint8_t initial_depth = depth;
   int32_t improvement = 0;
