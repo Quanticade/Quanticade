@@ -43,9 +43,6 @@ extern uint8_t minimal;
 int RAZOR_DEPTH = 7;
 int RFP_DEPTH = 9;
 int FP_DEPTH = 10;
-int NMP_BASE_REDUCTION = 6;
-int NMP_DIVISER = 3;
-int NMP_RED_MIN = 3;
 int IIR_DEPTH = 4;
 int SEE_DEPTH = 10;
 int ASP_DEPTH = 4;
@@ -75,9 +72,10 @@ int RFP_OPP_WORSENING = 15;
 int FP_MULTIPLIER = 137;
 int FP_ADDITION = 173;
 int FP_HISTORY_DIVISOR = 31;
-int NMP_RED_DIVISER = 147;
 int NMP_BASE_ADD = 204;
 int NMP_MULTIPLIER = 21;
+int NMP_BASE_REDUCTION = 1536;
+int NMP_DIVISER = 85;
 int SEE_QUIET = 42;
 int SEE_CAPTURE = 29;
 int SEE_QUIET_HISTORY_DIVISOR = 36;
@@ -883,7 +881,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       ply > thread->nmp_min_ply && ss->eval >= beta &&
       ss->static_eval >= beta - NMP_MULTIPLIER * depth + NMP_BASE_ADD &&
       ss->eval >= ss->static_eval && !is_loss(beta) && !only_pawns(pos)) {
-    int R = depth / NMP_DIVISER + NMP_BASE_REDUCTION;
+    int R = (depth * NMP_DIVISER + NMP_BASE_REDUCTION) / 256;
     R = MIN(R, depth);
 
     // Copy current position to the next ply slot and advance.
