@@ -13,7 +13,7 @@ jobs:
 
     strategy:
       matrix:
-        arch: [x86-64-avx2, x86-64-bmi2, x86-64-avx512]
+        arch: [x86-64-avx2, x86-64-bmi2, x86-64-avx512, x86-64-avx512icl]
 
     steps:
     - name: Checkout code
