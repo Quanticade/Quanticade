@@ -14,7 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-int EVAL_SCALE = 360;
+int EVAL_SCALE = 296;
 
 nnue_t nnue;
 
