@@ -1170,7 +1170,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         picker.skip_quiets = 1;
       }
 
-      int r = lmr[quiet][MIN(63, depth)][MIN(63, moves_seen)];
+      int r = lmr[quiet][MIN(255, depth)][MIN(255, moves_seen)];
       int lmr_depth = MAX(1, depth - 1 - MAX(r, 1));
       // Futility Pruning
       if (lmr_depth <= FP_DEPTH && !in_check && quiet &&
