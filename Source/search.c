@@ -316,7 +316,7 @@ static inline void score_noisy(thread_t *thread, searchstack_t *ss,
 
     entry.score = mvv[target_piece % 6] * MO_MVV_MULT;
     entry.score +=
-        thread->capture_history[pos->mailbox[source]][target_piece][source]
+        thread->capture_history[pos->mailbox[source]][target_piece]
                                [target][source_threatened][target_threatened] *
         MO_CAPT_HIST_MULT;
     entry.score /= 1024;
@@ -1144,7 +1144,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
             : thread->capture_history
                           [pos->mailbox[get_move_source(move)]]
                           [pos->mailbox[get_move_target(move)]]
-                          [get_move_source(move)][get_move_target(move)]
+                          [get_move_target(move)]
                           [is_square_threatened(ss, get_move_source(move))]
                           [is_square_threatened(ss, get_move_target(move))] *
                       SEARCH_CAPT_HIST_MULT +
