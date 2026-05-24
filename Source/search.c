@@ -1039,8 +1039,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
   // Internal Iterative Reductions
   if (!all_node && !ss->excluded_move && depth >= IIR_DEPTH &&
-      (!tt_move || tt_depth < depth - IIR_DEPTH_REDUCTION ||
-       tt_flag == HASH_FLAG_UPPER_BOUND)) {
+      (!tt_hit || !tt_move || tt_depth < depth - IIR_DEPTH_REDUCTION)) {
     depth--;
   }
 
