@@ -83,6 +83,7 @@ int SEE_NOISY_HISTORY_DIVISOR = 37;
 int SE_TRIPLE_MARGIN = 39;
 int SE_BETA_BASE = 60;
 int SE_BETA_MULTIPLIER = 66;
+int SE_BETA_DIVISOR = 55;
 int LDSE_MARGIN = 25;
 int LMR_PV_NODE = 875;
 int LMR_HISTORY_QUIET = 1202;
@@ -1054,7 +1055,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       tt_flag != HASH_FLAG_UPPER_BOUND && abs(tt_score) < MATE_SCORE) {
     const int s_beta = tt_score - (SE_BETA_BASE + SE_BETA_MULTIPLIER *
                                                       (ss->tt_pv && !pv_node)) *
-                                      depth / 55;
+                                      depth / SE_BETA_DIVISOR;
     const int s_depth = depth / 2;
 
     ss->excluded_move = tt_move;

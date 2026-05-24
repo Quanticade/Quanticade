@@ -42,6 +42,7 @@ extern int SE_DOUBLE_MARGIN;
 extern int SE_TRIPLE_MARGIN;
 extern int SE_BETA_BASE;
 extern int SE_BETA_MULTIPLIER;
+extern int SE_BETA_DIVISOR;
 extern int LDSE_MARGIN;
 extern int LMR_PV_NODE;
 extern int LMR_HISTORY_QUIET;
@@ -243,6 +244,7 @@ void init_spsa_table(void) {
   SPSA_INT(SE_TRIPLE_MARGIN, 1);
   SPSA_INT(SE_BETA_BASE, 1);
   SPSA_INT(SE_BETA_MULTIPLIER, 1);
+  SPSA_INT(SE_BETA_DIVISOR, 1);
   SPSA_INT(LDSE_MARGIN, 1);
   SPSA_INT(LMR_PV_NODE, 1);
   SPSA_INT(LMR_HISTORY_QUIET, 1);
