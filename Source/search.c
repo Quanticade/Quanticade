@@ -826,6 +826,10 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   int32_t improvement = 0;
   uint8_t opponent_worsening = 0;
 
+  uint8_t potential_singularity =
+      depth >= SE_DEPTH && tt_depth >= depth - SE_DEPTH_REDUCTION &&
+      tt_flag != HASH_FLAG_UPPER_BOUND && abs(tt_score) < MATE_SCORE;
+
   if ((ss - 2)->static_eval != NO_SCORE && !in_check) {
     improvement = ss->static_eval - (ss - 2)->static_eval;
   }
@@ -1050,9 +1054,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   // A rather simple idea that if our TT move is accurate we run a reduced
   // search to see if we can beat this score. If not we extend the TT move
   // search
-  if (ply < thread->depth * 2 && !root_node && depth >= SE_DEPTH &&
-      !ss->excluded_move && tt_depth >= depth - SE_DEPTH_REDUCTION &&
-      tt_flag != HASH_FLAG_UPPER_BOUND && abs(tt_score) < MATE_SCORE) {
+  if (ply < thread->depth * 2 && !root_node && !ss->excluded_move &&
+      potential_singularity) {
     const int s_beta = tt_score - (SE_BETA_BASE + SE_BETA_MULTIPLIER *
                                                       (ss->tt_pv && !pv_node)) *
                                       depth / SE_BETA_DIVISOR;
@@ -1184,27 +1187,29 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         continue;
       }
 
-      if (quiet && depth <= 10 && ss->history_score < -HISTORY_PRUNING_MARGIN * depth * depth) {
+      if (quiet && depth <= 10 &&
+          ss->history_score < -HISTORY_PRUNING_MARGIN * depth * depth) {
         picker.skip_quiets = 1;
         continue;
       }
 
       int noisy_futility_margin = ss->static_eval + BNFP_MARGIN * depth;
-      if (!in_check && depth < 10 && picker.stage == STAGE_BAD_NOISY && noisy_futility_margin <= alpha && !is_direct_check(pos, move)) {
+      if (!in_check && depth < 10 && picker.stage == STAGE_BAD_NOISY &&
+          noisy_futility_margin <= alpha && !is_direct_check(pos, move)) {
         break;
       }
 
       int see_treshold;
       if (!get_move_capture(move)) {
-        see_treshold = -SEE_QUIET * depth - ss->history_score / SEE_QUIET_HISTORY_DIVISOR;
+        see_treshold =
+            -SEE_QUIET * depth - ss->history_score / SEE_QUIET_HISTORY_DIVISOR;
       } else {
-        see_treshold = -SEE_CAPTURE * depth * depth - ss->history_score / SEE_NOISY_HISTORY_DIVISOR;
+        see_treshold = -SEE_CAPTURE * depth * depth -
+                       ss->history_score / SEE_NOISY_HISTORY_DIVISOR;
       }
 
       // SEE PVS Pruning
-      if (depth <= SEE_DEPTH &&
-          !SEE(pos, move,
-               see_treshold))
+      if (depth <= SEE_DEPTH && !SEE(pos, move, see_treshold))
         continue;
     }
 
@@ -1326,23 +1331,25 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
           if (!(get_move_capture(best_move) || is_move_promotion(best_move))) {
             int history_depth = depth;
             history_depth += (!in_check && ss->eval <= alpha);
-            int cont_bonus =
-                MIN(CONT_HISTORY_BASE_BONUS + CONT_HISTORY_FACTOR_BONUS * history_depth,
-                    CONT_HISTORY_BONUS_MAX);
+            int cont_bonus = MIN(CONT_HISTORY_BASE_BONUS +
+                                     CONT_HISTORY_FACTOR_BONUS * history_depth,
+                                 CONT_HISTORY_BONUS_MAX);
             int cont_malus = -MIN(CONT_HISTORY_BASE_MALUS +
                                       CONT_HISTORY_FACTOR_MALUS * history_depth,
                                   CONT_HISTORY_MALUS_MAX);
 
-            int quiet_bonus = MIN(QUIET_HISTORY_BASE_BONUS +
-                                      QUIET_HISTORY_FACTOR_BONUS * history_depth,
-                                  QUIET_HISTORY_BONUS_MAX);
-            int quiet_malus = -MIN(QUIET_HISTORY_BASE_MALUS +
-                                       QUIET_HISTORY_FACTOR_MALUS * history_depth,
-                                   QUIET_HISTORY_MALUS_MAX);
+            int quiet_bonus =
+                MIN(QUIET_HISTORY_BASE_BONUS +
+                        QUIET_HISTORY_FACTOR_BONUS * history_depth,
+                    QUIET_HISTORY_BONUS_MAX);
+            int quiet_malus =
+                -MIN(QUIET_HISTORY_BASE_MALUS +
+                         QUIET_HISTORY_FACTOR_MALUS * history_depth,
+                     QUIET_HISTORY_MALUS_MAX);
 
-            int pawn_bonus =
-                MIN(PAWN_HISTORY_BASE_BONUS + PAWN_HISTORY_FACTOR_BONUS * history_depth,
-                    PAWN_HISTORY_BONUS_MAX);
+            int pawn_bonus = MIN(PAWN_HISTORY_BASE_BONUS +
+                                     PAWN_HISTORY_FACTOR_BONUS * history_depth,
+                                 PAWN_HISTORY_BONUS_MAX);
             int pawn_malus = -MIN(PAWN_HISTORY_BASE_MALUS +
                                       PAWN_HISTORY_FACTOR_MALUS * history_depth,
                                   PAWN_HISTORY_MALUS_MAX);
@@ -1407,9 +1414,9 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   }
 
   if (!in_check &&
-        !(get_move_capture(best_move) || is_move_promotion(best_move)) &&
-        (bound != HASH_FLAG_LOWER_BOUND || best_score > raw_static_eval) &&
-        (bound != HASH_FLAG_UPPER_BOUND || best_score <= raw_static_eval)) {
+      !(get_move_capture(best_move) || is_move_promotion(best_move)) &&
+      (bound != HASH_FLAG_LOWER_BOUND || best_score > raw_static_eval) &&
+      (bound != HASH_FLAG_UPPER_BOUND || best_score <= raw_static_eval)) {
     update_corrhist(thread, raw_static_eval, best_score, depth);
   }
 
