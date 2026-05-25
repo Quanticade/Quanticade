@@ -122,8 +122,9 @@ uint64_t generate_black_non_pawn_key(position_t *pos) {
 
 int16_t calculate_corrhist_bonus(int16_t static_eval, int16_t search_score,
                                  uint8_t depth) {
-  return clamp((search_score - static_eval) * depth * CORR_HISTORY_BONUS_SCALER / 1024, -CORR_HISTORY_MINMAX,
-               CORR_HISTORY_MINMAX);
+  return clamp((search_score - static_eval) * depth *
+                   CORR_HISTORY_BONUS_SCALER / 1024,
+               -CORR_HISTORY_MINMAX, CORR_HISTORY_MINMAX);
 }
 
 int16_t scale_corrhist_bonus(int16_t score, int16_t bonus) {
@@ -180,7 +181,7 @@ int16_t correction_value(thread_t *thread) {
       NON_PAWN_CORR_HISTORY_MULTIPLIER;
   const int correction =
       pawn_correction + white_non_pawn_correction + black_non_pawn_correction;
-      
+
   return correction / 65536;
 }
 
@@ -236,11 +237,9 @@ void update_capture_history(thread_t *thread, searchstack_t *ss, int move,
                                       : pos->mailbox[get_move_target(move) + 8];
 
   thread->capture_history[pos->mailbox[from]][prev_target_piece][target]
-                         [is_square_threatened(ss, from)]
                          [is_square_threatened(ss, target)] +=
       bonus -
-      thread->capture_history[pos->mailbox[from]][prev_target_piece]
-                             [target][is_square_threatened(ss, from)]
+      thread->capture_history[pos->mailbox[from]][prev_target_piece][target]
                              [is_square_threatened(ss, target)] *
           abs(bonus) / HISTORY_MAX;
 }
