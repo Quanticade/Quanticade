@@ -360,6 +360,8 @@ static inline void score_quiet(thread_t *thread, searchstack_t *ss,
                             [pos->mailbox[source]][target] *
             MO_PAWN_HIST_MULT;
     entry->score /= 1024;
+
+    entry->score += 8192 * (is_direct_check(pos, move) && SEE(pos, move, -100));
   }
 }
 
