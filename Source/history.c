@@ -235,11 +235,11 @@ void update_capture_history(thread_t *thread, searchstack_t *ss, int move,
                           : pos->side ? pos->mailbox[get_move_target(move) - 8]
                                       : pos->mailbox[get_move_target(move) + 8];
 
-  thread->capture_history[pos->mailbox[from]][prev_target_piece][from][target]
+  thread->capture_history[pos->mailbox[from]][prev_target_piece][target]
                          [is_square_threatened(ss, from)]
                          [is_square_threatened(ss, target)] +=
       bonus -
-      thread->capture_history[pos->mailbox[from]][prev_target_piece][from]
+      thread->capture_history[pos->mailbox[from]][prev_target_piece]
                              [target][is_square_threatened(ss, from)]
                              [is_square_threatened(ss, target)] *
           abs(bonus) / HISTORY_MAX;
