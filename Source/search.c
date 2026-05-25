@@ -1172,7 +1172,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       }
 
       // Late Move Pruning
-      if (!pv_node && quiet && moves_seen >= lmp_treshold && !only_pawns(pos)) {
+      if (!pv_node && quiet && moves_seen >= lmp_treshold + ss->history_score / 8192 && !only_pawns(pos)) {
         picker.skip_quiets = 1;
       }
 
