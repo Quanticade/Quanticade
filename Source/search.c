@@ -1434,9 +1434,9 @@ static void print_thinking(thread_t *thread, int16_t score,
   printf("info depth %d seldepth %d score ", current_depth, thread->seldepth);
 
   if (score > -MATE_VALUE && score < -MATE_SCORE) {
-    printf("mate %d ", -(score + MATE_VALUE) / 2 - 1);
+    printf("mate %d ", -(MATE_VALUE - abs(score) + 1) / 2);
   } else if (score > MATE_SCORE && score < MATE_VALUE) {
-    printf("mate %d ", (MATE_VALUE - score) / 2 + 1);
+    printf("mate %d ", (MATE_VALUE - abs(score) + 1) / 2);
   } else {
     if (disable_norm) {
       printf("cp %d ", score);
