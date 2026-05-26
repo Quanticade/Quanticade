@@ -53,8 +53,6 @@ int SE_DEPTH_REDUCTION = 6;
 int IIR_DEPTH_REDUCTION = 3;
 int EVAL_STABILITY_VAR = 9;
 int QS_SEE_THRESHOLD = 7;
-int SE_PV_DOUBLE_MARGIN = 1;
-int SE_DOUBLE_MARGIN = 0;
 int LMR_SHALLOWER_MARGIN = 6;
 int SEARCH_QUIET_HIST_MULT = 1024;
 int SEARCH_CONT1_HIST_MULT = 1024;
@@ -80,7 +78,12 @@ int SEE_QUIET = 42;
 int SEE_CAPTURE = 28;
 int SEE_QUIET_HISTORY_DIVISOR = 36;
 int SEE_NOISY_HISTORY_DIVISOR = 37;
-int SE_TRIPLE_MARGIN = 39;
+int SE_DOUBLE_MARGIN = 0;
+int SE_PV_DOUBLE_MARGIN = 2400;
+int SE_NOISY_DOUBLE_MARGIN = 0;
+int SE_TRIPLE_MARGIN = 624;
+int SE_PV_TRIPLE_MARGIN = 4800;
+int SE_NOISY_TRIPLE_MARGIN = 2400;
 int SE_BETA_BASE = 60;
 int SE_BETA_MULTIPLIER = 66;
 int SE_BETA_DIVISOR = 55;
@@ -320,8 +323,8 @@ static inline void score_noisy(thread_t *thread, searchstack_t *ss,
 
     entry.score = mvv[target_piece % 6] * MO_MVV_MULT;
     entry.score +=
-        thread->capture_history[pos->mailbox[source]][target_piece]
-                               [target][source_threatened][target_threatened] *
+        thread->capture_history[pos->mailbox[source]][target_piece][target]
+                               [source_threatened][target_threatened] *
         MO_CAPT_HIST_MULT;
     entry.score /= 1024;
 
@@ -364,7 +367,8 @@ static inline void score_quiet(thread_t *thread, searchstack_t *ss,
             MO_PAWN_HIST_MULT;
     entry->score /= 1024;
 
-    entry->score += MO_CHECK_SEE * (is_direct_check(pos, move) && SEE(pos, move, -MO_QUIET_SEE));
+    entry->score += MO_CHECK_SEE * (is_direct_check(pos, move) &&
+                                    SEE(pos, move, -MO_QUIET_SEE));
   }
 }
 
@@ -1077,13 +1081,18 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     // No move beat tt score so we extend the search
     if (s_score < s_beta) {
       const int16_t double_margin =
-          SE_DOUBLE_MARGIN + SE_PV_DOUBLE_MARGIN * pv_node;
-      const int16_t triple_margin = SE_TRIPLE_MARGIN;
+          (SE_DOUBLE_MARGIN + SE_PV_DOUBLE_MARGIN * pv_node +
+           SE_NOISY_DOUBLE_MARGIN *
+               (get_move_capture(tt_move) || is_move_promotion(tt_move))) /
+          16;
+      const int16_t triple_margin =
+          (SE_TRIPLE_MARGIN + SE_PV_TRIPLE_MARGIN * pv_node +
+           SE_NOISY_TRIPLE_MARGIN *
+               (get_move_capture(tt_move) || is_move_promotion(tt_move))) /
+          16;
       extensions++;
       extensions += s_score < s_beta - double_margin;
-      if (!get_move_capture(tt_move)) {
-        extensions += s_score < s_beta - triple_margin;
-      }
+      extensions += s_score < s_beta - triple_margin;
     }
 
     // Multicut: Singular search failed high so if singular beta beats our
@@ -1177,7 +1186,10 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       }
 
       // Late Move Pruning
-      if (!pv_node && quiet && moves_seen >= lmp_treshold + ss->history_score / LMP_HISTORY_DIVISOR && !only_pawns(pos)) {
+      if (!pv_node && quiet &&
+          moves_seen >=
+              lmp_treshold + ss->history_score / LMP_HISTORY_DIVISOR &&
+          !only_pawns(pos)) {
         picker.skip_quiets = 1;
       }
 
