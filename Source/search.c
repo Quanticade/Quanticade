@@ -106,6 +106,7 @@ int QS_FUTILITY_THRESHOLD = 94;
 int MO_SEE_THRESHOLD = 100;
 int LMR_QUIET_HIST_DIV = 6405;
 int LMR_CAPT_HIST_DIV = 8372;
+int LMP_HISTORY_DIVISOR = 8192;
 int ASP_WINDOW_DIVISER = 29695;
 int ASP_WINDOW_FAIL_LOW = 27;
 int ASP_WINDOW_FAIL_HIGH = 58;
@@ -122,6 +123,8 @@ int MO_CONT4_HIST_MULT = 1056;
 int MO_PAWN_HIST_MULT = 904;
 int MO_CAPT_HIST_MULT = 1177;
 int MO_MVV_MULT = 15096;
+int MO_CHECK_SEE = 8192;
+int MO_QUIET_SEE = 100;
 int HISTORY_PRUNING_MARGIN = 2485;
 int BNFP_MARGIN = 145;
 
@@ -361,7 +364,7 @@ static inline void score_quiet(thread_t *thread, searchstack_t *ss,
             MO_PAWN_HIST_MULT;
     entry->score /= 1024;
 
-    entry->score += 8192 * (is_direct_check(pos, move) && SEE(pos, move, -100));
+    entry->score += MO_CHECK_SEE * (is_direct_check(pos, move) && SEE(pos, move, -MO_QUIET_SEE));
   }
 }
 
@@ -1174,7 +1177,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       }
 
       // Late Move Pruning
-      if (!pv_node && quiet && moves_seen >= lmp_treshold + ss->history_score / 8192 && !only_pawns(pos)) {
+      if (!pv_node && quiet && moves_seen >= lmp_treshold + ss->history_score / LMP_HISTORY_DIVISOR && !only_pawns(pos)) {
         picker.skip_quiets = 1;
       }
 
