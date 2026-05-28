@@ -320,8 +320,8 @@ static inline void score_noisy(thread_t *thread, searchstack_t *ss,
 
     entry.score = mvv[target_piece % 6] * MO_MVV_MULT;
     entry.score +=
-        thread->capture_history[pos->mailbox[source]][target_piece]
-                               [target][source_threatened][target_threatened] *
+        thread->capture_history[pos->mailbox[source]][target_piece][target]
+                               [source_threatened][target_threatened] *
         MO_CAPT_HIST_MULT;
     entry.score /= 1024;
 
@@ -364,7 +364,8 @@ static inline void score_quiet(thread_t *thread, searchstack_t *ss,
             MO_PAWN_HIST_MULT;
     entry->score /= 1024;
 
-    entry->score += MO_CHECK_SEE * (is_direct_check(pos, move) && SEE(pos, move, -MO_QUIET_SEE));
+    entry->score += MO_CHECK_SEE * (is_direct_check(pos, move) &&
+                                    SEE(pos, move, -MO_QUIET_SEE));
   }
 }
 
@@ -888,7 +889,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
   // Null Move Pruning
   if (cutnode && !in_check && !ss->excluded_move && !ss->null_move &&
-      ply > thread->nmp_min_ply && ss->eval >= beta &&
+      !potential_singularity && ply > thread->nmp_min_ply && ss->eval >= beta &&
       ss->static_eval >= beta - NMP_MULTIPLIER * depth + NMP_BASE_ADD &&
       ss->eval >= ss->static_eval && !is_loss(beta) && !only_pawns(pos)) {
     int R = (depth * NMP_DIVISER + NMP_BASE_REDUCTION) / 256;
@@ -1177,7 +1178,10 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       }
 
       // Late Move Pruning
-      if (!pv_node && quiet && moves_seen >= lmp_treshold + ss->history_score / LMP_HISTORY_DIVISOR && !only_pawns(pos)) {
+      if (!pv_node && quiet &&
+          moves_seen >=
+              lmp_treshold + ss->history_score / LMP_HISTORY_DIVISOR &&
+          !only_pawns(pos)) {
         picker.skip_quiets = 1;
       }
 
