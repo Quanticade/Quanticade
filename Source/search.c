@@ -1064,7 +1064,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     const int s_beta = tt_score - (SE_BETA_BASE + SE_BETA_MULTIPLIER *
                                                       (ss->tt_pv && !pv_node)) *
                                       depth / SE_BETA_DIVISOR;
-    const int s_depth = depth / 2;
+    const int s_depth = (depth - 1) / 2;
 
     ss->excluded_move = tt_move;
 
