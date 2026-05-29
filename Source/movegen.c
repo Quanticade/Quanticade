@@ -391,8 +391,6 @@ void make_move(position_t *pos, uint16_t move) {
     set_bit(pos->occupancies[stm], r_end);
     pos->hash_keys.hash_key          ^= keys.piece_keys[rp][r_start];
     pos->hash_keys.hash_key          ^= keys.piece_keys[rp][r_end];
-    pos->hash_keys.minor_key ^= keys.piece_keys[rp][r_start];
-    pos->hash_keys.minor_key ^= keys.piece_keys[rp][r_end];
     pos->hash_keys.major_key ^= keys.piece_keys[rp][r_start];
     pos->hash_keys.major_key ^= keys.piece_keys[rp][r_end];
   }
