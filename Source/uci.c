@@ -300,8 +300,8 @@ static inline void parse_fen(position_t *pos, thread_t *thread, char *fen) {
 
   pos->hash_keys.hash_key = generate_hash_key(pos);
   pos->hash_keys.pawn_key = generate_pawn_key(pos);
-  pos->hash_keys.non_pawn_key[white] = generate_white_non_pawn_key(pos);
-  pos->hash_keys.non_pawn_key[black] = generate_black_non_pawn_key(pos);
+  pos->hash_keys.minor_key = generate_minor_key(pos);
+  pos->hash_keys.major_key = generate_major_key(pos);
 
   pos->checkers =
       attackers_to(pos,
@@ -495,10 +495,10 @@ static void handle_ucinewgame(uci_ctx_t *ctx, char *args) {
     memset(t->continuation_history, 0, sizeof(t->continuation_history));
     memset(t->correction_history, 0, sizeof(t->correction_history));
     memset(t->pawn_history, 0, sizeof(t->pawn_history));
-    memset(t->w_non_pawn_correction_history, 0,
-           sizeof(t->w_non_pawn_correction_history));
-    memset(t->b_non_pawn_correction_history, 0,
-           sizeof(t->b_non_pawn_correction_history));
+    memset(t->minor_correction_history, 0,
+           sizeof(t->minor_correction_history));
+    memset(t->major_correction_history, 0,
+           sizeof(t->major_correction_history));
   }
 }
 

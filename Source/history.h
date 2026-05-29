@@ -4,8 +4,8 @@
 #include "structs.h"
 
 uint64_t generate_pawn_key(position_t *pos);
-uint64_t generate_white_non_pawn_key(position_t *pos);
-uint64_t generate_black_non_pawn_key(position_t *pos);
+uint64_t generate_minor_key(position_t *pos);
+uint64_t generate_major_key(position_t *pos);
 
 void update_corrhist(thread_t *thread, int16_t static_eval, int16_t score,
                      uint8_t depth);

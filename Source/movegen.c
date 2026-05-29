@@ -22,6 +22,9 @@ const uint8_t castling_rights[64] = {
 uint64_t between[64][64] = {0};
 uint64_t line[64][64] = {0};
 
+const uint8_t minor_pieces[13] = {0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0};
+const uint8_t major_pieces[13] = {0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0};
+
 #define RANK7_MASK 0x000000000000FF00ULL
 #define RANK2_MASK 0x00FF000000000000ULL
 
@@ -294,10 +297,16 @@ void make_move(position_t *pos, uint16_t move) {
     if (bb_piece != NO_PIECE && get_bit(pos->bitboards[bb_piece], target_square)) {
       pop_bit(pos->bitboards[bb_piece], target_square);
       pos->hash_keys.hash_key ^= keys.piece_keys[bb_piece][target_square];
-      if (bb_piece == p || bb_piece == P)
+      if (bb_piece == p || bb_piece == P) {
         pos->hash_keys.pawn_key ^= keys.piece_keys[bb_piece][target_square];
-      else
-        pos->hash_keys.non_pawn_key[stm ^ 1] ^= keys.piece_keys[bb_piece][target_square];
+      }
+      else {
+        if (minor_pieces[bb_piece]) {
+          pos->hash_keys.minor_key ^= keys.piece_keys[bb_piece][target_square];
+        } else if (major_pieces[bb_piece]) {
+          pos->hash_keys.major_key ^= keys.piece_keys[bb_piece][target_square];
+        }
+      }
       pop_bit(pos->occupancies[stm ^ 1], target_square);
     }
   }
@@ -318,8 +327,11 @@ void make_move(position_t *pos, uint16_t move) {
     pos->hash_keys.pawn_key ^= keys.piece_keys[piece][source_square];
     pos->hash_keys.pawn_key ^= keys.piece_keys[piece][target_square];
   } else {
-    pos->hash_keys.non_pawn_key[stm] ^= keys.piece_keys[piece][source_square];
-    pos->hash_keys.non_pawn_key[stm] ^= keys.piece_keys[piece][target_square];
+    if (minor_pieces[piece]) {
+      pos->hash_keys.minor_key ^= keys.piece_keys[piece][target_square];
+    } else if (major_pieces[piece]) {
+      pos->hash_keys.major_key ^= keys.piece_keys[piece][target_square];
+    }
   }
 
   // handle enpassant captures
@@ -343,7 +355,11 @@ void make_move(position_t *pos, uint16_t move) {
     set_bit(pos->bitboards[promoted_piece], target_square);
     pos->mailbox[target_square] = promoted_piece;
     pos->hash_keys.hash_key         ^= keys.piece_keys[promoted_piece][target_square];
-    pos->hash_keys.non_pawn_key[stm] ^= keys.piece_keys[promoted_piece][target_square];
+    if (minor_pieces[promoted_piece]) {
+      pos->hash_keys.minor_key ^= keys.piece_keys[promoted_piece][target_square];
+    } else if (major_pieces[promoted_piece]) {
+      pos->hash_keys.major_key ^= keys.piece_keys[promoted_piece][target_square];
+    }
   }
 
   // hash enpassant if available
@@ -375,8 +391,10 @@ void make_move(position_t *pos, uint16_t move) {
     set_bit(pos->occupancies[stm], r_end);
     pos->hash_keys.hash_key          ^= keys.piece_keys[rp][r_start];
     pos->hash_keys.hash_key          ^= keys.piece_keys[rp][r_end];
-    pos->hash_keys.non_pawn_key[stm] ^= keys.piece_keys[rp][r_start];
-    pos->hash_keys.non_pawn_key[stm] ^= keys.piece_keys[rp][r_end];
+    pos->hash_keys.minor_key ^= keys.piece_keys[rp][r_start];
+    pos->hash_keys.minor_key ^= keys.piece_keys[rp][r_end];
+    pos->hash_keys.major_key ^= keys.piece_keys[rp][r_start];
+    pos->hash_keys.major_key ^= keys.piece_keys[rp][r_end];
   }
 
   // hash castling
