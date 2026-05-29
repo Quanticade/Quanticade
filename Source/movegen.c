@@ -328,8 +328,10 @@ void make_move(position_t *pos, uint16_t move) {
     pos->hash_keys.pawn_key ^= keys.piece_keys[piece][target_square];
   } else {
     if (minor_pieces[piece]) {
+      pos->hash_keys.minor_key ^= keys.piece_keys[piece][source_square];
       pos->hash_keys.minor_key ^= keys.piece_keys[piece][target_square];
     } else if (major_pieces[piece]) {
+      pos->hash_keys.major_key ^= keys.piece_keys[piece][source_square];
       pos->hash_keys.major_key ^= keys.piece_keys[piece][target_square];
     }
   }
