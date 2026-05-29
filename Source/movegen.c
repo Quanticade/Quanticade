@@ -389,10 +389,10 @@ void make_move(position_t *pos, uint16_t move) {
   pos->occupancies[both] = pos->occupancies[white] | pos->occupancies[black];
 
   pos->checkers = attackers_to(pos,
-                               stm == white ? get_lsb(pos->bitboards[K])
-                                            : get_lsb(pos->bitboards[k]),
-                               pos->occupancies[both]) &
-                  pos->occupancies[stm ^ 1];
+                             stm == white ? get_lsb(pos->bitboards[k])
+                                          : get_lsb(pos->bitboards[K]),
+                             pos->occupancies[both]) &
+                pos->occupancies[stm];
   pos->checker_count = popcount(pos->checkers);
 
   update_slider_pins(pos, white);
