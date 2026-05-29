@@ -320,8 +320,8 @@ static inline void score_noisy(thread_t *thread, searchstack_t *ss,
 
     entry.score = mvv[target_piece % 6] * MO_MVV_MULT;
     entry.score +=
-        thread->capture_history[pos->mailbox[source]][target_piece]
-                               [target][source_threatened][target_threatened] *
+        thread->capture_history[pos->mailbox[source]][target_piece][target]
+                               [source_threatened][target_threatened] *
         MO_CAPT_HIST_MULT;
     entry.score /= 1024;
 
@@ -364,7 +364,8 @@ static inline void score_quiet(thread_t *thread, searchstack_t *ss,
             MO_PAWN_HIST_MULT;
     entry->score /= 1024;
 
-    entry->score += MO_CHECK_SEE * (is_direct_check(pos, move) && SEE(pos, move, -MO_QUIET_SEE));
+    entry->score += MO_CHECK_SEE * (is_direct_check(pos, move) &&
+                                    SEE(pos, move, -MO_QUIET_SEE));
   }
 }
 
@@ -505,6 +506,11 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
 
   if (ply > thread->seldepth) {
     thread->seldepth = ply;
+  }
+
+  if (is_repetition(thread) || pos->fifty >= 100) {
+    // return draw score
+    return 1 - (thread->nodes & 2);
   }
 
   uint16_t best_move = 0;
@@ -1177,7 +1183,10 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       }
 
       // Late Move Pruning
-      if (!pv_node && quiet && moves_seen >= lmp_treshold + ss->history_score / LMP_HISTORY_DIVISOR && !only_pawns(pos)) {
+      if (!pv_node && quiet &&
+          moves_seen >=
+              lmp_treshold + ss->history_score / LMP_HISTORY_DIVISOR &&
+          !only_pawns(pos)) {
         picker.skip_quiets = 1;
       }
 
