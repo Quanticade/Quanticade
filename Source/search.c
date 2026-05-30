@@ -533,7 +533,7 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
     return tt_score;
   }
 
-  const uint8_t in_check = stm_in_check(pos);
+  const uint8_t in_check = !!pos->checkers;
 
   if (in_check) {
     ss->static_eval = NO_SCORE;
@@ -765,7 +765,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   }
 
   // is king in check
-  uint8_t in_check = stm_in_check(pos);
+  uint8_t in_check = !!pos->checkers;
 
   // recursion escape condition
   if (depth <= 0) {
@@ -1267,7 +1267,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       R -= ss->tt_pv * LMR_TT_PV;
       R += (ss->tt_pv && tt_hit && tt_score <= alpha) * LMR_TT_SCORE;
       R -= (ss->tt_pv && cutnode) * LMR_TT_PV_CUTNODE;
-      R -= stm_in_check(next_pos) * LMR_IN_CHECK; // check on the new position
+      R -= !!next_pos->checkers * LMR_IN_CHECK; // check on the new position
       R += (ss->cutoff_cnt > 3) * LMR_CUTOFF_CNT;
       R -= improving * LMR_IMPROVING;
       R += (bound == HASH_FLAG_EXACT) * LMR_HASH_FLAG_EXACT;
