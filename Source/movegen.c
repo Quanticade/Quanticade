@@ -222,14 +222,10 @@ uint8_t is_legal(position_t *pos, uint16_t move) {
   uint8_t  stm       = pos->side;
   uint8_t  king      = get_lsb(pos->bitboards[KING + 6 * stm]);
 
-  uint64_t checkers      = attackers_to(pos, king, pos->occupancies[both]) &
-                           pos->occupancies[stm ^ 1];
-  uint8_t  checker_count = popcount(checkers);
-
-  if (checkers && source != king) {
-    if (checker_count > 1)
+  if (pos->checkers && source != king) {
+    if (pos->checker_count > 1)
       return 0;
-    uint8_t attacker   = get_lsb(checkers);
+    uint8_t attacker   = get_lsb(pos->checkers);
     uint8_t mod_target = get_move_enpassant(move) ? target - (stm ? 8 : -8) : target;
     if (between[king][attacker] & BB(target) || mod_target == attacker)
       goto pinners;
