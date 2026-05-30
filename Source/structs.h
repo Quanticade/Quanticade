@@ -108,6 +108,7 @@ typedef struct position {
   uint8_t side;
   uint8_t enpassant;
   uint8_t castle;
+  uint8_t castle_rook_sq[2][2];
 } position_t;
 
 typedef struct PV {

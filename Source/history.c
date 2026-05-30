@@ -215,7 +215,7 @@ void update_corrhist(thread_t *thread, int16_t static_eval, int16_t score,
 void update_quiet_history(thread_t *thread, searchstack_t *ss, int move,
                           int bonus) {
   position_t *pos = &thread->positions[thread->ply];
-  int target = get_move_target(move);
+  int target = get_history_target(move);
   int source = get_move_source(move);
   thread->quiet_history[pos->side][source][target][is_square_threatened(
       ss, source)][is_square_threatened(ss, target)] +=
@@ -248,10 +248,10 @@ void update_capture_history(thread_t *thread, searchstack_t *ss, int move,
 int16_t get_conthist_score(thread_t *thread, searchstack_t *ss, int move,
                            uint8_t ply) {
   if (thread->ply >= ply && (ss - ply)->piece != NO_PIECE) {
-    return thread->continuation_history[(ss - ply)->piece][get_move_target(
+    return thread->continuation_history[(ss - ply)->piece][get_history_target(
         (ss - ply)->move)][thread->positions[thread->ply]
                                .mailbox[get_move_source(move)]]
-                                       [get_move_target(move)];
+                                       [get_history_target(move)];
   } else {
     return 0;
   }
@@ -267,9 +267,9 @@ void update_continuation_histories(thread_t *thread, searchstack_t *ss,
   for (uint8_t i = 0; i < count; ++i) {
     int prev_piece = (ss - cont_hist_updates[i])->piece;
     if (thread->ply >= cont_hist_updates[i] && prev_piece != NO_PIECE) {
-      int prev_target = get_move_target((ss - cont_hist_updates[i])->move);
+      int prev_target = get_history_target((ss - cont_hist_updates[i])->move);
       int piece = pos->mailbox[get_move_source(move)];
-      int target = get_move_target(move);
+      int target = get_history_target(move);
       thread->continuation_history[prev_piece][prev_target][piece][target] +=
           bonus - total_score * abs(bonus) / HISTORY_MAX;
     }
@@ -278,7 +278,7 @@ void update_continuation_histories(thread_t *thread, searchstack_t *ss,
 
 void update_pawn_history(thread_t *thread, int move, int bonus) {
   position_t *pos = &thread->positions[thread->ply];
-  int target = get_move_target(move);
+  int target = get_history_target(move);
   int source = get_move_source(move);
   thread->pawn_history[pos->hash_keys.pawn_key % 2048][pos->mailbox[source]]
                       [target] +=

@@ -45,6 +45,7 @@ int32_t move_overhead = 10;
 uint8_t disable_norm = 0;
 uint8_t soft_nodes = 0;
 uint8_t minimal = 0;
+uint8_t chess960 = 0;
 
 double DEF_TIME_MULTIPLIER = 0.09290182937090609;
 double DEF_INC_MULTIPLIER = 0.8482062866652279;
@@ -141,8 +142,18 @@ static inline int parse_move(position_t *pos, thread_t *thread,
   for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
     const int move = move_list->entry[move_count].move;
 
-    if (source_square != get_move_source(move) ||
-        target_square != get_move_target(move))
+    if (source_square != get_move_source(move))
+      continue;
+
+    const uint8_t castling = get_move_castling(move);
+    if (castling) {
+      const uint8_t king_dest = castle_king_dest(pos->side, castle_side(castling));
+      if (target_square == get_move_target(move) || target_square == king_dest)
+        return move;
+      continue;
+    }
+
+    if (target_square != get_move_target(move))
       continue;
 
     const int promoted_piece = get_move_promoted(pos->side, move);
@@ -164,6 +175,10 @@ static inline void reset_board(position_t *pos, thread_t *thread) {
   pos->side = 0;
   pos->enpassant = no_sq;
   pos->castle = 0;
+  pos->castle_rook_sq[white][0] = no_sq;
+  pos->castle_rook_sq[white][1] = no_sq;
+  pos->castle_rook_sq[black][0] = no_sq;
+  pos->castle_rook_sq[black][1] = no_sq;
   pos->checkers = 0;
   pos->checker_count = 0;
   thread->repetition_index = 0;
@@ -202,7 +217,7 @@ void generate_fen(position_t *pos, char *fen) {
 
   if (pos->castle == 0) {
     *ptr++ = '-';
-  } else {
+  } else if (!chess960) {
     if (pos->castle & wk)
       *ptr++ = 'K';
     if (pos->castle & wq)
@@ -211,6 +226,16 @@ void generate_fen(position_t *pos, char *fen) {
       *ptr++ = 'k';
     if (pos->castle & bq)
       *ptr++ = 'q';
+  } else {
+    const uint8_t bits[2][2] = {{wk, wq}, {bk, bq}};
+    for (int color = white; color <= black; ++color) {
+      for (int cs = 0; cs < 2; ++cs) {
+        if (!(pos->castle & bits[color][cs]))
+          continue;
+        char ch = 'a' + (pos->castle_rook_sq[color][cs] & 7);
+        *ptr++ = (color == white) ? toupper((unsigned char)ch) : ch;
+      }
+    }
   }
 
   *ptr++ = ' ';
@@ -260,21 +285,45 @@ static inline void parse_fen(position_t *pos, thread_t *thread, char *fen) {
   pos->side = (*fen == 'w') ? white : black;
   fen += 2;
 
+  const uint8_t wksq = get_lsb(pos->bitboards[K]);
+  const uint8_t bksq = get_lsb(pos->bitboards[k]);
   while (*fen && *fen != ' ') {
-    switch (*fen++) {
-    case 'K':
-      pos->castle |= wk;
-      break;
-    case 'Q':
-      pos->castle |= wq;
-      break;
-    case 'k':
-      pos->castle |= bk;
-      break;
-    case 'q':
-      pos->castle |= bq;
-      break;
+    const char c = *fen++;
+    if (c == '-')
+      continue;
+    const uint8_t color = (c >= 'A' && c <= 'Z') ? white : black;
+    const uint8_t rook_piece = (color == white) ? R : r;
+    const uint8_t ksq = (color == white) ? wksq : bksq;
+    const uint8_t rank = (color == white) ? 7 : 0;
+    const uint8_t king_file = ksq & 7;
+    const char uc = toupper((unsigned char)c);
+    uint8_t cs;
+    uint8_t rook_sq = no_sq;
+    if (uc == 'K') {
+      cs = 0;
+      for (int f = 7; f > king_file; --f)
+        if (get_bit(pos->bitboards[rook_piece], rank * 8 + f)) {
+          rook_sq = rank * 8 + f;
+          break;
+        }
+    } else if (uc == 'Q') {
+      cs = 1;
+      for (int f = 0; f < king_file; ++f)
+        if (get_bit(pos->bitboards[rook_piece], rank * 8 + f)) {
+          rook_sq = rank * 8 + f;
+          break;
+        }
+    } else if (uc >= 'A' && uc <= 'H') {
+      const uint8_t f = uc - 'A';
+      rook_sq = rank * 8 + f;
+      cs = (f > king_file) ? 0 : 1;
+    } else {
+      continue;
     }
+    if (rook_sq == no_sq)
+      continue;
+    pos->castle |= (color == white) ? (cs == 0 ? wk : wq) : (cs == 0 ? bk : bq);
+    pos->castle_rook_sq[color][cs] = rook_sq;
   }
 
   fen++;
@@ -443,13 +492,19 @@ static inline void *parse_go(void *searchthread_info) {
 }
 
 void print_move(int move) {
+  uint8_t source = get_move_source(move);
+  uint8_t target = get_move_target(move);
+  const uint8_t castling = get_move_castling(move);
+  if (castling && !chess960) {
+    const uint8_t rank = source >> 3;
+    target = rank * 8 + (castling == KING_CASTLE ? 6 : 2);
+  }
   if (is_move_promotion(move))
-    printf("%s%s%c", square_to_coordinates[get_move_source(move)],
-           square_to_coordinates[get_move_target(move)],
+    printf("%s%s%c", square_to_coordinates[source],
+           square_to_coordinates[target],
            promoted_pieces[get_move_promoted(white, move)]);
   else
-    printf("%s%s", square_to_coordinates[get_move_source(move)],
-           square_to_coordinates[get_move_target(move)]);
+    printf("%s%s", square_to_coordinates[source], square_to_coordinates[target]);
 }
 
 typedef struct {
@@ -538,6 +593,7 @@ static void handle_uci(uci_ctx_t *ctx, char *args) {
   printf("option name SoftNodes type check default false\n");
   printf("option name DisableNormalization type check default false\n");
   printf("option name Minimal type check default false\n");
+  printf("option name UCI_Chess960 type check default false\n");
   print_spsa_table_uci();
   printf("uciok\n");
 }
@@ -621,6 +677,7 @@ static void setoption_bool(uci_ctx_t *ctx, char *value, uint8_t *target) {
 SETOPTION_BOOL(soft_nodes, soft_nodes)
 SETOPTION_BOOL(disable_norm, disable_norm)
 SETOPTION_BOOL(minimal, minimal)
+SETOPTION_BOOL(chess960, chess960)
 
 static void setoption_move_overhead(uci_ctx_t *ctx, char *value) {
   (void)ctx;
@@ -637,6 +694,7 @@ static const setoption_entry_t setoption_table[] = {
     {"SoftNodes", setoption_soft_nodes},
     {"DisableNormalization", setoption_disable_norm},
     {"Minimal", setoption_minimal},
+    {"UCI_Chess960", setoption_chess960},
 };
 
 static void handle_setoption(uci_ctx_t *ctx, char *input) {
