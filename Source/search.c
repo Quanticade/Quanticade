@@ -1505,7 +1505,7 @@ void *iterative_deepening(void *thread_void) {
 
     thread->seldepth = 0;
 
-    uint16_t window = ASP_WINDOW;
+    uint16_t window = ASP_WINDOW + (thread_count % 8) - 1;
 
     uint8_t fail_high_count = 0;
 
