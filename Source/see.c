@@ -65,6 +65,22 @@ int SEE(position_t *pos, int move, int threshold) {
   nextVictim = promotion ? promotion : pos->mailbox[from];
   nextVictim = nextVictim > 5 ? nextVictim - 6 : nextVictim;
 
+  // A piece is pinned but can still capture if the target lies on its
+  // pin ray (between the king and the pinner, or the pinner itself).
+  // The pin ray is the intersection of empty-board slider attacks from
+  // the king and from the pinned piece's square.
+  if (!get_move_castling(move)) {
+    int stm      = pos->side;
+    int stm_king = get_lsb(pos->bitboards[KING + 6 * stm]);
+    if ((1ULL << from) & pos->blockers[stm]) {
+      uint64_t pin_line =
+          (get_bishop_attacks(stm_king, 0ULL) & get_bishop_attacks(from, 0ULL)) |
+          (get_rook_attacks(stm_king, 0ULL)   & get_rook_attacks(from, 0ULL));
+      if (!((1ULL << to) & pin_line))
+        return 0;
+    }
+  }
+
   // Balance is the value of the move minus threshold. Function
   // call takes care for Enpass, Promotion and Castling moves.
   balance = move_estimated_value(pos, move) - threshold;
@@ -110,18 +126,49 @@ int SEE(position_t *pos, int move, int threshold) {
       break;
     }
 
-    // Find our weakest piece to attack with
-    for (nextVictim = PAWN; nextVictim <= QUEEN; nextVictim++) {
-      if (myAttackers &
-          (pos->bitboards[nextVictim] | pos->bitboards[nextVictim + 6])) {
-        break;
+    // Find weakest attacker that is not illegally pinned.
+    // A pinned piece may still capture if the target is on its pin ray.
+    // We use pos->blockers computed for the initial position. this is an
+    // approximation. if a pinner is itself captured during the exchange,
+    // a previously pinned piece could become free, but tracking dynamic
+    // pins per iteration would be too expensive.
+    int colour_king = get_lsb(pos->bitboards[KING + 6 * colour]);
+    int pieceSq     = -1;
+
+    for (nextVictim = PAWN; nextVictim <= KING; nextVictim++) {
+      uint64_t candidates = myAttackers &
+          (pos->bitboards[nextVictim] | pos->bitboards[nextVictim + 6]);
+
+      while (candidates) {
+        int sq    = get_lsb(candidates);
+        candidates &= candidates - 1;
+
+        // Unpinned pieces and the king can always capture
+        if (nextVictim == KING || !((1ULL << sq) & pos->blockers[colour])) {
+          pieceSq = sq;
+          break;
+        }
+
+        // Pinned piece: legal only if 'to' lies on the pin ray
+        uint64_t pin_line =
+            (get_bishop_attacks(colour_king, 0ULL) & get_bishop_attacks(sq, 0ULL)) |
+            (get_rook_attacks(colour_king, 0ULL)   & get_rook_attacks(sq, 0ULL));
+        if ((1ULL << to) & pin_line) {
+          pieceSq = sq;
+          break;
+        }
       }
+
+      if (pieceSq >= 0)
+        break;
     }
 
-    // Remove this attacker from the occupied
-    occupied ^=
-        (1ull << get_lsb(myAttackers & (pos->bitboards[nextVictim] |
-                                        pos->bitboards[nextVictim + 6])));
+    // All remaining attackers are pinned and cannot legally recapture
+    if (pieceSq < 0)
+      break;
+
+    // Remove this attacker from occupied
+    occupied ^= (1ULL << pieceSq);
 
     // A diagonal move may reveal bishop or queen attackers
     if (nextVictim == PAWN || nextVictim == BISHOP || nextVictim == QUEEN)
