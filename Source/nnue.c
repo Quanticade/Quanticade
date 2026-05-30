@@ -74,10 +74,17 @@ uint8_t need_refresh(uint8_t *mailbox, uint16_t move) {
   uint8_t moved_piece = mailbox[get_move_source(move)];
   if (moved_piece == k || moved_piece == K) {
     uint8_t side = moved_piece >= 6;
-    uint8_t source_flip = (get_move_source(move) & 7) >= 4;
-    uint8_t target_flip = (get_move_target(move) & 7) >= 4;
-    if ((get_king_bucket(side, get_move_source(move)) !=
-         get_king_bucket(side, get_move_target(move))) ||
+    uint8_t ksq = get_move_source(move);
+    uint8_t kdest;
+    uint8_t castling = get_move_castling(move);
+    if (castling) {
+      kdest = castle_king_dest(side, castle_side(castling));
+    } else {
+      kdest = get_move_target(move);
+    }
+    uint8_t source_flip = (ksq & 7) >= 4;
+    uint8_t target_flip = (kdest & 7) >= 4;
+    if ((get_king_bucket(side, ksq) != get_king_bucket(side, kdest)) ||
         source_flip != target_flip) {
       return 1;
     }
@@ -928,44 +935,17 @@ accumulator_make_move(accumulator_t *accumulator,
   }
 
   else if (castling) {
-    // switch target square
-    switch (to) {
-    // white castles king side
-    case (g1):
-      // move H rook
-      accumulator_addaddsubsub(accumulator, prev_accumulator, white_king_square,
-                               black_king_square, white_bucket, black_bucket, R,
-                               moving_piece, R, moving_piece, h1, from, f1, to,
-                               color_flag);
-      break;
-
-    // white castles queen side
-    case (c1):
-      // move A rook
-      accumulator_addaddsubsub(accumulator, prev_accumulator, white_king_square,
-                               black_king_square, white_bucket, black_bucket, R,
-                               moving_piece, R, moving_piece, a1, from, d1, to,
-                               color_flag);
-      break;
-
-    // black castles king side
-    case (g8):
-      // move H rook
-      accumulator_addaddsubsub(accumulator, prev_accumulator, white_king_square,
-                               black_king_square, white_bucket, black_bucket, r,
-                               moving_piece, r, moving_piece, h8, from, f8, to,
-                               color_flag);
-      break;
-
-    // black castles queen side
-    case (c8):
-      // move A rook
-      accumulator_addaddsubsub(accumulator, prev_accumulator, white_king_square,
-                               black_king_square, white_bucket, black_bucket, r,
-                               moving_piece, r, moving_piece, a8, from, d8, to,
-                               color_flag);
-      break;
-    }
+    int mover = moving_piece >= 6;
+    int cs = castle_side(castling);
+    int rook_piece = mover == white ? R : r;
+    int ksq = from;
+    int rsq = to;
+    int kdest = castle_king_dest(mover, cs);
+    int rdest = castle_rook_dest(mover, cs);
+    accumulator_addaddsubsub(accumulator, prev_accumulator, white_king_square,
+                             black_king_square, white_bucket, black_bucket,
+                             rook_piece, moving_piece, rook_piece, moving_piece,
+                             rsq, ksq, rdest, kdest, color_flag);
   } else {
     accumulator_addsub(accumulator, prev_accumulator, white_king_square,
                        black_king_square, white_bucket, black_bucket,
