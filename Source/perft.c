@@ -85,17 +85,9 @@ void perft_test(position_t *pos, thread_t *searchinfo, int depth) {
     long old_nodes = searchinfo->nodes - cummulative_nodes;
     (void)old_nodes;
 
-    // print move
-    printf("     move: %s%s%c  nodes: %ld\n",
-           square_to_coordinates[get_move_source(
-               move_list->entry[move_count].move)],
-           square_to_coordinates[get_move_target(
-               move_list->entry[move_count].move)],
-           is_move_promotion(move_list->entry[move_count].move)
-               ? promoted_pieces[get_move_promoted(
-                     pos->side, move_list->entry[move_count].move)]
-               : ' ',
-           old_nodes);
+    printf("     move: ");
+    print_move(move_list->entry[move_count].move);
+    printf("  nodes: %ld\n", old_nodes);
   }
 
   // print results

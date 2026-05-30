@@ -1,6 +1,7 @@
 #ifndef MOVE_H
 #define MOVE_H
 
+#include "enums.h"
 #include "structs.h"
 
 #define QUIET 0
@@ -28,5 +29,32 @@ uint8_t get_move_capture(uint16_t move);
 uint8_t get_move_double(uint16_t move);
 uint8_t get_move_enpassant(uint16_t move);
 uint8_t get_move_castling(uint16_t move);
+
+static inline uint8_t castle_side(uint8_t castling) {
+  return castling == KING_CASTLE ? 0 : 1;
+}
+
+static inline uint8_t castle_bit(uint8_t color, uint8_t cs) {
+  return color == white ? (cs == 0 ? wk : wq) : (cs == 0 ? bk : bq);
+}
+
+static inline uint8_t castle_rank(uint8_t color) {
+  return color == white ? 7 : 0;
+}
+
+static inline uint8_t castle_king_dest(uint8_t color, uint8_t cs) {
+  return castle_rank(color) * 8 + (cs == 0 ? 6 : 2);
+}
+
+static inline uint8_t castle_rook_dest(uint8_t color, uint8_t cs) {
+  return castle_rank(color) * 8 + (cs == 0 ? 5 : 3);
+}
+
+static inline uint8_t get_history_target(uint16_t move) {
+  uint8_t castling = get_move_castling(move);
+  if (castling)
+    return (get_move_source(move) & 56) + (castling == KING_CASTLE ? 6 : 2);
+  return get_move_target(move);
+}
 
 #endif

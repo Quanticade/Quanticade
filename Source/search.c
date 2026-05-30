@@ -348,7 +348,7 @@ static inline void score_quiet(thread_t *thread, searchstack_t *ss,
     }
 
     uint8_t source = get_move_source(move);
-    uint8_t target = get_move_target(move);
+    uint8_t target = get_history_target(move);
     uint8_t source_threatened = is_square_threatened(ss, source);
     uint8_t target_threatened = is_square_threatened(ss, target);
 
@@ -1141,10 +1141,10 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     ss->history_score =
         quiet
             ? thread->quiet_history[pos->side][get_move_source(move)]
-                                   [get_move_target(move)][is_square_threatened(
+                                   [get_history_target(move)][is_square_threatened(
                                        ss, get_move_source(move))]
                                    [is_square_threatened(
-                                       ss, get_move_target(move))] *
+                                       ss, get_history_target(move))] *
                       SEARCH_QUIET_HIST_MULT +
                   get_conthist_score(thread, ss, move, 1) *
                       SEARCH_CONT1_HIST_MULT +

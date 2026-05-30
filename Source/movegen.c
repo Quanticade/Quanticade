@@ -13,12 +13,6 @@
 extern nnue_settings_t nnue_settings;
 extern keys_t keys;
 
-const uint8_t castling_rights[64] = {
-    7,  15, 15, 15, 3,  15, 15, 11, 15, 15, 15, 15, 15, 15, 15, 15,
-    15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-    15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-    15, 15, 15, 15, 15, 15, 15, 15, 13, 15, 15, 15, 12, 15, 15, 14};
-
 uint64_t between[64][64] = {0};
 uint64_t line[64][64] = {0};
 
@@ -91,7 +85,7 @@ uint8_t is_pseudo_legal(position_t *pos, uint16_t move) {
       if (opp == NO_PIECE || pos->side == opp / 6)
         return 0;
     }
-  } else {
+  } else if (!get_move_castling(move)) {
     if (pos->mailbox[target] != NO_PIECE)
       return 0;
   }
@@ -102,44 +96,25 @@ uint8_t is_pseudo_legal(position_t *pos, uint16_t move) {
     if (noc_piece != KING || pos->castle == 0)
       return 0;
 
-    uint8_t king_side  = pos->side ? bk : wk;
-    uint8_t queen_side = pos->side ? bq : wq;
-    if (!((castling_type == KING_CASTLE  && pos->castle & king_side) ||
-          (castling_type == QUEEN_CASTLE && pos->castle & queen_side)))
+    uint8_t cs = castle_side(castling_type);
+    if (!(pos->castle & castle_bit(pos->side, cs)))
       return 0;
 
-    uint8_t squares[5] = {0};
-    switch (target) {
-    case g1:
-      squares[0] = e1; squares[1] = f1; squares[2] = g1; squares[3] = h1;
-      break;
-    case c1:
-      squares[0] = e1; squares[1] = d1; squares[2] = c1;
-      squares[3] = a1; squares[4] = b1;
-      break;
-    case g8:
-      squares[0] = e8; squares[1] = f8; squares[2] = g8; squares[3] = h8;
-      break;
-    case c8:
-      squares[0] = e8; squares[1] = d8; squares[2] = c8;
-      squares[3] = a8; squares[4] = b8;
-      break;
-    }
-
-    if (pos->mailbox[squares[0]] == NO_PIECE ||
-        pos->mailbox[squares[1]] != NO_PIECE ||
-        pos->mailbox[squares[2]] != NO_PIECE ||
-        pos->mailbox[squares[3]] == NO_PIECE)
+    uint8_t ksq = origin;
+    uint8_t rsq = target;
+    if (pos->castle_rook_sq[pos->side][cs] != rsq)
+      return 0;
+    if (pos->mailbox[rsq] != ROOK + 6 * pos->side ||
+        pos->mailbox[ksq] != KING + 6 * pos->side)
       return 0;
 
-    if (is_square_attacked(pos, squares[0], pos->side ^ 1) ||
-        is_square_attacked(pos, squares[1], pos->side ^ 1))
-      return 0;
+    uint8_t kdest = castle_king_dest(pos->side, cs);
+    uint8_t rdest = castle_rook_dest(pos->side, cs);
 
-    if (castling_type == KING_CASTLE)
-      return 1;
-
-    return pos->mailbox[squares[4]] == NO_PIECE;
+    uint64_t must_empty = ((between[ksq][kdest] | BB(kdest)) |
+                           (between[rsq][rdest] | BB(rdest))) &
+                          ~(BB(ksq) | BB(rsq));
+    return !(must_empty & pos->occupancies[both]);
 
   } else if (get_move_enpassant(move)) {
     if (noc_piece != PAWN)
@@ -246,7 +221,11 @@ uint8_t is_legal(position_t *pos, uint16_t move) {
   }
 
   if (get_move_castling(move)) {
-    uint64_t squares = between[source][target] | source_bb;
+    if (pos->blockers[stm] & BB(target))
+      return 0;
+    uint8_t  cs      = castle_side(get_move_castling(move));
+    uint8_t  kdest   = castle_king_dest(stm, cs);
+    uint64_t squares = between[source][kdest] | source_bb;
     while (squares) {
       uint8_t sq = poplsb(&squares);
       if (attackers_to(pos, sq, pos->occupancies[both]) & pos->occupancies[stm ^ 1])
@@ -299,23 +278,25 @@ void make_move(position_t *pos, uint16_t move) {
   }
 
   // move piece
-  pop_bit(pos->bitboards[piece], source_square);
-  set_bit(pos->bitboards[piece], target_square);
-  pos->mailbox[source_square] = NO_PIECE;
-  pos->mailbox[target_square] = piece;
+  if (!castling) {
+    pop_bit(pos->bitboards[piece], source_square);
+    set_bit(pos->bitboards[piece], target_square);
+    pos->mailbox[source_square] = NO_PIECE;
+    pos->mailbox[target_square] = piece;
 
-  pop_bit(pos->occupancies[stm], source_square);
-  set_bit(pos->occupancies[stm], target_square);
+    pop_bit(pos->occupancies[stm], source_square);
+    set_bit(pos->occupancies[stm], target_square);
 
-  // hash piece
-  pos->hash_keys.hash_key ^= keys.piece_keys[piece][source_square];
-  pos->hash_keys.hash_key ^= keys.piece_keys[piece][target_square];
-  if (piece == p || piece == P) {
-    pos->hash_keys.pawn_key ^= keys.piece_keys[piece][source_square];
-    pos->hash_keys.pawn_key ^= keys.piece_keys[piece][target_square];
-  } else {
-    pos->hash_keys.non_pawn_key[stm] ^= keys.piece_keys[piece][source_square];
-    pos->hash_keys.non_pawn_key[stm] ^= keys.piece_keys[piece][target_square];
+    // hash piece
+    pos->hash_keys.hash_key ^= keys.piece_keys[piece][source_square];
+    pos->hash_keys.hash_key ^= keys.piece_keys[piece][target_square];
+    if (piece == p || piece == P) {
+      pos->hash_keys.pawn_key ^= keys.piece_keys[piece][source_square];
+      pos->hash_keys.pawn_key ^= keys.piece_keys[piece][target_square];
+    } else {
+      pos->hash_keys.non_pawn_key[stm] ^= keys.piece_keys[piece][source_square];
+      pos->hash_keys.non_pawn_key[stm] ^= keys.piece_keys[piece][target_square];
+    }
   }
 
   // handle enpassant captures
@@ -353,32 +334,53 @@ void make_move(position_t *pos, uint16_t move) {
     pos->hash_keys.hash_key ^= keys.enpassant_keys[pos->enpassant];
   }
 
-  // handle castling moves
   if (castling) {
-    int r_start, r_end, rp;
-    switch (target_square) {
-    case g1: r_start = h1; r_end = f1; rp = R; break;
-    case c1: r_start = a1; r_end = d1; rp = R; break;
-    case g8: r_start = h8; r_end = f8; rp = r; break;
-    case c8: r_start = a8; r_end = d8; rp = r; break;
-    default: r_start = r_end = rp = 0; break;
-    }
-    pop_bit(pos->bitboards[rp], r_start);
-    set_bit(pos->bitboards[rp], r_end);
-    pos->mailbox[r_start] = NO_PIECE;
-    pos->mailbox[r_end]   = rp;
-    pop_bit(pos->occupancies[stm], r_start);
-    set_bit(pos->occupancies[stm], r_end);
-    pos->hash_keys.hash_key          ^= keys.piece_keys[rp][r_start];
-    pos->hash_keys.hash_key          ^= keys.piece_keys[rp][r_end];
-    pos->hash_keys.non_pawn_key[stm] ^= keys.piece_keys[rp][r_start];
-    pos->hash_keys.non_pawn_key[stm] ^= keys.piece_keys[rp][r_end];
+    uint8_t cs         = castle_side(castling);
+    uint8_t king_piece = KING + 6 * stm;
+    uint8_t rook_piece = ROOK + 6 * stm;
+    uint8_t ksq        = source_square;
+    uint8_t rsq        = target_square;
+    uint8_t kdest      = castle_king_dest(stm, cs);
+    uint8_t rdest      = castle_rook_dest(stm, cs);
+
+    pop_bit(pos->bitboards[king_piece], ksq);
+    pop_bit(pos->occupancies[stm], ksq);
+    pos->mailbox[ksq] = NO_PIECE;
+    pop_bit(pos->bitboards[rook_piece], rsq);
+    pop_bit(pos->occupancies[stm], rsq);
+    pos->mailbox[rsq] = NO_PIECE;
+
+    set_bit(pos->bitboards[king_piece], kdest);
+    set_bit(pos->occupancies[stm], kdest);
+    pos->mailbox[kdest] = king_piece;
+    set_bit(pos->bitboards[rook_piece], rdest);
+    set_bit(pos->occupancies[stm], rdest);
+    pos->mailbox[rdest] = rook_piece;
+
+    pos->hash_keys.hash_key          ^= keys.piece_keys[king_piece][ksq];
+    pos->hash_keys.hash_key          ^= keys.piece_keys[king_piece][kdest];
+    pos->hash_keys.hash_key          ^= keys.piece_keys[rook_piece][rsq];
+    pos->hash_keys.hash_key          ^= keys.piece_keys[rook_piece][rdest];
+    pos->hash_keys.non_pawn_key[stm] ^= keys.piece_keys[king_piece][ksq];
+    pos->hash_keys.non_pawn_key[stm] ^= keys.piece_keys[king_piece][kdest];
+    pos->hash_keys.non_pawn_key[stm] ^= keys.piece_keys[rook_piece][rsq];
+    pos->hash_keys.non_pawn_key[stm] ^= keys.piece_keys[rook_piece][rdest];
   }
 
-  // hash castling
   pos->hash_keys.hash_key ^= keys.castle_keys[pos->castle];
-  pos->castle &= castling_rights[source_square];
-  pos->castle &= castling_rights[target_square];
+  if (piece == K)
+    pos->castle &= ~(wk | wq);
+  else if (piece == k)
+    pos->castle &= ~(bk | bq);
+  for (int col = white; col <= black; ++col) {
+    for (int cs = 0; cs < 2; ++cs) {
+      uint8_t rsq = pos->castle_rook_sq[col][cs];
+      if (rsq != no_sq && (source_square == rsq || target_square == rsq)) {
+        pos->castle &= ~castle_bit(col, cs);
+        pos->castle_rook_sq[col][cs] = no_sq;
+      }
+    }
+  }
   pos->hash_keys.hash_key ^= keys.castle_keys[pos->castle];
 
   // reset occupancies
@@ -514,36 +516,37 @@ void generate_quiets(position_t *pos, moves *move_list, uint8_t no_reset) {
   }
 
   // castling
-  if (pos->side == white) {
-    if (pos->castle & wk &&
-        !get_bit(pos->occupancies[both], f1) &&
-        !get_bit(pos->occupancies[both], g1) &&
-        !is_square_attacked(pos, e1, black) &&
-        !is_square_attacked(pos, f1, black))
-      add_move(move_list, encode_move(e1, g1, KING_CASTLE));
+  const uint8_t stm = pos->side;
+  const uint8_t ksq = get_lsb(pos->bitboards[KING + 6 * stm]);
+  for (uint8_t cs = 0; cs < 2; ++cs) {
+    if (!(pos->castle & castle_bit(stm, cs)))
+      continue;
+    const uint8_t rsq   = pos->castle_rook_sq[stm][cs];
+    const uint8_t kdest = castle_king_dest(stm, cs);
+    const uint8_t rdest = castle_rook_dest(stm, cs);
 
-    if (pos->castle & wq &&
-        !get_bit(pos->occupancies[both], d1) &&
-        !get_bit(pos->occupancies[both], c1) &&
-        !get_bit(pos->occupancies[both], b1) &&
-        !is_square_attacked(pos, e1, black) &&
-        !is_square_attacked(pos, d1, black))
-      add_move(move_list, encode_move(e1, c1, QUEEN_CASTLE));
-  } else {
-    if (pos->castle & bk &&
-        !get_bit(pos->occupancies[both], f8) &&
-        !get_bit(pos->occupancies[both], g8) &&
-        !is_square_attacked(pos, e8, white) &&
-        !is_square_attacked(pos, f8, white))
-      add_move(move_list, encode_move(e8, g8, KING_CASTLE));
+    const uint64_t must_empty = ((between[ksq][kdest] | BB(kdest)) |
+                                 (between[rsq][rdest] | BB(rdest))) &
+                                ~(BB(ksq) | BB(rsq));
+    if (must_empty & pos->occupancies[both])
+      continue;
 
-    if (pos->castle & bq &&
-        !get_bit(pos->occupancies[both], d8) &&
-        !get_bit(pos->occupancies[both], c8) &&
-        !get_bit(pos->occupancies[both], b8) &&
-        !is_square_attacked(pos, e8, white) &&
-        !is_square_attacked(pos, d8, white))
-      add_move(move_list, encode_move(e8, c8, QUEEN_CASTLE));
+    if (pos->blockers[stm] & BB(rsq))
+      continue;
+    uint64_t squares = between[ksq][kdest] | BB(ksq);
+    uint8_t attacked = 0;
+    while (squares) {
+      const uint8_t sq = poplsb(&squares);
+      if (is_square_attacked(pos, sq, stm ^ 1)) {
+        attacked = 1;
+        break;
+      }
+    }
+    if (attacked)
+      continue;
+
+    add_move(move_list,
+             encode_move(ksq, rsq, cs == 0 ? KING_CASTLE : QUEEN_CASTLE));
   }
 }
 
