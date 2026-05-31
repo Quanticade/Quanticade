@@ -1716,10 +1716,10 @@ void search_position(position_t *pos, thread_t *threads) {
 
   if (thread_count > 1) {
     best_thread = select_thread(threads);
-    if (best_thread != 0) {
-      print_thinking(&threads[best_thread], threads[best_thread].score,
-                     threads[best_thread].completed_depth);
-    }
+    //if (best_thread != 0) {
+    //  print_thinking(&threads[best_thread], threads[best_thread].score,
+     //                threads[best_thread].completed_depth);
+    //}
   }
 
   // print best move
