@@ -1563,6 +1563,10 @@ void *iterative_deepening(void *thread_void) {
       }
     }
 
+    if (!thread->stopped) {
+      thread->completed_depth = thread->depth;
+    }
+
     if (thread->index == 0) {
       if (thread->pv.pv_table[0][0] == prev_best_move) {
         best_move_stability = MIN(best_move_stability + 1, 4);
@@ -1620,6 +1624,7 @@ void search_position(position_t *pos, thread_t *threads) {
     threads[i].score = -INF;
     threads[i].quit = 0;
     threads[i].nmp_min_ply = 0;
+    threads[i].completed_depth = 0;
     memset(&threads[i].pv, 0, sizeof(threads[i].pv));
     memset(&threads[i].neurons, 0, sizeof(simd_t));
     init_accumulator(pos, threads[i].accumulator);

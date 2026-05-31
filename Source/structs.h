@@ -140,6 +140,7 @@ typedef struct searchinfo {
   lazy_acc_state_t lazy[MAX_PLY + 10];
   uint8_t depth;
   uint8_t seldepth;
+  uint8_t completed_depth;
   uint8_t stopped;
   uint8_t quit;
 } thread_t;
