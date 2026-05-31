@@ -320,8 +320,8 @@ static inline void score_noisy(thread_t *thread, searchstack_t *ss,
 
     entry.score = mvv[target_piece % 6] * MO_MVV_MULT;
     entry.score +=
-        thread->capture_history[pos->mailbox[source]][target_piece]
-                               [target][source_threatened][target_threatened] *
+        thread->capture_history[pos->mailbox[source]][target_piece][target]
+                               [source_threatened][target_threatened] *
         MO_CAPT_HIST_MULT;
     entry.score /= 1024;
 
@@ -364,7 +364,8 @@ static inline void score_quiet(thread_t *thread, searchstack_t *ss,
             MO_PAWN_HIST_MULT;
     entry->score /= 1024;
 
-    entry->score += MO_CHECK_SEE * (is_direct_check(pos, move) && SEE(pos, move, -MO_QUIET_SEE));
+    entry->score += MO_CHECK_SEE * (is_direct_check(pos, move) &&
+                                    SEE(pos, move, -MO_QUIET_SEE));
   }
 }
 
@@ -1140,11 +1141,11 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
     ss->history_score =
         quiet
-            ? thread->quiet_history[pos->side][get_move_source(move)]
-                                   [get_history_target(move)][is_square_threatened(
-                                       ss, get_move_source(move))]
-                                   [is_square_threatened(
-                                       ss, get_history_target(move))] *
+            ? thread->quiet_history
+                          [pos->side][get_move_source(move)]
+                          [get_history_target(move)]
+                          [is_square_threatened(ss, get_move_source(move))]
+                          [is_square_threatened(ss, get_history_target(move))] *
                       SEARCH_QUIET_HIST_MULT +
                   get_conthist_score(thread, ss, move, 1) *
                       SEARCH_CONT1_HIST_MULT +
@@ -1177,7 +1178,10 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       }
 
       // Late Move Pruning
-      if (!pv_node && quiet && moves_seen >= lmp_treshold + ss->history_score / LMP_HISTORY_DIVISOR && !only_pawns(pos)) {
+      if (!pv_node && quiet &&
+          moves_seen >=
+              lmp_treshold + ss->history_score / LMP_HISTORY_DIVISOR &&
+          !only_pawns(pos)) {
         picker.skip_quiets = 1;
       }
 
@@ -1609,6 +1613,54 @@ void *iterative_deepening(void *thread_void) {
   return NULL;
 }
 
+int select_thread(thread_t *threads) {
+  if (thread_count == 1) {
+    return 0;
+  }
+
+  int32_t votes[65535] = {0};
+  int min_score = INT_MAX;
+  int first_valid_thread = -1;
+
+  // Find minimal score and first valid thread
+  for (int i = 0; i < thread_count; i++) {
+    const thread_t *thread = &threads[i];
+    if (thread->completed_depth == 0 || thread->pv.pv_table[0][0] == 0) {
+      continue;
+    }
+    if (first_valid_thread == -1) {
+      first_valid_thread = i;
+    }
+    if (thread->score < min_score) {
+      min_score = thread->score;
+    }
+  }
+
+  if (first_valid_thread == -1)
+    return 0;
+
+  int best_thread = first_valid_thread;
+  int best_move_idx = threads[best_thread].pv.pv_table[0][0];
+
+  // Cast votes and elect based on votes the best thread
+  for (int i = 0; i < thread_count; i++) {
+    const thread_t *thread = &threads[i];
+    if (thread->completed_depth == 0 || thread->pv.pv_table[0][0] == 0) {
+      continue;
+    }
+    int move_idx = thread->pv.pv_table[0][0];
+    int32_t weight =
+        (int32_t)(thread->score - min_score + 20) * thread->completed_depth;
+    votes[move_idx] += weight;
+    if (votes[move_idx] > votes[best_move_idx]) {
+      best_thread = i;
+      best_move_idx = move_idx;
+    }
+  }
+
+  return best_thread;
+}
+
 // search position for the best move
 // TODO: Pass in const ply so we can always restore it to
 // original without search changing it
@@ -1655,14 +1707,24 @@ void search_position(position_t *pos, thread_t *threads) {
   if (minimal) {
     if (threads[0].pv.pv_length[0]) {
       // print search info
-      print_thinking(&threads[0], threads[0].score, threads[0].depth - 1);
+      print_thinking(&threads[0], threads[0].score, threads[0].completed_depth);
+    }
+  }
+
+  int best_thread = 0;
+
+  if (thread_count > 1) {
+    best_thread = select_thread(threads);
+    if (best_thread != 0) {
+      print_thinking(&threads[best_thread], threads[best_thread].score,
+                     threads[best_thread].completed_depth);
     }
   }
 
   // print best move
   printf("bestmove ");
-  if (threads->pv.pv_table[0][0]) {
-    print_move(threads->pv.pv_table[0][0]);
+  if (threads[best_thread].pv.pv_table[0][0]) {
+    print_move(threads[best_thread].pv.pv_table[0][0]);
   } else {
     printf("(none)");
   }
