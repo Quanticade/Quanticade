@@ -1433,14 +1433,15 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   return best_score;
 }
 
-static void print_thinking(thread_t *thread, int16_t score,
+static void print_thinking(thread_t *threads, uint16_t thread_id, int16_t score,
                            uint8_t current_depth) {
 
-  uint64_t nodes = total_nodes(thread, thread_count);
-  uint64_t time = get_time_ms() - thread->starttime;
+  uint64_t nodes = total_nodes(threads, thread_count);
+  uint64_t time = get_time_ms() - threads[thread_id].starttime;
   uint64_t nps = (nodes / fmax(time, 1)) * 1000;
 
-  printf("info depth %d seldepth %d score ", current_depth, thread->seldepth);
+  printf("info depth %d seldepth %d score ", current_depth,
+         threads[thread_id].seldepth);
 
   if (score > -MATE_VALUE && score < -MATE_SCORE) {
     printf("mate %d ", -(MATE_VALUE - abs(score) + 1) / 2);
@@ -1460,9 +1461,9 @@ static void print_thinking(thread_t *thread, int16_t score,
   printf("pv ");
 
   // loop over the moves within a PV line
-  for (int count = 0; count < thread->pv.pv_length[0]; count++) {
+  for (int count = 0; count < threads[thread_id].pv.pv_length[0]; count++) {
     // print PV move
-    print_move(thread->pv.pv_table[0][count]);
+    print_move(threads[thread_id].pv.pv_table[0][count]);
     printf(" ");
   }
 
@@ -1602,7 +1603,7 @@ void *iterative_deepening(void *thread_void) {
       // if PV is available
       if (thread->pv.pv_length[0]) {
         // print search info
-        print_thinking(thread, thread->score, thread->depth);
+        print_thinking(thread, 0, thread->score, thread->depth);
       }
     }
 
@@ -1708,7 +1709,8 @@ void search_position(position_t *pos, thread_t *threads) {
   if (minimal) {
     if (threads[0].pv.pv_length[0]) {
       // print search info
-      print_thinking(&threads[0], threads[0].score, threads[0].completed_depth);
+      print_thinking(&threads[0], 0, threads[0].score,
+                     threads[0].completed_depth);
     }
   }
 
@@ -1716,10 +1718,10 @@ void search_position(position_t *pos, thread_t *threads) {
 
   if (thread_count > 1) {
     best_thread = select_thread(threads);
-    //if (best_thread != 0) {
-    //  print_thinking(&threads[best_thread], threads[best_thread].score,
-     //                threads[best_thread].completed_depth);
-    //}
+    if (best_thread != 0) {
+      print_thinking(threads, best_thread, threads[best_thread].score,
+                     threads[best_thread].completed_depth);
+    }
   }
 
   // print best move
