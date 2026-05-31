@@ -832,7 +832,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   uint8_t opponent_worsening = 0;
 
   uint8_t potential_singularity =
-      depth >= SE_DEPTH && tt_depth >= depth - SE_DEPTH_REDUCTION &&
+      depth >= SE_DEPTH + ss->tt_pv && tt_depth >= depth - SE_DEPTH_REDUCTION &&
       tt_flag != HASH_FLAG_UPPER_BOUND && abs(tt_score) < MATE_SCORE;
 
   if ((ss - 2)->static_eval != NO_SCORE && !in_check) {
