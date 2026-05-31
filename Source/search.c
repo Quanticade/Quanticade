@@ -1618,7 +1618,8 @@ int select_thread(thread_t *threads) {
     return 0;
   }
 
-  int32_t votes[65535] = {0};
+  static int64_t votes[65536];
+  memset(votes, 0, sizeof(votes));
   int min_score = INT_MAX;
   int first_valid_thread = -1;
 
@@ -1649,8 +1650,8 @@ int select_thread(thread_t *threads) {
       continue;
     }
     int move_idx = thread->pv.pv_table[0][0];
-    int32_t weight =
-        (int32_t)(thread->score - min_score + 20) * thread->completed_depth;
+    int64_t weight =
+        (int64_t)(thread->score - min_score + 20) * thread->completed_depth;
     votes[move_idx] += weight;
     if (votes[move_idx] > votes[best_move_idx]) {
       best_thread = i;
