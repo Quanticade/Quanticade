@@ -1437,7 +1437,7 @@ static void print_thinking(thread_t *threads, uint16_t thread_id, int16_t score,
                            uint8_t current_depth) {
 
   uint64_t nodes = total_nodes(threads, thread_count);
-  uint64_t time = get_time_ms() - threads[thread_id].starttime;
+  uint64_t time = get_time_ms() - threads->starttime;
   uint64_t nps = (nodes / fmax(time, 1)) * 1000;
 
   printf("info depth %d seldepth %d score ", current_depth,
