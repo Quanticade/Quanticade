@@ -320,8 +320,8 @@ static inline void score_noisy(thread_t *thread, searchstack_t *ss,
 
     entry.score = mvv[target_piece % 6] * MO_MVV_MULT;
     entry.score +=
-        thread->capture_history[pos->mailbox[source]][target_piece]
-                               [target][source_threatened][target_threatened] *
+        thread->capture_history[pos->mailbox[source]][target_piece][target]
+                               [source_threatened][target_threatened] *
         MO_CAPT_HIST_MULT;
     entry.score /= 1024;
 
@@ -364,7 +364,8 @@ static inline void score_quiet(thread_t *thread, searchstack_t *ss,
             MO_PAWN_HIST_MULT;
     entry->score /= 1024;
 
-    entry->score += MO_CHECK_SEE * (is_direct_check(pos, move) && SEE(pos, move, -MO_QUIET_SEE));
+    entry->score += MO_CHECK_SEE * (is_direct_check(pos, move) &&
+                                    SEE(pos, move, -MO_QUIET_SEE));
   }
 }
 
@@ -1140,11 +1141,11 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
     ss->history_score =
         quiet
-            ? thread->quiet_history[pos->side][get_move_source(move)]
-                                   [get_history_target(move)][is_square_threatened(
-                                       ss, get_move_source(move))]
-                                   [is_square_threatened(
-                                       ss, get_history_target(move))] *
+            ? thread->quiet_history
+                          [pos->side][get_move_source(move)]
+                          [get_history_target(move)]
+                          [is_square_threatened(ss, get_move_source(move))]
+                          [is_square_threatened(ss, get_history_target(move))] *
                       SEARCH_QUIET_HIST_MULT +
                   get_conthist_score(thread, ss, move, 1) *
                       SEARCH_CONT1_HIST_MULT +
@@ -1177,7 +1178,10 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       }
 
       // Late Move Pruning
-      if (!pv_node && quiet && moves_seen >= lmp_treshold + ss->history_score / LMP_HISTORY_DIVISOR && !only_pawns(pos)) {
+      if (!pv_node && quiet &&
+          moves_seen >=
+              lmp_treshold + ss->history_score / LMP_HISTORY_DIVISOR &&
+          !only_pawns(pos)) {
         picker.skip_quiets = 1;
       }
 
@@ -1283,9 +1287,11 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
                        NON_PV);
       ss->reduction = 0;
 
-      if (score > alpha && R != 0) {
-        new_depth += (score > best_score + LMR_DEEPER_MARGIN);
-        new_depth -= (score < best_score + LMR_SHALLOWER_MARGIN);
+      if (score > alpha) {
+        if (!root_node) {
+          new_depth += (score > best_score + LMR_DEEPER_MARGIN);
+          new_depth -= (score < best_score + LMR_SHALLOWER_MARGIN);
+        }
 
         if (new_depth > reduced_depth) {
           score = -negamax(thread, ss + 1, -alpha - 1, -alpha, new_depth,
