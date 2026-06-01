@@ -634,6 +634,7 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
 
     ss->move = move;
     ss->piece = pos->mailbox[get_move_source(move)];
+    ss->continuation_history = thread->continuation_history[ss->piece][get_history_target(move)];
 
     thread->nodes++;
 
@@ -929,6 +930,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     null_pos->checkers = 0;
     null_pos->checker_count = 0;
     (ss + 1)->null_move = 1;
+    ss->continuation_history = thread->continuation_history[0][0];
 
     calculate_threats(null_pos, ss + 1);
 
@@ -1010,6 +1012,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
       ss->move = move;
       ss->piece = pos->mailbox[get_move_source(move)];
+      ss->continuation_history = thread->continuation_history[ss->piece][get_history_target(move)];
 
       thread->nodes++;
 
@@ -1236,6 +1239,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
     ss->move = move;
     ss->piece = pos->mailbox[get_move_source(move)];
+    ss->continuation_history = thread->continuation_history[ss->piece][get_history_target(move)];
 
     // increment nodes count
     thread->nodes++;

@@ -184,6 +184,7 @@ typedef struct searchstack {
   int16_t static_eval;
   int16_t eval;
   int16_t reduction;
+  int16_t (*continuation_history)[64];
   int history_score;
   uint8_t piece;
   uint8_t null_move;

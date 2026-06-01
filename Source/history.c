@@ -248,8 +248,7 @@ void update_capture_history(thread_t *thread, searchstack_t *ss, int move,
 int16_t get_conthist_score(thread_t *thread, searchstack_t *ss, int move,
                            uint8_t ply) {
   if (thread->ply >= ply && (ss - ply)->piece != NO_PIECE) {
-    return thread->continuation_history[(ss - ply)->piece][get_history_target(
-        (ss - ply)->move)][thread->positions[thread->ply]
+    return (ss - ply)->continuation_history[thread->positions[thread->ply]
                                .mailbox[get_move_source(move)]]
                                        [get_history_target(move)];
   } else {
@@ -267,10 +266,9 @@ void update_continuation_histories(thread_t *thread, searchstack_t *ss,
   for (uint8_t i = 0; i < count; ++i) {
     int prev_piece = (ss - cont_hist_updates[i])->piece;
     if (thread->ply >= cont_hist_updates[i] && prev_piece != NO_PIECE) {
-      int prev_target = get_history_target((ss - cont_hist_updates[i])->move);
       int piece = pos->mailbox[get_move_source(move)];
       int target = get_history_target(move);
-      thread->continuation_history[prev_piece][prev_target][piece][target] +=
+    (ss-cont_hist_updates[i])->continuation_history[piece][target] +=
           bonus - total_score * abs(bonus) / HISTORY_MAX;
     }
   }
