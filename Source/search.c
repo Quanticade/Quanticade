@@ -1059,7 +1059,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   // A rather simple idea that if our TT move is accurate we run a reduced
   // search to see if we can beat this score. If not we extend the TT move
   // search
-  if (ply < thread->depth * 2 && !root_node && !ss->excluded_move &&
+  if (!root_node && !ss->excluded_move &&
       potential_singularity) {
     const int s_beta = tt_score - (SE_BETA_BASE + SE_BETA_MULTIPLIER *
                                                       (ss->tt_pv && !pv_node)) *
