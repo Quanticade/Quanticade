@@ -635,7 +635,8 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
 
     ss->move = move;
     ss->piece = pos->mailbox[get_move_source(move)];
-    ss->continuation_history = thread->continuation_history[ss->piece][get_history_target(move)];
+    ss->continuation_history =
+        thread->continuation_history[ss->piece][get_history_target(move)];
 
     thread->nodes++;
 
@@ -890,9 +891,9 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
   // Null Move Pruning
   if (cutnode && !in_check && !ss->excluded_move && !ss->null_move &&
-      ply > thread->nmp_min_ply && ss->eval >= beta &&
+      ply > thread->nmp_min_ply &&
       ss->eval >= beta - NMP_MULTIPLIER * depth + NMP_BASE_ADD &&
-      !is_loss(beta) && !only_pawns(pos)) {
+      !is_loss(beta) && !is_win(ss->eval) && !only_pawns(pos)) {
     int R = (depth * NMP_DIVISER + NMP_BASE_REDUCTION) / 256;
     R = MIN(R, depth);
 
@@ -1013,7 +1014,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
       ss->move = move;
       ss->piece = pos->mailbox[get_move_source(move)];
-      ss->continuation_history = thread->continuation_history[ss->piece][get_history_target(move)];
+      ss->continuation_history =
+          thread->continuation_history[ss->piece][get_history_target(move)];
 
       thread->nodes++;
 
@@ -1243,7 +1245,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
     ss->move = move;
     ss->piece = pos->mailbox[get_move_source(move)];
-    ss->continuation_history = thread->continuation_history[ss->piece][get_history_target(move)];
+    ss->continuation_history =
+        thread->continuation_history[ss->piece][get_history_target(move)];
 
     // increment nodes count
     thread->nodes++;
