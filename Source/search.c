@@ -64,7 +64,7 @@ int SEARCH_CAPT_HIST_MULT = 1024;
 int SEARCH_MVV_MULT = 1024;
 
 // SPSA Tuned params
-int RAZOR_MARGIN = 312;
+int RAZOR_MARGIN = 273;
 int RFP_MARGIN = 60;
 int RFP_BASE_MARGIN = 26;
 int RFP_IMPROVING = 62;
@@ -870,8 +870,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   uint16_t moves_seen = 0;
 
   // Razoring
-  if (!pv_node && !in_check && !ss->excluded_move && depth <= RAZOR_DEPTH &&
-      ss->static_eval + RAZOR_MARGIN * depth < alpha) {
+  if (!pv_node && !in_check && !ss->excluded_move &&
+      ss->eval < alpha - 265 - 267 * depth * depth) {
     const int16_t razor_score = quiescence(thread, ss, alpha, beta, NON_PV);
     if (razor_score <= alpha) {
       return razor_score;
