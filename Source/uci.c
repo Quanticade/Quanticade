@@ -781,7 +781,7 @@ void uci_loop(position_t *pos, int argc, char *argv[]) {
         parse_position(pos, threads, input);
         init_accumulator(pos, &threads->accumulator[threads[0].ply]);
         init_finny_tables(threads, pos);
-        time_control(pos, threads, "go depth 13");
+        time_control(pos, threads, "go depth 8");
         search_position(pos, threads);
         total_nodes += threads->nodes;
       }

@@ -2,9 +2,9 @@
 #define ARCH_H
 
 #define INPUT_WEIGHTS 768
-#define L1_SIZE 1536
-#define L2_SIZE 16
-#define L3_SIZE 32
+#define L1_SIZE 4096
+#define L2_SIZE 128
+#define L3_SIZE 256
 #define OUTPUT_BUCKETS 8
 #define KING_BUCKETS 16
 #define INPUT_QUANT 255
