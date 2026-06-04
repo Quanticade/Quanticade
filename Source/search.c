@@ -635,7 +635,8 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
 
     ss->move = move;
     ss->piece = pos->mailbox[get_move_source(move)];
-    ss->continuation_history = thread->continuation_history[ss->piece][get_history_target(move)];
+    ss->continuation_history =
+        thread->continuation_history[ss->piece][get_history_target(move)];
 
     thread->nodes++;
 
@@ -871,6 +872,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
   // Razoring
   if (!pv_node && !in_check && !ss->excluded_move && depth <= RAZOR_DEPTH &&
+      !(get_move_capture(tt_move) || is_move_promotion(tt_move)) &&
       ss->static_eval + RAZOR_MARGIN * depth < alpha) {
     const int16_t razor_score = quiescence(thread, ss, alpha, beta, NON_PV);
     if (razor_score <= alpha) {
@@ -1013,7 +1015,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
       ss->move = move;
       ss->piece = pos->mailbox[get_move_source(move)];
-      ss->continuation_history = thread->continuation_history[ss->piece][get_history_target(move)];
+      ss->continuation_history =
+          thread->continuation_history[ss->piece][get_history_target(move)];
 
       thread->nodes++;
 
@@ -1063,8 +1066,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   // A rather simple idea that if our TT move is accurate we run a reduced
   // search to see if we can beat this score. If not we extend the TT move
   // search
-  if (!root_node && !ss->excluded_move &&
-      potential_singularity) {
+  if (!root_node && !ss->excluded_move && potential_singularity) {
     const int s_beta = tt_score - (SE_BETA_BASE + SE_BETA_MULTIPLIER *
                                                       (ss->tt_pv && !pv_node)) *
                                       depth / SE_BETA_DIVISOR;
@@ -1243,7 +1245,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
     ss->move = move;
     ss->piece = pos->mailbox[get_move_source(move)];
-    ss->continuation_history = thread->continuation_history[ss->piece][get_history_target(move)];
+    ss->continuation_history =
+        thread->continuation_history[ss->piece][get_history_target(move)];
 
     // increment nodes count
     thread->nodes++;
