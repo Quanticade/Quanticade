@@ -510,7 +510,7 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
 
   uint16_t best_move = 0;
   uint16_t tt_move = 0;
-  int16_t score = NO_SCORE, best_score = NO_SCORE, futility_score = NO_SCORE;
+  int16_t score = NO_SCORE, best_score = NO_SCORE;
   int16_t raw_static_eval = NO_SCORE;
   int16_t tt_score = NO_SCORE;
   int16_t tt_static_eval = NO_SCORE;
@@ -573,8 +573,6 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
 
     // found a better move
     alpha = MAX(alpha, best_score);
-
-    futility_score = best_score + QS_FUTILITY_THRESHOLD;
   }
 
   picker_t picker;
@@ -608,12 +606,6 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
         if (moves_seen >= 3 && !is_direct_check(pos, move)) {
           continue;
         }
-      }
-
-      if (!in_check && get_move_capture(move) && futility_score <= alpha &&
-          !SEE(pos, move, 1)) {
-        best_score = MAX(best_score, futility_score);
-        continue;
       }
     }
 
