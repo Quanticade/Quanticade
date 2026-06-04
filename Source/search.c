@@ -872,7 +872,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
   // Razoring
   if (!pv_node && !in_check && !ss->excluded_move && depth <= RAZOR_DEPTH &&
-      !(get_move_capture(tt_move) || is_move_promotion(tt_move)) &&
+      (get_move_capture(tt_move) || is_move_promotion(tt_move)) &&
       ss->static_eval + RAZOR_MARGIN * depth < alpha) {
     const int16_t razor_score = quiescence(thread, ss, alpha, beta, NON_PV);
     if (razor_score <= alpha) {
