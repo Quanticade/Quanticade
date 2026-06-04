@@ -1065,8 +1065,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   // A rather simple idea that if our TT move is accurate we run a reduced
   // search to see if we can beat this score. If not we extend the TT move
   // search
-  if (!root_node && !ss->excluded_move &&
-      potential_singularity) {
+  if (!root_node && !ss->excluded_move && potential_singularity) {
     const int s_beta = tt_score - (SE_BETA_BASE + SE_BETA_MULTIPLIER *
                                                       (ss->tt_pv && !pv_node)) *
                                       depth / SE_BETA_DIVISOR;
@@ -1112,6 +1111,17 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   else if (depth <= 7 && !in_check && ss->static_eval <= alpha - LDSE_MARGIN &&
            tt_flag == HASH_FLAG_LOWER_BOUND) {
     extensions = 1;
+  }
+
+
+  // Small Probcut
+  int16_t small_probcut_beta = beta + 375;
+  if (!pv_node && !ss->excluded_move && !in_check && tt_score != NO_SCORE &&
+      !is_decisive(tt_score) && !is_decisive(beta) &&
+      !is_decisive(small_probcut_beta) &&
+      (tt_flag == HASH_FLAG_LOWER_BOUND || tt_flag == HASH_FLAG_EXACT) &&
+      tt_score >= small_probcut_beta && tt_depth >= depth - 2) {
+    return tt_score;
   }
 
   picker_t picker;
