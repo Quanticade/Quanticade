@@ -790,6 +790,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   // If we arent in excluded move or PV node and we hit requirements for cutoff
   // we can return early from search
   if (!ss->excluded_move && !pv_node && tt_depth >= depth &&
+      (tt_score <= alpha || cutnode) &&
       can_use_score(alpha, beta, tt_score, tt_flag)) {
     if (tt_move != 0 &&
         !(is_move_promotion(tt_move) || get_move_capture(tt_move)) &&
@@ -1065,8 +1066,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   // A rather simple idea that if our TT move is accurate we run a reduced
   // search to see if we can beat this score. If not we extend the TT move
   // search
-  if (!root_node && !ss->excluded_move &&
-      potential_singularity) {
+  if (!root_node && !ss->excluded_move && potential_singularity) {
     const int s_beta = tt_score - (SE_BETA_BASE + SE_BETA_MULTIPLIER *
                                                       (ss->tt_pv && !pv_node)) *
                                       depth / SE_BETA_DIVISOR;
