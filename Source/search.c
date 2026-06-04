@@ -893,7 +893,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   if (cutnode && !in_check && !ss->excluded_move && !ss->null_move &&
       ply > thread->nmp_min_ply &&
       ss->eval >= beta - NMP_MULTIPLIER * depth + NMP_BASE_ADD &&
-      !is_loss(beta) && !is_win(ss->eval) && !only_pawns(pos)) {
+      !is_loss(beta) && !is_win(ss->eval) && !only_pawns(pos) &&
+      tt_flag != HASH_FLAG_UPPER_BOUND) {
     int R = (depth * NMP_DIVISER + NMP_BASE_REDUCTION) / 256;
     R = MIN(R, depth);
 
@@ -1065,8 +1066,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   // A rather simple idea that if our TT move is accurate we run a reduced
   // search to see if we can beat this score. If not we extend the TT move
   // search
-  if (!root_node && !ss->excluded_move &&
-      potential_singularity) {
+  if (!root_node && !ss->excluded_move && potential_singularity) {
     const int s_beta = tt_score - (SE_BETA_BASE + SE_BETA_MULTIPLIER *
                                                       (ss->tt_pv && !pv_node)) *
                                       depth / SE_BETA_DIVISOR;
