@@ -615,6 +615,9 @@ static void handle_genlabels(uci_ctx_t *ctx, char *args) {
   (void)args;
   ctx->input += 11;
 
+  accumulator_t acc;
+  printf("%d ", nnue_eval_pos(ctx->pos, &acc));
+
   for (int i = 0; i < 64; ++i)
     ctx->pos->mailbox[i] = NO_PIECE;
 
