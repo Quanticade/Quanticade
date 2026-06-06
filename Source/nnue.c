@@ -67,7 +67,7 @@ static inline uint8_t get_king_bucket(uint8_t side, uint8_t square) {
   return buckets[side ? square ^ 56 : square];
 }
 
-uint8_t need_refresh(uint8_t *mailbox, uint16_t move) {
+uint8_t need_refresh(const uint8_t *mailbox, uint16_t move) {
   uint8_t moved_piece = mailbox[get_move_source(move)];
   if (moved_piece == k || moved_piece == K) {
     uint8_t side = moved_piece >= 6;
@@ -990,11 +990,11 @@ void null_move_copy_accumulator(thread_t *thread, int src_ply, int dst_ply) {
   thread->lazy[dst_ply].dirty = 0;
 }
 
-void update_nnue(position_t *pos, thread_t *thread, uint8_t mailbox_copy[64],
-                 uint16_t move) {
+void update_nnue(position_t *pos, thread_t *thread, uint16_t move) {
   lazy_acc_state_t *state = &thread->lazy[thread->ply];
   const int from = get_move_source(move);
   const int to = get_move_target(move);
+  const uint8_t *mailbox = (pos-1)->mailbox;
 
   state->dirty = 1;
   state->move = move;
@@ -1003,16 +1003,16 @@ void update_nnue(position_t *pos, thread_t *thread, uint8_t mailbox_copy[64],
   state->black_king_sq = get_lsb(pos->bitboards[k]);
   state->white_bucket = get_king_bucket(white, state->white_king_sq);
   state->black_bucket = get_king_bucket(black, state->black_king_sq);
-  state->moving_piece = mailbox_copy[from];
+  state->moving_piece = mailbox[from];
 
   if (get_move_enpassant(move)) {
     const int ep_sq = to + ((pos->side == white) ? -8 : 8);
-    state->captured_piece = mailbox_copy[ep_sq];
+    state->captured_piece = mailbox[ep_sq];
   } else {
-    state->captured_piece = mailbox_copy[to];
+    state->captured_piece = mailbox[to];
   }
 
-  state->needs_refresh = need_refresh(mailbox_copy, move);
+  state->needs_refresh = need_refresh(mailbox, move);
   state->color_flag =
       state->needs_refresh ? (pos->side == black ? black : white) : both;
   if (state->needs_refresh)

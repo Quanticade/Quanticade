@@ -26,8 +26,7 @@ void init_accumulator(position_t *pos, accumulator_t *accumulator);
 void init_finny_tables(thread_t *thread, position_t *pos);
 int nnue_evaluate(thread_t *thread, position_t *pos, accumulator_t *accumulator);
 int nnue_eval_pos(position_t *pos, accumulator_t *accumulator);
-void update_nnue(position_t *pos, thread_t *thread, uint8_t mailbox_copy[64],
-                 uint16_t move);
+void update_nnue(position_t *pos, thread_t *thread, uint16_t move);
 void apply_accumulator(thread_t *thread, int ply);
 void null_move_copy_accumulator(thread_t *thread, int src_ply, int dst_ply);
 
