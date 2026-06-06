@@ -58,7 +58,7 @@ void update_slider_pins(position_t *pos, uint8_t side) {
       get_rook_attacks(king, BB(0)) & (pos->bitboards[ROOK + 6 * (side ^ 1)] |
                                        pos->bitboards[QUEEN + 6 * (side ^ 1)]);
   uint64_t possible_pinners = possible_bishop_pinners | possible_rook_pinners;
-  uint64_t occupied = pos->occupancies[both] ^ possible_pinners;
+  uint64_t occupied = (pos->occupancies[white] | pos->occupancies[black]) ^ possible_pinners;
 
   while (possible_pinners) {
     int pinner_square = poplsb(&possible_pinners);
@@ -114,7 +114,7 @@ uint8_t is_pseudo_legal(position_t *pos, uint16_t move) {
     uint64_t must_empty = ((between[ksq][kdest] | BB(kdest)) |
                            (between[rsq][rdest] | BB(rdest))) &
                           ~(BB(ksq) | BB(rsq));
-    return !(must_empty & pos->occupancies[both]);
+    return !(must_empty & (pos->occupancies[white] | pos->occupancies[black]));
 
   } else if (get_move_enpassant(move)) {
     if (noc_piece != PAWN)
@@ -172,13 +172,13 @@ uint8_t is_pseudo_legal(position_t *pos, uint16_t move) {
     if (!(knight_attacks[origin] & BB(target))) return 0;
     break;
   case BISHOP:
-    if (!(get_bishop_attacks(origin, pos->occupancies[both]) & BB(target))) return 0;
+    if (!(get_bishop_attacks(origin, pos->occupancies[white] | pos->occupancies[black]) & BB(target))) return 0;
     break;
   case ROOK:
-    if (!(get_rook_attacks(origin, pos->occupancies[both]) & BB(target))) return 0;
+    if (!(get_rook_attacks(origin, pos->occupancies[white] | pos->occupancies[black]) & BB(target))) return 0;
     break;
   case QUEEN:
-    if (!(get_queen_attacks(origin, pos->occupancies[both]) & BB(target))) return 0;
+    if (!(get_queen_attacks(origin, pos->occupancies[white] | pos->occupancies[black]) & BB(target))) return 0;
     break;
   case KING:
     if (!(king_attacks[origin] & BB(target))) return 0;
@@ -209,7 +209,7 @@ uint8_t is_legal(position_t *pos, uint16_t move) {
 
   if (get_move_enpassant(move)) {
     uint8_t  ep_square = target - (stm ? 8 : -8);
-    uint64_t occupied  = (pos->occupancies[both] ^ source_bb ^ BB(ep_square)) | BB(target);
+    uint64_t occupied  = ((pos->occupancies[white] | pos->occupancies[black]) ^ source_bb ^ BB(ep_square)) | BB(target);
 
     uint64_t rook_attacks = get_rook_attacks(king, occupied) &
                             (pos->bitboards[ROOK  + 6 * (stm ^ 1)] |
@@ -228,14 +228,14 @@ uint8_t is_legal(position_t *pos, uint16_t move) {
     uint64_t squares = between[source][kdest] | source_bb;
     while (squares) {
       uint8_t sq = poplsb(&squares);
-      if (attackers_to(pos, sq, pos->occupancies[both]) & pos->occupancies[stm ^ 1])
+      if (attackers_to(pos, sq, pos->occupancies[white] | pos->occupancies[black]) & pos->occupancies[stm ^ 1])
         return 0;
     }
     return 1;
   }
 
   if (pos->mailbox[source] == KING + 6 * stm) {
-    uint64_t occupied = pos->occupancies[both] ^ BB(source);
+    uint64_t occupied = (pos->occupancies[white] | pos->occupancies[black]) ^ BB(source);
     return !(pos->occupancies[stm ^ 1] & attackers_to(pos, target, occupied));
   }
 
@@ -383,13 +383,10 @@ void make_move(position_t *pos, uint16_t move) {
   }
   pos->hash_keys.hash_key ^= keys.castle_keys[pos->castle];
 
-  // reset occupancies
-  pos->occupancies[both] = pos->occupancies[white] | pos->occupancies[black];
-
   pos->checkers = attackers_to(pos,
                              stm == white ? get_lsb(pos->bitboards[k])
                                           : get_lsb(pos->bitboards[K]),
-                             pos->occupancies[both]) &
+                             pos->occupancies[white] | pos->occupancies[black]) &
                 pos->occupancies[stm];
   pos->checker_count = popcount(pos->checkers);
 
@@ -425,7 +422,7 @@ void generate_quiets(position_t *pos, moves *move_list, uint8_t no_reset) {
   const uint8_t QUEEN_PC  = pos->side == white ? Q : q;
   const uint8_t KING_PC   = pos->side == white ? K : k;
 
-  const uint64_t empty      = ~pos->occupancies[both];
+  const uint64_t empty      = ~(pos->occupancies[white] | pos->occupancies[black]);
   const int      step       = pos->side == white ? -8  : 8;
   const uint64_t promo_mask = pos->side == white ? RANK7_MASK : RANK2_MASK;
   const uint64_t start_mask = pos->side == white ? RANK2_MASK : RANK7_MASK;
@@ -467,7 +464,7 @@ void generate_quiets(position_t *pos, moves *move_list, uint8_t no_reset) {
   bitboard = pos->bitboards[BISHOP_PC];
   while (bitboard) {
     source_square = __builtin_ctzll(bitboard);
-    attacks = get_bishop_attacks(source_square, pos->occupancies[both]) & empty;
+    attacks = get_bishop_attacks(source_square, pos->occupancies[white] | pos->occupancies[black]) & empty;
     while (attacks) {
       target_square = __builtin_ctzll(attacks);
       add_move(move_list, encode_move(source_square, target_square, QUIET));
@@ -480,7 +477,7 @@ void generate_quiets(position_t *pos, moves *move_list, uint8_t no_reset) {
   bitboard = pos->bitboards[ROOK_PC];
   while (bitboard) {
     source_square = __builtin_ctzll(bitboard);
-    attacks = get_rook_attacks(source_square, pos->occupancies[both]) & empty;
+    attacks = get_rook_attacks(source_square, pos->occupancies[white] | pos->occupancies[black]) & empty;
     while (attacks) {
       target_square = __builtin_ctzll(attacks);
       add_move(move_list, encode_move(source_square, target_square, QUIET));
@@ -493,7 +490,7 @@ void generate_quiets(position_t *pos, moves *move_list, uint8_t no_reset) {
   bitboard = pos->bitboards[QUEEN_PC];
   while (bitboard) {
     source_square = __builtin_ctzll(bitboard);
-    attacks = get_queen_attacks(source_square, pos->occupancies[both]) & empty;
+    attacks = get_queen_attacks(source_square, pos->occupancies[white] | pos->occupancies[black]) & empty;
     while (attacks) {
       target_square = __builtin_ctzll(attacks);
       add_move(move_list, encode_move(source_square, target_square, QUIET));
@@ -528,7 +525,7 @@ void generate_quiets(position_t *pos, moves *move_list, uint8_t no_reset) {
     const uint64_t must_empty = ((between[ksq][kdest] | BB(kdest)) |
                                  (between[rsq][rdest] | BB(rdest))) &
                                 ~(BB(ksq) | BB(rsq));
-    if (must_empty & pos->occupancies[both])
+    if (must_empty & (pos->occupancies[white] | pos->occupancies[black]))
       continue;
 
     if (pos->blockers[stm] & BB(rsq))
@@ -577,7 +574,7 @@ void generate_noisy(position_t *pos, moves *move_list, uint8_t no_reset) {
     target_square = source_square + step;
 
     if ((BB(source_square) & promo_mask) &&
-        !get_bit(pos->occupancies[both], target_square)) {
+        !get_bit(pos->occupancies[white] | pos->occupancies[black], target_square)) {
       add_move(move_list, encode_move(source_square, target_square, QUEEN_PROMOTION));
       add_move(move_list, encode_move(source_square, target_square, ROOK_PROMOTION));
       add_move(move_list, encode_move(source_square, target_square, BISHOP_PROMOTION));
@@ -624,7 +621,7 @@ void generate_noisy(position_t *pos, moves *move_list, uint8_t no_reset) {
   bitboard = pos->bitboards[BISHOP_PC];
   while (bitboard) {
     source_square = __builtin_ctzll(bitboard);
-    attacks = get_bishop_attacks(source_square, pos->occupancies[both]) & enemy;
+    attacks = get_bishop_attacks(source_square, pos->occupancies[white] | pos->occupancies[black]) & enemy;
     while (attacks) {
       target_square = __builtin_ctzll(attacks);
       add_move(move_list, encode_move(source_square, target_square, CAPTURE));
@@ -637,7 +634,7 @@ void generate_noisy(position_t *pos, moves *move_list, uint8_t no_reset) {
   bitboard = pos->bitboards[ROOK_PC];
   while (bitboard) {
     source_square = __builtin_ctzll(bitboard);
-    attacks = get_rook_attacks(source_square, pos->occupancies[both]) & enemy;
+    attacks = get_rook_attacks(source_square, pos->occupancies[white] | pos->occupancies[black]) & enemy;
     while (attacks) {
       target_square = __builtin_ctzll(attacks);
       add_move(move_list, encode_move(source_square, target_square, CAPTURE));
@@ -650,7 +647,7 @@ void generate_noisy(position_t *pos, moves *move_list, uint8_t no_reset) {
   bitboard = pos->bitboards[QUEEN_PC];
   while (bitboard) {
     source_square = __builtin_ctzll(bitboard);
-    attacks = get_queen_attacks(source_square, pos->occupancies[both]) & enemy;
+    attacks = get_queen_attacks(source_square, pos->occupancies[white] | pos->occupancies[black]) & enemy;
     while (attacks) {
       target_square = __builtin_ctzll(attacks);
       add_move(move_list, encode_move(source_square, target_square, CAPTURE));

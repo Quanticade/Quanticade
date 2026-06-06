@@ -97,7 +97,7 @@ typedef struct lazy_acc_state {
 
 typedef struct position {
   uint64_t bitboards[12];
-  uint64_t occupancies[3];
+  uint64_t occupancies[2];
   uint64_t blockers[2];
   hash_keys_t hash_keys;
   uint64_t checkers;

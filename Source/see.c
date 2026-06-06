@@ -104,7 +104,7 @@ int SEE(position_t *pos, int move, int threshold) {
           pos->bitboards[Q];
 
   // Let occupied suppose that the move was actually made
-  occupied = pos->occupancies[both];
+  occupied = pos->occupancies[white] | pos->occupancies[black];
   occupied = (occupied ^ (1ull << from)) | (1ull << to);
   if (enpassant) {
     int ep_sq = pos->side == white ? to + 8 : to - 8;

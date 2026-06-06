@@ -345,7 +345,6 @@ static inline void parse_fen(position_t *pos, thread_t *thread, char *fen) {
     pos->occupancies[white] |= pos->bitboards[piece];
   for (int piece = p; piece <= k; piece++)
     pos->occupancies[black] |= pos->bitboards[piece];
-  pos->occupancies[both] = pos->occupancies[white] | pos->occupancies[black];
 
   pos->hash_keys.hash_key = generate_hash_key(pos);
   pos->hash_keys.pawn_key = generate_pawn_key(pos);
@@ -356,7 +355,7 @@ static inline void parse_fen(position_t *pos, thread_t *thread, char *fen) {
       attackers_to(pos,
                    (pos->side == white) ? get_lsb(pos->bitboards[K])
                                         : get_lsb(pos->bitboards[k]),
-                   pos->occupancies[both]) &
+                   pos->occupancies[white] | pos->occupancies[black]) &
       pos->occupancies[pos->side ^ 1];
   pos->checker_count = popcount(pos->checkers);
   update_slider_pins(pos, white);

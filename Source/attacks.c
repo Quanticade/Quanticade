@@ -421,17 +421,17 @@ int is_square_attacked(position_t *pos, int square, int side) {
     return 1;
 
   // attacked by bishops
-  if (get_bishop_attacks(square, pos->occupancies[both]) &
+  if (get_bishop_attacks(square, pos->occupancies[white] | pos->occupancies[black]) &
       ((side == white) ? pos->bitboards[B] : pos->bitboards[b]))
     return 1;
 
   // attacked by rooks
-  if (get_rook_attacks(square, pos->occupancies[both]) &
+  if (get_rook_attacks(square, pos->occupancies[white] | pos->occupancies[black]) &
       ((side == white) ? pos->bitboards[R] : pos->bitboards[r]))
     return 1;
 
   // attacked by bishops
-  if (get_queen_attacks(square, pos->occupancies[both]) &
+  if (get_queen_attacks(square, pos->occupancies[white] | pos->occupancies[black]) &
       ((side == white) ? pos->bitboards[Q] : pos->bitboards[q]))
     return 1;
 
@@ -452,7 +452,7 @@ uint8_t is_direct_check(position_t *pos, uint16_t mv) {
   uint8_t them = side ^ 1;
 
   // Simulate the occupancy after the move
-  uint64_t new_occ = pos->occupancies[both];
+  uint64_t new_occ = pos->occupancies[white] | pos->occupancies[black];
   new_occ ^= (1ULL << from);
   new_occ ^= (1ULL << to);
 
@@ -520,7 +520,7 @@ uint64_t attackers_to(position_t *pos, int square, uint64_t occupancy) {
 }
 
 void calculate_threats(position_t *pos, searchstack_t *ss) {
-  uint64_t occupied = pos->occupancies[both];
+  uint64_t occupied = pos->occupancies[white] | pos->occupancies[black];
   uint8_t them = pos->side ^ 1;
 
   threats_t *threats = &ss->threats;
