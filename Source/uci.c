@@ -611,6 +611,51 @@ static void handle_eval(uci_ctx_t *ctx, char *args) {
   fflush(stdout);
 }
 
+static void handle_genlabels(uci_ctx_t *ctx, char *args) {
+  (void)args;
+  ctx->input += 11;
+
+  for (int i = 0; i < 64; ++i)
+    ctx->pos->mailbox[i] = NO_PIECE;
+
+  if (strncmp(ctx->input, "startpos", 8) == 0) {
+    parse_fen(ctx->pos, ctx->threads[0], start_position);
+  } else {
+    char *fen = strstr(ctx->input, "fen");
+    parse_fen(ctx->pos, ctx->threads[0], fen ? fen + 4 : start_position);
+  }
+
+  char *moves = strstr(ctx->input, "moves");
+  if (!moves)
+    return;
+
+  moves += 6;
+  while (*moves) {
+    const int move = parse_move(ctx->pos, ctx->threads[0], moves);
+    if (!move)
+      break;
+
+    if (ctx->threads[0]->repetition_index + 1 <
+        (int)(sizeof(ctx->threads[0]->repetition_table) /
+              sizeof(ctx->threads[0]->repetition_table[0]))) {
+      ctx->threads[0]->repetition_index++;
+      ctx->threads[0]->repetition_table[ctx->threads[0]->repetition_index] =
+          ctx->pos->hash_keys.hash_key;
+    }
+    make_move(ctx->pos, move);
+
+    accumulator_t acc_move;
+    printf("%d ", nnue_eval_pos(ctx->pos, &acc_move));
+
+    while (*moves && *moves != ' ')
+      moves++;
+    moves++;
+  }
+
+  printf("\n");
+  fflush(stdout);
+}
+
 typedef struct {
   const char *prefix;
   void (*handler)(uci_ctx_t *, char *);
@@ -627,6 +672,7 @@ static const uci_command_t uci_commands[] = {
     {"uci", handle_uci, 0},
     {"spsa", handle_spsa, 0},
     {"eval", handle_eval, 0},
+    {"genlabels", handle_genlabels, 0},
 };
 
 static void setoption_hash(uci_ctx_t *ctx, char *value) {
