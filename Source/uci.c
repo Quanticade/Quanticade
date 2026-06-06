@@ -612,23 +612,20 @@ static void handle_eval(uci_ctx_t *ctx, char *args) {
 }
 
 static void handle_genlabels(uci_ctx_t *ctx, char *args) {
-  (void)args;
-  ctx->input += 11;
-
   for (int i = 0; i < 64; ++i)
     ctx->pos->mailbox[i] = NO_PIECE;
 
-  if (strncmp(ctx->input, "startpos", 8) == 0) {
+  if (strncmp(args, "startpos", 8) == 0) {
     parse_fen(ctx->pos, ctx->threads[0], start_position);
   } else {
-    char *fen = strstr(ctx->input, "fen");
+    char *fen = strstr(args, "fen");
     parse_fen(ctx->pos, ctx->threads[0], fen ? fen + 4 : start_position);
   }
 
   accumulator_t acc;
   printf("%d ", nnue_eval_pos(ctx->pos, &acc));
 
-  char *moves = strstr(ctx->input, "moves");
+  char *moves = strstr(args, "moves");
   if (!moves)
     return;
 
