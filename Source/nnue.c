@@ -123,7 +123,7 @@ static inline int16_t crelu(int16_t value) {
 #endif
 
 static inline uint8_t calculate_output_bucket(position_t *pos) {
-  uint8_t pieces = popcount(pos->occupancies[2]);
+  uint8_t pieces = popcount(pos->occupancies[white] | pos->occupancies[black]);
   return (pieces - 2) / 4;
 }
 
