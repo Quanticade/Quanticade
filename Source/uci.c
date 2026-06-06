@@ -604,6 +604,13 @@ static void handle_spsa(uci_ctx_t *ctx, char *args) {
   print_spsa_table();
 }
 
+static void handle_eval(uci_ctx_t *ctx, char *args) {
+  (void)args;
+  accumulator_t acc;
+  printf("%d\n", nnue_eval_pos(ctx->pos, &acc));
+  fflush(stdout);
+}
+
 typedef struct {
   const char *prefix;
   void (*handler)(uci_ctx_t *, char *);
@@ -619,6 +626,7 @@ static const uci_command_t uci_commands[] = {
     {"quit", handle_quit, 1},
     {"uci", handle_uci, 0},
     {"spsa", handle_spsa, 0},
+    {"eval", handle_eval, 0},
 };
 
 static void setoption_hash(uci_ctx_t *ctx, char *value) {
