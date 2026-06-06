@@ -615,9 +615,6 @@ static void handle_genlabels(uci_ctx_t *ctx, char *args) {
   (void)args;
   ctx->input += 11;
 
-  accumulator_t acc;
-  printf("%d ", nnue_eval_pos(ctx->pos, &acc));
-
   for (int i = 0; i < 64; ++i)
     ctx->pos->mailbox[i] = NO_PIECE;
 
@@ -627,6 +624,9 @@ static void handle_genlabels(uci_ctx_t *ctx, char *args) {
     char *fen = strstr(ctx->input, "fen");
     parse_fen(ctx->pos, ctx->threads[0], fen ? fen + 4 : start_position);
   }
+
+  accumulator_t acc;
+  printf("%d ", nnue_eval_pos(ctx->pos, &acc));
 
   char *moves = strstr(ctx->input, "moves");
   if (!moves)
