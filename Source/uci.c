@@ -612,18 +612,20 @@ static void handle_eval(uci_ctx_t *ctx, char *args) {
 }
 
 static void handle_genlabels(uci_ctx_t *ctx, char *args) {
+  thread_t *thread = ctx->threads[0];
+  position_t *pos = &ctx->threads[0]->positions[ctx->threads[0]->ply];
   for (int i = 0; i < 64; ++i)
-    ctx->pos->mailbox[i] = NO_PIECE;
+    pos->mailbox[i] = NO_PIECE;
 
   if (strncmp(args, "startpos", 8) == 0) {
-    parse_fen(ctx->pos, ctx->threads[0], start_position);
+    parse_fen(pos, thread, start_position);
   } else {
     char *fen = strstr(args, "fen");
-    parse_fen(ctx->pos, ctx->threads[0], fen ? fen + 4 : start_position);
+    parse_fen(pos, thread, fen ? fen + 4 : start_position);
   }
-
-  accumulator_t acc;
-  printf("%d ", nnue_eval_pos(ctx->pos, &acc));
+  init_accumulator(pos, &thread->accumulator[thread->ply]);
+  init_finny_tables(thread, pos);
+  printf("%d ", nnue_evaluate(thread, pos, &thread->accumulator[thread->ply]));
 
   char *moves = strstr(args, "moves");
   if (!moves)
@@ -631,21 +633,25 @@ static void handle_genlabels(uci_ctx_t *ctx, char *args) {
 
   moves += 6;
   while (*moves) {
-    const int move = parse_move(ctx->pos, ctx->threads[0], moves);
+    const int move = parse_move(pos, thread, moves);
     if (!move)
       break;
 
-    if (ctx->threads[0]->repetition_index + 1 <
-        (int)(sizeof(ctx->threads[0]->repetition_table) /
-              sizeof(ctx->threads[0]->repetition_table[0]))) {
-      ctx->threads[0]->repetition_index++;
-      ctx->threads[0]->repetition_table[ctx->threads[0]->repetition_index] =
-          ctx->pos->hash_keys.hash_key;
-    }
-    make_move(ctx->pos, move);
+    pos = &thread->positions[thread->ply];
+    thread->positions[++thread->ply] = *pos;
+    position_t *next_pos = &thread->positions[thread->ply];
 
-    accumulator_t acc_move;
-    printf("%d ", nnue_eval_pos(ctx->pos, &acc_move));
+    // increment repetition index & store hash key
+    thread->repetition_index++;
+    thread->repetition_table[thread->repetition_index] =
+        next_pos->hash_keys.hash_key;
+
+    // make move on the new ply's position
+    make_move(next_pos, move);
+
+    update_nnue(next_pos, thread, pos->mailbox, move);
+
+    printf("%d ", nnue_evaluate(thread, next_pos, &thread->accumulator[ctx->threads[0]->ply]));
 
     while (*moves && *moves != ' ')
       moves++;
