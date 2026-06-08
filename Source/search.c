@@ -85,35 +85,35 @@ int SE_BETA_BASE = 60;
 int SE_BETA_MULTIPLIER = 66;
 int SE_BETA_DIVISOR = 55;
 int LDSE_MARGIN = 25;
-int LMR_OFFSET_QUIET = 728;
-int LMR_DIVISOR_QUIET = 1894;
-int LMR_OFFSET_NOISY = -115;
-int LMR_DIVISOR_NOISY = 2428;
-int LMR_DEPTH_OFFSET_QUIET = 728;
-int LMR_DEPTH_DIVISOR_QUIET = 1894;
-int LMR_DEPTH_OFFSET_NOISY = -115;
-int LMR_DEPTH_DIVISOR_NOISY = 2428;
-int LMR_PV_NODE = 875;
-int LMR_HISTORY_QUIET = 1202;
-int LMR_HISTORY_NOISY = 1127;
-int LMR_WAS_IN_CHECK = 792;
-int LMR_IN_CHECK = 999;
-int LMR_CUTNODE = 1461;
-int LMR_TT_DEPTH = 1060;
-int LMR_TT_PV = 1072;
-int LMR_TT_PV_CUTNODE = 868;
-int LMR_TT_SCORE = 888;
-int LMR_CUTOFF_CNT = 896;
-int LMR_IMPROVING = 976;
-int LMR_DEEPER_MARGIN = 35;
-int LMP_BETA_MARGIN = 15;
-int LMR_CORRECTION = 1839;
-int LMR_HASH_FLAG_EXACT = 988;
+int LMR_MULT_QUIET = 4429;
+int LMR_BASE_QUIET = 5818;
+int LMR_MULT_NOISY = 3455;
+int LMR_BASE_NOISY = 919;
+int LMR_DEPTH_MULT_QUIET = 4429;
+int LMR_DEPTH_BASE_QUIET = 5818;
+int LMR_DEPTH_MULT_NOISY = 3455;
+int LMR_DEPTH_BASE_NOISY = 919;
+int LMR_PV_NODE = 7000;
+int LMR_HISTORY_QUIET = 9616;
+int LMR_HISTORY_NOISY = 9016;
+int LMR_WAS_IN_CHECK = 6336;
+int LMR_IN_CHECK = 7992;
+int LMR_CUTNODE = 11688;
+int LMR_TT_DEPTH = 8480;
+int LMR_TT_PV = 8576;
+int LMR_TT_PV_CUTNODE = 6944;
+int LMR_TT_SCORE = 7104;
+int LMR_CUTOFF_CNT = 7168;
+int LMR_IMPROVING = 7808;
+int LMR_DEEPER_MARGIN = 280;
+int LMP_BETA_MARGIN = 120;
+int LMR_CORRECTION = 14712;
+int LMR_HASH_FLAG_EXACT = 7904;
 int ASP_WINDOW = 14;
 int QS_FUTILITY_THRESHOLD = 94;
 int MO_SEE_THRESHOLD = 100;
-int LMR_QUIET_HIST_DIV = 6405;
-int LMR_CAPT_HIST_DIV = 8372;
+int LMR_QUIET_HIST_DIV = 51240;
+int LMR_CAPT_HIST_DIV = 66976;
 int LMP_HISTORY_DIVISOR = 8192;
 int ASP_WINDOW_DIVISER = 29695;
 int ASP_WINDOW_FAIL_LOW = 27;
@@ -1152,10 +1152,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     ss->history_score /= 1024;
 
     int lmr_depth_reduction =
-        quiet ? LMR_DEPTH_OFFSET_QUIET +
-                    log(depth) * log(move) / LMR_DEPTH_DIVISOR_QUIET
-              : LMR_DEPTH_OFFSET_NOISY +
-                    log(depth) * log(move) / LMR_DEPTH_DIVISOR_NOISY;
+        quiet ? LMR_DEPTH_BASE_QUIET + LMR_DEPTH_MULT_QUIET * log(depth) * log(move)
+                : LMR_DEPTH_MULT_NOISY * log(depth) * log(move) - LMR_DEPTH_BASE_NOISY;
 
     if (!root_node && !is_loss(best_score)) {
       int lmp_treshold;
@@ -1254,8 +1252,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     // LMR
     if (depth >= 2 && moves_seen > 1 + root_node) {
       int R =
-          quiet ? LMR_OFFSET_QUIET + log(depth) * log(move) / LMR_DIVISOR_QUIET
-                : LMR_OFFSET_NOISY + log(depth) * log(move) / LMR_DIVISOR_NOISY;
+          quiet ? LMR_BASE_QUIET + LMR_MULT_QUIET * log(depth) * log(move)
+                : LMR_MULT_NOISY * log(depth) * log(move) - LMR_BASE_NOISY;
       R += !pv_node * LMR_PV_NODE;
       R -= ss->history_score * (quiet ? LMR_HISTORY_QUIET : LMR_HISTORY_NOISY) /
            (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
