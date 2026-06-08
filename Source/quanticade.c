@@ -77,8 +77,6 @@ void init_all(void) {
   // init random keys for hashing purposes
   init_random_keys();
 
-  init_reductions();
-
   init_spsa_table();
 
   init_between_bitboards();

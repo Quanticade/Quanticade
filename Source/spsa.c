@@ -6,6 +6,7 @@
 #include <inttypes.h>
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 spsa_t spsa[500];
@@ -44,6 +45,14 @@ extern int SE_BETA_BASE;
 extern int SE_BETA_MULTIPLIER;
 extern int SE_BETA_DIVISOR;
 extern int LDSE_MARGIN;
+extern int LMR_OFFSET_QUIET;
+extern int LMR_DIVISOR_QUIET;
+extern int LMR_OFFSET_NOISY;
+extern int LMR_DIVISOR_NOISY;
+extern int LMR_DEPTH_OFFSET_QUIET;
+extern int LMR_DEPTH_DIVISOR_QUIET;
+extern int LMR_DEPTH_OFFSET_NOISY;
+extern int LMR_DEPTH_DIVISOR_NOISY;
 extern int LMR_PV_NODE;
 extern int LMR_HISTORY_QUIET;
 extern int LMR_HISTORY_NOISY;
@@ -104,11 +113,6 @@ extern double LMP_MARGIN_WORSENING_POWER;
 extern double LMP_MARGIN_IMPROVING_BASE;
 extern double LMP_MARGIN_IMPROVING_FACTOR;
 extern double LMP_MARGIN_IMPROVING_POWER;
-
-extern double LMR_OFFSET_QUIET;
-extern double LMR_DIVISOR_QUIET;
-extern double LMR_OFFSET_NOISY;
-extern double LMR_DIVISOR_NOISY;
 
 // history.c
 extern int QUIET_HISTORY_MALUS_MAX;
@@ -201,20 +205,20 @@ void add_int_spsa(char name[], int *value, int min, int max, double rate,
   spsa_index++;
 }
 
-#define SPSA_INT(VARIABLE, TUNABLE)                                            \
-  add_int_spsa(STRINGIFY(VARIABLE), &VARIABLE, 1, SPSA_MAX(VARIABLE),          \
+#define SPSA_INT(VARIABLE, TUNABLE)                                                                                      \
+  add_int_spsa(STRINGIFY(VARIABLE), &VARIABLE, VARIABLE >= 0 ? VARIABLE / 2 : VARIABLE * 2, abs(SPSA_MAX(VARIABLE)),     \
                RATE(VARIABLE), NULL, TUNABLE)
-#define SPSA_INT_MINMAX(VARIABLE, TUNABLE, MINIMUM, MAXIMUM)                   \
-  add_int_spsa(STRINGIFY(VARIABLE), &VARIABLE, MINIMUM, MAXIMUM,               \
+#define SPSA_INT_MINMAX(VARIABLE, TUNABLE, MINIMUM, MAXIMUM)                                                             \
+  add_int_spsa(STRINGIFY(VARIABLE), &VARIABLE, MINIMUM, MAXIMUM,                                                         \
                RATE(VARIABLE), NULL, TUNABLE)
-#define SPSA_INT_POISON(VARIABLE, TUNABLE)                                     \
-  add_int_spsa(STRINGIFY(VARIABLE), &VARIABLE, 1, SPSA_MAX(VARIABLE),          \
+#define SPSA_INT_POISON(VARIABLE, TUNABLE)                                                                               \
+  add_int_spsa(STRINGIFY(VARIABLE), &VARIABLE, 1, SPSA_MAX(VARIABLE),                                                    \
                RATE_POISON(VARIABLE), NULL, TUNABLE)
-#define SPSA_INT_FUNC(VARIABLE, FUNC, TUNABLE)                                 \
-  add_int_spsa(STRINGIFY(VARIABLE), &VARIABLE, 1, SPSA_MAX(VARIABLE),          \
+#define SPSA_INT_FUNC(VARIABLE, FUNC, TUNABLE)                                                                           \
+  add_int_spsa(STRINGIFY(VARIABLE), &VARIABLE, 1, SPSA_MAX(VARIABLE),                                                    \
                RATE(VARIABLE), FUNC, TUNABLE)
-#define SPSA_INT_NAME(NAME, VARIABLE, TUNABLE)                                 \
-  add_int_spsa(NAME, &VARIABLE, 1, SPSA_MAX(VARIABLE), RATE(VARIABLE), NULL,   \
+#define SPSA_INT_NAME(NAME, VARIABLE, TUNABLE)                                                                           \
+  add_int_spsa(NAME, &VARIABLE, 1, SPSA_MAX(VARIABLE), RATE(VARIABLE), NULL,                                             \
                TUNABLE)
 
 void init_spsa_table(void) {
@@ -249,6 +253,14 @@ void init_spsa_table(void) {
   SPSA_INT(SE_BETA_MULTIPLIER, 1);
   SPSA_INT(SE_BETA_DIVISOR, 1);
   SPSA_INT(LDSE_MARGIN, 1);
+  SPSA_INT(LMR_OFFSET_QUIET, 1);
+  SPSA_INT(LMR_DIVISOR_QUIET, 1);
+  SPSA_INT(LMR_OFFSET_NOISY, 1);
+  SPSA_INT(LMR_DIVISOR_NOISY, 1);
+  SPSA_INT(LMR_DEPTH_OFFSET_QUIET, 1);
+  SPSA_INT(LMR_DEPTH_DIVISOR_QUIET, 1);
+  SPSA_INT(LMR_DEPTH_OFFSET_NOISY, 1);
+  SPSA_INT(LMR_DEPTH_DIVISOR_NOISY, 1);
   SPSA_INT(LMR_PV_NODE, 1);
   SPSA_INT(LMR_HISTORY_QUIET, 1);
   SPSA_INT(LMR_HISTORY_NOISY, 1);
@@ -379,18 +391,6 @@ void init_spsa_table(void) {
                   SPSA_MAX(LMP_MARGIN_IMPROVING_POWER),
                   RATE_DOUBLE(LMP_MARGIN_IMPROVING_POWER), NULL, 1);
 
-  add_double_spsa(STRINGIFY(LMR_OFFSET_QUIET), &LMR_OFFSET_QUIET, 0.1,
-                  SPSA_MAX(LMR_OFFSET_QUIET), RATE_DOUBLE(LMR_OFFSET_QUIET),
-                  init_reductions, 1);
-  add_double_spsa(STRINGIFY(LMR_DIVISOR_QUIET), &LMR_DIVISOR_QUIET, 1,
-                  SPSA_MAX(LMR_DIVISOR_QUIET), RATE_DOUBLE(LMR_DIVISOR_QUIET),
-                  init_reductions, 1);
-  add_double_spsa(STRINGIFY(LMR_OFFSET_NOISY), &LMR_OFFSET_NOISY, -1,
-                  fabs(LMR_OFFSET_NOISY), RATE_DOUBLE(LMR_OFFSET_NOISY),
-                  init_reductions, 1);
-  add_double_spsa(STRINGIFY(LMR_DIVISOR_NOISY), &LMR_DIVISOR_NOISY, 1,
-                  SPSA_MAX(LMR_DIVISOR_NOISY), RATE_DOUBLE(LMR_DIVISOR_NOISY),
-                  init_reductions, 1);
   // TM
   add_double_spsa(STRINGIFY(DEF_TIME_MULTIPLIER), &DEF_TIME_MULTIPLIER, 0,
                   SPSA_MAX(DEF_TIME_MULTIPLIER),

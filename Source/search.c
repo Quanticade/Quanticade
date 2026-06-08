@@ -85,6 +85,14 @@ int SE_BETA_BASE = 60;
 int SE_BETA_MULTIPLIER = 66;
 int SE_BETA_DIVISOR = 55;
 int LDSE_MARGIN = 25;
+int LMR_OFFSET_QUIET = 728;
+int LMR_DIVISOR_QUIET = 1894;
+int LMR_OFFSET_NOISY = -115;
+int LMR_DIVISOR_NOISY = 2428;
+int LMR_DEPTH_OFFSET_QUIET = 728;
+int LMR_DEPTH_DIVISOR_QUIET = 1894;
+int LMR_DEPTH_OFFSET_NOISY = -115;
+int LMR_DEPTH_DIVISOR_NOISY = 2428;
 int LMR_PV_NODE = 875;
 int LMR_HISTORY_QUIET = 1202;
 int LMR_HISTORY_NOISY = 1127;
@@ -168,11 +176,6 @@ double LMP_MARGIN_IMPROVING_BASE = 3.0069223171689856;
 double LMP_MARGIN_IMPROVING_FACTOR = 0.8894532988755042;
 double LMP_MARGIN_IMPROVING_POWER = 1.8490214749827936;
 
-double LMR_OFFSET_QUIET = 0.7102075381652656;
-double LMR_DIVISOR_QUIET = 1.849824305037075;
-double LMR_OFFSET_NOISY = -0.11216093540418746;
-double LMR_DIVISOR_NOISY = 2.371029075928889;
-
 double NODE_TIME_MULTIPLIER = 2.432889823505845;
 double NODE_TIME_ADDITION = 0.46489458310112464;
 double NODE_TIME_MIN = 0.5469737940839735;
@@ -191,23 +194,6 @@ double bestmove_scale[5] = {2.419849071418776, 1.3643708392230642,
                             0.7146672100398158};
 
 uint64_t nodes_spent_table[4096] = {0};
-
-// Initializes the late move reduction array
-void init_reductions(void) {
-  for (int depth = 0; depth <= MAX_PLY; depth++) {
-    for (int move = 0; move < 256; move++) {
-      if (move == 0 || depth == 0) {
-        lmr[0][depth][move] = 0;
-        lmr[1][depth][move] = 0;
-        continue;
-      }
-      lmr[0][depth][move] =
-          LMR_OFFSET_NOISY + log(depth) * log(move) / LMR_DIVISOR_NOISY;
-      lmr[1][depth][move] =
-          LMR_OFFSET_QUIET + log(depth) * log(move) / LMR_DIVISOR_QUIET;
-    }
-  }
-}
 
 void scale_time(thread_t *thread, uint8_t best_move_stability,
                 uint8_t eval_stability, uint16_t move) {
@@ -1064,8 +1050,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   // A rather simple idea that if our TT move is accurate we run a reduced
   // search to see if we can beat this score. If not we extend the TT move
   // search
-  if (!root_node && !ss->excluded_move &&
-      potential_singularity) {
+  if (!root_node && !ss->excluded_move && potential_singularity) {
     const int s_beta = tt_score - (SE_BETA_BASE + SE_BETA_MULTIPLIER *
                                                       (ss->tt_pv && !pv_node)) *
                                       depth / SE_BETA_DIVISOR;
@@ -1166,7 +1151,11 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
                       SEARCH_MVV_MULT;
     ss->history_score /= 1024;
 
-    int reduction = lmr[quiet][depth][MIN(255, moves_seen)];
+    int lmr_depth_reduction =
+        quiet ? LMR_DEPTH_OFFSET_QUIET +
+                    log(depth) * log(move) / LMR_DEPTH_DIVISOR_QUIET
+              : LMR_DEPTH_OFFSET_NOISY +
+                    log(depth) * log(move) / LMR_DEPTH_DIVISOR_NOISY;
 
     if (!root_node && !is_loss(best_score)) {
       int lmp_treshold;
@@ -1186,7 +1175,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         picker.skip_quiets = 1;
       }
 
-      int lmr_depth = MAX(1, depth - 1 - MAX(reduction, 1));
+      int lmr_depth = MAX(1, depth - 1 - MAX(lmr_depth_reduction / 1024, 1));
       // Futility Pruning
       if (lmr_depth <= FP_DEPTH && !in_check && quiet &&
           ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION +
@@ -1264,7 +1253,9 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
     // LMR
     if (depth >= 2 && moves_seen > 1 + root_node) {
-      int R = reduction * 1024;
+      int R =
+          quiet ? LMR_OFFSET_QUIET + log(depth) * log(move) / LMR_DIVISOR_QUIET
+                : LMR_OFFSET_NOISY + log(depth) * log(move) / LMR_DIVISOR_NOISY;
       R += !pv_node * LMR_PV_NODE;
       R -= ss->history_score * (quiet ? LMR_HISTORY_QUIET : LMR_HISTORY_NOISY) /
            (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
