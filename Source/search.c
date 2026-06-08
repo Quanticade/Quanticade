@@ -112,14 +112,14 @@ int LMR_HASH_FLAG_EXACT = 7904;
 int ASP_WINDOW = 14;
 int QS_FUTILITY_THRESHOLD = 94;
 int MO_SEE_THRESHOLD = 100;
-int LMR_QUIET_HIST_DIV = 51240;
-int LMR_CAPT_HIST_DIV = 66976;
+int LMR_QUIET_HIST_DIV = 6405;
+int LMR_CAPT_HIST_DIV = 8372;
 int LMP_HISTORY_DIVISOR = 8192;
 int ASP_WINDOW_DIVISER = 29695;
 int ASP_WINDOW_FAIL_LOW = 27;
 int ASP_WINDOW_FAIL_HIGH = 58;
-int HINDSIGH_REDUCTION_ADD = 3013;
-int HINDSIGH_REDUCTION_RED = 1982;
+int HINDSIGH_REDUCTION_ADD = 24104;
+int HINDSIGH_REDUCTION_RED = 15856;
 int HINDSIGN_REDUCTION_EVAL_MARGIN = 88;
 int PROBCUT_MARGIN = 253;
 int PROBCUT_SEE_THRESHOLD = 96;
@@ -1152,8 +1152,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     ss->history_score /= 1024;
 
     int lmr_depth_reduction =
-        quiet ? LMR_DEPTH_BASE_QUIET + LMR_DEPTH_MULT_QUIET * log(depth) * log(move)
-                : LMR_DEPTH_MULT_NOISY * log(depth) * log(move) - LMR_DEPTH_BASE_NOISY;
+        quiet ? LMR_DEPTH_BASE_QUIET + LMR_DEPTH_MULT_QUIET * log(MAX(depth, 1)) * log(MAX(moves_seen, 1))
+                : LMR_DEPTH_MULT_NOISY * log(MAX(depth, 1)) * log(MAX(moves_seen, 1)) - LMR_DEPTH_BASE_NOISY;
 
     if (!root_node && !is_loss(best_score)) {
       int lmp_treshold;
@@ -1173,7 +1173,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         picker.skip_quiets = 1;
       }
 
-      int lmr_depth = MAX(1, depth - 1 - MAX(lmr_depth_reduction / 1024, 1));
+      int lmr_depth = MAX(1, depth - 1 - MAX(lmr_depth_reduction / 8192, 1));
       // Futility Pruning
       if (lmr_depth <= FP_DEPTH && !in_check && quiet &&
           ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION +
@@ -1252,8 +1252,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     // LMR
     if (depth >= 2 && moves_seen > 1 + root_node) {
       int R =
-          quiet ? LMR_BASE_QUIET + LMR_MULT_QUIET * log(depth) * log(move)
-                : LMR_MULT_NOISY * log(depth) * log(move) - LMR_BASE_NOISY;
+          quiet ? LMR_BASE_QUIET + LMR_MULT_QUIET * log(depth) * log(moves_seen)
+                : LMR_MULT_NOISY * log(depth) * log(moves_seen) - LMR_BASE_NOISY;
       R += !pv_node * LMR_PV_NODE;
       R -= ss->history_score * (quiet ? LMR_HISTORY_QUIET : LMR_HISTORY_NOISY) /
            (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
@@ -1271,7 +1271,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
       ss->reduction = R;
 
-      R = R / 1024;
+      R = R / 8192;
       int reduced_depth =
           MAX(1, MIN(new_depth - R, new_depth + cutnode)) + pv_node;
 
