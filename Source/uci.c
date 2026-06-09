@@ -637,7 +637,6 @@ static void handle_genlabels(uci_ctx_t *ctx, char *args) {
     if (!move)
       break;
 
-    pos = &thread->positions[thread->ply];
     thread->positions[++thread->ply] = *pos;
     position_t *next_pos = &thread->positions[thread->ply];
 
@@ -651,7 +650,8 @@ static void handle_genlabels(uci_ctx_t *ctx, char *args) {
 
     update_nnue(next_pos, thread, pos->mailbox, move);
 
-    printf("%d ", nnue_evaluate(thread, next_pos, &thread->accumulator[ctx->threads[0]->ply]));
+    printf("%d ", nnue_evaluate(thread, next_pos, &thread->accumulator[thread->ply]));
+    pos = next_pos;
 
     while (*moves && *moves != ' ')
       moves++;
