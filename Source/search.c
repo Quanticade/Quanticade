@@ -241,14 +241,12 @@ uint8_t check_time(thread_t *thread) {
 // position repetition detection
 static inline uint8_t is_repetition(thread_t *thread) {
   position_t *pos = &thread->positions[thread->ply];
-  // loop over repetition indices range
-  for (uint32_t index = 0; index < thread->repetition_index; index++)
-    // if we found the hash key same with a current
-    if (thread->repetition_table[index] == pos->hash_keys.hash_key)
-      // we found a repetition
+  const uint32_t end = thread->repetition_index;
+  const uint32_t span = MIN(end, (uint32_t)pos->fifty);
+  for (uint32_t i = 1; i <= span; i++)
+    if (thread->repetition_table[end - i] == pos->hash_keys.hash_key)
       return 1;
 
-  // if no repetition found
   return 0;
 }
 
