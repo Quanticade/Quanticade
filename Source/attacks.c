@@ -481,6 +481,82 @@ uint64_t attackers_to(position_t *pos, int square, uint64_t occupancy) {
   return attackers;
 }
 
+typedef uint64_t u64x8 __attribute__((__vector_size__(8 * sizeof(uint64_t))));
+
+#define FILE_A_BB 0x0101010101010101ULL
+#define FILE_B_BB (FILE_A_BB << 1)
+#define FILE_G_BB (FILE_A_BB << 6)
+#define FILE_H_BB (FILE_A_BB << 7)
+#define RANK_TOP_BB 0xffULL
+#define RANK_BOT_BB (0xffULL << 56)
+
+static inline u64x8 rotl_u64x8(u64x8 x, u64x8 s) {
+  return (x << s) | (x >> (64 - s));
+}
+
+static inline uint64_t pawn_threats_setwise(uint64_t pawns, uint8_t color) {
+  uint64_t pushed = color == white ? pawns >> 8 : pawns << 8;
+  return ((pushed << 1) & ~FILE_A_BB) | ((pushed >> 1) & ~FILE_H_BB);
+}
+
+static inline uint64_t knight_threats_setwise(uint64_t knights) {
+  const u64x8 shifts = {6, 15, 17, 10, 64 - 6, 64 - 15, 64 - 17, 64 - 10};
+  const u64x8 masks = {
+      FILE_A_BB | FILE_B_BB | RANK_BOT_BB,
+      FILE_A_BB | (RANK_BOT_BB >> 8) | RANK_BOT_BB,
+      FILE_H_BB | (RANK_BOT_BB >> 8) | RANK_BOT_BB,
+      FILE_G_BB | FILE_H_BB | RANK_BOT_BB,
+      FILE_G_BB | FILE_H_BB | RANK_TOP_BB,
+      FILE_H_BB | RANK_TOP_BB | (RANK_TOP_BB << 8),
+      FILE_A_BB | RANK_TOP_BB | (RANK_TOP_BB << 8),
+      FILE_A_BB | FILE_B_BB | RANK_TOP_BB,
+  };
+  u64x8 g = {knights, knights, knights, knights,
+             knights, knights, knights, knights};
+  g = rotl_u64x8(g & ~masks, shifts);
+  return g[0] | g[1] | g[2] | g[3] | g[4] | g[5] | g[6] | g[7];
+}
+
+static inline void slider_threats_setwise(uint64_t orthogonal,
+                                          uint64_t diagonal,
+                                          uint64_t blockers,
+                                          uint64_t *orthogonal_threats,
+                                          uint64_t *diagonal_threats) {
+  const u64x8 edge = {
+      FILE_A_BB | RANK_BOT_BB, FILE_H_BB | RANK_BOT_BB,
+      FILE_H_BB | RANK_TOP_BB, FILE_A_BB | RANK_TOP_BB,
+      FILE_A_BB,               RANK_BOT_BB,
+      FILE_H_BB,               RANK_TOP_BB,
+  };
+  //                v----diagonals-----v  v----orthogonals----v
+  const u64x8 r1 = {64 - 7, 64 - 9, 7, 9, 1, 64 - 8,  64 - 1, 8};
+  const u64x8 r2 = r1 * 2 % 64; // % 64 to wrap the negative shifts
+  const u64x8 r4 = r2 * 2 % 64;
+
+  u64x8 g   = {diagonal,   diagonal,   diagonal,   diagonal,
+               orthogonal, orthogonal, orthogonal, orthogonal};
+  u64x8 blk = {blockers,   blockers,   blockers,   blockers,
+               blockers,   blockers,   blockers,   blockers};
+  blk |= edge;
+
+  // kogge stone flood fill, never overlaps blockers
+  g   |= ~blk & rotl_u64x8(g, r1);
+  blk |= rotl_u64x8(blk, r1);
+
+  g   |= ~blk & rotl_u64x8(g, r2);
+  blk |= rotl_u64x8(blk, r2);
+
+  g   |= ~blk & rotl_u64x8(g, r4);
+//blk |= rotl_u64x8(blk, r4); // not actually used, so we dont need to fill this blocker mask
+
+  // add in the actual attacks, but dont go past the edge
+  // hits all the blockers
+  g    = ~edge & rotl_u64x8(g, r1);
+
+  *diagonal_threats   = g[0] | g[1] | g[2] | g[3];
+  *orthogonal_threats = g[4] | g[5] | g[6] | g[7];
+}
+
 void calculate_threats(position_t *pos, searchstack_t *ss) {
   uint64_t occupied = pos->occupancies[both];
   uint8_t them = pos->side ^ 1;
@@ -488,36 +564,17 @@ void calculate_threats(position_t *pos, searchstack_t *ss) {
   threats_t *threats = &ss->threats;
 
   // Pawns
-  threats->pawn_threats = 0;
-  uint64_t pawns = pos->bitboards[them == white ? P : p];
-  while (pawns) {
-    int sq = poplsb(&pawns);
-    threats->pawn_threats |= pawn_attacks[them][sq];
-  }
+  threats->pawn_threats =
+      pawn_threats_setwise(pos->bitboards[them == white ? P : p], them);
 
   // Knights
-  threats->knight_threats = 0;
-  uint64_t knights = pos->bitboards[them == white ? N : n];
-  while (knights) {
-    int sq = poplsb(&knights);
-    threats->knight_threats |= knight_attacks[sq];
-  }
+  threats->knight_threats =
+      knight_threats_setwise(pos->bitboards[them == white ? N : n]);
 
-  // Bishops
-  threats->bishop_threats = 0;
-  uint64_t bishops = pos->bitboards[them == white ? B : b];
-  while (bishops) {
-    int sq = poplsb(&bishops);
-    threats->bishop_threats |= get_bishop_attacks(sq, occupied);
-  }
-
-  // Rooks
-  threats->rook_threats = 0;
-  uint64_t rooks = pos->bitboards[them == white ? R : r];
-  while (rooks) {
-    int sq = poplsb(&rooks);
-    threats->rook_threats |= get_rook_attacks(sq, occupied);
-  }
+  // Bishops & Rooks
+  slider_threats_setwise(pos->bitboards[them == white ? R : r],
+                         pos->bitboards[them == white ? B : b], occupied,
+                         &threats->rook_threats, &threats->bishop_threats);
 
   // Queens
   threats->queen_threats = 0;
