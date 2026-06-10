@@ -1,6 +1,7 @@
 #include "search.h"
 #include "attacks.h"
 #include "bitboards.h"
+#include "checkinfo.h"
 #include "enums.h"
 #include "evaluate.h"
 #include "history.h"
@@ -336,7 +337,8 @@ static inline void score_noisy(thread_t *thread, searchstack_t *ss,
 
 // Scores quiet moves in place
 static inline void score_quiet(thread_t *thread, searchstack_t *ss,
-                               moves *quiet_list, uint16_t tt_move) {
+                               moves *quiet_list, uint16_t tt_move,
+                               check_info_t *check_info) {
   position_t *pos = &thread->positions[thread->ply];
   for (uint32_t i = 0; i < quiet_list->count; i++) {
     move_t *entry = &quiet_list->entry[i];
@@ -364,7 +366,7 @@ static inline void score_quiet(thread_t *thread, searchstack_t *ss,
             MO_PAWN_HIST_MULT;
     entry->score /= 1024;
 
-    entry->score += MO_CHECK_SEE * (is_direct_check(pos, move) && SEE(pos, move, -MO_QUIET_SEE));
+    entry->score += MO_CHECK_SEE * (is_direct_check(pos, check_info, move) && SEE(pos, move, -MO_QUIET_SEE));
   }
 }
 
@@ -391,11 +393,13 @@ typedef struct {
   uint8_t skip_quiets;
   thread_t *thread;
   searchstack_t *ss;
+  check_info_t *check_info;
 } picker_t;
 
 static inline void init_picker(picker_t *picker, thread_t *thread,
                                searchstack_t *ss, uint16_t tt_move,
-                               uint8_t generate_all) {
+                               uint8_t generate_all,
+                               check_info_t *check_info) {
   picker->stage = STAGE_TABLE;
   picker->good_noisy.count = 0;
   picker->bad_noisy.count = 0;
@@ -408,6 +412,7 @@ static inline void init_picker(picker_t *picker, thread_t *thread,
   picker->skip_quiets = 0;
   picker->thread = thread;
   picker->ss = ss;
+  picker->check_info = check_info;
 }
 
 static inline uint16_t select_next(picker_t *picker) {
@@ -449,7 +454,8 @@ static inline uint16_t select_next(picker_t *picker) {
       picker->stage = STAGE_BAD_NOISY;
     } else {
       generate_quiets(pos, &picker->quiets, 0);
-      score_quiet(picker->thread, picker->ss, &picker->quiets, picker->tt_move);
+      score_quiet(picker->thread, picker->ss, &picker->quiets, picker->tt_move,
+                  picker->check_info);
       picker->stage = STAGE_QUIET;
     }
     /* fallthrough */
@@ -576,8 +582,9 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
     futility_score = best_score + QS_FUTILITY_THRESHOLD;
   }
 
+  check_info_t check_info = {.valid = 0};
   picker_t picker;
-  init_picker(&picker, thread, ss, tt_move, in_check);
+  init_picker(&picker, thread, ss, tt_move, in_check, &check_info);
 
   moves capture_list[1];
   capture_list->count = 0;
@@ -604,7 +611,7 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
         continue;
 
       if (get_move_target(move) != previous_square) {
-        if (moves_seen >= 3 && !is_direct_check(pos, move)) {
+        if (moves_seen >= 3 && !is_direct_check(pos, &check_info, move)) {
           continue;
         }
       }
@@ -971,6 +978,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
   const int16_t probcut_beta = beta + PROBCUT_MARGIN;
 
+  check_info_t check_info = {.valid = 0};
+
   // ProbCut pruning
   if (!pv_node && !in_check && !ss->excluded_move && depth >= PROBCUT_DEPTH &&
       !is_win(beta) &&
@@ -981,7 +990,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
     // Generate captures and good promotions for ProbCut
     picker_t probcut_picker;
-    init_picker(&probcut_picker, thread, ss, 0, 0);
+    init_picker(&probcut_picker, thread, ss, 0, 0, &check_info);
 
     // Try moves that look promising
     uint16_t move;
@@ -1114,7 +1123,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   }
 
   picker_t picker;
-  init_picker(&picker, thread, ss, tt_move, 1);
+  init_picker(&picker, thread, ss, tt_move, 1, &check_info);
 
   moves quiet_list[1];
   moves capture_list[1];
@@ -1192,7 +1201,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
           ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION +
                   ss->history_score / FP_HISTORY_DIVISOR <=
               alpha &&
-          !is_direct_check(pos, move)) {
+          !is_direct_check(pos, &check_info, move)) {
         picker.skip_quiets = 1;
         continue;
       }
@@ -1205,7 +1214,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
       int noisy_futility_margin = ss->static_eval + BNFP_MARGIN * depth;
       if (!in_check && depth < 10 && picker.stage == STAGE_BAD_NOISY &&
-          noisy_futility_margin <= alpha && !is_direct_check(pos, move)) {
+          noisy_futility_margin <= alpha && !is_direct_check(pos, &check_info, move)) {
         break;
       }
 
