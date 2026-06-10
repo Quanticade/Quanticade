@@ -2,17 +2,18 @@
 #include "bitboards.h"
 #include "enums.h"
 #include "nnue.h"
+#include "spsa.h"
 #include "structs.h"
 #include "utils.h"
 
 nnue_t nnue_data;
 extern nnue_settings_t nnue_settings;
 
-int EVAL_KNIGHT = 384;
-int EVAL_BISHOP = 384;
-int EVAL_ROOK = 640;
-int EVAL_QUEEN = 1280;
-int EVAL_SCALE_BASE = 25600;
+TUNABLE(int EVAL_KNIGHT = 384);
+TUNABLE(int EVAL_BISHOP = 384);
+TUNABLE(int EVAL_ROOK = 640);
+TUNABLE(int EVAL_QUEEN = 1280);
+TUNABLE(int EVAL_SCALE_BASE = 25600);
 
 extern uint8_t disable_norm;
 

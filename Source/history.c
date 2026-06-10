@@ -3,21 +3,22 @@
 #include "enums.h"
 #include "history.h"
 #include "move.h"
+#include "spsa.h"
 #include "structs.h"
 #include "transposition.h"
 #include "uci.h"
 #include "utils.h"
 #include <stdlib.h>
 
-int CORR_HISTORY_MINMAX = 350;
+TUNABLE(int CORR_HISTORY_MINMAX = 350);
 
-int PAWN_CORR_HISTORY_MULTIPLIER = 2754;
-int NON_PAWN_CORR_HISTORY_MULTIPLIER = 1754;
+TUNABLE(int PAWN_CORR_HISTORY_MULTIPLIER = 2754);
+TUNABLE(int NON_PAWN_CORR_HISTORY_MULTIPLIER = 1754);
 
-int FIFTY_MOVE_SCALING = 206;
-int CORR_HISTORY_BONUS_SCALER = 138;
+TUNABLE(int FIFTY_MOVE_SCALING = 206);
+TUNABLE(int CORR_HISTORY_BONUS_SCALER = 138);
 
-int HISTORY_MAX = 8192;
+TUNABLE(int HISTORY_MAX = 8192);
 
 uint8_t cont_hist_updates[] = {1, 2, 4};
 

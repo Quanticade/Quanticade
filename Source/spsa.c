@@ -6,7 +6,22 @@
 #include <inttypes.h>
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+
+#ifndef TUNE
+
+void init_spsa_table(void) {}
+void print_spsa_table_uci(void) {}
+void print_spsa_table(void) {}
+
+void handle_spsa_change(char input[10000]) {
+  (void)input;
+  fputs("cant set tunables when tuning is disabled\n", stderr);
+  abort();
+}
+
+#else
 
 spsa_t spsa[500];
 
@@ -489,3 +504,5 @@ void handle_spsa_change(char input[10000]) {
     }
   }
 }
+
+#endif
