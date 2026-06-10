@@ -481,8 +481,6 @@ uint64_t attackers_to(position_t *pos, int square, uint64_t occupancy) {
   return attackers;
 }
 
-typedef uint64_t u64x8 __attribute__((__vector_size__(8 * sizeof(uint64_t))));
-
 #define FILE_A_BB 0x0101010101010101ULL
 #define FILE_B_BB (FILE_A_BB << 1)
 #define FILE_G_BB (FILE_A_BB << 6)
@@ -490,13 +488,19 @@ typedef uint64_t u64x8 __attribute__((__vector_size__(8 * sizeof(uint64_t))));
 #define RANK_TOP_BB 0xffULL
 #define RANK_BOT_BB (0xffULL << 56)
 
-static inline u64x8 rotl_u64x8(u64x8 x, u64x8 s) {
-  return (x << s) | (x >> (64 - s));
-}
-
 static inline uint64_t pawn_threats_setwise(uint64_t pawns, uint8_t color) {
   uint64_t pushed = color == white ? pawns >> 8 : pawns << 8;
   return ((pushed << 1) & ~FILE_A_BB) | ((pushed >> 1) & ~FILE_H_BB);
+}
+
+#if defined(USE_AVX512)
+
+#include <immintrin.h>
+
+typedef uint64_t u64x8 __attribute__((__vector_size__(8 * sizeof(uint64_t))));
+
+static inline u64x8 rotl_u64x8(u64x8 x, u64x8 s) {
+  return (u64x8)_mm512_rolv_epi64((__m512i)x, (__m512i)s);
 }
 
 static inline uint64_t knight_threats_setwise(uint64_t knights) {
@@ -514,7 +518,10 @@ static inline uint64_t knight_threats_setwise(uint64_t knights) {
   u64x8 g = {knights, knights, knights, knights,
              knights, knights, knights, knights};
   g = rotl_u64x8(g & ~masks, shifts);
-  return g[0] | g[1] | g[2] | g[3] | g[4] | g[5] | g[6] | g[7];
+  g |= __builtin_shufflevector(g, g, 4, 5, 6, 7, 0, 1, 2, 3);
+  g |= __builtin_shufflevector(g, g, 2, 3, 0, 1, 6, 7, 4, 5);
+  g |= __builtin_shufflevector(g, g, 1, 0, 3, 2, 5, 4, 7, 6);
+  return g[0];
 }
 
 static inline void slider_threats_setwise(uint64_t orthogonal,
@@ -547,15 +554,87 @@ static inline void slider_threats_setwise(uint64_t orthogonal,
   blk |= rotl_u64x8(blk, r2);
 
   g   |= ~blk & rotl_u64x8(g, r4);
-//blk |= rotl_u64x8(blk, r4); // not actually used, so we dont need to fill this blocker mask
 
   // add in the actual attacks, but dont go past the edge
   // hits all the blockers
   g    = ~edge & rotl_u64x8(g, r1);
 
-  *diagonal_threats   = g[0] | g[1] | g[2] | g[3];
-  *orthogonal_threats = g[4] | g[5] | g[6] | g[7];
+  g |= __builtin_shufflevector(g, g, 2, 3, 0, 1, 6, 7, 4, 5);
+  g |= __builtin_shufflevector(g, g, 1, 0, 3, 2, 5, 4, 7, 6);
+  *diagonal_threats   = g[0];
+  *orthogonal_threats = g[4];
 }
+
+#else
+
+typedef uint64_t u64x4 __attribute__((__vector_size__(4 * sizeof(uint64_t))));
+
+static inline uint64_t knight_threats_setwise(uint64_t knights) {
+  const u64x4 shifts = {6, 15, 17, 10};
+  const u64x4 masks_left = {
+      FILE_A_BB | FILE_B_BB | RANK_BOT_BB,
+      FILE_A_BB | (RANK_BOT_BB >> 8) | RANK_BOT_BB,
+      FILE_H_BB | (RANK_BOT_BB >> 8) | RANK_BOT_BB,
+      FILE_G_BB | FILE_H_BB | RANK_BOT_BB,
+  };
+  const u64x4 masks_right = {
+      FILE_G_BB | FILE_H_BB | RANK_TOP_BB,
+      FILE_H_BB | RANK_TOP_BB | (RANK_TOP_BB << 8),
+      FILE_A_BB | RANK_TOP_BB | (RANK_TOP_BB << 8),
+      FILE_A_BB | FILE_B_BB | RANK_TOP_BB,
+  };
+  const u64x4 k = {knights, knights, knights, knights};
+  u64x4 g = ((k & ~masks_left) << shifts) | ((k & ~masks_right) >> shifts);
+  g |= __builtin_shufflevector(g, g, 2, 3, 0, 1);
+  g |= __builtin_shufflevector(g, g, 1, 0, 3, 2);
+  return g[0];
+}
+
+static inline void slider_threats_setwise(uint64_t orthogonal,
+                                          uint64_t diagonal,
+                                          uint64_t blockers,
+                                          uint64_t *orthogonal_threats,
+                                          uint64_t *diagonal_threats) {
+  const u64x4 edge_left  = {FILE_H_BB | RANK_TOP_BB, FILE_A_BB | RANK_TOP_BB,
+                            FILE_A_BB,               RANK_TOP_BB};
+  const u64x4 edge_right = {FILE_A_BB | RANK_BOT_BB, FILE_H_BB | RANK_BOT_BB,
+                            FILE_H_BB,               RANK_BOT_BB};
+  const u64x4 r1 = {7, 9, 1, 8};
+  const u64x4 r2 = r1 * 2;
+  const u64x4 r4 = r1 * 4;
+
+  u64x4 gl = {diagonal, diagonal, orthogonal, orthogonal};
+  u64x4 gr = gl;
+  u64x4 blkl = {blockers, blockers, blockers, blockers};
+  u64x4 blkr = blkl | edge_right;
+  blkl |= edge_left;
+
+  // kogge stone flood fill, never overlaps blockers
+  gl   |= ~blkl & (gl << r1);
+  gr   |= ~blkr & (gr >> r1);
+  blkl |= blkl << r1;
+  blkr |= blkr >> r1;
+
+  gl   |= ~blkl & (gl << r2);
+  gr   |= ~blkr & (gr >> r2);
+  blkl |= blkl << r2;
+  blkr |= blkr >> r2;
+
+  gl   |= ~blkl & (gl << r4);
+  gr   |= ~blkr & (gr >> r4);
+
+  // add in the actual attacks, but dont go past the edge
+  // hits all the blockers
+  gl = ~edge_left & (gl << r1);
+  gr = ~edge_right & (gr >> r1);
+
+  u64x4 g = gl | gr;
+  g |= __builtin_shufflevector(g, g, 1, 0, 3, 2);
+  *diagonal_threats   = g[0];
+  *orthogonal_threats = g[2];
+}
+
+#endif
 
 void calculate_threats(position_t *pos, searchstack_t *ss) {
   uint64_t occupied = pos->occupancies[both];
