@@ -788,7 +788,7 @@ int nnue_evaluate(thread_t *thread, position_t *pos,
 }
 
 static inline void
-accumulator_addsub(accumulator_t *accumulator, accumulator_t *prev_accumulator,
+accumulator_addsub(accumulator_t *restrict accumulator, const accumulator_t *restrict prev_accumulator,
                    uint8_t white_king_square, uint8_t black_king_square,
                    uint8_t white_bucket, uint8_t black_bucket, uint8_t piece1,
                    uint8_t piece2, uint8_t from1, uint8_t to2,
@@ -828,7 +828,7 @@ accumulator_addsub(accumulator_t *accumulator, accumulator_t *prev_accumulator,
 }
 
 static inline void accumulator_addsubsub(
-    accumulator_t *accumulator, accumulator_t *prev_accumulator,
+    accumulator_t *restrict accumulator, const accumulator_t *restrict prev_accumulator,
     uint8_t white_king_square, uint8_t black_king_square, uint8_t white_bucket,
     uint8_t black_bucket, uint8_t piece1, uint8_t piece2, uint8_t piece3,
     uint8_t from1, uint8_t from2, uint8_t to3, uint8_t color_flag) {
@@ -864,7 +864,7 @@ static inline void accumulator_addsubsub(
 }
 
 static inline void accumulator_addaddsubsub(
-    accumulator_t *accumulator, accumulator_t *prev_accumulator,
+    accumulator_t *restrict accumulator, const accumulator_t *restrict prev_accumulator,
     uint8_t white_king_square, uint8_t black_king_square, uint8_t white_bucket,
     uint8_t black_bucket, uint8_t piece1, uint8_t piece2, uint8_t piece3,
     uint8_t piece4, uint8_t from1, uint8_t from2, uint8_t to3, uint8_t to4,
@@ -905,7 +905,7 @@ static inline void accumulator_addaddsubsub(
 }
 
 static inline void accumulator_make_move(
-    accumulator_t *accumulator, accumulator_t *prev_accumulator,
+    accumulator_t *restrict accumulator, const accumulator_t *restrict prev_accumulator,
     uint8_t white_king_square, uint8_t black_king_square, uint8_t white_bucket,
     uint8_t black_bucket, uint8_t side, int move, uint8_t moving_piece,
     uint8_t captured_piece, uint8_t color_flag) {
