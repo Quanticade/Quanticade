@@ -11,7 +11,7 @@
 extern limits_t limits;
 
 extern const char *square_to_coordinates[];
-extern char promoted_pieces[];
+extern const char promoted_pieces[];
 
 void generate_fen(position_t *pos, char *fen);
 void uci_loop(position_t *pos, int argc, char *argv[]);

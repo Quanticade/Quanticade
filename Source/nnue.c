@@ -47,7 +47,7 @@ static void init_nnz_table(void) {
 }
 #endif
 
-uint8_t buckets[64] = {14, 14, 15, 15, 15, 15, 14, 14, 14, 14, 15, 15, 15,
+const uint8_t buckets[64] = {14, 14, 15, 15, 15, 15, 14, 14, 14, 14, 15, 15, 15,
                        15, 14, 14, 12, 12, 13, 13, 13, 13, 12, 12, 12, 12,
                        13, 13, 13, 13, 12, 12, 8,  9,  10, 11, 11, 10, 9,
                        8,  8,  9,  10, 11, 11, 10, 9,  8,  4,  5,  6,  7,
@@ -68,19 +68,19 @@ static inline uint8_t get_king_bucket(uint8_t side, uint8_t square) {
 }
 
 uint8_t need_refresh(uint8_t *mailbox, uint16_t move) {
-  uint8_t moved_piece = mailbox[get_move_source(move)];
+  const uint8_t moved_piece = mailbox[get_move_source(move)];
   if (moved_piece == k || moved_piece == K) {
-    uint8_t side = moved_piece >= 6;
-    uint8_t ksq = get_move_source(move);
+    const uint8_t side = moved_piece >= 6;
+    const uint8_t ksq = get_move_source(move);
     uint8_t kdest;
-    uint8_t castling = get_move_castling(move);
+    const uint8_t castling = get_move_castling(move);
     if (castling) {
       kdest = castle_king_dest(side, castle_side(castling));
     } else {
       kdest = get_move_target(move);
     }
-    uint8_t source_flip = (ksq & 7) >= 4;
-    uint8_t target_flip = (kdest & 7) >= 4;
+    const uint8_t source_flip = (ksq & 7) >= 4;
+    const uint8_t target_flip = (kdest & 7) >= 4;
     if ((get_king_bucket(side, ksq) != get_king_bucket(side, kdest)) ||
         source_flip != target_flip) {
       return 1;
@@ -123,7 +123,7 @@ static inline int16_t crelu(int16_t value) {
 #endif
 
 static inline uint8_t calculate_output_bucket(position_t *pos) {
-  uint8_t pieces = popcount(pos->occupancies[2]);
+  const uint8_t pieces = popcount(pos->occupancies[2]);
   return (pieces - 2) / 4;
 }
 
@@ -264,15 +264,15 @@ static inline int16_t get_idx(uint8_t side, uint8_t piece, uint8_t square,
   const size_t COLOR_STRIDE = 64 * 6;
   const size_t PIECE_STRIDE = 64;
 
-  uint8_t do_mirror = force_hm ? mirror : ((king_square & 7) >= 4);
+  const uint8_t do_mirror = force_hm ? mirror : ((king_square & 7) >= 4);
   if (do_mirror) {
     square ^= 7;
   }
 
-  int piece_type = piece > 5 ? piece - 6 : piece;
-  int color = piece / 6;
+  const uint8_t piece_type = piece > 5 ? piece - 6 : piece;
+  const uint8_t color = piece / 6;
 
-  int16_t idx =
+  const int16_t idx =
       side == white
           ? color * COLOR_STRIDE + piece_type * PIECE_STRIDE + (square ^ 56)
           : (1 ^ color) * COLOR_STRIDE + piece_type * PIECE_STRIDE + square;
@@ -282,10 +282,10 @@ static inline int16_t get_idx(uint8_t side, uint8_t piece, uint8_t square,
 
 static inline void refresh_accumulator(thread_t *thread, position_t *pos,
                                        accumulator_t *accumulator) {
-  uint8_t side = pos->side ^ 1;
-  uint8_t king_square = get_lsb(pos->bitboards[side == white ? K : k]);
-  uint8_t bucket = get_king_bucket(side, king_square);
-  uint8_t do_hm = (king_square & 7) >= 4;
+  const uint8_t side = pos->side ^ 1;
+  const uint8_t king_square = get_lsb(pos->bitboards[side == white ? K : k]);
+  const uint8_t bucket = get_king_bucket(side, king_square);
+  const uint8_t do_hm = (king_square & 7) >= 4;
   accumulator_t *finny_accumulator =
       &thread->finny_tables[do_hm][bucket].accumulators;
   uint64_t *finny_bitboards =
@@ -296,13 +296,13 @@ static inline void refresh_accumulator(thread_t *thread, position_t *pos,
     uint64_t removed = finny_bitboards[piece] & ~pos->bitboards[piece];
 
     while (added && removed) {
-      uint8_t added_square = get_lsb(added);
+      const uint8_t added_square = get_lsb(added);
       pop_bit(added, added_square);
-      uint8_t removed_square = get_lsb(removed);
+      const uint8_t removed_square = get_lsb(removed);
       pop_bit(removed, removed_square);
-      size_t added_index =
+      const size_t added_index =
           get_idx(side, piece, added_square, king_square, 0, 0);
-      size_t removed_index =
+      const size_t removed_index =
           get_idx(side, piece, removed_square, king_square, 0, 0);
 
       for (int i = 0; i < L1_SIZE; ++i)
@@ -312,9 +312,9 @@ static inline void refresh_accumulator(thread_t *thread, position_t *pos,
     }
 
     while (added) {
-      uint8_t square = get_lsb(added);
+      const uint8_t square = get_lsb(added);
       pop_bit(added, square);
-      size_t index = get_idx(side, piece, square, king_square, 0, 0);
+      const size_t index = get_idx(side, piece, square, king_square, 0, 0);
 
       for (int i = 0; i < L1_SIZE; ++i)
         finny_accumulator->accumulator[side][i] +=
@@ -322,9 +322,9 @@ static inline void refresh_accumulator(thread_t *thread, position_t *pos,
     }
 
     while (removed) {
-      uint8_t square = get_lsb(removed);
+      const uint8_t square = get_lsb(removed);
       pop_bit(removed, square);
-      size_t index = get_idx(side, piece, square, king_square, 0, 0);
+      const size_t index = get_idx(side, piece, square, king_square, 0, 0);
 
       for (int i = 0; i < L1_SIZE; ++i)
         finny_accumulator->accumulator[side][i] -=
@@ -337,8 +337,8 @@ static inline void refresh_accumulator(thread_t *thread, position_t *pos,
 }
 
 void init_accumulator(position_t *pos, accumulator_t *accumulator) {
-  uint8_t white_bucket = get_king_bucket(white, get_lsb(pos->bitboards[K]));
-  uint8_t black_bucket = get_king_bucket(black, get_lsb(pos->bitboards[k]));
+  const uint8_t white_bucket = get_king_bucket(white, get_lsb(pos->bitboards[K]));
+  const uint8_t black_bucket = get_king_bucket(black, get_lsb(pos->bitboards[k]));
   for (int i = 0; i < L1_SIZE; ++i) {
     accumulator->accumulator[0][i] = nnue.feature_bias[i];
     accumulator->accumulator[1][i] = nnue.feature_bias[i];
@@ -347,10 +347,10 @@ void init_accumulator(position_t *pos, accumulator_t *accumulator) {
   for (int piece = P; piece <= k; ++piece) {
     uint64_t bitboard = pos->bitboards[piece];
     while (bitboard) {
-      int square = get_lsb(bitboard);
-      size_t white_idx =
+      const uint8_t square = get_lsb(bitboard);
+      const size_t white_idx =
           get_idx(white, piece, square, get_lsb(pos->bitboards[K]), 0, 0);
-      size_t black_idx =
+      const size_t black_idx =
           get_idx(black, piece, square, get_lsb(pos->bitboards[k]), 0, 0);
 
       // updates all the pieces in the accumulators
@@ -377,9 +377,9 @@ void init_accumulator_bucket(position_t *pos, accumulator_t *accumulator,
   for (int piece = P; piece <= k; ++piece) {
     uint64_t bitboard = pos->bitboards[piece];
     while (bitboard) {
-      int square = get_lsb(bitboard);
-      size_t white_idx = get_idx(white, piece, square, 0, 1, do_hm);
-      size_t black_idx = get_idx(black, piece, square, 0, 1, do_hm);
+      const uint8_t square = get_lsb(bitboard);
+      const size_t white_idx = get_idx(white, piece, square, 0, 1, do_hm);
+      const size_t black_idx = get_idx(black, piece, square, 0, 1, do_hm);
 
       // updates all the pieces in the accumulators
       for (int i = 0; i < L1_SIZE; ++i)
@@ -410,19 +410,19 @@ void init_finny_tables(thread_t *thread, position_t *pos) {
 }
 
 int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
-  uint8_t white_bucket = get_king_bucket(white, get_lsb(pos->bitboards[K]));
-  uint8_t black_bucket = get_king_bucket(black, get_lsb(pos->bitboards[k]));
+  const uint8_t white_bucket = get_king_bucket(white, get_lsb(pos->bitboards[K]));
+  const uint8_t black_bucket = get_king_bucket(black, get_lsb(pos->bitboards[k]));
   for (int i = 0; i < L1_SIZE; ++i) {
     accumulator->accumulator[0][i] = nnue.feature_bias[i];
     accumulator->accumulator[1][i] = nnue.feature_bias[i];
   }
 
-  uint8_t out_bucket = calculate_output_bucket(pos);
+  const uint8_t out_bucket = calculate_output_bucket(pos);
 
   for (int piece = P; piece <= k; ++piece) {
     uint64_t bitboard = pos->bitboards[piece];
     while (bitboard) {
-      int square = get_lsb(bitboard);
+      const uint8_t square = get_lsb(bitboard);
       int16_t white_idx =
           get_idx(white, piece, square, get_lsb(pos->bitboards[K]), 0, 0);
       int16_t black_idx =
@@ -446,13 +446,13 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
 
   int8_t l1Neurons[L1_SIZE];
   for (int l1 = 0; l1 < L1_SIZE / 2; l1++) {
-    int16_t stmClipped1 = clamp((int)(stmAcc[l1]), 0, INPUT_QUANT);
-    int16_t stmClipped2 =
+    const int16_t stmClipped1 = clamp((int)(stmAcc[l1]), 0, INPUT_QUANT);
+    const int16_t stmClipped2 =
         clamp((int)(stmAcc[l1 + L1_SIZE / 2]), 0, INPUT_QUANT);
     l1Neurons[l1] = (stmClipped1 * stmClipped2) >> INPUT_SHIFT;
 
-    int16_t oppClipped1 = clamp((int)(oppAcc[l1]), 0, INPUT_QUANT);
-    int16_t oppClipped2 =
+    const int16_t oppClipped1 = clamp((int)(oppAcc[l1]), 0, INPUT_QUANT);
+    const int16_t oppClipped2 =
         clamp((int)(oppAcc[l1 + L1_SIZE / 2]), 0, INPUT_QUANT);
     l1Neurons[l1 + L1_SIZE / 2] = (oppClipped1 * oppClipped2) >> INPUT_SHIFT;
   }
@@ -481,10 +481,10 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
       (float)(1 << INPUT_SHIFT) / (float)(INPUT_QUANT * INPUT_QUANT * L1_QUANT);
 
   for (int l2 = 0; l2 < L2_SIZE; l2++) {
-    float l2Result = (float)(l2Neurons[l2]) * L1_NORMALISATION +
+    const float l2Result = (float)(l2Neurons[l2]) * L1_NORMALISATION +
                      (nnue.l1_bias[out_bucket][l2]);
-    float crelu = crelu_float(l2Result);
-    float csrelu = crelu_float(l2Result * l2Result);
+    const float crelu = crelu_float(l2Result);
+    const float csrelu = crelu_float(l2Result * l2Result);
 
     for (int l3 = 0; l3 < L3_SIZE; l3++) {
       l3Neurons[l3] += crelu * nnue.l2_weights[out_bucket][l2][l3];
@@ -497,7 +497,7 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
 
   float result = nnue.l3_bias[out_bucket];
   for (int l3 = 0; l3 < L3_SIZE; l3++) {
-    float l3Activated = screlu_float(l3Neurons[l3]);
+    const float l3Activated = screlu_float(l3Neurons[l3]);
     result += l3Activated * nnue.l3_weights[out_bucket][l3];
   }
   // TODO reduce add
@@ -527,8 +527,8 @@ int nnue_evaluate(thread_t *thread, position_t *pos,
   const int I32_STRIDE = sizeof(veci32_t) / sizeof(int32_t);
 
   {
-    veci_t i16_zero = zero();
-    veci_t i16_quant = set_epi16((int16_t)INPUT_QUANT);
+    const veci_t i16_zero = zero();
+    const veci_t i16_quant = set_epi16((int16_t)INPUT_QUANT);
 
     for (int l1 = 0; l1 < L1_SIZE / 2; l1 += 2 * I16_VEC_SIZE) {
       // STM
@@ -573,12 +573,12 @@ int nnue_evaluate(thread_t *thread, position_t *pos,
         31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14,
         13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
     for (int base = 0; base < NNZ_MAX; base += I32_STRIDE * 2) {
-      uint16_t lo = (uint16_t)_mm512_cmpneq_epi32_mask(
+      const uint16_t lo = (uint16_t)_mm512_cmpneq_epi32_mask(
           _mm512_loadu_si512((const veci_t *)&l1Packs[base]), zero_vec);
-      uint16_t hi = (uint16_t)_mm512_cmpneq_epi32_mask(
+      const uint16_t hi = (uint16_t)_mm512_cmpneq_epi32_mask(
           _mm512_loadu_si512((const veci_t *)&l1Packs[base + I32_STRIDE]),
           zero_vec);
-      uint32_t mask = _mm512_kunpackw(hi, lo);
+      const uint32_t mask = _mm512_kunpackw(hi, lo);
       __m512i indices = _mm512_maskz_compress_epi16(mask, base_indices);
       _mm512_storeu_si512(&nnz_indices[nnz_count], indices);
       base_indices = _mm512_add_epi16(base_indices, inc_vec);
@@ -592,15 +592,15 @@ int nnue_evaluate(thread_t *thread, position_t *pos,
     __m128i base_lo = _mm_setzero_si128();
     __m128i base_hi = _mm_set1_epi16(8);
     for (int i = 0; i < NNZ_MAX; i += I32_STRIDE) {
-      uint16_t mask = (uint16_t)~_mm512_cmpeq_epi32_mask(
+      const uint16_t mask = (uint16_t)~_mm512_cmpeq_epi32_mask(
           _mm512_loadu_si512((const veci_t *)&l1Packs[i]), zero_vec);
-      uint8_t lo = (uint8_t)(mask & 0xFF);
+      const uint8_t lo = (uint8_t)(mask & 0xFF);
       _mm_storeu_si128(
           (__m128i *)&nnz_indices[nnz_count],
           _mm_add_epi16(_mm_loadu_si128((const __m128i *)NNZ_TABLE[lo]),
                         base_lo));
       nnz_count += __builtin_popcount(lo);
-      uint8_t hi = (uint8_t)(mask >> 8);
+      const uint8_t hi = (uint8_t)(mask >> 8);
       _mm_storeu_si128(
           (__m128i *)&nnz_indices[nnz_count],
           _mm_add_epi16(_mm_loadu_si128((const __m128i *)NNZ_TABLE[hi]),
@@ -616,7 +616,7 @@ int nnue_evaluate(thread_t *thread, position_t *pos,
     const __m128i increment = _mm_set1_epi16(8);
     __m128i base_vec = _mm_setzero_si128();
     for (int i = 0; i < NNZ_MAX; i += I32_STRIDE) {
-      uint8_t byte =
+      const uint8_t byte =
           (uint8_t)(~_mm256_movemask_ps(_mm256_castsi256_ps(_mm256_cmpeq_epi32(
               _mm256_loadu_si256((const veci_t *)&l1Packs[i]), zero_vec))));
       _mm_storeu_si128(
@@ -633,11 +633,11 @@ int nnue_evaluate(thread_t *thread, position_t *pos,
     const uint16x8_t inc8 = vdupq_n_u16(8);
     uint16x8_t base_v = vdupq_n_u16(0);
     for (int i = 0; i < NNZ_MAX; i += 8) {
-      uint32x4_t chunk0 = vld1q_u32((const uint32_t *)&l1Packs[i]);
-      uint32_t lo = vaddvq_u32(vandq_u32(vtstq_u32(chunk0, chunk0), posmask));
-      uint32x4_t chunk1 = vld1q_u32((const uint32_t *)&l1Packs[i + 4]);
-      uint32_t hi = vaddvq_u32(vandq_u32(vtstq_u32(chunk1, chunk1), posmask));
-      uint8_t byte = (uint8_t)(lo | (hi << 4));
+      const uint32x4_t chunk0 = vld1q_u32((const uint32_t *)&l1Packs[i]);
+      const uint32_t lo = vaddvq_u32(vandq_u32(vtstq_u32(chunk0, chunk0), posmask));
+      const uint32x4_t chunk1 = vld1q_u32((const uint32_t *)&l1Packs[i + 4]);
+      const uint32_t hi = vaddvq_u32(vandq_u32(vtstq_u32(chunk1, chunk1), posmask));
+      const uint8_t byte = (uint8_t)(lo | (hi << 4));
       vst1q_u16(&nnz_indices[nnz_count],
                 vaddq_u16(vld1q_u16(NNZ_TABLE[byte]), base_v));
       nnz_count += __builtin_popcount(byte);
@@ -692,7 +692,7 @@ int nnue_evaluate(thread_t *thread, position_t *pos,
     const vecf_t zero_ps = set_ps1(0.0f);
 
     for (int l2 = 0; l2 < L2_SIZE / FLOAT_VEC_SIZE; l2++) {
-      vecf_t l2_result = add_ps(
+      const vecf_t l2_result = add_ps(
           mul_ps(cvtepi32_ps(
                      *((veci32_t *)&layers->l2_neurons[l2 * FLOAT_VEC_SIZE])),
                  norm_ps),
@@ -720,7 +720,7 @@ int nnue_evaluate(thread_t *thread, position_t *pos,
 
     for (int l3 = 0; l3 < L3_SIZE / FLOAT_VEC_SIZE; l3 += chunks) {
       for (int c = 0; c < chunks; c++) {
-        vecf_t clipped =
+        const vecf_t clipped =
             clip_ps(*((vecf_t *)&layers->l3_neurons[(l3 + c) * FLOAT_VEC_SIZE]),
                     one_ps, zero_ps);
         result_sums[c] =
@@ -739,13 +739,13 @@ int nnue_evaluate(thread_t *thread, position_t *pos,
   memset(layers->l2_neurons, 0, sizeof(layers->l2_neurons));
 
   for (int l1 = 0; l1 < L1_SIZE / 2; l1++) {
-    int16_t stmClipped1 = clamp((int)(stmAcc[l1]), 0, INPUT_QUANT);
-    int16_t stmClipped2 =
+    const int16_t stmClipped1 = clamp((int)(stmAcc[l1]), 0, INPUT_QUANT);
+    const int16_t stmClipped2 =
         clamp((int)(stmAcc[l1 + L1_SIZE / 2]), 0, INPUT_QUANT);
     layers->l1_neurons[l1] = (stmClipped1 * stmClipped2) >> INPUT_SHIFT;
 
-    int16_t oppClipped1 = clamp((int)(oppAcc[l1]), 0, INPUT_QUANT);
-    int16_t oppClipped2 =
+    const int16_t oppClipped1 = clamp((int)(oppAcc[l1]), 0, INPUT_QUANT);
+    const int16_t oppClipped2 =
         clamp((int)(oppAcc[l1 + L1_SIZE / 2]), 0, INPUT_QUANT);
     layers->l1_neurons[l1 + L1_SIZE / 2] =
         (oppClipped1 * oppClipped2) >> INPUT_SHIFT;
@@ -762,10 +762,10 @@ int nnue_evaluate(thread_t *thread, position_t *pos,
          sizeof(layers->l3_neurons));
 
   for (int l2 = 0; l2 < L2_SIZE; l2++) {
-    float l2Result = (float)(layers->l2_neurons[l2]) * L1_NORMALISATION +
+    const float l2Result = (float)(layers->l2_neurons[l2]) * L1_NORMALISATION +
                      (nnue.l1_bias[out_bucket][l2]);
-    float crelu = crelu_float(l2Result);
-    float csrelu = crelu_float(l2Result * l2Result);
+    const float crelu = crelu_float(l2Result);
+    const float csrelu = crelu_float(l2Result * l2Result);
 
     for (int l3 = 0; l3 < L3_SIZE; l3++) {
       layers->l3_neurons[l3] += crelu * nnue.l2_weights[out_bucket][l2][l3];
@@ -779,7 +779,7 @@ int nnue_evaluate(thread_t *thread, position_t *pos,
 
   float result = nnue.l3_bias[out_bucket];
   for (int l3 = 0; l3 < L3_SIZE; l3++) {
-    float l3Activated = screlu_float(layers->l3_neurons[l3]);
+    const float l3Activated = screlu_float(layers->l3_neurons[l3]);
     result += l3Activated * nnue.l3_weights[out_bucket][l3];
   }
 
@@ -793,12 +793,12 @@ accumulator_addsub(accumulator_t *accumulator, accumulator_t *prev_accumulator,
                    uint8_t white_bucket, uint8_t black_bucket, uint8_t piece1,
                    uint8_t piece2, uint8_t from1, uint8_t to2,
                    uint8_t color_flag) {
-  size_t white_idx_from =
+  const size_t white_idx_from =
       get_idx(white, piece1, from1, white_king_square, 0, 0);
-  size_t black_idx_from =
+  const size_t black_idx_from =
       get_idx(black, piece1, from1, black_king_square, 0, 0);
-  size_t white_idx_to = get_idx(white, piece2, to2, white_king_square, 0, 0);
-  size_t black_idx_to = get_idx(black, piece2, to2, black_king_square, 0, 0);
+  const size_t white_idx_to = get_idx(white, piece2, to2, white_king_square, 0, 0);
+  const size_t black_idx_to = get_idx(black, piece2, to2, black_king_square, 0, 0);
 
   __builtin_prefetch(&nnue.feature_weights[white_bucket][white_idx_from][0], 0,
                      1);
@@ -832,16 +832,16 @@ static inline void accumulator_addsubsub(
     uint8_t white_king_square, uint8_t black_king_square, uint8_t white_bucket,
     uint8_t black_bucket, uint8_t piece1, uint8_t piece2, uint8_t piece3,
     uint8_t from1, uint8_t from2, uint8_t to3, uint8_t color_flag) {
-  size_t white_idx_from1 =
+  const size_t white_idx_from1 =
       get_idx(white, piece1, from1, white_king_square, 0, 0);
-  size_t black_idx_from1 =
+  const size_t black_idx_from1 =
       get_idx(black, piece1, from1, black_king_square, 0, 0);
-  size_t white_idx_from2 =
+  const size_t white_idx_from2 =
       get_idx(white, piece2, from2, white_king_square, 0, 0);
-  size_t black_idx_from2 =
+  const size_t black_idx_from2 =
       get_idx(black, piece2, from2, black_king_square, 0, 0);
-  size_t white_idx_to = get_idx(white, piece3, to3, white_king_square, 0, 0);
-  size_t black_idx_to = get_idx(black, piece3, to3, black_king_square, 0, 0);
+  const size_t white_idx_to = get_idx(white, piece3, to3, white_king_square, 0, 0);
+  const size_t black_idx_to = get_idx(black, piece3, to3, black_king_square, 0, 0);
 
   if (color_flag == 0 || color_flag == 2) {
     for (int i = 0; i < L1_SIZE; ++i) {
@@ -869,18 +869,18 @@ static inline void accumulator_addaddsubsub(
     uint8_t black_bucket, uint8_t piece1, uint8_t piece2, uint8_t piece3,
     uint8_t piece4, uint8_t from1, uint8_t from2, uint8_t to3, uint8_t to4,
     uint8_t color_flag) {
-  size_t white_idx_from1 =
+  const size_t white_idx_from1 =
       get_idx(white, piece1, from1, white_king_square, 0, 0);
-  size_t black_idx_from1 =
+  const size_t black_idx_from1 =
       get_idx(black, piece1, from1, black_king_square, 0, 0);
-  size_t white_idx_from2 =
+  const size_t white_idx_from2 =
       get_idx(white, piece2, from2, white_king_square, 0, 0);
-  size_t black_idx_from2 =
+  const size_t black_idx_from2 =
       get_idx(black, piece2, from2, black_king_square, 0, 0);
-  size_t white_idx_to1 = get_idx(white, piece3, to3, white_king_square, 0, 0);
-  size_t black_idx_to1 = get_idx(black, piece3, to3, black_king_square, 0, 0);
-  size_t white_idx_to2 = get_idx(white, piece4, to4, white_king_square, 0, 0);
-  size_t black_idx_to2 = get_idx(black, piece4, to4, black_king_square, 0, 0);
+  const size_t white_idx_to1 = get_idx(white, piece3, to3, white_king_square, 0, 0);
+  const size_t black_idx_to1 = get_idx(black, piece3, to3, black_king_square, 0, 0);
+  const size_t white_idx_to2 = get_idx(white, piece4, to4, white_king_square, 0, 0);
+  const size_t black_idx_to2 = get_idx(black, piece4, to4, black_king_square, 0, 0);
 
   if (color_flag == 0 || color_flag == 2) {
     for (int i = 0; i < L1_SIZE; ++i) {
@@ -909,15 +909,15 @@ static inline void accumulator_make_move(
     uint8_t white_king_square, uint8_t black_king_square, uint8_t white_bucket,
     uint8_t black_bucket, uint8_t side, int move, uint8_t moving_piece,
     uint8_t captured_piece, uint8_t color_flag) {
-  int from = get_move_source(move);
-  int to = get_move_target(move);
-  int promoted_piece = get_move_promoted(!side, move);
-  int capture = get_move_capture(move);
-  int enpass = get_move_enpassant(move);
-  int castling = get_move_castling(move);
+  const uint8_t from = get_move_source(move);
+  const uint8_t to = get_move_target(move);
+  const uint8_t promoted_piece = get_move_promoted(!side, move);
+  const uint8_t capture = get_move_capture(move);
+  const uint8_t enpass = get_move_enpassant(move);
+  const uint8_t castling = get_move_castling(move);
 
   if (promoted_piece) {
-    uint8_t pawn = side == 0 ? p : P;
+    const uint8_t pawn = side == 0 ? p : P;
     if (capture) {
       accumulator_addsubsub(accumulator, prev_accumulator, white_king_square,
                             black_king_square, white_bucket, black_bucket, pawn,
@@ -931,7 +931,7 @@ static inline void accumulator_make_move(
   }
 
   else if (enpass) {
-    uint8_t remove_square = to + ((side == white) ? -8 : 8);
+    const uint8_t remove_square = to + ((side == white) ? -8 : 8);
     accumulator_addsubsub(accumulator, prev_accumulator, white_king_square,
                           black_king_square, white_bucket, black_bucket,
                           captured_piece, moving_piece, moving_piece,
@@ -946,13 +946,13 @@ static inline void accumulator_make_move(
   }
 
   else if (castling) {
-    int mover = moving_piece >= 6;
-    int cs = castle_side(castling);
-    int rook_piece = mover == white ? R : r;
-    int ksq = from;
-    int rsq = to;
-    int kdest = castle_king_dest(mover, cs);
-    int rdest = castle_rook_dest(mover, cs);
+    const uint8_t mover = moving_piece >= 6;
+    const uint8_t cs = castle_side(castling);
+    const uint8_t rook_piece = mover == white ? R : r;
+    const uint8_t ksq = from;
+    const uint8_t rsq = to;
+    const uint8_t kdest = castle_king_dest(mover, cs);
+    const uint8_t rdest = castle_rook_dest(mover, cs);
     accumulator_addaddsubsub(accumulator, prev_accumulator, white_king_square,
                              black_king_square, white_bucket, black_bucket,
                              rook_piece, moving_piece, rook_piece, moving_piece,
@@ -999,8 +999,8 @@ void null_move_copy_accumulator(thread_t *thread, int src_ply, int dst_ply) {
 void update_nnue(position_t *pos, thread_t *thread, uint8_t mailbox_copy[64],
                  uint16_t move) {
   lazy_acc_state_t *state = &thread->lazy[thread->ply];
-  const int from = get_move_source(move);
-  const int to = get_move_target(move);
+  const uint8_t from = get_move_source(move);
+  const uint8_t to = get_move_target(move);
 
   state->dirty = 1;
   state->move = move;
@@ -1012,7 +1012,7 @@ void update_nnue(position_t *pos, thread_t *thread, uint8_t mailbox_copy[64],
   state->moving_piece = mailbox_copy[from];
 
   if (get_move_enpassant(move)) {
-    const int ep_sq = to + ((pos->side == white) ? -8 : 8);
+    const uint8_t ep_sq = to + ((pos->side == white) ? -8 : 8);
     state->captured_piece = mailbox_copy[ep_sq];
   } else {
     state->captured_piece = mailbox_copy[to];

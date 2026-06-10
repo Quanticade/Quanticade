@@ -18,7 +18,7 @@ int CORR_HISTORY_BONUS_SCALER = 138;
 
 int HISTORY_MAX = 8192;
 
-uint8_t cont_hist_updates[] = {1, 2, 4};
+const uint8_t cont_hist_updates[] = {1, 2, 4};
 
 extern keys_t keys;
 

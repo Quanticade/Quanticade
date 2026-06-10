@@ -34,7 +34,7 @@ const int rook_relevant_bits[64] = {
     11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11,
     11, 10, 10, 10, 10, 10, 10, 11, 12, 11, 11, 11, 11, 11, 11, 12};
 
-uint64_t rook_magic_numbers[64] = {
+const uint64_t rook_magic_numbers[64] = {
     0x8a80104000800020ULL, 0x140002000100040ULL,  0x2801880a0017001ULL,
     0x100081001000420ULL,  0x200020010080420ULL,  0x3001c0002010008ULL,
     0x8480008002000100ULL, 0x2080088004402900ULL, 0x800098204000ULL,
@@ -59,7 +59,7 @@ uint64_t rook_magic_numbers[64] = {
     0x1004081002402ULL};
 
 // bishop magic numbers
-uint64_t bishop_magic_numbers[64] = {
+const uint64_t bishop_magic_numbers[64] = {
     0x40040844404084ULL,   0x2004208a004208ULL,   0x10190041080202ULL,
     0x108060845042010ULL,  0x581104180800210ULL,  0x2112080446200010ULL,
     0x1080820820060210ULL, 0x3c0808410220200ULL,  0x4050404440404ULL,

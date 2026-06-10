@@ -116,15 +116,15 @@ const char *square_to_coordinates[] = {
     "h2", "a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1",
 };
 
-int char_pieces[] = {['P'] = P, ['N'] = N, ['B'] = B, ['R'] = R,
+const int char_pieces[] = {['P'] = P, ['N'] = N, ['B'] = B, ['R'] = R,
                      ['Q'] = Q, ['K'] = K, ['p'] = p, ['n'] = n,
                      ['b'] = b, ['r'] = r, ['q'] = q, ['k'] = k};
 
-char piece_chars[] = {[P] = 'P', [N] = 'N', [B] = 'B', [R] = 'R',
+const char piece_chars[] = {[P] = 'P', [N] = 'N', [B] = 'B', [R] = 'R',
                       [Q] = 'Q', [K] = 'K', [p] = 'p', [n] = 'n',
                       [b] = 'b', [r] = 'r', [q] = 'q', [k] = 'k'};
 
-char promoted_pieces[] = {[Q] = 'q', [R] = 'r', [B] = 'b', [N] = 'n',
+const char promoted_pieces[] = {[Q] = 'q', [R] = 'r', [B] = 'b', [N] = 'n',
                           [q] = 'q', [r] = 'r', [b] = 'b', [n] = 'n'};
 
 static inline int parse_move(position_t *pos, thread_t *thread,

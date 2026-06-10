@@ -211,12 +211,12 @@ void init_reductions(void) {
 
 void scale_time(thread_t *thread, uint8_t best_move_stability,
                 uint8_t eval_stability, uint16_t move) {
-  double not_bm_nodes_fraction =
+  const double not_bm_nodes_fraction =
       1 - (double)nodes_spent_table[move >> 4] / (double)thread->nodes;
-  double node_scaling_factor =
+  const double node_scaling_factor =
       MAX(NODE_TIME_MULTIPLIER * not_bm_nodes_fraction + NODE_TIME_ADDITION,
           NODE_TIME_MIN);
-  double eval = EVAL_TIME_ADDITION - eval_stability * EVAL_TIME_MULTIPLIER;
+  const double eval = EVAL_TIME_ADDITION - eval_stability * EVAL_TIME_MULTIPLIER;
   limits.soft_limit =
       MIN(thread->starttime + limits.base_soft *
                                   bestmove_scale[best_move_stability] * eval *
@@ -282,7 +282,7 @@ static inline move_t pick_next_best_move(moves *move_list, uint16_t *index) {
     best_packed = MAX(best_packed, pack(moves[i], i));
   }
 
-  uint16_t best = unpack(best_packed);
+  const uint16_t best = unpack(best_packed);
 
   // Swap best with current index
   if (best != initial_index) {
@@ -302,15 +302,15 @@ static inline void score_noisy(thread_t *thread, searchstack_t *ss,
   position_t *pos = &thread->positions[thread->ply];
   for (uint32_t i = 0; i < noisy_list->count; i++) {
     move_t entry = noisy_list->entry[i];
-    uint16_t move = entry.move;
+    const uint16_t move = entry.move;
 
     if (move == tt_move)
       continue;
 
-    uint8_t source = get_move_source(move);
-    uint8_t target = get_move_target(move);
-    uint8_t source_threatened = is_square_threatened(ss, source);
-    uint8_t target_threatened = is_square_threatened(ss, target);
+    const uint8_t source = get_move_source(move);
+    const uint8_t target = get_move_target(move);
+    const uint8_t source_threatened = is_square_threatened(ss, source);
+    const uint8_t target_threatened = is_square_threatened(ss, target);
 
     int target_piece;
     if (get_move_enpassant(move))
@@ -325,7 +325,7 @@ static inline void score_noisy(thread_t *thread, searchstack_t *ss,
         MO_CAPT_HIST_MULT;
     entry.score /= 1024;
 
-    int see_threshold =
+    const int see_threshold =
         -MO_SEE_THRESHOLD - entry.score / MO_SEE_HISTORY_DIVISER;
     if (SEE(pos, move, see_threshold))
       good_noisy->entry[good_noisy->count++] = entry;
@@ -340,17 +340,17 @@ static inline void score_quiet(thread_t *thread, searchstack_t *ss,
   position_t *pos = &thread->positions[thread->ply];
   for (uint32_t i = 0; i < quiet_list->count; i++) {
     move_t *entry = &quiet_list->entry[i];
-    uint16_t move = entry->move;
+    const uint16_t move = entry->move;
 
     if (move == tt_move) {
       entry->score = -(1 << 20);
       continue;
     }
 
-    uint8_t source = get_move_source(move);
-    uint8_t target = get_history_target(move);
-    uint8_t source_threatened = is_square_threatened(ss, source);
-    uint8_t target_threatened = is_square_threatened(ss, target);
+    const uint8_t source = get_move_source(move);
+    const uint8_t target = get_history_target(move);
+    const uint8_t source_threatened = is_square_threatened(ss, source);
+    const uint8_t target_threatened = is_square_threatened(ss, target);
 
     entry->score =
         thread->quiet_history[pos->side][source][target][source_threatened]
@@ -666,8 +666,8 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
         best_move = move;
         // fail-hard beta cutoff
         if (alpha >= beta) {
-          int capt_bonus = CAPTURE_HISTORY_QS_BONUS;
-          int capt_malus = -CAPTURE_HISTORY_QS_MALUS;
+          const int capt_bonus = CAPTURE_HISTORY_QS_BONUS;
+          const int capt_malus = -CAPTURE_HISTORY_QS_MALUS;
           for (uint32_t i = 0; i < capture_list->count; ++i) {
             if (capture_list->entry[i].move == best_move) {
               update_capture_history(thread, ss, best_move, capt_bonus);
@@ -742,8 +742,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   uint8_t tt_flag = HASH_FLAG_EXACT;
   ss->tt_pv = ss->excluded_move ? ss->tt_pv : pv_node;
 
-  uint8_t root_node = ply == 0;
-  uint8_t all_node = !(pv_node || cutnode);
+  const uint8_t root_node = ply == 0;
+  const uint8_t all_node = !(pv_node || cutnode);
 
   // Limit depth to MAX_PLY - 1 in case extensions make it too big
   depth = clamp(depth, 0, MAX_PLY - 1);
@@ -767,7 +767,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   }
 
   // is king in check
-  uint8_t in_check = !!pos->checkers;
+  const uint8_t in_check = !!pos->checkers;
 
   // recursion escape condition
   if (depth <= 0) {
@@ -827,13 +827,13 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
                      HASH_FLAG_NONE, ss->tt_pv);
   }
 
-  int16_t correction = correction_value(thread);
+  const int16_t correction = correction_value(thread);
 
-  uint8_t initial_depth = depth;
+  const uint8_t initial_depth = depth;
   int32_t improvement = 0;
   uint8_t opponent_worsening = 0;
 
-  uint8_t potential_singularity =
+  const uint8_t potential_singularity =
       depth >= SE_DEPTH && tt_depth >= depth - SE_DEPTH_REDUCTION &&
       tt_flag != HASH_FLAG_UPPER_BOUND && abs(tt_score) < MATE_SCORE;
 
@@ -844,7 +844,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     opponent_worsening = ss->static_eval + (ss - 1)->static_eval > 1;
   }
 
-  uint8_t improving = improvement > 0;
+  const uint8_t improving = improvement > 0;
 
   (ss + 2)->cutoff_cnt = 0;
 
@@ -893,8 +893,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       ply > thread->nmp_min_ply &&
       ss->eval >= beta - NMP_MULTIPLIER * depth + NMP_BASE_ADD &&
       !is_loss(beta) && !is_win(ss->eval) && !only_pawns(pos)) {
-    int R = (depth * NMP_DIVISER + NMP_BASE_REDUCTION) / 256;
-    R = MIN(R, depth);
+    const int R = MIN((depth * NMP_DIVISER + NMP_BASE_REDUCTION) / 256, depth);
 
     // Copy current position to the next ply slot and advance.
     null_move_copy_accumulator(thread, ply, ply + 1);
@@ -937,7 +936,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
     /* search moves with reduced depth to find beta cutoffs
        depth - 1 - R where R is a reduction limit */
-    int16_t score =
+    const int16_t score =
         -negamax(thread, ss + 1, -beta, -beta + 1, depth - R, !cutnode, NON_PV);
 
     (ss + 1)->null_move = 0;
@@ -976,8 +975,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       !is_win(beta) &&
       (!tt_hit || tt_depth + 3 < depth ||
        (tt_score >= probcut_beta && !is_decisive(tt_score)))) {
-    int probcut_depth = depth - PROBCUT_SHALLOW_DEPTH - 1;
-    probcut_depth = MAX(1, probcut_depth);
+    const int probcut_depth = MAX(1, depth - PROBCUT_SHALLOW_DEPTH - 1);
 
     // Generate captures and good promotions for ProbCut
     picker_t probcut_picker;
@@ -1186,7 +1184,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         picker.skip_quiets = 1;
       }
 
-      int lmr_depth = MAX(1, depth - 1 - MAX(reduction, 1));
+      const int lmr_depth = MAX(1, depth - 1 - MAX(reduction, 1));
       // Futility Pruning
       if (lmr_depth <= FP_DEPTH && !in_check && quiet &&
           ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION +
@@ -1255,7 +1253,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
     prefetch_hash_entry(next_pos->hash_keys.hash_key);
 
-    uint64_t nodes_before_search = thread->nodes;
+    const uint64_t nodes_before_search = thread->nodes;
 
     // PVS & LMR
     int new_depth = moves_seen == 1 ? depth + extensions - 1 : depth - 1;
@@ -1341,32 +1339,31 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
           bound = HASH_FLAG_LOWER_BOUND;
           // on quiet moves
           if (!(get_move_capture(best_move) || is_move_promotion(best_move))) {
-            int history_depth = depth;
-            history_depth += (!in_check && ss->eval <= alpha);
-            int cont_bonus = MIN(CONT_HISTORY_BASE_BONUS +
+            const int history_depth = depth + (!in_check && ss->eval <= alpha);
+            const int cont_bonus = MIN(CONT_HISTORY_BASE_BONUS +
                                      CONT_HISTORY_FACTOR_BONUS * history_depth,
                                  CONT_HISTORY_BONUS_MAX);
-            int cont_malus = -MIN(CONT_HISTORY_BASE_MALUS +
+            const int cont_malus = -MIN(CONT_HISTORY_BASE_MALUS +
                                       CONT_HISTORY_FACTOR_MALUS * history_depth,
                                   CONT_HISTORY_MALUS_MAX);
 
-            int quiet_bonus =
+            const int quiet_bonus =
                 MIN(QUIET_HISTORY_BASE_BONUS +
                         QUIET_HISTORY_FACTOR_BONUS * history_depth,
                     QUIET_HISTORY_BONUS_MAX);
-            int quiet_malus =
+            const int quiet_malus =
                 -MIN(QUIET_HISTORY_BASE_MALUS +
                          QUIET_HISTORY_FACTOR_MALUS * history_depth,
                      QUIET_HISTORY_MALUS_MAX);
 
-            int pawn_bonus = MIN(PAWN_HISTORY_BASE_BONUS +
+            const int pawn_bonus = MIN(PAWN_HISTORY_BASE_BONUS +
                                      PAWN_HISTORY_FACTOR_BONUS * history_depth,
                                  PAWN_HISTORY_BONUS_MAX);
-            int pawn_malus = -MIN(PAWN_HISTORY_BASE_MALUS +
+            const int pawn_malus = -MIN(PAWN_HISTORY_BASE_MALUS +
                                       PAWN_HISTORY_FACTOR_MALUS * history_depth,
                                   PAWN_HISTORY_MALUS_MAX);
             for (uint32_t i = 0; i < quiet_list->count; ++i) {
-              uint16_t move = quiet_list->entry[i].move;
+              const uint16_t move = quiet_list->entry[i].move;
               if (move == best_move) {
                 update_continuation_histories(thread, ss, best_move,
                                               cont_bonus);
@@ -1380,10 +1377,10 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
             }
           }
 
-          int capt_bonus = MIN(CAPTURE_HISTORY_BASE_BONUS +
+          const int capt_bonus = MIN(CAPTURE_HISTORY_BASE_BONUS +
                                    CAPTURE_HISTORY_FACTOR_BONUS * depth,
                                CAPTURE_HISTORY_BONUS_MAX);
-          int capt_malus = -MIN(CAPTURE_HISTORY_BASE_MALUS +
+          const int capt_malus = -MIN(CAPTURE_HISTORY_BASE_MALUS +
                                     CAPTURE_HISTORY_FACTOR_MALUS * depth,
                                 CAPTURE_HISTORY_MALUS_MAX);
           for (uint32_t i = 0; i < capture_list->count; ++i) {
@@ -1439,9 +1436,9 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 static void print_thinking(thread_t *thread, int16_t score,
                            uint8_t current_depth) {
 
-  uint64_t nodes = total_nodes(thread, thread_count);
-  uint64_t time = get_time_ms() - thread->starttime;
-  uint64_t nps = (nodes / fmax(time, 1)) * 1000;
+  const uint64_t nodes = total_nodes(thread, thread_count);
+  const uint64_t time = get_time_ms() - thread->starttime;
+  const uint64_t nps = (nodes / fmax(time, 1)) * 1000;
 
   printf("info depth %d seldepth %d score ", current_depth, thread->seldepth);
 

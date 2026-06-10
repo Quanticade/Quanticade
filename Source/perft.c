@@ -63,7 +63,7 @@ void perft_test(position_t *pos, thread_t *searchinfo, int depth) {
   generate_quiets(pos, move_list, 1);
 
   // init start time
-  long start = get_time_ms();
+  const long start = get_time_ms();
 
   // loop over generated moves
   for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
@@ -76,14 +76,13 @@ void perft_test(position_t *pos, thread_t *searchinfo, int depth) {
     make_move(&pos_copy, move_list->entry[move_count].move);
 
     // cummulative nodes
-    long cummulative_nodes = searchinfo->nodes;
+    const long cummulative_nodes = searchinfo->nodes;
 
     // call perft driver recursively
     perft_driver(&pos_copy, searchinfo, depth - 1);
 
     // old nodes
-    long old_nodes = searchinfo->nodes - cummulative_nodes;
-    (void)old_nodes;
+    const long old_nodes = searchinfo->nodes - cummulative_nodes;
 
     printf("     move: ");
     print_move(move_list->entry[move_count].move);

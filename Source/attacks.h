@@ -6,8 +6,8 @@
 
 extern const int bishop_relevant_bits[64];
 extern const int rook_relevant_bits[64];
-extern uint64_t rook_magic_numbers[64];
-extern uint64_t bishop_magic_numbers[64];
+extern const uint64_t rook_magic_numbers[64];
+extern const uint64_t bishop_magic_numbers[64];
 
 extern uint64_t pawn_attacks[2][64];
 extern uint64_t knight_attacks[64];

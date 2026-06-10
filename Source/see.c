@@ -8,7 +8,7 @@ extern int SEEPieceValues[];
 static inline int move_estimated_value(position_t *pos, int move) {
 
   // Start with the value of the piece on the target square
-  int target_piece = pos->mailbox[get_move_target(move)] > 5
+  const int target_piece = pos->mailbox[get_move_target(move)] > 5
                          ? pos->mailbox[get_move_target(move)] - 6
                          : pos->mailbox[get_move_target(move)];
   int promoted_piece = get_move_promoted(pos->side, move);
@@ -52,14 +52,14 @@ static inline uint64_t all_attackers_to_square(position_t *pos, uint64_t occupie
 
 int SEE(position_t *pos, int move, int threshold) {
 
-  int from, to, enpassant, promotion, colour, balance, nextVictim;
+  int colour, balance, nextVictim;
   uint64_t bishops, rooks, occupied, attackers, myAttackers;
 
   // Unpack move information
-  from = get_move_source(move);
-  to = get_move_target(move);
-  enpassant = get_move_enpassant(move);
-  promotion = get_move_promoted(pos->side, move);
+  const int from = get_move_source(move);
+  const int to = get_move_target(move);
+  const int enpassant = get_move_enpassant(move);
+  const int promotion = get_move_promoted(pos->side, move);
 
   // Next victim is moved piece or promotion type
   nextVictim = promotion ? promotion : pos->mailbox[from];
@@ -70,8 +70,8 @@ int SEE(position_t *pos, int move, int threshold) {
   // The pin ray is the intersection of empty-board slider attacks from
   // the king and from the pinned piece's square.
   if (!get_move_castling(move)) {
-    int stm      = pos->side;
-    int stm_king = get_lsb(pos->bitboards[KING + 6 * stm]);
+    const int stm      = pos->side;
+    const int stm_king = get_lsb(pos->bitboards[KING + 6 * stm]);
     if ((1ULL << from) & pos->blockers[stm]) {
       uint64_t pin_line =
           (get_bishop_attacks(stm_king, 0ULL) & get_bishop_attacks(from, 0ULL)) |
@@ -107,7 +107,7 @@ int SEE(position_t *pos, int move, int threshold) {
   occupied = pos->occupancies[both];
   occupied = (occupied ^ (1ull << from)) | (1ull << to);
   if (enpassant) {
-    int ep_sq = pos->side == white ? to + 8 : to - 8;
+    const int ep_sq = pos->side == white ? to + 8 : to - 8;
     occupied ^= (1ull << ep_sq);
   }
 
@@ -140,7 +140,7 @@ int SEE(position_t *pos, int move, int threshold) {
           (pos->bitboards[nextVictim] | pos->bitboards[nextVictim + 6]);
 
       while (candidates) {
-        int sq    = get_lsb(candidates);
+        const int sq    = get_lsb(candidates);
         candidates &= candidates - 1;
 
         // Unpinned pieces and the king can always capture
