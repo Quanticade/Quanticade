@@ -809,14 +809,16 @@ accumulator_addsub(accumulator_t *accumulator, accumulator_t *prev_accumulator,
   __builtin_prefetch(&nnue.feature_weights[black_bucket][black_idx_to][0], 0,
                      1);
 
-  for (int i = 0; i < L1_SIZE; ++i) {
-    if (color_flag == 0 || color_flag == 2) {
+  if (color_flag == 0 || color_flag == 2) {
+    for (int i = 0; i < L1_SIZE; ++i) {
       accumulator->accumulator[white][i] =
           prev_accumulator->accumulator[white][i] -
           nnue.feature_weights[white_bucket][white_idx_from][i] +
           nnue.feature_weights[white_bucket][white_idx_to][i];
     }
-    if (color_flag == 1 || color_flag == 2) {
+  }
+  if (color_flag == 1 || color_flag == 2) {
+    for (int i = 0; i < L1_SIZE; ++i) {
       accumulator->accumulator[black][i] =
           prev_accumulator->accumulator[black][i] -
           nnue.feature_weights[black_bucket][black_idx_from][i] +
@@ -841,15 +843,17 @@ static inline void accumulator_addsubsub(
   size_t white_idx_to = get_idx(white, piece3, to3, white_king_square, 0, 0);
   size_t black_idx_to = get_idx(black, piece3, to3, black_king_square, 0, 0);
 
-  for (int i = 0; i < L1_SIZE; ++i) {
-    if (color_flag == 0 || color_flag == 2) {
+  if (color_flag == 0 || color_flag == 2) {
+    for (int i = 0; i < L1_SIZE; ++i) {
       accumulator->accumulator[white][i] =
           prev_accumulator->accumulator[white][i] -
           nnue.feature_weights[white_bucket][white_idx_from1][i] -
           nnue.feature_weights[white_bucket][white_idx_from2][i] +
           nnue.feature_weights[white_bucket][white_idx_to][i];
     }
-    if (color_flag == 1 || color_flag == 2) {
+  }
+  if (color_flag == 1 || color_flag == 2) {
+    for (int i = 0; i < L1_SIZE; ++i) {
       accumulator->accumulator[black][i] =
           prev_accumulator->accumulator[black][i] -
           nnue.feature_weights[black_bucket][black_idx_from1][i] -
@@ -878,8 +882,8 @@ static inline void accumulator_addaddsubsub(
   size_t white_idx_to2 = get_idx(white, piece4, to4, white_king_square, 0, 0);
   size_t black_idx_to2 = get_idx(black, piece4, to4, black_king_square, 0, 0);
 
-  for (int i = 0; i < L1_SIZE; ++i) {
-    if (color_flag == 0 || color_flag == 2) {
+  if (color_flag == 0 || color_flag == 2) {
+    for (int i = 0; i < L1_SIZE; ++i) {
       accumulator->accumulator[white][i] =
           prev_accumulator->accumulator[white][i] -
           nnue.feature_weights[white_bucket][white_idx_from1][i] -
@@ -887,7 +891,9 @@ static inline void accumulator_addaddsubsub(
           nnue.feature_weights[white_bucket][white_idx_to1][i] +
           nnue.feature_weights[white_bucket][white_idx_to2][i];
     }
-    if (color_flag == 1 || color_flag == 2) {
+  }
+  if (color_flag == 1 || color_flag == 2) {
+    for (int i = 0; i < L1_SIZE; ++i) {
       accumulator->accumulator[black][i] =
           prev_accumulator->accumulator[black][i] -
           nnue.feature_weights[black_bucket][black_idx_from1][i] -
