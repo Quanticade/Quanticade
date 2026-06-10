@@ -1,6 +1,7 @@
 #include "attacks.h"
 #include "bitboards.h"
 #include "enums.h"
+#include "history.h"
 #include "move.h"
 #include "structs.h"
 #include "transposition.h"
@@ -243,17 +244,6 @@ void update_capture_history(thread_t *thread, searchstack_t *ss, int move,
                              [target][is_square_threatened(ss, from)]
                              [is_square_threatened(ss, target)] *
           abs(bonus) / HISTORY_MAX;
-}
-
-int16_t get_conthist_score(thread_t *thread, searchstack_t *ss, int move,
-                           uint8_t ply) {
-  if (thread->ply >= ply && (ss - ply)->piece != NO_PIECE) {
-    return (ss - ply)->continuation_history[thread->positions[thread->ply]
-                               .mailbox[get_move_source(move)]]
-                                       [get_history_target(move)];
-  } else {
-    return 0;
-  }
 }
 
 void update_continuation_histories(thread_t *thread, searchstack_t *ss,
