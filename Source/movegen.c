@@ -367,19 +367,17 @@ void make_move(position_t *pos, uint16_t move) {
     pos->hash_keys.non_pawn_key[stm] ^= keys.piece_keys[rook_piece][rdest];
   }
 
+  const uint8_t *rook_sq = pos->castle_rook_sq[0];
   pos->hash_keys.hash_key ^= keys.castle_keys[pos->castle];
-  if (piece == K)
-    pos->castle &= ~(wk | wq);
-  else if (piece == k)
-    pos->castle &= ~(bk | bq);
-  for (int col = white; col <= black; ++col) {
-    for (int cs = 0; cs < 2; ++cs) {
-      uint8_t rsq = pos->castle_rook_sq[col][cs];
-      if (rsq != no_sq && (source_square == rsq || target_square == rsq)) {
-        pos->castle &= ~castle_bit(col, cs);
-        pos->castle_rook_sq[col][cs] = no_sq;
-      }
+  {
+    uint8_t castle_update = 0;
+    castle_update |= piece == K ? wk | wq : 0;
+    castle_update |= piece == k ? bk | bq : 0;
+    for (int i = 0; i < 4; ++i) {
+      uint8_t r = rook_sq[i];
+      castle_update |= ((source_square == r) | (target_square == r)) << i;
     }
+    pos->castle &= ~castle_update;
   }
   pos->hash_keys.hash_key ^= keys.castle_keys[pos->castle];
 

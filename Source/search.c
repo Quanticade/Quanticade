@@ -1,6 +1,7 @@
 #include "search.h"
 #include "attacks.h"
 #include "bitboards.h"
+#include "checkinfo.h"
 #include "enums.h"
 #include "evaluate.h"
 #include "history.h"
@@ -9,6 +10,7 @@
 #include "nnue.h"
 #include "pyrrhic/tbprobe.h"
 #include "see.h"
+#include "spsa.h"
 #include "stats.h"
 #include "structs.h"
 #include "syzygy.h"
@@ -32,163 +34,161 @@ extern int thread_count;
 
 extern keys_t keys;
 
-extern int QUIET_HISTORY_MAX_TT;
-extern int QUIET_HISTORY_TT_FACTOR;
-extern int QUIET_HISTORY_TT_BASE;
+extern TUNABLE(int QUIET_HISTORY_MAX_TT);
+extern TUNABLE(int QUIET_HISTORY_TT_FACTOR);
+extern TUNABLE(int QUIET_HISTORY_TT_BASE);
 
 extern uint8_t disable_norm;
 extern uint8_t minimal;
 
 // Depths and untunable values (SPSA poison)
-int RAZOR_DEPTH = 7;
-int RFP_DEPTH = 9;
-int FP_DEPTH = 10;
-int IIR_DEPTH = 4;
-int SEE_DEPTH = 10;
-int ASP_DEPTH = 4;
-int SE_DEPTH = 6;
-int PROBCUT_DEPTH = 5;
-int PROBCUT_SHALLOW_DEPTH = 3;
-int SE_DEPTH_REDUCTION = 6;
-int IIR_DEPTH_REDUCTION = 3;
-int EVAL_STABILITY_VAR = 9;
-int QS_SEE_THRESHOLD = 7;
-int SE_PV_DOUBLE_MARGIN = 1;
-int SE_DOUBLE_MARGIN = 0;
-int LMR_SHALLOWER_MARGIN = 6;
-int SEARCH_QUIET_HIST_MULT = 1024;
-int SEARCH_CONT1_HIST_MULT = 1024;
-int SEARCH_CONT2_HIST_MULT = 1024;
-int SEARCH_PAWN_HIST_MULT = 1024;
-int SEARCH_CAPT_HIST_MULT = 1024;
-int SEARCH_MVV_MULT = 1024;
+TUNABLE(int RAZOR_DEPTH = 7);
+TUNABLE(int RFP_DEPTH = 9);
+TUNABLE(int FP_DEPTH = 10);
+TUNABLE(int IIR_DEPTH = 4);
+TUNABLE(int SEE_DEPTH = 10);
+TUNABLE(int ASP_DEPTH = 4);
+TUNABLE(int SE_DEPTH = 6);
+TUNABLE(int PROBCUT_DEPTH = 5);
+TUNABLE(int PROBCUT_SHALLOW_DEPTH = 3);
+TUNABLE(int SE_DEPTH_REDUCTION = 6);
+TUNABLE(int IIR_DEPTH_REDUCTION = 3);
+TUNABLE(int EVAL_STABILITY_VAR = 9);
+TUNABLE(int QS_SEE_THRESHOLD = 7);
+TUNABLE(int SE_PV_DOUBLE_MARGIN = 1);
+TUNABLE(int SE_DOUBLE_MARGIN = 0);
+TUNABLE(int LMR_SHALLOWER_MARGIN = 6);
+TUNABLE(int SEARCH_QUIET_HIST_MULT = 1024);
+TUNABLE(int SEARCH_CONT1_HIST_MULT = 1024);
+TUNABLE(int SEARCH_CONT2_HIST_MULT = 1024);
+TUNABLE(int SEARCH_PAWN_HIST_MULT = 1024);
+TUNABLE(int SEARCH_CAPT_HIST_MULT = 1024);
+TUNABLE(int SEARCH_MVV_MULT = 1024);
 
 // SPSA Tuned params
-int RAZOR_MARGIN = 312;
-int RFP_MARGIN = 60;
-int RFP_BASE_MARGIN = 26;
-int RFP_IMPROVING = 62;
-int RFP_OPP_WORSENING = 15;
-int FP_MULTIPLIER = 149;
-int FP_ADDITION = 167;
-int FP_HISTORY_DIVISOR = 29;
-int NMP_BASE_ADD = 213;
-int NMP_MULTIPLIER = 19;
-int NMP_BASE_REDUCTION = 1621;
-int NMP_DIVISER = 85;
-int SEE_QUIET = 42;
-int SEE_CAPTURE = 28;
-int SEE_QUIET_HISTORY_DIVISOR = 36;
-int SEE_NOISY_HISTORY_DIVISOR = 37;
-int SE_TRIPLE_MARGIN = 39;
-int SE_BETA_BASE = 60;
-int SE_BETA_MULTIPLIER = 66;
-int SE_BETA_DIVISOR = 55;
-int LDSE_MARGIN = 25;
-int LMR_PV_NODE = 875;
-int LMR_HISTORY_QUIET = 1202;
-int LMR_HISTORY_NOISY = 1127;
-int LMR_WAS_IN_CHECK = 792;
-int LMR_IN_CHECK = 999;
-int LMR_CUTNODE = 1461;
-int LMR_TT_DEPTH = 1060;
-int LMR_TT_PV = 1072;
-int LMR_TT_PV_CUTNODE = 868;
-int LMR_TT_SCORE = 888;
-int LMR_CUTOFF_CNT = 896;
-int LMR_IMPROVING = 976;
-int LMR_DEEPER_MARGIN = 35;
-int LMP_BETA_MARGIN = 15;
-int LMR_CORRECTION = 1839;
-int LMR_HASH_FLAG_EXACT = 988;
-int ASP_WINDOW = 14;
-int QS_FUTILITY_THRESHOLD = 94;
-int MO_SEE_THRESHOLD = 100;
-int LMR_QUIET_HIST_DIV = 6405;
-int LMR_CAPT_HIST_DIV = 8372;
-int LMP_HISTORY_DIVISOR = 8192;
-int ASP_WINDOW_DIVISER = 29695;
-int ASP_WINDOW_FAIL_LOW = 27;
-int ASP_WINDOW_FAIL_HIGH = 58;
-int HINDSIGH_REDUCTION_ADD = 3013;
-int HINDSIGH_REDUCTION_RED = 1982;
-int HINDSIGN_REDUCTION_EVAL_MARGIN = 88;
-int PROBCUT_MARGIN = 253;
-int PROBCUT_SEE_THRESHOLD = 96;
-int MO_SEE_HISTORY_DIVISER = 32;
-int MO_QUIET_HIST_MULT = 964;
-int MO_CONT1_HIST_MULT = 1011;
-int MO_CONT2_HIST_MULT = 935;
-int MO_CONT4_HIST_MULT = 1056;
-int MO_PAWN_HIST_MULT = 904;
-int MO_CAPT_HIST_MULT = 1177;
-int MO_MVV_MULT = 15096;
-int MO_CHECK_SEE = 8192;
-int MO_QUIET_SEE = 100;
-int HISTORY_PRUNING_MARGIN = 2485;
-int BNFP_MARGIN = 145;
+TUNABLE(int RAZOR_MARGIN = 312);
+TUNABLE(int RFP_MARGIN = 60);
+TUNABLE(int RFP_BASE_MARGIN = 26);
+TUNABLE(int RFP_IMPROVING = 62);
+TUNABLE(int RFP_OPP_WORSENING = 15);
+TUNABLE(int FP_MULTIPLIER = 149);
+TUNABLE(int FP_ADDITION = 167);
+TUNABLE(int FP_HISTORY_DIVISOR = 29);
+TUNABLE(int NMP_BASE_ADD = 213);
+TUNABLE(int NMP_MULTIPLIER = 19);
+TUNABLE(int NMP_BASE_REDUCTION = 1621);
+TUNABLE(int NMP_DIVISER = 85);
+TUNABLE(int SEE_QUIET = 42);
+TUNABLE(int SEE_CAPTURE = 28);
+TUNABLE(int SEE_QUIET_HISTORY_DIVISOR = 36);
+TUNABLE(int SEE_NOISY_HISTORY_DIVISOR = 37);
+TUNABLE(int SE_TRIPLE_MARGIN = 39);
+TUNABLE(int SE_BETA_BASE = 60);
+TUNABLE(int SE_BETA_MULTIPLIER = 66);
+TUNABLE(int SE_BETA_DIVISOR = 55);
+TUNABLE(int LDSE_MARGIN = 25);
+TUNABLE(int LMR_PV_NODE = 875);
+TUNABLE(int LMR_HISTORY_QUIET = 1202);
+TUNABLE(int LMR_HISTORY_NOISY = 1127);
+TUNABLE(int LMR_WAS_IN_CHECK = 792);
+TUNABLE(int LMR_IN_CHECK = 999);
+TUNABLE(int LMR_CUTNODE = 1461);
+TUNABLE(int LMR_TT_DEPTH = 1060);
+TUNABLE(int LMR_TT_PV = 1072);
+TUNABLE(int LMR_TT_PV_CUTNODE = 868);
+TUNABLE(int LMR_TT_SCORE = 888);
+TUNABLE(int LMR_CUTOFF_CNT = 896);
+TUNABLE(int LMR_IMPROVING = 976);
+TUNABLE(int LMR_DEEPER_MARGIN = 35);
+TUNABLE(int LMP_BETA_MARGIN = 15);
+TUNABLE(int LMR_CORRECTION = 1839);
+TUNABLE(int LMR_HASH_FLAG_EXACT = 988);
+TUNABLE(int ASP_WINDOW = 14);
+TUNABLE(int QS_FUTILITY_THRESHOLD = 94);
+TUNABLE(int MO_SEE_THRESHOLD = 100);
+TUNABLE(int LMR_QUIET_HIST_DIV = 6405);
+TUNABLE(int LMR_CAPT_HIST_DIV = 8372);
+TUNABLE(int LMP_HISTORY_DIVISOR = 8192);
+TUNABLE(int ASP_WINDOW_DIVISER = 29695);
+TUNABLE(int ASP_WINDOW_FAIL_LOW = 27);
+TUNABLE(int ASP_WINDOW_FAIL_HIGH = 58);
+TUNABLE(int HINDSIGH_REDUCTION_ADD = 3013);
+TUNABLE(int HINDSIGH_REDUCTION_RED = 1982);
+TUNABLE(int HINDSIGN_REDUCTION_EVAL_MARGIN = 88);
+TUNABLE(int PROBCUT_MARGIN = 253);
+TUNABLE(int PROBCUT_SEE_THRESHOLD = 96);
+TUNABLE(int MO_SEE_HISTORY_DIVISER = 32);
+TUNABLE(int MO_QUIET_HIST_MULT = 964);
+TUNABLE(int MO_CONT1_HIST_MULT = 1011);
+TUNABLE(int MO_CONT2_HIST_MULT = 935);
+TUNABLE(int MO_CONT4_HIST_MULT = 1056);
+TUNABLE(int MO_PAWN_HIST_MULT = 904);
+TUNABLE(int MO_CAPT_HIST_MULT = 1177);
+TUNABLE(int MO_MVV_MULT = 15096);
+TUNABLE(int MO_CHECK_SEE = 8192);
+TUNABLE(int MO_QUIET_SEE = 100);
+TUNABLE(int HISTORY_PRUNING_MARGIN = 2485);
+TUNABLE(int BNFP_MARGIN = 145);
 
-int QUIET_HISTORY_MALUS_MAX = 1034;
-int QUIET_HISTORY_BONUS_MAX = 1165;
-int QUIET_HISTORY_BASE_BONUS = 10;
-int QUIET_HISTORY_FACTOR_BONUS = 164;
-int QUIET_HISTORY_BASE_MALUS = 7;
-int QUIET_HISTORY_FACTOR_MALUS = 244;
-int QUIET_HISTORY_MAX_TT = 1461;
-int QUIET_HISTORY_TT_FACTOR = 127;
-int QUIET_HISTORY_TT_BASE = 77;
+TUNABLE(int QUIET_HISTORY_MALUS_MAX = 1034);
+TUNABLE(int QUIET_HISTORY_BONUS_MAX = 1165);
+TUNABLE(int QUIET_HISTORY_BASE_BONUS = 10);
+TUNABLE(int QUIET_HISTORY_FACTOR_BONUS = 164);
+TUNABLE(int QUIET_HISTORY_BASE_MALUS = 7);
+TUNABLE(int QUIET_HISTORY_FACTOR_MALUS = 244);
+TUNABLE(int QUIET_HISTORY_MAX_TT = 1461);
+TUNABLE(int QUIET_HISTORY_TT_FACTOR = 127);
+TUNABLE(int QUIET_HISTORY_TT_BASE = 77);
 
-int CAPTURE_HISTORY_MALUS_MAX = 891;
-int CAPTURE_HISTORY_BONUS_MAX = 1584;
-int CAPTURE_HISTORY_BASE_BONUS = 9;
-int CAPTURE_HISTORY_FACTOR_BONUS = 139;
-int CAPTURE_HISTORY_BASE_MALUS = 10;
-int CAPTURE_HISTORY_FACTOR_MALUS = 268;
-int CAPTURE_HISTORY_QS_BONUS = 172;
-int CAPTURE_HISTORY_QS_MALUS = 248;
+TUNABLE(int CAPTURE_HISTORY_MALUS_MAX = 891);
+TUNABLE(int CAPTURE_HISTORY_BONUS_MAX = 1584);
+TUNABLE(int CAPTURE_HISTORY_BASE_BONUS = 9);
+TUNABLE(int CAPTURE_HISTORY_FACTOR_BONUS = 139);
+TUNABLE(int CAPTURE_HISTORY_BASE_MALUS = 10);
+TUNABLE(int CAPTURE_HISTORY_FACTOR_MALUS = 268);
+TUNABLE(int CAPTURE_HISTORY_QS_BONUS = 172);
+TUNABLE(int CAPTURE_HISTORY_QS_MALUS = 248);
 
-int CONT_HISTORY_MALUS_MAX = 1307;
-int CONT_HISTORY_BONUS_MAX = 2489;
-int CONT_HISTORY_BASE_BONUS = 9;
-int CONT_HISTORY_FACTOR_BONUS = 185;
-int CONT_HISTORY_BASE_MALUS = 8;
-int CONT_HISTORY_FACTOR_MALUS = 230;
+TUNABLE(int CONT_HISTORY_MALUS_MAX = 1307);
+TUNABLE(int CONT_HISTORY_BONUS_MAX = 2489);
+TUNABLE(int CONT_HISTORY_BASE_BONUS = 9);
+TUNABLE(int CONT_HISTORY_FACTOR_BONUS = 185);
+TUNABLE(int CONT_HISTORY_BASE_MALUS = 8);
+TUNABLE(int CONT_HISTORY_FACTOR_MALUS = 230);
 
-int PAWN_HISTORY_MALUS_MAX = 908;
-int PAWN_HISTORY_BONUS_MAX = 1456;
-int PAWN_HISTORY_BASE_BONUS = 9;
-int PAWN_HISTORY_FACTOR_BONUS = 184;
-int PAWN_HISTORY_BASE_MALUS = 10;
-int PAWN_HISTORY_FACTOR_MALUS = 140;
+TUNABLE(int PAWN_HISTORY_MALUS_MAX = 908);
+TUNABLE(int PAWN_HISTORY_BONUS_MAX = 1456);
+TUNABLE(int PAWN_HISTORY_BASE_BONUS = 9);
+TUNABLE(int PAWN_HISTORY_FACTOR_BONUS = 184);
+TUNABLE(int PAWN_HISTORY_BASE_MALUS = 10);
+TUNABLE(int PAWN_HISTORY_FACTOR_MALUS = 140);
 
-double LMP_MARGIN_WORSENING_BASE = 1.4064075552401505;
-double LMP_MARGIN_WORSENING_FACTOR = 0.42285484267419343;
-double LMP_MARGIN_WORSENING_POWER = 1.626221380900375;
-double LMP_MARGIN_IMPROVING_BASE = 3.0069223171689856;
-double LMP_MARGIN_IMPROVING_FACTOR = 0.8894532988755042;
-double LMP_MARGIN_IMPROVING_POWER = 1.8490214749827936;
+TUNABLE(double LMP_MARGIN_WORSENING_BASE = 1.4064075552401505);
+TUNABLE(double LMP_MARGIN_WORSENING_FACTOR = 0.42285484267419343);
+TUNABLE(double LMP_MARGIN_WORSENING_POWER = 1.626221380900375);
+TUNABLE(double LMP_MARGIN_IMPROVING_BASE = 3.0069223171689856);
+TUNABLE(double LMP_MARGIN_IMPROVING_FACTOR = 0.8894532988755042);
+TUNABLE(double LMP_MARGIN_IMPROVING_POWER = 1.8490214749827936);
 
-double LMR_OFFSET_QUIET = 0.7102075381652656;
-double LMR_DIVISOR_QUIET = 1.849824305037075;
-double LMR_OFFSET_NOISY = -0.11216093540418746;
-double LMR_DIVISOR_NOISY = 2.371029075928889;
+TUNABLE(double LMR_OFFSET_QUIET = 0.7102075381652656);
+TUNABLE(double LMR_DIVISOR_QUIET = 1.849824305037075);
+TUNABLE(double LMR_OFFSET_NOISY = -0.11216093540418746);
+TUNABLE(double LMR_DIVISOR_NOISY = 2.371029075928889);
 
-double NODE_TIME_MULTIPLIER = 2.432889823505845;
-double NODE_TIME_ADDITION = 0.46489458310112464;
-double NODE_TIME_MIN = 0.5469737940839735;
+TUNABLE(double NODE_TIME_MULTIPLIER = 2.432889823505845);
+TUNABLE(double NODE_TIME_ADDITION = 0.46489458310112464);
+TUNABLE(double NODE_TIME_MIN = 0.5469737940839735);
 
-double EVAL_TIME_ADDITION = 1.1938960781221584;
-double EVAL_TIME_MULTIPLIER = 0.053916179429002314;
+TUNABLE(double EVAL_TIME_ADDITION = 1.1938960781221584);
+TUNABLE(double EVAL_TIME_MULTIPLIER = 0.053916179429002314);
 
-int SEEPieceValues[] = {65, 334, 329, 612, 1568, 0, 0};
+TUNABLE(int SEEPieceValues[] = {65, 334, 329, 612, 1568, 0, 0});
 
-int mvv[] = {115, 355, 316, 488, 1364, 0};
+TUNABLE(int mvv[] = {115, 355, 316, 488, 1364, 0});
 
 int lmr[2][MAX_PLY + 1][256];
 
-double bestmove_scale[5] = {2.419849071418776, 1.3643708392230642,
-                            1.103415342224495, 0.8854991626643144,
-                            0.7146672100398158};
+TUNABLE(double bestmove_scale[5] = {2.419849071418776, 1.3643708392230642, 1.103415342224495, 0.8854991626643144, 0.7146672100398158});
 
 uint64_t nodes_spent_table[4096] = {0};
 
@@ -240,10 +240,11 @@ uint8_t check_time(thread_t *thread) {
 // position repetition detection
 static inline uint8_t is_repetition(thread_t *thread) {
   position_t *pos = &thread->positions[thread->ply];
+  uint32_t end = thread->repetition_index;
   // loop over repetition indices range
-  for (uint32_t index = 0; index < thread->repetition_index; index++)
+  for (uint32_t offs = 1; offs <= MIN(end, (uint32_t)pos->fifty); offs++)
     // if we found the hash key same with a current
-    if (thread->repetition_table[index] == pos->hash_keys.hash_key)
+    if (thread->repetition_table[end - offs] == pos->hash_keys.hash_key)
       // we found a repetition
       return 1;
 
@@ -336,7 +337,8 @@ static inline void score_noisy(thread_t *thread, searchstack_t *ss,
 
 // Scores quiet moves in place
 static inline void score_quiet(thread_t *thread, searchstack_t *ss,
-                               moves *quiet_list, uint16_t tt_move) {
+                               moves *quiet_list, uint16_t tt_move,
+                               check_info_t *check_info) {
   position_t *pos = &thread->positions[thread->ply];
   for (uint32_t i = 0; i < quiet_list->count; i++) {
     move_t *entry = &quiet_list->entry[i];
@@ -364,7 +366,7 @@ static inline void score_quiet(thread_t *thread, searchstack_t *ss,
             MO_PAWN_HIST_MULT;
     entry->score /= 1024;
 
-    entry->score += MO_CHECK_SEE * (is_direct_check(pos, move) && SEE(pos, move, -MO_QUIET_SEE));
+    entry->score += MO_CHECK_SEE * (is_direct_check(pos, check_info, move) && SEE(pos, move, -MO_QUIET_SEE));
   }
 }
 
@@ -391,11 +393,13 @@ typedef struct {
   uint8_t skip_quiets;
   thread_t *thread;
   searchstack_t *ss;
+  check_info_t *check_info;
 } picker_t;
 
 static inline void init_picker(picker_t *picker, thread_t *thread,
                                searchstack_t *ss, uint16_t tt_move,
-                               uint8_t generate_all) {
+                               uint8_t generate_all,
+                               check_info_t *check_info) {
   picker->stage = STAGE_TABLE;
   picker->good_noisy.count = 0;
   picker->bad_noisy.count = 0;
@@ -408,6 +412,7 @@ static inline void init_picker(picker_t *picker, thread_t *thread,
   picker->skip_quiets = 0;
   picker->thread = thread;
   picker->ss = ss;
+  picker->check_info = check_info;
 }
 
 static inline uint16_t select_next(picker_t *picker) {
@@ -449,7 +454,8 @@ static inline uint16_t select_next(picker_t *picker) {
       picker->stage = STAGE_BAD_NOISY;
     } else {
       generate_quiets(pos, &picker->quiets, 0);
-      score_quiet(picker->thread, picker->ss, &picker->quiets, picker->tt_move);
+      score_quiet(picker->thread, picker->ss, &picker->quiets, picker->tt_move,
+                  picker->check_info);
       picker->stage = STAGE_QUIET;
     }
     /* fallthrough */
@@ -576,8 +582,9 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
     futility_score = best_score + QS_FUTILITY_THRESHOLD;
   }
 
+  check_info_t check_info = {.valid = 0};
   picker_t picker;
-  init_picker(&picker, thread, ss, tt_move, in_check);
+  init_picker(&picker, thread, ss, tt_move, in_check, &check_info);
 
   moves capture_list[1];
   capture_list->count = 0;
@@ -604,7 +611,7 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
         continue;
 
       if (get_move_target(move) != previous_square) {
-        if (moves_seen >= 3 && !is_direct_check(pos, move)) {
+        if (moves_seen >= 3 && !is_direct_check(pos, &check_info, move)) {
           continue;
         }
       }
@@ -970,6 +977,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
   const int16_t probcut_beta = beta + PROBCUT_MARGIN;
 
+  check_info_t check_info = {.valid = 0};
+
   // ProbCut pruning
   if (!pv_node && !in_check && !ss->excluded_move && depth >= PROBCUT_DEPTH &&
       !is_win(beta) &&
@@ -979,7 +988,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
     // Generate captures and good promotions for ProbCut
     picker_t probcut_picker;
-    init_picker(&probcut_picker, thread, ss, 0, 0);
+    init_picker(&probcut_picker, thread, ss, 0, 0, &check_info);
 
     // Try moves that look promising
     uint16_t move;
@@ -1112,7 +1121,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   }
 
   picker_t picker;
-  init_picker(&picker, thread, ss, tt_move, 1);
+  init_picker(&picker, thread, ss, tt_move, 1, &check_info);
 
   moves quiet_list[1];
   moves capture_list[1];
@@ -1190,7 +1199,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
           ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION +
                   ss->history_score / FP_HISTORY_DIVISOR <=
               alpha &&
-          !is_direct_check(pos, move)) {
+          !is_direct_check(pos, &check_info, move)) {
         picker.skip_quiets = 1;
         continue;
       }
@@ -1203,7 +1212,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
       int noisy_futility_margin = ss->static_eval + BNFP_MARGIN * depth;
       if (!in_check && depth < 10 && picker.stage == STAGE_BAD_NOISY &&
-          noisy_futility_margin <= alpha && !is_direct_check(pos, move)) {
+          noisy_futility_margin <= alpha && !is_direct_check(pos, &check_info, move)) {
         break;
       }
 

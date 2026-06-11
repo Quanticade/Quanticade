@@ -1,22 +1,24 @@
 #include "attacks.h"
 #include "bitboards.h"
 #include "enums.h"
+#include "history.h"
 #include "move.h"
+#include "spsa.h"
 #include "structs.h"
 #include "transposition.h"
 #include "uci.h"
 #include "utils.h"
 #include <stdlib.h>
 
-int CORR_HISTORY_MINMAX = 350;
+TUNABLE(int CORR_HISTORY_MINMAX = 350);
 
-int PAWN_CORR_HISTORY_MULTIPLIER = 2754;
-int NON_PAWN_CORR_HISTORY_MULTIPLIER = 1754;
+TUNABLE(int PAWN_CORR_HISTORY_MULTIPLIER = 2754);
+TUNABLE(int NON_PAWN_CORR_HISTORY_MULTIPLIER = 1754);
 
-int FIFTY_MOVE_SCALING = 206;
-int CORR_HISTORY_BONUS_SCALER = 138;
+TUNABLE(int FIFTY_MOVE_SCALING = 206);
+TUNABLE(int CORR_HISTORY_BONUS_SCALER = 138);
 
-int HISTORY_MAX = 8192;
+TUNABLE(int HISTORY_MAX = 8192);
 
 const uint8_t cont_hist_updates[] = {1, 2, 4};
 
@@ -243,17 +245,6 @@ void update_capture_history(thread_t *thread, searchstack_t *ss, int move,
                              [target][is_square_threatened(ss, from)]
                              [is_square_threatened(ss, target)] *
           abs(bonus) / HISTORY_MAX;
-}
-
-int16_t get_conthist_score(thread_t *thread, searchstack_t *ss, int move,
-                           uint8_t ply) {
-  if (thread->ply >= ply && (ss - ply)->piece != NO_PIECE) {
-    return (ss - ply)->continuation_history[thread->positions[thread->ply]
-                               .mailbox[get_move_source(move)]]
-                                       [get_history_target(move)];
-  } else {
-    return 0;
-  }
 }
 
 void update_continuation_histories(thread_t *thread, searchstack_t *ss,

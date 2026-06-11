@@ -32,6 +32,9 @@ ifeq ($(CC), clang)
 	CFLAGS = -g -std=gnu11 -fuse-ld=lld -funroll-loops -O3 -flto -fno-exceptions -DIS_64BIT -DNDEBUG -DGIT_HASH=\"$(shell git rev-parse --short HEAD)\" $(WARNINGS)
 endif
 
+# ENABLE WHEN TUNING
+# CFLAGS += -DTUNE
+
 # Detect Windows
 ifeq ($(OS), Windows_NT)
 	MKDIR   := mkdir

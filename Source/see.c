@@ -1,9 +1,10 @@
 #include "attacks.h"
 #include "enums.h"
 #include "move.h"
+#include "spsa.h"
 #include "structs.h"
 
-extern int SEEPieceValues[];
+extern TUNABLE(int SEEPieceValues[]);
 
 static inline int move_estimated_value(position_t *pos, int move) {
 
