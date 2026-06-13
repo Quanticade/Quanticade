@@ -78,7 +78,7 @@ TUNABLE(int NMP_BASE_ADD = 213);
 TUNABLE(int NMP_MULTIPLIER = 19);
 TUNABLE(int NMP_BASE_REDUCTION = 1621);
 TUNABLE(int NMP_DIVISER = 85);
-TUNABLE(int SEE_QUIET = 42);
+TUNABLE(int SEE_QUIET = 20);
 TUNABLE(int SEE_CAPTURE = 28);
 TUNABLE(int SEE_QUIET_HISTORY_DIVISOR = 36);
 TUNABLE(int SEE_NOISY_HISTORY_DIVISOR = 37);
@@ -1213,7 +1213,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       int see_treshold;
       if (!get_move_capture(move)) {
         see_treshold =
-            -SEE_QUIET * depth - ss->history_score / SEE_QUIET_HISTORY_DIVISOR;
+            -SEE_QUIET * depth * depth - ss->history_score / SEE_QUIET_HISTORY_DIVISOR;
       } else {
         see_treshold = -SEE_CAPTURE * depth * depth -
                        ss->history_score / SEE_NOISY_HISTORY_DIVISOR;
