@@ -594,7 +594,9 @@ static void handle_uci(uci_ctx_t *ctx, char *args) {
   printf("option name DisableNormalization type check default false\n");
   printf("option name Minimal type check default false\n");
   printf("option name UCI_Chess960 type check default false\n");
-  print_spsa_table_uci();
+#ifdef TUNE
+    print_spsa_table_uci();
+#endif
   printf("uciok\n");
 }
 
