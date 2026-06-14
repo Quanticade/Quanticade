@@ -1213,10 +1213,10 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       int see_treshold;
       if (!get_move_capture(move)) {
         see_treshold =
-            -SEE_QUIET * depth - ss->history_score / SEE_QUIET_HISTORY_DIVISOR;
+            -SEE_QUIET * depth - ss->history_score / SEE_QUIET_HISTORY_DIVISOR - ss->tt_pv * lmr_depth * 24;
       } else {
         see_treshold = -SEE_CAPTURE * depth * depth -
-                       ss->history_score / SEE_NOISY_HISTORY_DIVISOR;
+                       ss->history_score / SEE_NOISY_HISTORY_DIVISOR - ss->tt_pv * lmr_depth * 24;
       }
 
       // SEE PVS Pruning
