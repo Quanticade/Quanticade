@@ -1128,6 +1128,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
   uint8_t bound = HASH_FLAG_UPPER_BOUND;
 
+  uint8_t alpha_raises = 0;
+
   // loop over moves within a movelist
   uint16_t move;
   while ((move = select_next(&picker)) != 0) {
@@ -1279,6 +1281,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       R -= improving * LMR_IMPROVING;
       R += (bound == HASH_FLAG_EXACT) * LMR_HASH_FLAG_EXACT;
       R -= LMR_CORRECTION * abs(correction) / 1024;
+      R += alpha_raises * 384;
 
       ss->reduction = R;
 
@@ -1329,6 +1332,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       if (score > alpha) {
         best_move = move;
         bound = HASH_FLAG_EXACT;
+        alpha_raises++;
 
         // PV node (position)
         alpha = score;
