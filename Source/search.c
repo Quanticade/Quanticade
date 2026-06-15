@@ -354,8 +354,8 @@ static inline void score_quiet(thread_t *thread, searchstack_t *ss,
     const uint8_t target_threatened = is_square_threatened(ss, target);
 
     entry->score =
-        thread->quiet_history[pos->side][source][target][source_threatened]
-                             [target_threatened] *
+        (thread->piece_to_history[source_threatened][target_threatened][pos->mailbox[source]][target] +
+            thread->from_to_history[source_threatened][target_threatened][source][target]) / 2 *
             MO_QUIET_HIST_MULT +
         get_conthist_score(thread, ss, move, 1) * MO_CONT1_HIST_MULT +
         get_conthist_score(thread, ss, move, 2) * MO_CONT2_HIST_MULT +
@@ -1144,13 +1144,13 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
     moves_seen++;
 
+    const uint8_t from_threat = is_square_threatened(ss, get_move_source(move));
+    const uint8_t to_threat = is_square_threatened(ss, get_move_target(move));
+
     ss->history_score =
         quiet
-            ? thread->quiet_history[pos->side][get_move_source(move)]
-                                   [get_history_target(move)][is_square_threatened(
-                                       ss, get_move_source(move))]
-                                   [is_square_threatened(
-                                       ss, get_history_target(move))] *
+            ? (thread->piece_to_history[from_threat][to_threat][pos->mailbox[get_move_source(move)]][get_move_target(move)] +
+            thread->from_to_history[from_threat][to_threat][get_move_source(move)][get_move_target(move)]) / 2 *
                       SEARCH_QUIET_HIST_MULT +
                   get_conthist_score(thread, ss, move, 1) *
                       SEARCH_CONT1_HIST_MULT +

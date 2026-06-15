@@ -545,7 +545,8 @@ static void handle_ucinewgame(uci_ctx_t *ctx, char *args) {
   clear_hash_table();
   for (int i = 0; i < *ctx->thread_count; ++i) {
     thread_t *t = &(*ctx->threads)[i];
-    memset(t->quiet_history, 0, sizeof(t->quiet_history));
+    memset(t->piece_to_history, 0, sizeof(t->piece_to_history));
+    memset(t->from_to_history, 0, sizeof(t->from_to_history));
     memset(t->capture_history, 0, sizeof(t->capture_history));
     memset(t->continuation_history, 0, sizeof(t->continuation_history));
     memset(t->correction_history, 0, sizeof(t->correction_history));

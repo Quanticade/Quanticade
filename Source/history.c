@@ -1,7 +1,7 @@
+#include "history.h"
 #include "attacks.h"
 #include "bitboards.h"
 #include "enums.h"
-#include "history.h"
 #include "move.h"
 #include "spsa.h"
 #include "structs.h"
@@ -124,8 +124,9 @@ uint64_t generate_black_non_pawn_key(position_t *pos) {
 
 int16_t calculate_corrhist_bonus(int16_t static_eval, int16_t search_score,
                                  uint8_t depth) {
-  return clamp((search_score - static_eval) * depth * CORR_HISTORY_BONUS_SCALER / 1024, -CORR_HISTORY_MINMAX,
-               CORR_HISTORY_MINMAX);
+  return clamp((search_score - static_eval) * depth *
+                   CORR_HISTORY_BONUS_SCALER / 1024,
+               -CORR_HISTORY_MINMAX, CORR_HISTORY_MINMAX);
 }
 
 int16_t scale_corrhist_bonus(int16_t score, int16_t bonus) {
@@ -182,7 +183,7 @@ int16_t correction_value(thread_t *thread) {
       NON_PAWN_CORR_HISTORY_MULTIPLIER;
   const int correction =
       pawn_correction + white_non_pawn_correction + black_non_pawn_correction;
-      
+
   return correction / 65536;
 }
 
@@ -219,11 +220,15 @@ void update_quiet_history(thread_t *thread, searchstack_t *ss, int move,
   position_t *pos = &thread->positions[thread->ply];
   int target = get_history_target(move);
   int source = get_move_source(move);
-  thread->quiet_history[pos->side][source][target][is_square_threatened(
-      ss, source)][is_square_threatened(ss, target)] +=
+  uint8_t from_threat = is_square_threatened(ss, source);
+  uint8_t to_threat = is_square_threatened(ss, target);
+  thread->piece_to_history[from_threat][to_threat][pos->mailbox[source]][target] +=
       bonus -
-      thread->quiet_history[pos->side][source][target][is_square_threatened(
-          ss, source)][is_square_threatened(ss, target)] *
+      thread->piece_to_history[from_threat][to_threat][pos->mailbox[source]][target] *
+          abs(bonus) / HISTORY_MAX;
+  thread->from_to_history[from_threat][to_threat][source][target] +=
+      bonus -
+      thread->piece_to_history[from_threat][to_threat][source][target] *
           abs(bonus) / HISTORY_MAX;
 }
 
@@ -240,11 +245,10 @@ void update_capture_history(thread_t *thread, searchstack_t *ss, int move,
   thread->capture_history[pos->mailbox[from]][prev_target_piece][target]
                          [is_square_threatened(ss, from)]
                          [is_square_threatened(ss, target)] +=
-      bonus -
-      thread->capture_history[pos->mailbox[from]][prev_target_piece]
-                             [target][is_square_threatened(ss, from)]
-                             [is_square_threatened(ss, target)] *
-          abs(bonus) / HISTORY_MAX;
+      bonus - thread->capture_history[pos->mailbox[from]][prev_target_piece]
+                                     [target][is_square_threatened(ss, from)]
+                                     [is_square_threatened(ss, target)] *
+                  abs(bonus) / HISTORY_MAX;
 }
 
 void update_continuation_histories(thread_t *thread, searchstack_t *ss,
@@ -259,7 +263,7 @@ void update_continuation_histories(thread_t *thread, searchstack_t *ss,
     if (thread->ply >= cont_hist_updates[i] && prev_piece != NO_PIECE) {
       int piece = pos->mailbox[get_move_source(move)];
       int target = get_history_target(move);
-    (ss-cont_hist_updates[i])->continuation_history[piece][target] +=
+      (ss - cont_hist_updates[i])->continuation_history[piece][target] +=
           bonus - total_score * abs(bonus) / HISTORY_MAX;
     }
   }
