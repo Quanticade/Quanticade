@@ -49,7 +49,7 @@ TUNABLE(int IIR_DEPTH = 4);
 TUNABLE(int SEE_DEPTH = 10);
 TUNABLE(int ASP_DEPTH = 4);
 TUNABLE(int SE_DEPTH = 6);
-TUNABLE(int PROBCUT_DEPTH = 5);
+TUNABLE(int PROBCUT_DEPTH = 3);
 TUNABLE(int PROBCUT_SHALLOW_DEPTH = 3);
 TUNABLE(int SE_DEPTH_REDUCTION = 6);
 TUNABLE(int IIR_DEPTH_REDUCTION = 3);
@@ -979,7 +979,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       !is_win(beta) &&
       (!tt_hit || tt_depth + 3 < depth ||
        (tt_score >= probcut_beta && !is_decisive(tt_score)))) {
-    const int probcut_depth = MAX(1, depth - PROBCUT_SHALLOW_DEPTH - 1);
+    const int probcut_depth = clamp(depth - PROBCUT_SHALLOW_DEPTH - (ss->static_eval - beta) / 300, 0, depth);
 
     // Generate captures and good promotions for ProbCut
     picker_t probcut_picker;
@@ -1026,7 +1026,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
           -quiescence(thread, ss + 1, -probcut_beta, -probcut_beta + 1, NON_PV);
 
       // If qsearch doesn't fail high, try a deeper search
-      if (probcut_score >= probcut_beta) {
+      if (probcut_score >= probcut_beta && probcut_depth > 0) {
         probcut_score =
             -negamax(thread, ss + 1, -probcut_beta, -probcut_beta + 1,
                      probcut_depth, !cutnode, NON_PV);
