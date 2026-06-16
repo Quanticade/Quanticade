@@ -580,6 +580,8 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
     futility_score = best_score + QS_FUTILITY_THRESHOLD;
   }
 
+  const int16_t correction = correction_value(thread);
+
   check_info_t check_info = {.valid = 0};
   picker_t picker;
   init_picker(&picker, thread, ss, tt_move, in_check, &check_info);
@@ -605,7 +607,7 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
     moves_seen++;
 
     if (!is_loss(best_score)) {
-      if (!SEE(pos, move, -QS_SEE_THRESHOLD))
+      if (ss->static_eval != NO_SCORE && !SEE(pos, move, (alpha - ss->static_eval) / 8 - MIN(abs(correction), 50) - 55))
         continue;
 
       if (get_move_target(move) != previous_square) {
