@@ -1120,9 +1120,9 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   init_picker(&picker, thread, ss, tt_move, 1, &check_info);
 
   moves quiet_list[1];
-  moves capture_list[1];
+  moves move_list[1];
   quiet_list->count = 0;
-  capture_list->count = 0;
+  move_list->count = 0;
 
   int16_t best_score = NO_SCORE;
 
@@ -1251,9 +1251,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
     if (quiet) {
       add_move(quiet_list, move);
-    } else {
-      add_move(capture_list, move);
     }
+    add_move(move_list, move);
 
     prefetch_hash_entry(next_pos->hash_keys.hash_key);
 
@@ -1387,11 +1386,11 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
           const int capt_malus = -MIN(CAPTURE_HISTORY_BASE_MALUS +
                                     CAPTURE_HISTORY_FACTOR_MALUS * depth,
                                 CAPTURE_HISTORY_MALUS_MAX);
-          for (uint32_t i = 0; i < capture_list->count; ++i) {
-            if (capture_list->entry[i].move == best_move) {
+          for (uint32_t i = 0; i < move_list->count; ++i) {
+            if (move_list->entry[i].move == best_move) {
               update_capture_history(thread, ss, best_move, capt_bonus);
             } else {
-              update_capture_history(thread, ss, capture_list->entry[i].move,
+              update_capture_history(thread, ss, move_list->entry[i].move,
                                      capt_malus);
             }
           }
