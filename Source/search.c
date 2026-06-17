@@ -1312,6 +1312,12 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       score = -negamax(thread, ss + 1, -beta, -alpha, new_depth, 0, PV_NODE);
     }
 
+    if (quiet) {
+      quiet_list->entry[quiet_list->count - 1].score = score;
+    } else {
+      capture_list->entry[capture_list->count - 1].score = score;
+    }
+
     // restore ply (original position at thread->ply is unchanged)
     thread->ply--;
     thread->repetition_index--;
@@ -1384,15 +1390,13 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
           const int capt_bonus = MIN(CAPTURE_HISTORY_BASE_BONUS +
                                    CAPTURE_HISTORY_FACTOR_BONUS * depth,
                                CAPTURE_HISTORY_BONUS_MAX);
-          const int capt_malus = -MIN(CAPTURE_HISTORY_BASE_MALUS +
-                                    CAPTURE_HISTORY_FACTOR_MALUS * depth,
-                                CAPTURE_HISTORY_MALUS_MAX);
           for (uint32_t i = 0; i < capture_list->count; ++i) {
             if (capture_list->entry[i].move == best_move) {
               update_capture_history(thread, ss, best_move, capt_bonus);
             } else {
+              const int capt_malus = MIN((best_score - capture_list->entry[i].score) * depth, 2000);
               update_capture_history(thread, ss, capture_list->entry[i].move,
-                                     capt_malus);
+                                     -capt_malus);
             }
           }
           ss->cutoff_cnt++;
