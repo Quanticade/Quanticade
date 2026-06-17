@@ -598,6 +598,10 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
   uint16_t move;
   while ((move = select_next(&picker)) != 0) {
 
+    if (picker.stage == STAGE_BAD_NOISY) {
+      continue;
+    }
+
     if (!is_legal(pos, move)) {
       continue;
     }
