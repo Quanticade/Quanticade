@@ -1388,7 +1388,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
                 update_pawn_history(thread, best_move, pawn_bonus);
                 update_quiet_history(thread, ss, best_move, quiet_bonus);
               } else {
-                const int denom = 1024 + 45 * i;
+                const int denom = 1024 + (5376 * i) / 256;
                 const int scale = (1024 * 1024) / ((denom * denom) / 1024);
 
                 const int scaled_cont_malus = (cont_malus * scale) / 1024;
