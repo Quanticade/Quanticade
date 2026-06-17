@@ -1185,13 +1185,13 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       }
 
       // Late Move Pruning
-      if (!pv_node && quiet && moves_seen >= lmp_treshold + ss->history_score / LMP_HISTORY_DIVISOR && !only_pawns(pos)) {
+      if (!in_check && !pv_node && quiet && moves_seen >= lmp_treshold + ss->history_score / LMP_HISTORY_DIVISOR && !only_pawns(pos)) {
         picker.skip_quiets = 1;
       }
 
       const int lmr_depth = MAX(1, depth - 1 - MAX(reduction, 1));
       // Futility Pruning
-      if (lmr_depth <= FP_DEPTH && !in_check && quiet &&
+      if (!in_check && lmr_depth <= FP_DEPTH && !in_check && quiet &&
           ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION +
                   ss->history_score / FP_HISTORY_DIVISOR <=
               alpha &&
@@ -1200,7 +1200,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         continue;
       }
 
-      if (quiet && depth <= 10 &&
+      if (!in_check && quiet && depth <= 10 &&
           ss->history_score < -HISTORY_PRUNING_MARGIN * depth * depth) {
         picker.skip_quiets = 1;
         continue;
