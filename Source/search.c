@@ -190,7 +190,9 @@ TUNABLE(int mvv[] = {115, 355, 316, 488, 1364, 0});
 
 int lmr[2][MAX_PLY + 1][256];
 
-TUNABLE(double bestmove_scale[5] = {2.419849071418776, 1.3643708392230642, 1.103415342224495, 0.8854991626643144, 0.7146672100398158});
+TUNABLE(double bestmove_scale[5] = {2.419849071418776, 1.3643708392230642,
+                                    1.103415342224495, 0.8854991626643144,
+                                    0.7146672100398158});
 
 uint64_t nodes_spent_table[4096] = {0};
 
@@ -218,7 +220,8 @@ void scale_time(thread_t *thread, uint8_t best_move_stability,
   const double node_scaling_factor =
       MAX(NODE_TIME_MULTIPLIER * not_bm_nodes_fraction + NODE_TIME_ADDITION,
           NODE_TIME_MIN);
-  const double eval = EVAL_TIME_ADDITION - eval_stability * EVAL_TIME_MULTIPLIER;
+  const double eval =
+      EVAL_TIME_ADDITION - eval_stability * EVAL_TIME_MULTIPLIER;
   limits.soft_limit =
       MIN(thread->starttime + limits.base_soft *
                                   bestmove_scale[best_move_stability] * eval *
@@ -243,17 +246,30 @@ uint8_t check_time(thread_t *thread) {
 static inline uint8_t is_repetition(thread_t *thread) {
   position_t *pos = &thread->positions[thread->ply];
   uint32_t end = thread->repetition_index;
-  // loop over repetition indices range
-  for (uint32_t offs = 1; offs <= MIN(end, (uint32_t)pos->fifty); offs++)
-    // if we found the hash key same with a current
-    if (thread->repetition_table[end - offs] == pos->hash_keys.hash_key)
-      // we found a repetition
-      return 1;
+  uint8_t repetitions = 0;
 
-  // if no repetition found
+  // loop over repetition indices range
+  for (uint32_t offs = 1; offs <= MIN(end, (uint32_t)pos->fifty); offs++) {
+    uint32_t idx = end - offs;
+
+    // if we found the hash key same with a current
+    if (thread->repetition_table[idx] == pos->hash_keys.hash_key) {
+      repetitions++;
+
+      // Two-fold repetition of positions within the search tree
+      if (repetitions == 1 && idx >= thread->root_ply) {
+        return 1;
+      }
+
+      // Three-fold repetition including positions before search root
+      if (repetitions == 2) {
+        return 1;
+      }
+    }
+  }
+
   return 0;
 }
-
 static inline uint8_t only_pawns(position_t *pos) {
   return !((pos->bitboards[N] | pos->bitboards[n] | pos->bitboards[B] |
             pos->bitboards[b] | pos->bitboards[R] | pos->bitboards[r] |
@@ -323,8 +339,8 @@ static inline void score_noisy(thread_t *thread, searchstack_t *ss,
 
     entry.score = mvv[target_piece % 6] * MO_MVV_MULT;
     entry.score +=
-        thread->capture_history[pos->mailbox[source]][target_piece]
-                               [target][source_threatened][target_threatened] *
+        thread->capture_history[pos->mailbox[source]][target_piece][target]
+                               [source_threatened][target_threatened] *
         MO_CAPT_HIST_MULT;
     entry.score /= 1024;
 
@@ -397,8 +413,7 @@ typedef struct {
 
 static inline void init_picker(picker_t *picker, thread_t *thread,
                                searchstack_t *ss, uint16_t tt_move,
-                               uint8_t generate_all,
-                               check_info_t *check_info) {
+                               uint8_t generate_all, check_info_t *check_info) {
   picker->stage = STAGE_TABLE;
   picker->good_noisy.count = 0;
   picker->bad_noisy.count = 0;
@@ -639,7 +654,8 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
 
     ss->move = move;
     ss->piece = pos->mailbox[get_move_source(move)];
-    ss->continuation_history = thread->continuation_history[ss->piece][get_history_target(move)];
+    ss->continuation_history =
+        thread->continuation_history[ss->piece][get_history_target(move)];
 
     thread->nodes++;
 
@@ -1017,7 +1033,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
       ss->move = move;
       ss->piece = pos->mailbox[get_move_source(move)];
-      ss->continuation_history = thread->continuation_history[ss->piece][get_history_target(move)];
+      ss->continuation_history =
+          thread->continuation_history[ss->piece][get_history_target(move)];
 
       thread->nodes++;
 
@@ -1067,8 +1084,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   // A rather simple idea that if our TT move is accurate we run a reduced
   // search to see if we can beat this score. If not we extend the TT move
   // search
-  if (!root_node && !ss->excluded_move &&
-      potential_singularity) {
+  if (!root_node && !ss->excluded_move && potential_singularity) {
     const int s_beta = tt_score - (SE_BETA_BASE + SE_BETA_MULTIPLIER *
                                                       (ss->tt_pv && !pv_node)) *
                                       depth / SE_BETA_DIVISOR;
@@ -1148,11 +1164,11 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
     ss->history_score =
         quiet
-            ? thread->quiet_history[pos->side][get_move_source(move)]
-                                   [get_history_target(move)][is_square_threatened(
-                                       ss, get_move_source(move))]
-                                   [is_square_threatened(
-                                       ss, get_history_target(move))] *
+            ? thread->quiet_history
+                          [pos->side][get_move_source(move)]
+                          [get_history_target(move)]
+                          [is_square_threatened(ss, get_move_source(move))]
+                          [is_square_threatened(ss, get_history_target(move))] *
                       SEARCH_QUIET_HIST_MULT +
                   get_conthist_score(thread, ss, move, 1) *
                       SEARCH_CONT1_HIST_MULT +
@@ -1185,7 +1201,10 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       }
 
       // Late Move Pruning
-      if (!pv_node && quiet && moves_seen >= lmp_treshold + ss->history_score / LMP_HISTORY_DIVISOR && !only_pawns(pos)) {
+      if (!pv_node && quiet &&
+          moves_seen >=
+              lmp_treshold + ss->history_score / LMP_HISTORY_DIVISOR &&
+          !only_pawns(pos)) {
         picker.skip_quiets = 1;
       }
 
@@ -1208,14 +1227,17 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
       int noisy_futility_margin = ss->static_eval + BNFP_MARGIN * depth;
       if (!in_check && depth < 10 && picker.stage == STAGE_BAD_NOISY &&
-          noisy_futility_margin <= alpha && !is_direct_check(pos, &check_info, move)) {
+          noisy_futility_margin <= alpha &&
+          !is_direct_check(pos, &check_info, move)) {
         break;
       }
 
       int see_treshold;
       if (!get_move_capture(move)) {
-        see_treshold =
-            ((SEE_QUIET_QUAD * depth * depth - SEE_QUIET_LINEAR * depth + SEE_QUIET_CONST) >> 8) - ss->history_score / SEE_QUIET_HISTORY_DIVISOR;
+        see_treshold = ((SEE_QUIET_QUAD * depth * depth -
+                         SEE_QUIET_LINEAR * depth + SEE_QUIET_CONST) >>
+                        8) -
+                       ss->history_score / SEE_QUIET_HISTORY_DIVISOR;
       } else {
         see_treshold = -SEE_CAPTURE * depth * depth -
                        ss->history_score / SEE_NOISY_HISTORY_DIVISOR;
@@ -1244,7 +1266,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
     ss->move = move;
     ss->piece = pos->mailbox[get_move_source(move)];
-    ss->continuation_history = thread->continuation_history[ss->piece][get_history_target(move)];
+    ss->continuation_history =
+        thread->continuation_history[ss->piece][get_history_target(move)];
 
     // increment nodes count
     thread->nodes++;
@@ -1344,12 +1367,14 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
           // on quiet moves
           if (!(get_move_capture(best_move) || is_move_promotion(best_move))) {
             const int history_depth = depth + (!in_check && ss->eval <= alpha);
-            const int cont_bonus = MIN(CONT_HISTORY_BASE_BONUS +
-                                     CONT_HISTORY_FACTOR_BONUS * history_depth,
-                                 CONT_HISTORY_BONUS_MAX);
-            const int cont_malus = -MIN(CONT_HISTORY_BASE_MALUS +
-                                      CONT_HISTORY_FACTOR_MALUS * history_depth,
-                                  CONT_HISTORY_MALUS_MAX);
+            const int cont_bonus =
+                MIN(CONT_HISTORY_BASE_BONUS +
+                        CONT_HISTORY_FACTOR_BONUS * history_depth,
+                    CONT_HISTORY_BONUS_MAX);
+            const int cont_malus =
+                -MIN(CONT_HISTORY_BASE_MALUS +
+                         CONT_HISTORY_FACTOR_MALUS * history_depth,
+                     CONT_HISTORY_MALUS_MAX);
 
             const int quiet_bonus =
                 MIN(QUIET_HISTORY_BASE_BONUS +
@@ -1360,12 +1385,14 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
                          QUIET_HISTORY_FACTOR_MALUS * history_depth,
                      QUIET_HISTORY_MALUS_MAX);
 
-            const int pawn_bonus = MIN(PAWN_HISTORY_BASE_BONUS +
-                                     PAWN_HISTORY_FACTOR_BONUS * history_depth,
-                                 PAWN_HISTORY_BONUS_MAX);
-            const int pawn_malus = -MIN(PAWN_HISTORY_BASE_MALUS +
-                                      PAWN_HISTORY_FACTOR_MALUS * history_depth,
-                                  PAWN_HISTORY_MALUS_MAX);
+            const int pawn_bonus =
+                MIN(PAWN_HISTORY_BASE_BONUS +
+                        PAWN_HISTORY_FACTOR_BONUS * history_depth,
+                    PAWN_HISTORY_BONUS_MAX);
+            const int pawn_malus =
+                -MIN(PAWN_HISTORY_BASE_MALUS +
+                         PAWN_HISTORY_FACTOR_MALUS * history_depth,
+                     PAWN_HISTORY_MALUS_MAX);
             for (uint32_t i = 0; i < quiet_list->count; ++i) {
               const uint16_t move = quiet_list->entry[i].move;
               if (move == best_move) {
@@ -1382,11 +1409,11 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
           }
 
           const int capt_bonus = MIN(CAPTURE_HISTORY_BASE_BONUS +
-                                   CAPTURE_HISTORY_FACTOR_BONUS * depth,
-                               CAPTURE_HISTORY_BONUS_MAX);
+                                         CAPTURE_HISTORY_FACTOR_BONUS * depth,
+                                     CAPTURE_HISTORY_BONUS_MAX);
           const int capt_malus = -MIN(CAPTURE_HISTORY_BASE_MALUS +
-                                    CAPTURE_HISTORY_FACTOR_MALUS * depth,
-                                CAPTURE_HISTORY_MALUS_MAX);
+                                          CAPTURE_HISTORY_FACTOR_MALUS * depth,
+                                      CAPTURE_HISTORY_MALUS_MAX);
           for (uint32_t i = 0; i < capture_list->count; ++i) {
             if (capture_list->entry[i].move == best_move) {
               update_capture_history(thread, ss, best_move, capt_bonus);
