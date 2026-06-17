@@ -554,6 +554,7 @@ static void handle_ucinewgame(uci_ctx_t *ctx, char *args) {
            sizeof(t->w_non_pawn_correction_history));
     memset(t->b_non_pawn_correction_history, 0,
            sizeof(t->b_non_pawn_correction_history));
+    t->root_ply = 0;
   }
 }
 

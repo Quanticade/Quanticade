@@ -1629,6 +1629,7 @@ void search_position(position_t *pos, thread_t *threads) {
     threads[i].stopped = 0;
     threads[i].positions[threads[0].ply] = *pos;
     threads[i].ply = threads[0].ply;
+    threads[i].root_ply = threads[i].ply;
     threads[i].score = -INF;
     threads[i].quit = 0;
     threads[i].nmp_min_ply = 0;

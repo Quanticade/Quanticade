@@ -124,6 +124,7 @@ typedef struct searchinfo {
   uint64_t starttime;
   position_t positions[MAX_PLY + 10];
   uint8_t ply;
+  uint8_t root_ply;
   uint64_t repetition_table[2000];
   uint32_t repetition_index;
   uint32_t nmp_min_ply;
