@@ -1111,8 +1111,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     }
   }
   // Low Depth Singular Extensions (LDSE)
-  else if (depth <= 7 && !in_check && ss->static_eval <= alpha - LDSE_MARGIN &&
-           tt_flag == HASH_FLAG_LOWER_BOUND) {
+  else if (depth <= 5 && !in_check && cutnode && tt_score >= MAX(beta, ss->static_eval + 50) &&
+           tt_flag != HASH_FLAG_UPPER_BOUND) {
     extensions = 1;
   }
 
