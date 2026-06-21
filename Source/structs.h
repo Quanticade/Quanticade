@@ -10,11 +10,11 @@
 typedef struct spsa {
   void *value;
   union {
-    uint64_t min_int;
+    int64_t min_int;
     double min_float;
   } min;
   union {
-    uint64_t max_int;
+    int64_t max_int;
     double max_float;
   } max;
   double rate;

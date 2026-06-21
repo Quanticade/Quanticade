@@ -53,11 +53,6 @@ TUNABLE(int PROBCUT_DEPTH = 5);
 TUNABLE(int PROBCUT_SHALLOW_DEPTH = 3);
 TUNABLE(int SE_DEPTH_REDUCTION = 6);
 TUNABLE(int IIR_DEPTH_REDUCTION = 3);
-TUNABLE(int EVAL_STABILITY_VAR = 9);
-TUNABLE(int QS_SEE_THRESHOLD = 7);
-TUNABLE(int SE_PV_DOUBLE_MARGIN = 1);
-TUNABLE(int SE_DOUBLE_MARGIN = 0);
-TUNABLE(int LMR_SHALLOWER_MARGIN = 6);
 TUNABLE(int SEARCH_QUIET_HIST_MULT = 1024);
 TUNABLE(int SEARCH_CONT1_HIST_MULT = 1024);
 TUNABLE(int SEARCH_CONT2_HIST_MULT = 1024);
@@ -84,7 +79,11 @@ TUNABLE(int SEE_QUIET_CONST = 300);
 TUNABLE(int SEE_CAPTURE = 28);
 TUNABLE(int SEE_QUIET_HISTORY_DIVISOR = 36);
 TUNABLE(int SEE_NOISY_HISTORY_DIVISOR = 37);
+TUNABLE(int SE_DOUBLE_MARGIN = 0);
+TUNABLE(int SE_PV_DOUBLE_MARGIN = 150);
 TUNABLE(int SE_TRIPLE_MARGIN = 39);
+TUNABLE(int SE_PV_TRIPLE_MARGIN = 300);
+TUNABLE(int SE_NOISY_TRIPLE_MARGIN = 200);
 TUNABLE(int SE_BETA_BASE = 60);
 TUNABLE(int SE_BETA_MULTIPLIER = 66);
 TUNABLE(int SE_BETA_DIVISOR = 55);
@@ -102,6 +101,7 @@ TUNABLE(int LMR_TT_SCORE = 888);
 TUNABLE(int LMR_CUTOFF_CNT = 896);
 TUNABLE(int LMR_IMPROVING = 976);
 TUNABLE(int LMR_DEEPER_MARGIN = 35);
+TUNABLE(int LMR_SHALLOWER_MARGIN = 768);
 TUNABLE(int LMP_BETA_MARGIN = 15);
 TUNABLE(int LMR_CORRECTION = 1839);
 TUNABLE(int LMR_HASH_FLAG_EXACT = 988);
@@ -131,6 +131,9 @@ TUNABLE(int MO_CHECK_SEE = 8192);
 TUNABLE(int MO_QUIET_SEE = 100);
 TUNABLE(int HISTORY_PRUNING_MARGIN = 2485);
 TUNABLE(int BNFP_MARGIN = 145);
+
+TUNABLE(int EVAL_STABILITY_VAR = 1152);
+TUNABLE(int QS_SEE_THRESHOLD = 896);
 
 TUNABLE(int QUIET_HISTORY_MALUS_MAX = 1034);
 TUNABLE(int QUIET_HISTORY_BONUS_MAX = 1165);
@@ -605,7 +608,7 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
     moves_seen++;
 
     if (!is_loss(best_score)) {
-      if (!SEE(pos, move, -QS_SEE_THRESHOLD))
+      if (!SEE(pos, move, -QS_SEE_THRESHOLD / 128))
         continue;
 
       if (get_move_target(move) != previous_square) {
@@ -1086,12 +1089,10 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     if (s_score < s_beta) {
       const int16_t double_margin =
           SE_DOUBLE_MARGIN + SE_PV_DOUBLE_MARGIN * pv_node;
-      const int16_t triple_margin = SE_TRIPLE_MARGIN;
+      const int16_t triple_margin = SE_TRIPLE_MARGIN + SE_PV_TRIPLE_MARGIN * pv_node + SE_NOISY_TRIPLE_MARGIN * get_move_capture(tt_move);
       extensions++;
       extensions += s_score < s_beta - double_margin;
-      if (!get_move_capture(tt_move)) {
-        extensions += s_score < s_beta - triple_margin;
-      }
+      extensions += s_score < s_beta - triple_margin;
     }
 
     // Multicut: Singular search failed high so if singular beta beats our
@@ -1294,7 +1295,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
       if (score > alpha && R != 0) {
         new_depth += (score > best_score + LMR_DEEPER_MARGIN);
-        new_depth -= (score < best_score + LMR_SHALLOWER_MARGIN);
+        new_depth -= (score < best_score + (LMR_SHALLOWER_MARGIN / 128));
 
         if (new_depth > reduced_depth) {
           score = -negamax(thread, ss + 1, -alpha - 1, -alpha, new_depth,
@@ -1583,8 +1584,8 @@ void *iterative_deepening(void *thread_void) {
         best_move_stability = 0;
       }
 
-      if (thread->score > average_score - EVAL_STABILITY_VAR &&
-          thread->score < average_score + EVAL_STABILITY_VAR) {
+      if (thread->score > average_score - (EVAL_STABILITY_VAR / 128) &&
+          thread->score < average_score + (EVAL_STABILITY_VAR / 128)) {
         eval_stability = MIN(eval_stability + 1, 8);
       } else {
         eval_stability = 0;

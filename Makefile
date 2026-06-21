@@ -33,7 +33,7 @@ ifeq ($(CC), clang)
 endif
 
 # ENABLE WHEN TUNING
-# CFLAGS += -DTUNE
+CFLAGS += -DTUNE
 
 # Detect Windows
 ifeq ($(OS), Windows_NT)

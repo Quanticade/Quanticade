@@ -54,9 +54,11 @@ extern int SEE_QUIET_HISTORY_DIVISOR;
 extern int SEE_NOISY_HISTORY_DIVISOR;
 extern int SE_DEPTH;
 extern int SE_DEPTH_REDUCTION;
-extern int SE_PV_DOUBLE_MARGIN;
 extern int SE_DOUBLE_MARGIN;
+extern int SE_PV_DOUBLE_MARGIN;
 extern int SE_TRIPLE_MARGIN;
+extern int SE_PV_TRIPLE_MARGIN;
+extern int SE_NOISY_TRIPLE_MARGIN;
 extern int SE_BETA_BASE;
 extern int SE_BETA_MULTIPLIER;
 extern int SE_BETA_DIVISOR;
@@ -261,9 +263,11 @@ void init_spsa_table(void) {
   SPSA_INT(SEE_NOISY_HISTORY_DIVISOR, 1);
   SPSA_INT_POISON(SE_DEPTH, 0);
   SPSA_INT(SE_DEPTH_REDUCTION, 0);
-  SPSA_INT_MINMAX(SE_PV_DOUBLE_MARGIN, 0, 0, 300);
-  SPSA_INT_MINMAX(SE_DOUBLE_MARGIN, 0, 0, 20);
+  SPSA_INT_MINMAX(SE_DOUBLE_MARGIN, 1, -20, 20);
+  SPSA_INT(SE_PV_DOUBLE_MARGIN, 1);
   SPSA_INT(SE_TRIPLE_MARGIN, 1);
+  SPSA_INT(SE_PV_TRIPLE_MARGIN, 1);
+  SPSA_INT(SE_NOISY_TRIPLE_MARGIN, 1);
   SPSA_INT(SE_BETA_BASE, 1);
   SPSA_INT(SE_BETA_MULTIPLIER, 1);
   SPSA_INT(SE_BETA_DIVISOR, 1);
@@ -281,13 +285,12 @@ void init_spsa_table(void) {
   SPSA_INT(LMR_CUTOFF_CNT, 1);
   SPSA_INT(LMR_IMPROVING, 1);
   SPSA_INT(LMR_DEEPER_MARGIN, 1);
-  SPSA_INT(LMR_SHALLOWER_MARGIN, 0);
+  SPSA_INT(LMR_SHALLOWER_MARGIN, 1);
   SPSA_INT(LMP_BETA_MARGIN, 1);
   SPSA_INT(LMR_CORRECTION, 1);
   SPSA_INT(LMR_HASH_FLAG_EXACT, 1);
   SPSA_INT(ASP_WINDOW, 1);
   SPSA_INT(ASP_DEPTH, 0);
-  SPSA_INT(QS_SEE_THRESHOLD, 0);
   SPSA_INT(QS_FUTILITY_THRESHOLD, 1);
   SPSA_INT(MO_SEE_THRESHOLD, 1);
   SPSA_INT(LMR_QUIET_HIST_DIV, 1);
@@ -296,7 +299,6 @@ void init_spsa_table(void) {
   SPSA_INT(ASP_WINDOW_DIVISER, 1);
   SPSA_INT(ASP_WINDOW_FAIL_LOW, 1);
   SPSA_INT(ASP_WINDOW_FAIL_HIGH, 1);
-  SPSA_INT(EVAL_STABILITY_VAR, 0);
   SPSA_INT(HINDSIGH_REDUCTION_ADD, 1);
   SPSA_INT(HINDSIGH_REDUCTION_RED, 1);
   SPSA_INT(HINDSIGN_REDUCTION_EVAL_MARGIN, 1);
@@ -321,6 +323,9 @@ void init_spsa_table(void) {
   SPSA_INT(SEARCH_MVV_MULT, 0);
   SPSA_INT(HISTORY_PRUNING_MARGIN, 1);
   SPSA_INT(BNFP_MARGIN, 1);
+
+  SPSA_INT(QS_SEE_THRESHOLD, 1);
+  SPSA_INT(EVAL_STABILITY_VAR, 1);
 
   SPSA_INT(QUIET_HISTORY_MALUS_MAX, 1);
   SPSA_INT(QUIET_HISTORY_BONUS_MAX, 1);
@@ -466,7 +471,7 @@ void print_spsa_table_uci(void) {
       printf("option name %s type string default %lf\n", spsa[i].name,
              *(double *)spsa[i].value);
     } else {
-      printf("option name %s type spin default %d min %" PRIu64 " "
+      printf("option name %s type spin default %d min %" PRIi64 " "
              "max %" PRIu64 "\n",
              spsa[i].name, *(int *)spsa[i].value, spsa[i].min.min_int,
              spsa[i].max.max_int);
