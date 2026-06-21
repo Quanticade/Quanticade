@@ -1515,6 +1515,13 @@ void *iterative_deepening(void *thread_void) {
 
     uint16_t window = ASP_WINDOW;
 
+    if (thread->depth >= ASP_DEPTH) {
+      window += thread->score * thread->score / ASP_WINDOW_DIVISER;
+
+      alpha = MAX(-INF, thread->score - window);
+      beta = MIN(INF, thread->score + window);
+    }
+
     uint8_t fail_high_count = 0;
 
     while (true) {
@@ -1526,13 +1533,6 @@ void *iterative_deepening(void *thread_void) {
 
       if (thread->stopped) {
         break;
-      }
-
-      if (thread->depth >= ASP_DEPTH) {
-        window += thread->score * thread->score / ASP_WINDOW_DIVISER;
-
-        alpha = MAX(-INF, thread->score - window);
-        beta = MIN(INF, thread->score + window);
       }
 
       // find best move within a given position
