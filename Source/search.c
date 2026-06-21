@@ -992,7 +992,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     while ((move = select_next(&probcut_picker)) != 0) {
 
       // Skip moves that don't pass SEE threshold
-      if (!SEE(pos, move, probcut_beta - ss->static_eval)) {
+      if (!SEE(pos, move, probcut_beta - ss->eval)) {
         continue;
       }
 
