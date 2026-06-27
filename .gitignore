@@ -7,4 +7,6 @@ Tools*.bak
 .vscode
 Quanticade
 Quanticade.d
+processed.bin
+Tools/process_net
 compile_commands.json

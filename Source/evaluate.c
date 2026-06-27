@@ -6,9 +6,6 @@
 #include "structs.h"
 #include "utils.h"
 
-nnue_t nnue_data;
-extern nnue_settings_t nnue_settings;
-
 TUNABLE(int EVAL_KNIGHT = 384);
 TUNABLE(int EVAL_BISHOP = 384);
 TUNABLE(int EVAL_ROOK = 640);

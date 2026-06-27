@@ -1,4 +1,5 @@
 NETWORK_NAME = net53.nnue
+PROCESSED_NET = processed.bin
 _THIS       := $(realpath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 _ROOT       := $(_THIS)
 EVALFILE    ?= $(NETWORK_NAME)
@@ -230,7 +231,7 @@ ifneq ($(findstring clang, $(CC)),)
 endif
 
 # Add network name and Evalfile
-CFLAGS += -DNETWORK_NAME=\"$(NETWORK_NAME)\" -DEVALFILE=\"$(EVALFILE)\"
+CFLAGS += -DNETWORK_NAME=\"$(NETWORK_NAME)\" -DEVALFILE=\"$(PROCESSED_NET)\"
 
 SOURCES := $(wildcard Source/*.c) $(wildcard Source/nnue/*.cpp)
 OBJECTS := $(patsubst %.c,$(TMPDIR)/%.o,$(SOURCES))
@@ -252,11 +253,15 @@ $(EVALFILE):
 	fi
 	@echo "Downloaded $(EVALFILE)"
 
-$(OBJECTS): | $(EVALFILE)
+$(PROCESSED_NET): Tools/process_net.c | $(EVALFILE)
+	$(CC) $(CFLAGS) $(NATIVE) -o Tools/process_net Tools/process_net.c $(FLAGS)
+	./Tools/process_net $(EVALFILE) $(PROCESSED_NET)
+
+$(OBJECTS): | $(PROCESSED_NET)
 
 all: $(TARGET)
 clean:
-	@rm -rf $(TMPDIR) *.o *.d $(TARGET)
+	@rm -rf $(TMPDIR) *.o *.d $(TARGET) $(PROCESSED_NET) Tools/process_net
 
 $(TARGET): $(OBJECTS)
 	$(CC) $(CFLAGS) $(NATIVE) -MMD -MP -o $(EXE) $^ $(FLAGS)
@@ -269,7 +274,7 @@ $(TMPDIR):
 
 
 # Usual disservin yoink for makefile related stuff
-pgo: $(EVALFILE)
+pgo: $(PROCESSED_NET)
 	$(CC) $(CFLAGS) $(PGO_GEN) $(NATIVE) $(INSTRUCTIONS) -MMD -MP -o $(EXE) $(SOURCES) -lm $(LDFLAGS)
 	./$(EXE) bench
 	$(PGO_MERGE)
