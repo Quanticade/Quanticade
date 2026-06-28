@@ -7,7 +7,6 @@
 #include "move.h"
 #include "simd.h"
 #include "structs.h"
-#include "uci.h"
 #include "utils.h"
 #include <math.h>
 #include <stdint.h>
@@ -145,11 +144,10 @@ static void init_threat_tables() {
         threat_sq_offsets[pc][sq] = current_piece_offset;
         uint64_t att = 0;
 
-        // Native A8=0 engine square
         int engine_sq = sq ^ 56;
 
         if (pt == 0) {
-          // Only evaluate pawn attacks on ranks 2 to 7 (in A1=0, indices 8 to 55)
+          // Only evaluate pawn attacks on ranks 2 to 7
           if (sq >= 8 && sq <= 55) {
             att = __builtin_bswap64(get_pawn_attacks(c, engine_sq));
           }
@@ -173,7 +171,6 @@ static void init_threat_tables() {
   }
 }
 
-// Native A8=0 inputs
 static inline int get_threat_index(int perspective, int king_sq,
                                    int attacker_pc, int victim_pc, int src,
                                    int dest) {
@@ -181,13 +178,10 @@ static inline int get_threat_index(int perspective, int king_sq,
     attacker_pc = (attacker_pc >= 6) ? attacker_pc - 6 : attacker_pc + 6;
     victim_pc = (victim_pc >= 6) ? victim_pc - 6 : victim_pc + 6;
   } else {
-    // A8=0 inputs mean White needs to be flipped to A1=0 for the tables.
-    // (Black naturally expects A8=0, so we leave Black's squares alone!)
     src ^= 56;
     dest ^= 56;
   }
 
-  // The file check (& 7) is unaffected by A8=0 vs A1=0 geometry
   if ((king_sq & 7) >= 4) {
     src ^= 7;
     dest ^= 7;
@@ -1362,5 +1356,7 @@ void update_nnue(position_t *pos, thread_t *thread, uint8_t mailbox_copy[64],
   state->color_flag =
       state->needs_refresh ? (pos->side == black ? black : white) : both;
 
-  memcpy(state->bitboards, pos->bitboards, 12 * sizeof(uint64_t));
+  if (state->needs_refresh) {
+    memcpy(state->bitboards, pos->bitboards, 12 * sizeof(uint64_t));
+  }
 }
