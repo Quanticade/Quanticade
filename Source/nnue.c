@@ -115,11 +115,11 @@ static inline float crelu_float(float value) {
   return clamp_float(value, 0.0f, 1.0f);
 }
 
-#ifndef USE_SIMD
 static int32_t clamp_int32(int32_t d, int32_t min, int32_t max) {
   const int32_t t = d < min ? min : d;
   return t > max ? max : t;
 }
+#ifndef USE_SIMD
 static inline int32_t screlu(int16_t value) {
   const int32_t clipped = clamp_int32((int32_t)value, 0, INPUT_QUANT);
   return clipped * clipped;
@@ -249,7 +249,7 @@ static inline void transpose(void) {
   }
   for (int t = 0; t < THREAT_FEATURES; t++) {
     for (int l1 = 0; l1 < L1_SIZE; l1++) {
-      nnue.feature_threats[t][l1] = (int8_t)round(net.feature_threats[t][l1] * INPUT_QUANT);
+      nnue.feature_threats[t][l1] = (int8_t)clamp_int32(round(net.feature_threats[t][l1] * INPUT_QUANT), -128, 127);
     }
   }
   for (int l1 = 0; l1 < L1_SIZE; l1++) {
@@ -684,6 +684,8 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
   }
 
   rebuild_threats(pos, pos->mailbox, accumulator);
+
+  //verify_threats(pos);
 
   int16_t *stmPsqt = accumulator->psqt_accumulator[pos->side];
   int16_t *oppPsqt = accumulator->psqt_accumulator[1 - pos->side];
