@@ -37,8 +37,6 @@ static inline void vec_store_i(veci_t *scalar, veci_t integer) {
 }
 #if defined(__AVX512VNNI__)
 static inline veci_t dpbusd_epi32(veci_t sum, veci_t u, veci_t i) {
-  // On Zen4 VNNI is slower so lets disable it by default
-  // return _mm512_dpbusd_epi32(sum, u, i);
   veci_t sum32 =
       _mm512_madd_epi16(_mm512_maddubs_epi16(u, i), _mm512_set1_epi16(1));
   return _mm512_add_epi32(sum32, sum);
@@ -58,6 +56,9 @@ static inline veci_t dpbusd_epi32x2(veci_t sum, veci_t u0, veci_t i0, veci_t u1,
   veci_t sum32 =
       _mm512_madd_epi16(_mm512_add_epi16(p0, p1), _mm512_set1_epi16(1));
   return _mm512_add_epi32(sum32, sum);
+}
+static inline veci_t add_epi16(veci_t v1, veci_t v2) {
+  return _mm512_add_epi16(v1, v2);
 }
 static inline veci_t add_epi32(veci_t v1, veci_t v2) {
   return _mm512_add_epi32(v1, v2);
@@ -134,6 +135,9 @@ static inline veci_t dpbusd_epi32x2(veci_t sum, veci_t u0, veci_t i0, veci_t u1,
       _mm256_madd_epi16(_mm256_add_epi16(p0, p1), _mm256_set1_epi16(1));
   return _mm256_add_epi32(sum, sum32);
 }
+static inline veci_t add_epi16(veci_t v1, veci_t v2) {
+  return _mm256_add_epi16(v1, v2);
+}
 static inline veci_t add_epi32(veci_t v1, veci_t v2) {
   return _mm256_add_epi32(v1, v2);
 }
@@ -191,6 +195,7 @@ static inline veci_t set_epi16(int n) { return vdupq_n_s16((int16_t)n); }
 static inline vecs8_t broadcast_pack(int32_t p) {
   return vreinterpretq_s8_u32(vdupq_n_u32((uint32_t)p));
 }
+static inline veci_t add_epi16(veci_t a, veci_t b) { return vaddq_s16(a, b); }
 static inline veci_t min_epi16(veci_t a, veci_t b) { return vminq_s16(a, b); }
 static inline veci_t clip_epi16(veci_t v, veci_t z, veci_t q) {
   return vminq_s16(vmaxq_s16(v, z), q);

@@ -1,8 +1,9 @@
 #ifndef ARCH_H
 #define ARCH_H
 
-#define INPUT_WEIGHTS 768
-#define L1_SIZE 1536
+#define PSQT_FEATURES 768
+#define THREAT_FEATURES 60144
+#define L1_SIZE 128
 #define L2_SIZE 16
 #define L3_SIZE 32
 #define OUTPUT_BUCKETS 8
