@@ -83,7 +83,8 @@ typedef struct hash_keys {
 
 typedef struct lazy_acc_state {
   uint8_t  dirty;
-  uint8_t  needs_refresh;
+  uint8_t  psqt_needs_refresh;   // Replaces needs_refresh
+  uint8_t  threat_needs_refresh; // New flag for unbucketed threats
   uint8_t  side;
   uint8_t  color_flag;
   uint8_t  white_king_sq;
