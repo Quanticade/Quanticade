@@ -8,7 +8,7 @@
 extern nnue_settings_t nnue_settings;
 
 typedef struct nnue {
-  _Alignas(64) int8_t feature_threats[THREAT_FEATURES][L1_SIZE];
+  _Alignas(64) int8_t  feature_threats[THREAT_FEATURES][L1_SIZE];
   _Alignas(64) int16_t feature_weights[KING_BUCKETS][PSQT_FEATURES][L1_SIZE];
   _Alignas(64) int16_t feature_bias[L1_SIZE];
   _Alignas(64) int8_t  l1_weights[OUTPUT_BUCKETS][L1_SIZE * L2_SIZE];
