@@ -72,6 +72,32 @@ const unsigned char *const gEVALEnd = &gEVALData[1];
 const unsigned int gEVALSize = 1;
 #endif
 
+#if defined(__AVX512F__) || defined(USE_AVX512)
+#define VECTOR_BYTES 64
+#define REGISTERS 32
+#elif defined(__AVX2__) || defined(USE_AVX2)
+#define VECTOR_BYTES 32
+#define REGISTERS 16
+#elif defined(__ARM_NEON) || defined(USE_NEON) || defined(__aarch64__)
+// aarch64 has 32 registers
+#define VECTOR_BYTES 16
+#define REGISTERS 32
+#else
+#define VECTOR_BYTES 16
+#define REGISTERS 8
+#endif
+
+#define VEC_ELTS(T) ((int)(VECTOR_BYTES / sizeof(T)))
+
+#define CHUNK_ELTS (VEC_ELTS(int16_t))
+#define L1_VECTORS (L1_SIZE / CHUNK_ELTS)
+#define CHUNK_SIZE (REGISTERS > (L1_VECTORS / 2) ? (L1_VECTORS / 2) : REGISTERS)
+
+typedef int16_t vec_s16
+    __attribute__((__vector_size__(CHUNK_ELTS * sizeof(int16_t))));
+typedef int8_t vec_s8
+    __attribute__((__vector_size__(CHUNK_ELTS * sizeof(int8_t))));
+
 const uint8_t BUCKET_DIVISOR = (32 + OUTPUT_BUCKETS - 1) / OUTPUT_BUCKETS;
 
 static inline uint8_t get_king_bucket(uint8_t side, uint8_t square) {
@@ -1184,50 +1210,52 @@ static inline void push_threat(threat_list_t *list, uint8_t w_ksq,
 
 static void apply_threat_batches(accumulator_t *acc, threat_list_t *adds,
                                  threat_list_t *subs) {
-  int16_t *w_acc = acc->threat_accumulator[white];
-  int16_t *b_acc = acc->threat_accumulator[black];
+  int16_t *w_acc =
+      (int16_t *)__builtin_assume_aligned(acc->threat_accumulator[white], 64);
+  int16_t *b_acc =
+      (int16_t *)__builtin_assume_aligned(acc->threat_accumulator[black], 64);
 
-  for (int i = 0; i < L1_SIZE; i += ACC_CHUNK_SIZE) {
-    int16_t w_chunk[ACC_CHUNK_SIZE];
-    int16_t b_chunk[ACC_CHUNK_SIZE];
+  for (int i = 0; i < L1_SIZE; i += CHUNK_SIZE * CHUNK_ELTS) {
+    vec_s16 w_vecs[CHUNK_SIZE];
+    vec_s16 b_vecs[CHUNK_SIZE];
 
-    for (int k = 0; k < ACC_CHUNK_SIZE; ++k) {
-      w_chunk[k] = w_acc[i + k];
-      b_chunk[k] = b_acc[i + k];
-    }
+    memcpy(w_vecs, w_acc + i, sizeof(w_vecs));
+    memcpy(b_vecs, b_acc + i, sizeof(b_vecs));
 
     for (int j = 0; j < adds->w_count; ++j) {
-      const int8_t *w_weights = &nnue.feature_threats[adds->w_idx[j]][i];
-#pragma GCC unroll 8
-      for (int k = 0; k < ACC_CHUNK_SIZE; ++k)
-        w_chunk[k] += w_weights[k];
+      for (int k = 0; k < CHUNK_SIZE; ++k) {
+        vec_s8 w8 = *(vec_s8 *)&nnue
+                         .feature_threats[adds->w_idx[j]][i + (k * CHUNK_ELTS)];
+        w_vecs[k] += __builtin_convertvector(w8, vec_s16);
+      }
     }
 
     for (int j = 0; j < adds->b_count; ++j) {
-      const int8_t *b_weights = &nnue.feature_threats[adds->b_idx[j]][i];
-#pragma GCC unroll 8
-      for (int k = 0; k < ACC_CHUNK_SIZE; ++k)
-        b_chunk[k] += b_weights[k];
+      for (int k = 0; k < CHUNK_SIZE; ++k) {
+        vec_s8 w8 = *(vec_s8 *)&nnue
+                         .feature_threats[adds->b_idx[j]][i + (k * CHUNK_ELTS)];
+        b_vecs[k] += __builtin_convertvector(w8, vec_s16);
+      }
     }
 
     for (int j = 0; j < subs->w_count; ++j) {
-      const int8_t *w_weights = &nnue.feature_threats[subs->w_idx[j]][i];
-#pragma GCC unroll 8
-      for (int k = 0; k < ACC_CHUNK_SIZE; ++k)
-        w_chunk[k] -= w_weights[k];
+      for (int k = 0; k < CHUNK_SIZE; ++k) {
+        vec_s8 w8 = *(vec_s8 *)&nnue
+                         .feature_threats[subs->w_idx[j]][i + (k * CHUNK_ELTS)];
+        w_vecs[k] -= __builtin_convertvector(w8, vec_s16);
+      }
     }
 
     for (int j = 0; j < subs->b_count; ++j) {
-      const int8_t *b_weights = &nnue.feature_threats[subs->b_idx[j]][i];
-#pragma GCC unroll 8
-      for (int k = 0; k < ACC_CHUNK_SIZE; ++k)
-        b_chunk[k] -= b_weights[k];
+      for (int k = 0; k < CHUNK_SIZE; ++k) {
+        vec_s8 w8 = *(vec_s8 *)&nnue
+                         .feature_threats[subs->b_idx[j]][i + (k * CHUNK_ELTS)];
+        b_vecs[k] -= __builtin_convertvector(w8, vec_s16);
+      }
     }
 
-    for (int k = 0; k < ACC_CHUNK_SIZE; ++k) {
-      w_acc[i + k] = w_chunk[k];
-      b_acc[i + k] = b_chunk[k];
-    }
+    memcpy(w_acc + i, w_vecs, sizeof(w_vecs));
+    memcpy(b_acc + i, b_vecs, sizeof(b_vecs));
   }
 }
 
