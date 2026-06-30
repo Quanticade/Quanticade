@@ -134,7 +134,7 @@ static inline uint8_t calculate_output_bucket(position_t *pos) {
   return (pieces - 2) / 4;
 }
 
-static void init_threat_tables() {
+static void init_threat_tables(void) {
   int current_offset = 0;
   for (int c = 0; c < 2; c++) {
     for (int pt = 0; pt < 6; pt++) {

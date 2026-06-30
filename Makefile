@@ -27,6 +27,17 @@ NNUE_URL := https://github.com/Quanticade/Networks/raw/refs/heads/main/$(EVALFIL
 CURL := $(shell command -v curl 2>/dev/null)
 WGET := $(shell command -v wget 2>/dev/null)
 
+GCC_VERSION := $(shell gcc -dumpfullversion 2>/dev/null)
+
+NATIVE_ARCH := $(shell gcc -march=native -Q --help=target 2>/dev/null | grep '\-march=' | awk '{print $$2}')
+
+ifneq (,$(findstring znver4,$(CFLAGS) $(NATIVE_ARCH)))
+    # 4. Check if the GCC version starts with 12.2
+    ifneq (,$(findstring 12.2,$(GCC_VERSION)))
+        $(error "Build aborted: GCC 12.2 combined with znver4 produces broken/suboptimal AVX-512 code. Please upgrade to GCC 13+ or change the target architecture.")
+    endif
+endif
+
 # Detect Clang
 ifeq ($(CC), clang)
 	CFLAGS = -g -std=gnu11 -fuse-ld=lld -funroll-loops -O3 -flto -fno-exceptions -DIS_64BIT -DNDEBUG -DGIT_HASH=\"$(shell git rev-parse --short HEAD)\" $(WARNINGS)
