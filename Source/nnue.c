@@ -72,33 +72,36 @@ const unsigned char *const gEVALEnd = &gEVALData[1];
 const unsigned int gEVALSize = 1;
 #endif
 
+#if defined(__AVX512F__) || defined(USE_AVX512)
+#define VECTOR_BYTES 64
+#define REGISTERS 32
+#elif defined(__AVX2__) || defined(USE_AVX2)
+#define VECTOR_BYTES 32
+#define REGISTERS 16
+#elif defined(__ARM_NEON) || defined(USE_NEON) || defined(__aarch64__)
+// aarch64 has 32 registers
+#define VECTOR_BYTES 16
+#define REGISTERS 32
+#else
+#define VECTOR_BYTES 16
+#define REGISTERS 8
+#endif
+
+#define VEC_ELTS(T) ((int)(VECTOR_BYTES / sizeof(T)))
+
+#define CHUNK_ELTS (VEC_ELTS(int16_t))
+#define L1_VECTORS (L1_SIZE / CHUNK_ELTS)
+#define CHUNK_SIZE (REGISTERS > (L1_VECTORS / 2) ? (L1_VECTORS / 2) : REGISTERS)
+
+typedef int16_t vec_s16
+    __attribute__((__vector_size__(CHUNK_ELTS * sizeof(int16_t))));
+typedef int8_t vec_s8
+    __attribute__((__vector_size__(CHUNK_ELTS * sizeof(int8_t))));
+
 const uint8_t BUCKET_DIVISOR = (32 + OUTPUT_BUCKETS - 1) / OUTPUT_BUCKETS;
 
 static inline uint8_t get_king_bucket(uint8_t side, uint8_t square) {
   return buckets[side ? square ^ 56 : square];
-}
-
-uint8_t need_refresh(uint8_t *mailbox, uint16_t move) {
-  const uint8_t moved_piece = mailbox[get_move_source(move)];
-  if (moved_piece == k || moved_piece == K) {
-    const uint8_t side = moved_piece >= 6;
-    const uint8_t ksq = get_move_source(move);
-    uint8_t kdest;
-    const uint8_t castling = get_move_castling(move);
-    if (castling) {
-      kdest = castle_king_dest(side, castle_side(castling));
-    } else {
-      kdest = get_move_target(move);
-    }
-    const uint8_t source_flip = (ksq & 7) >= 4;
-    const uint8_t target_flip = (kdest & 7) >= 4;
-    if ((get_king_bucket(side, ksq) != get_king_bucket(side, kdest)) ||
-        source_flip != target_flip) {
-      return 1;
-    }
-    return 0;
-  }
-  return 0;
 }
 
 static float clamp_float(float d, float min, float max) {
@@ -119,6 +122,7 @@ static int32_t clamp_int32(int32_t d, int32_t min, int32_t max) {
   const int32_t t = d < min ? min : d;
   return t > max ? max : t;
 }
+
 #ifndef USE_SIMD
 static inline int32_t screlu(int16_t value) {
   const int32_t clipped = clamp_int32((int32_t)value, 0, INPUT_QUANT);
@@ -147,7 +151,6 @@ static void init_threat_tables(void) {
         int engine_sq = sq ^ 56;
 
         if (pt == 0) {
-          // Only evaluate pawn attacks on ranks 2 to 7
           if (sq >= 8 && sq <= 55) {
             att = __builtin_bswap64(get_pawn_attacks(c, engine_sq));
           }
@@ -306,7 +309,6 @@ int nnue_init_incbin(void) {
 void nnue_init(const char *nnue_file_name) {
   init_threat_tables();
 
-  // open the nn file
   FILE *nn = fopen(nnue_file_name, "rb");
 
   if (nn) {
@@ -442,80 +444,6 @@ void rebuild_threats(position_t *pos, uint8_t *mailbox, accumulator_t *acc) {
       }
     }
   }
-}
-
-static int compare_ints(const void *a, const void *b) {
-  return (*(int *)a - *(int *)b);
-}
-
-void verify_threats(position_t *pos) {
-  uint64_t occ = pos->occupancies[both];
-
-  uint8_t white_king_sq = get_lsb(pos->bitboards[K]);
-  uint8_t black_king_sq = get_lsb(pos->bitboards[k]);
-
-  int white_indices[1024];
-  int black_indices[1024];
-  int w_count = 0, b_count = 0;
-
-  for (int c = 0; c < 2; ++c) {
-    for (int pt = 0; pt < 5; ++pt) {
-      int pc = pt + c * 6;
-      uint64_t attackers = pos->bitboards[pc];
-      while (attackers) {
-        int src = poplsb(&attackers);
-
-        uint64_t engine_attacks = 0;
-        if (pt == 0) {
-          if (src >= 8 && src <= 55)
-            engine_attacks = get_pawn_attacks(c, src);
-        } else if (pt == 1) {
-          engine_attacks = get_knight_attacks(src);
-        } else if (pt == 2) {
-          engine_attacks = get_bishop_attacks(src, occ);
-        } else if (pt == 3) {
-          engine_attacks = get_rook_attacks(src, occ);
-        } else if (pt == 4) {
-          engine_attacks = get_queen_attacks(src, occ);
-        }
-
-        // Filter out kings as victims
-        engine_attacks &= occ & ~(pos->bitboards[K] | pos->bitboards[k]);
-
-        while (engine_attacks) {
-          int dest = poplsb(&engine_attacks);
-
-          int victim_pc = pos->mailbox[dest];
-          if (victim_pc > 11)
-            continue;
-
-          int w_idx =
-              get_threat_index(white, white_king_sq, pc, victim_pc, src, dest);
-          int b_idx =
-              get_threat_index(black, black_king_sq, pc, victim_pc, src, dest);
-
-          if (w_idx >= 0)
-            white_indices[w_count++] = w_idx;
-          if (b_idx >= 0)
-            black_indices[b_count++] = b_idx;
-        }
-      }
-    }
-  }
-
-  qsort(white_indices, w_count, sizeof(int), compare_ints);
-  qsort(black_indices, b_count, sizeof(int), compare_ints);
-
-  printf("\n--- THREAT VERIFICATION ---\n");
-  printf("white threats: [");
-  for (int i = 0; i < w_count; i++)
-    printf("%d%s", white_indices[i], i == w_count - 1 ? "" : ", ");
-  printf("]\n");
-
-  printf("black threats: [");
-  for (int i = 0; i < b_count; i++)
-    printf("%d%s", black_indices[i], i == b_count - 1 ? "" : ", ");
-  printf("]\n---------------------------\n");
 }
 
 static inline void refresh_accumulator(thread_t *thread, position_t *pos,
@@ -685,8 +613,6 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
   }
 
   rebuild_threats(pos, pos->mailbox, accumulator);
-
-  // verify_threats(pos);
 
   int16_t *stmPsqt = accumulator->psqt_accumulator[pos->side];
   int16_t *oppPsqt = accumulator->psqt_accumulator[1 - pos->side];
@@ -1258,54 +1184,111 @@ accumulator_make_move(accumulator_t *restrict accumulator,
   }
 }
 
-static inline void add_threat(accumulator_t *acc, uint8_t w_ksq, uint8_t b_ksq,
-                              int attacker, int victim, int src, int dest) {
-  int w_idx = get_threat_index(white, w_ksq, attacker, victim, src, dest);
+#define MAX_THREAT_UPDATES 256
+#define ACC_CHUNK_SIZE 32
+
+typedef struct {
+  int w_idx[MAX_THREAT_UPDATES];
+  int b_idx[MAX_THREAT_UPDATES];
+  int w_count;
+  int b_count;
+} threat_list_t;
+
+static inline void push_threat(threat_list_t *list, uint8_t w_ksq,
+                               uint8_t b_ksq, int attacker_pc, int victim_pc,
+                               int src, int dest) {
+  int w_idx = get_threat_index(white, w_ksq, attacker_pc, victim_pc, src, dest);
   if (w_idx >= 0) {
-    for (int i = 0; i < L1_SIZE; ++i)
-      acc->threat_accumulator[white][i] += nnue.feature_threats[w_idx][i];
+    list->w_idx[list->w_count++] = w_idx;
   }
-  int b_idx = get_threat_index(black, b_ksq, attacker, victim, src, dest);
+
+  int b_idx = get_threat_index(black, b_ksq, attacker_pc, victim_pc, src, dest);
   if (b_idx >= 0) {
-    for (int i = 0; i < L1_SIZE; ++i)
-      acc->threat_accumulator[black][i] += nnue.feature_threats[b_idx][i];
+    list->b_idx[list->b_count++] = b_idx;
   }
 }
 
-static inline void sub_threat(accumulator_t *acc, uint8_t w_ksq, uint8_t b_ksq,
-                              int attacker, int victim, int src, int dest) {
-  int w_idx = get_threat_index(white, w_ksq, attacker, victim, src, dest);
-  if (w_idx >= 0) {
-    for (int i = 0; i < L1_SIZE; ++i)
-      acc->threat_accumulator[white][i] -= nnue.feature_threats[w_idx][i];
-  }
-  int b_idx = get_threat_index(black, b_ksq, attacker, victim, src, dest);
-  if (b_idx >= 0) {
-    for (int i = 0; i < L1_SIZE; ++i)
-      acc->threat_accumulator[black][i] -= nnue.feature_threats[b_idx][i];
+static void apply_threat_batches(accumulator_t *acc, threat_list_t *adds,
+                                 threat_list_t *subs) {
+  int16_t *w_acc =
+      (int16_t *)__builtin_assume_aligned(acc->threat_accumulator[white], 64);
+  int16_t *b_acc =
+      (int16_t *)__builtin_assume_aligned(acc->threat_accumulator[black], 64);
+
+  for (int i = 0; i < L1_SIZE; i += CHUNK_SIZE * CHUNK_ELTS) {
+    vec_s16 w_vecs[CHUNK_SIZE];
+    vec_s16 b_vecs[CHUNK_SIZE];
+
+    memcpy(w_vecs, w_acc + i, sizeof(w_vecs));
+    memcpy(b_vecs, b_acc + i, sizeof(b_vecs));
+
+    for (int j = 0; j < adds->w_count; ++j) {
+      for (int k = 0; k < CHUNK_SIZE; ++k) {
+        vec_s8 w8 = *(vec_s8 *)&nnue
+                         .feature_threats[adds->w_idx[j]][i + (k * CHUNK_ELTS)];
+        w_vecs[k] += __builtin_convertvector(w8, vec_s16);
+      }
+    }
+
+    for (int j = 0; j < adds->b_count; ++j) {
+      for (int k = 0; k < CHUNK_SIZE; ++k) {
+        vec_s8 w8 = *(vec_s8 *)&nnue
+                         .feature_threats[adds->b_idx[j]][i + (k * CHUNK_ELTS)];
+        b_vecs[k] += __builtin_convertvector(w8, vec_s16);
+      }
+    }
+
+    for (int j = 0; j < subs->w_count; ++j) {
+      for (int k = 0; k < CHUNK_SIZE; ++k) {
+        vec_s8 w8 = *(vec_s8 *)&nnue
+                         .feature_threats[subs->w_idx[j]][i + (k * CHUNK_ELTS)];
+        w_vecs[k] -= __builtin_convertvector(w8, vec_s16);
+      }
+    }
+
+    for (int j = 0; j < subs->b_count; ++j) {
+      for (int k = 0; k < CHUNK_SIZE; ++k) {
+        vec_s8 w8 = *(vec_s8 *)&nnue
+                         .feature_threats[subs->b_idx[j]][i + (k * CHUNK_ELTS)];
+        b_vecs[k] -= __builtin_convertvector(w8, vec_s16);
+      }
+    }
+
+    memcpy(w_acc + i, w_vecs, sizeof(w_vecs));
+    memcpy(b_acc + i, b_vecs, sizeof(b_vecs));
   }
 }
 
-static inline uint64_t get_piece_attacks(int pt, int c, int sq, uint64_t occ) {
-  if (pt == 0) {
+static inline uint64_t get_piece_attacks_fast(int pc, int sq, uint64_t occ) {
+  switch (pc) {
+  case P:
     if (sq >= 8 && sq <= 55)
-      return get_pawn_attacks(c, sq);
+      return get_pawn_attacks(white, sq);
+    return 0;
+  case p:
+    if (sq >= 8 && sq <= 55)
+      return get_pawn_attacks(black, sq);
+    return 0;
+  case N:
+  case n:
+    return get_knight_attacks(sq);
+  case B:
+  case b:
+    return get_bishop_attacks(sq, occ);
+  case R:
+  case r:
+    return get_rook_attacks(sq, occ);
+  case Q:
+  case q:
+    return get_queen_attacks(sq, occ);
+  default:
     return 0;
   }
-  if (pt == 1)
-    return get_knight_attacks(sq);
-  if (pt == 2)
-    return get_bishop_attacks(sq, occ);
-  if (pt == 3)
-    return get_rook_attacks(sq, occ);
-  if (pt == 4)
-    return get_queen_attacks(sq, occ);
-  return 0;
 }
 
 static void process_threat_deltas(position_t *pos, uint64_t changed_sqs,
-                                  uint64_t affected_sliders, int is_add,
-                                  accumulator_t *acc) {
+                                  uint64_t affected_sliders,
+                                  threat_list_t *list) {
   uint64_t occ = pos->occupancies[both];
   uint8_t w_ksq = get_lsb(pos->bitboards[K]);
   uint8_t b_ksq = get_lsb(pos->bitboards[k]);
@@ -1318,17 +1301,13 @@ static void process_threat_deltas(position_t *pos, uint64_t changed_sqs,
     if (pc > 11)
       continue;
 
-    uint64_t attacks = get_piece_attacks(pc % 6, pc / 6, src, occ) & non_kings;
+    uint64_t attacks = get_piece_attacks_fast(pc, src, occ) & non_kings;
     while (attacks) {
       int dest = poplsb(&attacks);
       int victim = pos->mailbox[dest];
-      if (victim > 11)
-        continue;
-
-      if (is_add)
-        add_threat(acc, w_ksq, b_ksq, pc, victim, src, dest);
-      else
-        sub_threat(acc, w_ksq, b_ksq, pc, victim, src, dest);
+      if (victim < 12 && victim != K && victim != k) {
+        push_threat(list, w_ksq, b_ksq, pc, victim, src, dest);
+      }
     }
   }
 
@@ -1344,13 +1323,9 @@ static void process_threat_deltas(position_t *pos, uint64_t changed_sqs,
     while (attackers) {
       int src = poplsb(&attackers);
       int pc = pos->mailbox[src];
-      if (pc > 11)
-        continue;
-
-      if (is_add)
-        add_threat(acc, w_ksq, b_ksq, pc, victim, src, dest);
-      else
-        sub_threat(acc, w_ksq, b_ksq, pc, victim, src, dest);
+      if (pc < 12 && pc != K && pc != k) {
+        push_threat(list, w_ksq, b_ksq, pc, victim, src, dest);
+      }
     }
   }
 
@@ -1362,17 +1337,13 @@ static void process_threat_deltas(position_t *pos, uint64_t changed_sqs,
       continue;
 
     uint64_t attacks =
-        get_piece_attacks(pc % 6, pc / 6, src, occ) & non_kings & ~changed_sqs;
+        get_piece_attacks_fast(pc, src, occ) & non_kings & ~changed_sqs;
     while (attacks) {
       int dest = poplsb(&attacks);
       int victim = pos->mailbox[dest];
-      if (victim > 11)
-        continue;
-
-      if (is_add)
-        add_threat(acc, w_ksq, b_ksq, pc, victim, src, dest);
-      else
-        sub_threat(acc, w_ksq, b_ksq, pc, victim, src, dest);
+      if (victim < 12 && victim != K && victim != k) {
+        push_threat(list, w_ksq, b_ksq, pc, victim, src, dest);
+      }
     }
   }
 }
@@ -1381,15 +1352,14 @@ static void update_threats_incremental(accumulator_t *acc,
                                        position_t *pos_before,
                                        position_t *pos_after) {
   uint64_t real_changed_sqs = 0;
-  for (int i = 0; i < 64; i++) {
-    if (pos_before->mailbox[i] != pos_after->mailbox[i]) {
-      real_changed_sqs |= (1ULL << i);
-    }
+  for (int i = 0; i < 12; i++) {
+    real_changed_sqs |= (pos_before->bitboards[i] ^ pos_after->bitboards[i]);
   }
 
   uint64_t sliders_before = 0;
   uint64_t sliders_after = 0;
   uint64_t changed_copy = real_changed_sqs;
+
   while (changed_copy) {
     int sq = poplsb(&changed_copy);
 
@@ -1419,8 +1389,13 @@ static void update_threats_incremental(accumulator_t *acc,
   uint64_t affected_sliders =
       (sliders_before | sliders_after) & ~real_changed_sqs;
 
-  process_threat_deltas(pos_before, real_changed_sqs, affected_sliders, 0, acc);
-  process_threat_deltas(pos_after, real_changed_sqs, affected_sliders, 1, acc);
+  threat_list_t adds = {.w_count = 0, .b_count = 0};
+  threat_list_t subs = {.w_count = 0, .b_count = 0};
+
+  process_threat_deltas(pos_before, real_changed_sqs, affected_sliders, &subs);
+  process_threat_deltas(pos_after, real_changed_sqs, affected_sliders, &adds);
+
+  apply_threat_batches(acc, &adds, &subs);
 }
 
 void apply_accumulator(thread_t *thread, int ply) {
