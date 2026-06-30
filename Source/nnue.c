@@ -1264,34 +1264,17 @@ static void apply_threat_batches(accumulator_t *acc, threat_list_t *adds,
 
 static inline uint64_t get_piece_attacks_fast(int pc, int sq, uint64_t occ) {
   switch (pc) {
-  case P:
-    if (sq >= 8 && sq <= 55)
-      return get_pawn_attacks(white, sq);
-    return 0;
-  case p:
-    if (sq >= 8 && sq <= 55)
-      return get_pawn_attacks(black, sq);
-    return 0;
-  case N:
-  case n:
-    return get_knight_attacks(sq);
-  case B:
-  case b:
-    return get_bishop_attacks(sq, occ);
-  case R:
-  case r:
-    return get_rook_attacks(sq, occ);
-  case Q:
-  case q:
-    return get_queen_attacks(sq, occ);
-  default:
-    return 0;
+  case P: return (sq >= 8 && sq <= 55) ? get_pawn_attacks(white, sq) : 0;
+  case p: return (sq >= 8 && sq <= 55) ? get_pawn_attacks(black, sq) : 0;
+  case N: case n: return get_knight_attacks(sq);
+  case B: case b: return get_bishop_attacks(sq, occ);
+  case R: case r: return get_rook_attacks(sq, occ);
+  case Q: case q: return get_queen_attacks(sq, occ);
+  default: return 0;
   }
 }
 
-static void process_threat_deltas(position_t *pos, uint64_t changed_sqs,
-                                  uint64_t affected_sliders,
-                                  threat_list_t *list) {
+static void process_changed_squares(position_t *pos, uint64_t changed_sqs, threat_list_t *list) {
   uint64_t occ = pos->occupancies[both];
   uint8_t w_ksq = get_lsb(pos->bitboards[K]);
   uint8_t b_ksq = get_lsb(pos->bitboards[k]);
@@ -1301,16 +1284,12 @@ static void process_threat_deltas(position_t *pos, uint64_t changed_sqs,
   while (sqs) {
     int src = poplsb(&sqs);
     int pc = pos->mailbox[src];
-    if (pc > 11)
-      continue;
 
     uint64_t attacks = get_piece_attacks_fast(pc, src, occ) & non_kings;
     while (attacks) {
       int dest = poplsb(&attacks);
       int victim = pos->mailbox[dest];
-      if (victim < 12 && victim != K && victim != k) {
-        push_threat(list, w_ksq, b_ksq, pc, victim, src, dest);
-      }
+      push_threat(list, w_ksq, b_ksq, pc, victim, src, dest);
     }
   }
 
@@ -1318,35 +1297,48 @@ static void process_threat_deltas(position_t *pos, uint64_t changed_sqs,
   while (sqs) {
     int dest = poplsb(&sqs);
     int victim = pos->mailbox[dest];
-    if (victim > 11)
-      continue;
 
-    uint64_t attackers =
-        attackers_to(pos, dest, occ) & non_kings & ~changed_sqs;
+    uint64_t attackers = attackers_to(pos, dest, occ) & non_kings & ~changed_sqs;
     while (attackers) {
       int src = poplsb(&attackers);
       int pc = pos->mailbox[src];
-      if (pc < 12 && pc != K && pc != k) {
-        push_threat(list, w_ksq, b_ksq, pc, victim, src, dest);
-      }
+      push_threat(list, w_ksq, b_ksq, pc, victim, src, dest);
     }
   }
+}
 
-  sqs = affected_sliders & non_kings;
+static void process_slider_deltas(position_t *pos_before, position_t *pos_after,
+                                  uint64_t affected_sliders, uint64_t changed_sqs,
+                                  threat_list_t *adds, threat_list_t *subs) {
+  uint64_t occ_b = pos_before->occupancies[both];
+  uint64_t occ_a = pos_after->occupancies[both];
+  uint8_t w_ksq = get_lsb(pos_after->bitboards[K]);
+  uint8_t b_ksq = get_lsb(pos_after->bitboards[k]);
+
+  uint64_t non_kings_b = occ_b & ~(pos_before->bitboards[K] | pos_before->bitboards[k]);
+  uint64_t non_kings_a = occ_a & ~(pos_after->bitboards[K] | pos_after->bitboards[k]);
+
+  uint64_t sqs = affected_sliders & non_kings_a;
   while (sqs) {
     int src = poplsb(&sqs);
-    int pc = pos->mailbox[src];
-    if (pc > 11)
-      continue;
+    int pc = pos_after->mailbox[src];
 
-    uint64_t attacks =
-        get_piece_attacks_fast(pc, src, occ) & non_kings & ~changed_sqs;
-    while (attacks) {
-      int dest = poplsb(&attacks);
-      int victim = pos->mailbox[dest];
-      if (victim < 12 && victim != K && victim != k) {
-        push_threat(list, w_ksq, b_ksq, pc, victim, src, dest);
-      }
+    uint64_t old_attacks = get_piece_attacks_fast(pc, src, occ_b) & non_kings_b & ~changed_sqs;
+    uint64_t new_attacks = get_piece_attacks_fast(pc, src, occ_a) & non_kings_a & ~changed_sqs;
+
+    uint64_t dropped = old_attacks & ~new_attacks;
+    uint64_t gained = new_attacks & ~old_attacks;
+
+    while (dropped) {
+      int dest = poplsb(&dropped);
+      int victim = pos_before->mailbox[dest];
+      push_threat(subs, w_ksq, b_ksq, pc, victim, src, dest);
+    }
+
+    while (gained) {
+      int dest = poplsb(&gained);
+      int victim = pos_after->mailbox[dest];
+      push_threat(adds, w_ksq, b_ksq, pc, victim, src, dest);
     }
   }
 }
@@ -1359,44 +1351,34 @@ static void update_threats_incremental(accumulator_t *acc,
     real_changed_sqs |= (pos_before->bitboards[i] ^ pos_after->bitboards[i]);
   }
 
+  uint64_t occ_b = pos_before->occupancies[both];
+  uint64_t occ_a = pos_after->occupancies[both];
+  uint64_t b_sliders_b = pos_before->bitboards[B] | pos_before->bitboards[b] | pos_before->bitboards[Q] | pos_before->bitboards[q];
+  uint64_t r_sliders_b = pos_before->bitboards[R] | pos_before->bitboards[r] | pos_before->bitboards[Q] | pos_before->bitboards[q];
+  uint64_t b_sliders_a = pos_after->bitboards[B] | pos_after->bitboards[b] | pos_after->bitboards[Q] | pos_after->bitboards[q];
+  uint64_t r_sliders_a = pos_after->bitboards[R] | pos_after->bitboards[r] | pos_after->bitboards[Q] | pos_after->bitboards[q];
+
   uint64_t sliders_before = 0;
   uint64_t sliders_after = 0;
   uint64_t changed_copy = real_changed_sqs;
 
   while (changed_copy) {
     int sq = poplsb(&changed_copy);
-
-    uint64_t b_attackers_before =
-        get_bishop_attacks(sq, pos_before->occupancies[both]);
-    uint64_t r_attackers_before =
-        get_rook_attacks(sq, pos_before->occupancies[both]);
-    sliders_before |= b_attackers_before &
-                      (pos_before->bitboards[B] | pos_before->bitboards[b] |
-                       pos_before->bitboards[Q] | pos_before->bitboards[q]);
-    sliders_before |= r_attackers_before &
-                      (pos_before->bitboards[R] | pos_before->bitboards[r] |
-                       pos_before->bitboards[Q] | pos_before->bitboards[q]);
-
-    uint64_t b_attackers_after =
-        get_bishop_attacks(sq, pos_after->occupancies[both]);
-    uint64_t r_attackers_after =
-        get_rook_attacks(sq, pos_after->occupancies[both]);
-    sliders_after |=
-        b_attackers_after & (pos_after->bitboards[B] | pos_after->bitboards[b] |
-                             pos_after->bitboards[Q] | pos_after->bitboards[q]);
-    sliders_after |=
-        r_attackers_after & (pos_after->bitboards[R] | pos_after->bitboards[r] |
-                             pos_after->bitboards[Q] | pos_after->bitboards[q]);
+    sliders_before |= get_bishop_attacks(sq, occ_b) & b_sliders_b;
+    sliders_before |= get_rook_attacks(sq, occ_b) & r_sliders_b;
+    
+    sliders_after |= get_bishop_attacks(sq, occ_a) & b_sliders_a;
+    sliders_after |= get_rook_attacks(sq, occ_a) & r_sliders_a;
   }
 
-  uint64_t affected_sliders =
-      (sliders_before | sliders_after) & ~real_changed_sqs;
+  uint64_t affected_sliders = (sliders_before | sliders_after) & ~real_changed_sqs;
 
   threat_list_t adds = {.w_count = 0, .b_count = 0};
   threat_list_t subs = {.w_count = 0, .b_count = 0};
 
-  process_threat_deltas(pos_before, real_changed_sqs, affected_sliders, &subs);
-  process_threat_deltas(pos_after, real_changed_sqs, affected_sliders, &adds);
+  process_changed_squares(pos_before, real_changed_sqs, &subs);
+  process_changed_squares(pos_after, real_changed_sqs, &adds);
+  process_slider_deltas(pos_before, pos_after, affected_sliders, real_changed_sqs, &adds, &subs);
 
   apply_threat_batches(acc, &adds, &subs);
 }
