@@ -1116,6 +1116,16 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     extensions = 1;
   }
 
+  if (!root_node && pv_node && depth >= 8 && !in_check && !ss->excluded_move &&
+      !tt_move) {
+    (void)negamax(thread, ss, alpha, beta, (3 * depth - 7) / 4, cutnode,
+                  pv_node);
+    uint8_t hit = 0;
+    tt_entry_t *entry;
+    entry = read_hash_entry(pos, &hit);
+    tt_move = entry->move;
+  }
+
   picker_t picker;
   init_picker(&picker, thread, ss, tt_move, 1, &check_info);
 
