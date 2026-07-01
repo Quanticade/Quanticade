@@ -75,6 +75,13 @@ typedef struct finny_table {
   uint64_t bitboards[2][12];
 } finny_table_t;
 
+typedef struct {
+  int w_idx[256];
+  int b_idx[256];
+  int w_count;
+  int b_count;
+} threat_list_t;
+
 typedef struct hash_keys {
   uint64_t hash_key;
   uint64_t pawn_key;

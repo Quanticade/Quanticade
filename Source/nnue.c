@@ -34,10 +34,16 @@ struct raw_net net;
 
 const int INT8_PER_INT32 = sizeof(int) / sizeof(int8_t);
 
+static int feature_base_lut[12][12][2];
+static uint8_t precomputed_piece_index[12][64][64];
+
 static int PIECE_TARGET_COUNT[6] = {6, 10, 8, 8, 10, 0};
 static int PIECE_TARGET_MAP[6][6] = {
     {0, 1, -1, 2, -1, -1}, {0, 1, 2, 3, 4, -1}, {0, 1, 2, 3, -1, -1},
     {0, 1, 2, 3, -1, -1},  {0, 1, 2, 3, 4, -1}, {-1, -1, -1, -1, -1, -1}};
+static const uint8_t swap_color_pc[2][12] = {
+    {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11},
+    {6, 7, 8, 9, 10, 11, 0, 1, 2, 3, 4, 5}};
 
 static int threat_offsets[12];
 static int threat_piece_offsets[12];
@@ -147,13 +153,11 @@ static void init_threat_tables(void) {
       for (int sq = 0; sq < 64; sq++) {
         threat_sq_offsets[pc][sq] = current_piece_offset;
         uint64_t att = 0;
-
         int engine_sq = sq ^ 56;
 
         if (pt == 0) {
-          if (sq >= 8 && sq <= 55) {
+          if (sq >= 8 && sq <= 55)
             att = __builtin_bswap64(get_pawn_attacks(c, engine_sq));
-          }
         } else if (pt == 1) {
           att = __builtin_bswap64(get_knight_attacks(engine_sq));
         } else if (pt == 2) {
@@ -172,49 +176,58 @@ static void init_threat_tables(void) {
       current_offset += PIECE_TARGET_COUNT[pt] * current_piece_offset;
     }
   }
+
+  for (int a = 0; a < 12; a++) {
+    for (int v = 0; v < 12; v++) {
+      int a_pt = a % 6;
+      int v_pt = v % 6;
+      int a_c = a / 6;
+      int v_c = v / 6;
+
+      int map = PIECE_TARGET_MAP[a_pt][v_pt];
+      int opposed = (a_c != v_c);
+      int semi_excluded = (a_pt == v_pt) && (opposed || a_pt != 0);
+
+      for (int src_less_dest = 0; src_less_dest < 2; src_less_dest++) {
+        if (map == -1 || (semi_excluded && src_less_dest)) {
+          // Flag as invalid by setting a massive negative number
+          feature_base_lut[a][v][src_less_dest] = -100000;
+        } else {
+          int color_base = v_c * (PIECE_TARGET_COUNT[a_pt] / 2);
+          int offset = color_base + map;
+          feature_base_lut[a][v][src_less_dest] =
+              threat_offsets[a] + (offset * threat_piece_offsets[a]);
+        }
+      }
+    }
+  }
+
+  for (int pc = 0; pc < 12; pc++) {
+    for (int src = 0; src < 64; src++) {
+      uint64_t attacks = threat_attacks[pc][src];
+      for (int dest = 0; dest < 64; dest++) {
+        uint64_t mask = (1ULL << dest) - 1;
+        precomputed_piece_index[pc][src][dest] =
+            __builtin_popcountll(attacks & mask);
+      }
+    }
+  }
 }
 
 static inline int get_threat_index(int perspective, int king_sq,
                                    int attacker_pc, int victim_pc, int src,
                                    int dest) {
-  if (perspective == black) {
-    attacker_pc = (attacker_pc >= 6) ? attacker_pc - 6 : attacker_pc + 6;
-    victim_pc = (victim_pc >= 6) ? victim_pc - 6 : victim_pc + 6;
-  } else {
-    src ^= 56;
-    dest ^= 56;
-  }
+  attacker_pc = swap_color_pc[perspective][attacker_pc];
+  victim_pc = swap_color_pc[perspective][victim_pc];
 
-  if ((king_sq & 7) >= 4) {
-    src ^= 7;
-    dest ^= 7;
-  }
+  int flip = (perspective == white ? 56 : 0) ^ ((king_sq & 7) >= 4 ? 7 : 0);
+  src ^= flip;
+  dest ^= flip;
 
-  int attacker_pt = attacker_pc % 6;
-  int victim_pt = victim_pc % 6;
-  int attacker_c = attacker_pc / 6;
-  int victim_c = victim_pc / 6;
-
-  int map = PIECE_TARGET_MAP[attacker_pt][victim_pt];
-  if (map == -1)
-    return -1;
-
-  int opposed = (attacker_c != victim_c);
-  int semi_excluded =
-      (attacker_pt == victim_pt) && (opposed || attacker_pt != 0);
-  if (semi_excluded && src < dest)
-    return -1;
-
-  int color_base = victim_c * (PIECE_TARGET_COUNT[attacker_pt] / 2);
-  int block_offset = threat_offsets[attacker_pc];
-  int piece_total = threat_piece_offsets[attacker_pc];
-
-  int feature_base = block_offset + (color_base + map) * piece_total;
+  int feature_base = feature_base_lut[attacker_pc][victim_pc][src < dest];
   int sq_offset = threat_sq_offsets[attacker_pc][src];
 
-  uint64_t mask = (1ULL << dest) - 1;
-  int piece_index =
-      __builtin_popcountll(threat_attacks[attacker_pc][src] & mask);
+  int piece_index = precomputed_piece_index[attacker_pc][src][dest];
 
   return feature_base + sq_offset + piece_index;
 }
@@ -1183,16 +1196,6 @@ accumulator_make_move(accumulator_t *restrict accumulator,
                        moving_piece, moving_piece, from, to, color_flag);
   }
 }
-
-#define MAX_THREAT_UPDATES 256
-#define ACC_CHUNK_SIZE 32
-
-typedef struct {
-  int w_idx[MAX_THREAT_UPDATES];
-  int b_idx[MAX_THREAT_UPDATES];
-  int w_count;
-  int b_count;
-} threat_list_t;
 
 static inline void push_threat(threat_list_t *list, uint8_t w_ksq,
                                uint8_t b_ksq, int attacker_pc, int victim_pc,
