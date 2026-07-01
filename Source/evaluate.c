@@ -20,6 +20,8 @@ extern uint8_t disable_norm;
 int16_t evaluate(thread_t *thread, position_t *pos,
                  accumulator_t *accumulator) {
   int eval = nnue_evaluate(thread, pos, accumulator);
+  /*(void)thread;
+  int eval = nnue_eval_pos(pos, accumulator);*/
 
   if (!disable_norm) {
     int phase = EVAL_KNIGHT * popcount(pos->bitboards[n] | pos->bitboards[N]) +

@@ -1,12 +1,12 @@
 #include "nnue.h"
 #include "arch.h"
+#include "attacks.h"
 #include "bitboards.h"
 #include "enums.h"
 #include "incbin/incbin.h"
 #include "move.h"
 #include "simd.h"
 #include "structs.h"
-#include "uci.h"
 #include "utils.h"
 #include <math.h>
 #include <stdint.h>
@@ -19,7 +19,8 @@ int EVAL_SCALE = 296;
 nnue_t nnue;
 
 struct raw_net {
-  float feature_weights[KING_BUCKETS][INPUT_WEIGHTS][L1_SIZE];
+  float feature_threats[THREAT_FEATURES][L1_SIZE];
+  float feature_weights[KING_BUCKETS][PSQT_FEATURES][L1_SIZE];
   float feature_bias[L1_SIZE];
   float l1_weights[OUTPUT_BUCKETS][L2_SIZE][L1_SIZE];
   float l1_bias[OUTPUT_BUCKETS][L2_SIZE];
@@ -32,6 +33,22 @@ struct raw_net {
 struct raw_net net;
 
 const int INT8_PER_INT32 = sizeof(int) / sizeof(int8_t);
+
+static int feature_base_lut[12][12][2];
+static uint8_t precomputed_piece_index[12][64][64];
+
+static int PIECE_TARGET_COUNT[6] = {6, 10, 8, 8, 10, 0};
+static int PIECE_TARGET_MAP[6][6] = {
+    {0, 1, -1, 2, -1, -1}, {0, 1, 2, 3, 4, -1}, {0, 1, 2, 3, -1, -1},
+    {0, 1, 2, 3, -1, -1},  {0, 1, 2, 3, 4, -1}, {-1, -1, -1, -1, -1, -1}};
+static const uint8_t swap_color_pc[2][12] = {
+    {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11},
+    {6, 7, 8, 9, 10, 11, 0, 1, 2, 3, 4, 5}};
+
+static int threat_offsets[12];
+static int threat_piece_offsets[12];
+static int threat_sq_offsets[12][64];
+static uint64_t threat_attacks[12][64];
 
 #if defined(USE_SIMD) && !defined(USE_AVX512ICL)
 static uint16_t NNZ_TABLE[256][8];
@@ -48,10 +65,10 @@ static void init_nnz_table(void) {
 #endif
 
 const uint8_t buckets[64] = {14, 14, 15, 15, 15, 15, 14, 14, 14, 14, 15, 15, 15,
-                       15, 14, 14, 12, 12, 13, 13, 13, 13, 12, 12, 12, 12,
-                       13, 13, 13, 13, 12, 12, 8,  9,  10, 11, 11, 10, 9,
-                       8,  8,  9,  10, 11, 11, 10, 9,  8,  4,  5,  6,  7,
-                       7,  6,  5,  4,  0,  1,  2,  3,  3,  2,  1,  0};
+                             15, 14, 14, 12, 12, 13, 13, 13, 13, 12, 12, 12, 12,
+                             13, 13, 13, 13, 12, 12, 8,  9,  10, 11, 11, 10, 9,
+                             8,  8,  9,  10, 11, 11, 10, 9,  8,  4,  5,  6,  7,
+                             7,  6,  5,  4,  0,  1,  2,  3,  3,  2,  1,  0};
 
 #if !defined(_MSC_VER)
 INCBIN(EVAL, EVALFILE);
@@ -61,33 +78,36 @@ const unsigned char *const gEVALEnd = &gEVALData[1];
 const unsigned int gEVALSize = 1;
 #endif
 
+#if defined(__AVX512F__) || defined(USE_AVX512)
+#define VECTOR_BYTES 64
+#define REGISTERS 32
+#elif defined(__AVX2__) || defined(USE_AVX2)
+#define VECTOR_BYTES 32
+#define REGISTERS 16
+#elif defined(__ARM_NEON) || defined(USE_NEON) || defined(__aarch64__)
+// aarch64 has 32 registers
+#define VECTOR_BYTES 16
+#define REGISTERS 32
+#else
+#define VECTOR_BYTES 16
+#define REGISTERS 8
+#endif
+
+#define VEC_ELTS(T) ((int)(VECTOR_BYTES / sizeof(T)))
+
+#define CHUNK_ELTS (VEC_ELTS(int16_t))
+#define L1_VECTORS (L1_SIZE / CHUNK_ELTS)
+#define CHUNK_SIZE (REGISTERS > (L1_VECTORS / 2) ? (L1_VECTORS / 2) : REGISTERS)
+
+typedef int16_t vec_s16
+    __attribute__((__vector_size__(CHUNK_ELTS * sizeof(int16_t))));
+typedef int8_t vec_s8
+    __attribute__((__vector_size__(CHUNK_ELTS * sizeof(int8_t))));
+
 const uint8_t BUCKET_DIVISOR = (32 + OUTPUT_BUCKETS - 1) / OUTPUT_BUCKETS;
 
 static inline uint8_t get_king_bucket(uint8_t side, uint8_t square) {
   return buckets[side ? square ^ 56 : square];
-}
-
-uint8_t need_refresh(uint8_t *mailbox, uint16_t move) {
-  const uint8_t moved_piece = mailbox[get_move_source(move)];
-  if (moved_piece == k || moved_piece == K) {
-    const uint8_t side = moved_piece >= 6;
-    const uint8_t ksq = get_move_source(move);
-    uint8_t kdest;
-    const uint8_t castling = get_move_castling(move);
-    if (castling) {
-      kdest = castle_king_dest(side, castle_side(castling));
-    } else {
-      kdest = get_move_target(move);
-    }
-    const uint8_t source_flip = (ksq & 7) >= 4;
-    const uint8_t target_flip = (kdest & 7) >= 4;
-    if ((get_king_bucket(side, ksq) != get_king_bucket(side, kdest)) ||
-        source_flip != target_flip) {
-      return 1;
-    }
-    return 0;
-  }
-  return 0;
 }
 
 static float clamp_float(float d, float min, float max) {
@@ -104,27 +124,112 @@ static inline float crelu_float(float value) {
   return clamp_float(value, 0.0f, 1.0f);
 }
 
-#ifndef USE_SIMD
-
 static int32_t clamp_int32(int32_t d, int32_t min, int32_t max) {
   const int32_t t = d < min ? min : d;
   return t > max ? max : t;
 }
 
+#ifndef USE_SIMD
 static inline int32_t screlu(int16_t value) {
   const int32_t clipped = clamp_int32((int32_t)value, 0, INPUT_QUANT);
   return clipped * clipped;
 }
-
 static inline int16_t crelu(int16_t value) {
   return clamp_int32((int32_t)value, 0, INPUT_QUANT);
 }
-
 #endif
 
 static inline uint8_t calculate_output_bucket(position_t *pos) {
   const uint8_t pieces = popcount(pos->occupancies[2]);
   return (pieces - 2) / 4;
+}
+
+static void init_threat_tables(void) {
+  int current_offset = 0;
+  for (int c = 0; c < 2; c++) {
+    for (int pt = 0; pt < 6; pt++) {
+      int pc = pt + c * 6;
+      int current_piece_offset = 0;
+      for (int sq = 0; sq < 64; sq++) {
+        threat_sq_offsets[pc][sq] = current_piece_offset;
+        uint64_t att = 0;
+        int engine_sq = sq ^ 56;
+
+        if (pt == 0) {
+          if (sq >= 8 && sq <= 55)
+            att = __builtin_bswap64(get_pawn_attacks(c, engine_sq));
+        } else if (pt == 1) {
+          att = __builtin_bswap64(get_knight_attacks(engine_sq));
+        } else if (pt == 2) {
+          att = __builtin_bswap64(get_bishop_attacks(engine_sq, 0));
+        } else if (pt == 3) {
+          att = __builtin_bswap64(get_rook_attacks(engine_sq, 0));
+        } else if (pt == 4) {
+          att = __builtin_bswap64(get_queen_attacks(engine_sq, 0));
+        }
+
+        threat_attacks[pc][sq] = att;
+        current_piece_offset += __builtin_popcountll(att);
+      }
+      threat_piece_offsets[pc] = current_piece_offset;
+      threat_offsets[pc] = current_offset;
+      current_offset += PIECE_TARGET_COUNT[pt] * current_piece_offset;
+    }
+  }
+
+  for (int a = 0; a < 12; a++) {
+    for (int v = 0; v < 12; v++) {
+      int a_pt = a % 6;
+      int v_pt = v % 6;
+      int a_c = a / 6;
+      int v_c = v / 6;
+
+      int map = PIECE_TARGET_MAP[a_pt][v_pt];
+      int opposed = (a_c != v_c);
+      int semi_excluded = (a_pt == v_pt) && (opposed || a_pt != 0);
+
+      for (int src_less_dest = 0; src_less_dest < 2; src_less_dest++) {
+        if (map == -1 || (semi_excluded && src_less_dest)) {
+          // Flag as invalid by setting a massive negative number
+          feature_base_lut[a][v][src_less_dest] = -100000;
+        } else {
+          int color_base = v_c * (PIECE_TARGET_COUNT[a_pt] / 2);
+          int offset = color_base + map;
+          feature_base_lut[a][v][src_less_dest] =
+              threat_offsets[a] + (offset * threat_piece_offsets[a]);
+        }
+      }
+    }
+  }
+
+  for (int pc = 0; pc < 12; pc++) {
+    for (int src = 0; src < 64; src++) {
+      uint64_t attacks = threat_attacks[pc][src];
+      for (int dest = 0; dest < 64; dest++) {
+        uint64_t mask = (1ULL << dest) - 1;
+        precomputed_piece_index[pc][src][dest] =
+            __builtin_popcountll(attacks & mask);
+      }
+    }
+  }
+}
+
+static inline int get_threat_index(int perspective, int king_sq,
+                                   int attacker_pc, int victim_pc, int src,
+                                   int dest) {
+  attacker_pc = swap_color_pc[perspective][attacker_pc];
+  victim_pc = swap_color_pc[perspective][victim_pc];
+
+  int flip = (perspective == white ? 56 : 0) ^ ((king_sq & 7) >= 4 ? 7 : 0);
+  src ^= flip;
+  dest ^= flip;
+
+  int feature_base = feature_base_lut[attacker_pc][victim_pc][src < dest];
+  int sq_offset = threat_sq_offsets[attacker_pc][src];
+
+  int piece_index = precomputed_piece_index[attacker_pc][src][dest];
+
+  return feature_base + sq_offset + piece_index;
 }
 
 static inline void transpose(void) {
@@ -151,11 +256,17 @@ static inline void transpose(void) {
   }
 #endif
   for (int b = 0; b < KING_BUCKETS; b++) {
-    for (int input = 0; input < INPUT_WEIGHTS; input++) {
+    for (int input = 0; input < PSQT_FEATURES; input++) {
       for (int l1 = 0; l1 < L1_SIZE; l1++) {
         nnue.feature_weights[b][input][l1] =
             round(net.feature_weights[b][input][l1] * INPUT_QUANT);
       }
+    }
+  }
+  for (int t = 0; t < THREAT_FEATURES; t++) {
+    for (int l1 = 0; l1 < L1_SIZE; l1++) {
+      nnue.feature_threats[t][l1] = (int8_t)clamp_int32(
+          round(net.feature_threats[t][l1] * INPUT_QUANT), -128, 127);
     }
   }
   for (int l1 = 0; l1 < L1_SIZE; l1++) {
@@ -180,9 +291,15 @@ static inline void transpose(void) {
 
 int nnue_init_incbin(void) {
   uint64_t memoryIndex = 0;
+
   memcpy(net.feature_weights, &gEVALData[memoryIndex],
          sizeof(net.feature_weights));
   memoryIndex += sizeof(net.feature_weights);
+
+  memcpy(net.feature_threats, &gEVALData[memoryIndex],
+         sizeof(net.feature_threats));
+  memoryIndex += sizeof(net.feature_threats);
+
   memcpy(net.feature_bias, &gEVALData[memoryIndex], sizeof(net.feature_bias));
   memoryIndex += sizeof(net.feature_bias);
 
@@ -203,14 +320,14 @@ int nnue_init_incbin(void) {
 }
 
 void nnue_init(const char *nnue_file_name) {
-  // open the nn file
+  init_threat_tables();
+
   FILE *nn = fopen(nnue_file_name, "rb");
 
-  // if it's not invalid read the config values from it
   if (nn) {
-    // initialize an accumulator for every input of the second layer
     size_t read = 0;
     size_t objectsExpected = 0;
+    objectsExpected += sizeof(net.feature_threats) / sizeof(float);
     objectsExpected += sizeof(net.feature_weights) / sizeof(float);
     objectsExpected += sizeof(net.feature_bias) / sizeof(float);
     objectsExpected += sizeof(net.l1_weights) / sizeof(float);
@@ -222,6 +339,8 @@ void nnue_init(const char *nnue_file_name) {
 
     read += fread(net.feature_weights, sizeof(float),
                   sizeof(net.feature_weights) / sizeof(float), nn);
+    read += fread(net.feature_threats, sizeof(float),
+                  sizeof(net.feature_threats) / sizeof(float), nn);
     read += fread(net.feature_bias, sizeof(float),
                   sizeof(net.feature_bias) / sizeof(float), nn);
     read += fread(net.l1_weights, sizeof(float),
@@ -242,8 +361,6 @@ void nnue_init(const char *nnue_file_name) {
       printf("Error loading the net, aborting\n");
       exit(1);
     }
-
-    // after reading the config we can close the file
     fclose(nn);
   } else {
     printf("NNUE file not found. Loading from incbin\n");
@@ -280,6 +397,68 @@ static inline int16_t get_idx(uint8_t side, uint8_t piece, uint8_t square,
   return idx;
 }
 
+void rebuild_threats(position_t *pos, uint8_t *mailbox, accumulator_t *acc) {
+  for (int i = 0; i < L1_SIZE; ++i) {
+    acc->threat_accumulator[white][i] = 0;
+    acc->threat_accumulator[black][i] = 0;
+  }
+
+  uint64_t occ = pos->occupancies[both];
+  uint8_t white_king_sq = get_lsb(pos->bitboards[K]);
+  uint8_t black_king_sq = get_lsb(pos->bitboards[k]);
+
+  for (int c = 0; c < 2; ++c) {
+    for (int pt = 0; pt < 5; ++pt) {
+      int pc = pt + c * 6;
+      uint64_t attackers = pos->bitboards[pc];
+      while (attackers) {
+        int src = poplsb(&attackers);
+        uint64_t engine_attacks = 0;
+
+        if (pt == 0) {
+          if (src >= 8 && src <= 55)
+            engine_attacks = get_pawn_attacks(c, src);
+        } else if (pt == 1) {
+          engine_attacks = get_knight_attacks(src);
+        } else if (pt == 2) {
+          engine_attacks = get_bishop_attacks(src, occ);
+        } else if (pt == 3) {
+          engine_attacks = get_rook_attacks(src, occ);
+        } else if (pt == 4) {
+          engine_attacks = get_queen_attacks(src, occ);
+        }
+
+        engine_attacks &= occ & ~(pos->bitboards[K] | pos->bitboards[k]);
+
+        while (engine_attacks) {
+          int dest = poplsb(&engine_attacks);
+          int victim_pc = mailbox[dest];
+          if (victim_pc > 11)
+            continue;
+
+          int w_idx =
+              get_threat_index(white, white_king_sq, pc, victim_pc, src, dest);
+          int b_idx =
+              get_threat_index(black, black_king_sq, pc, victim_pc, src, dest);
+
+          if (w_idx >= 0) {
+            for (int i = 0; i < L1_SIZE; ++i) {
+              acc->threat_accumulator[white][i] +=
+                  nnue.feature_threats[w_idx][i];
+            }
+          }
+          if (b_idx >= 0) {
+            for (int i = 0; i < L1_SIZE; ++i) {
+              acc->threat_accumulator[black][i] +=
+                  nnue.feature_threats[b_idx][i];
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
 static inline void refresh_accumulator(thread_t *thread, position_t *pos,
                                        accumulator_t *accumulator) {
   const uint8_t side = pos->side ^ 1;
@@ -306,7 +485,7 @@ static inline void refresh_accumulator(thread_t *thread, position_t *pos,
           get_idx(side, piece, removed_square, king_square, 0, 0);
 
       for (int i = 0; i < L1_SIZE; ++i)
-        finny_accumulator->accumulator[side][i] +=
+        finny_accumulator->psqt_accumulator[side][i] +=
             nnue.feature_weights[bucket][added_index][i] -
             nnue.feature_weights[bucket][removed_index][i];
     }
@@ -317,7 +496,7 @@ static inline void refresh_accumulator(thread_t *thread, position_t *pos,
       const size_t index = get_idx(side, piece, square, king_square, 0, 0);
 
       for (int i = 0; i < L1_SIZE; ++i)
-        finny_accumulator->accumulator[side][i] +=
+        finny_accumulator->psqt_accumulator[side][i] +=
             nnue.feature_weights[bucket][index][i];
     }
 
@@ -327,21 +506,25 @@ static inline void refresh_accumulator(thread_t *thread, position_t *pos,
       const size_t index = get_idx(side, piece, square, king_square, 0, 0);
 
       for (int i = 0; i < L1_SIZE; ++i)
-        finny_accumulator->accumulator[side][i] -=
+        finny_accumulator->psqt_accumulator[side][i] -=
             nnue.feature_weights[bucket][index][i];
     }
   }
-  memcpy(accumulator->accumulator[side], finny_accumulator->accumulator[side],
-         L1_SIZE * sizeof(int16_t));
+  memcpy(accumulator->psqt_accumulator[side],
+         finny_accumulator->psqt_accumulator[side], L1_SIZE * sizeof(int16_t));
   memcpy(finny_bitboards, pos->bitboards, 12 * sizeof(uint64_t));
+
+  rebuild_threats(pos, pos->mailbox, accumulator);
 }
 
 void init_accumulator(position_t *pos, accumulator_t *accumulator) {
-  const uint8_t white_bucket = get_king_bucket(white, get_lsb(pos->bitboards[K]));
-  const uint8_t black_bucket = get_king_bucket(black, get_lsb(pos->bitboards[k]));
+  const uint8_t white_bucket =
+      get_king_bucket(white, get_lsb(pos->bitboards[K]));
+  const uint8_t black_bucket =
+      get_king_bucket(black, get_lsb(pos->bitboards[k]));
   for (int i = 0; i < L1_SIZE; ++i) {
-    accumulator->accumulator[0][i] = nnue.feature_bias[i];
-    accumulator->accumulator[1][i] = nnue.feature_bias[i];
+    accumulator->psqt_accumulator[0][i] = nnue.feature_bias[i];
+    accumulator->psqt_accumulator[1][i] = nnue.feature_bias[i];
   }
 
   for (int piece = P; piece <= k; ++piece) {
@@ -353,25 +536,25 @@ void init_accumulator(position_t *pos, accumulator_t *accumulator) {
       const size_t black_idx =
           get_idx(black, piece, square, get_lsb(pos->bitboards[k]), 0, 0);
 
-      // updates all the pieces in the accumulators
       for (int i = 0; i < L1_SIZE; ++i)
-        accumulator->accumulator[white][i] +=
+        accumulator->psqt_accumulator[white][i] +=
             nnue.feature_weights[white_bucket][white_idx][i];
 
       for (int i = 0; i < L1_SIZE; ++i)
-        accumulator->accumulator[black][i] +=
+        accumulator->psqt_accumulator[black][i] +=
             nnue.feature_weights[black_bucket][black_idx][i];
 
       pop_bit(bitboard, square);
     }
   }
+  rebuild_threats(pos, pos->mailbox, accumulator);
 }
 
 void init_accumulator_bucket(position_t *pos, accumulator_t *accumulator,
                              uint8_t bucket, uint8_t do_hm) {
   for (int i = 0; i < L1_SIZE; ++i) {
-    accumulator->accumulator[0][i] = nnue.feature_bias[i];
-    accumulator->accumulator[1][i] = nnue.feature_bias[i];
+    accumulator->psqt_accumulator[0][i] = nnue.feature_bias[i];
+    accumulator->psqt_accumulator[1][i] = nnue.feature_bias[i];
   }
 
   for (int piece = P; piece <= k; ++piece) {
@@ -381,18 +564,18 @@ void init_accumulator_bucket(position_t *pos, accumulator_t *accumulator,
       const size_t white_idx = get_idx(white, piece, square, 0, 1, do_hm);
       const size_t black_idx = get_idx(black, piece, square, 0, 1, do_hm);
 
-      // updates all the pieces in the accumulators
       for (int i = 0; i < L1_SIZE; ++i)
-        accumulator->accumulator[white][i] +=
+        accumulator->psqt_accumulator[white][i] +=
             nnue.feature_weights[bucket][white_idx][i];
 
       for (int i = 0; i < L1_SIZE; ++i)
-        accumulator->accumulator[black][i] +=
+        accumulator->psqt_accumulator[black][i] +=
             nnue.feature_weights[bucket][black_idx][i];
 
       pop_bit(bitboard, square);
     }
   }
+  rebuild_threats(pos, pos->mailbox, accumulator);
 }
 
 void init_finny_tables(thread_t *thread, position_t *pos) {
@@ -410,11 +593,13 @@ void init_finny_tables(thread_t *thread, position_t *pos) {
 }
 
 int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
-  const uint8_t white_bucket = get_king_bucket(white, get_lsb(pos->bitboards[K]));
-  const uint8_t black_bucket = get_king_bucket(black, get_lsb(pos->bitboards[k]));
+  const uint8_t white_bucket =
+      get_king_bucket(white, get_lsb(pos->bitboards[K]));
+  const uint8_t black_bucket =
+      get_king_bucket(black, get_lsb(pos->bitboards[k]));
   for (int i = 0; i < L1_SIZE; ++i) {
-    accumulator->accumulator[0][i] = nnue.feature_bias[i];
-    accumulator->accumulator[1][i] = nnue.feature_bias[i];
+    accumulator->psqt_accumulator[0][i] = nnue.feature_bias[i];
+    accumulator->psqt_accumulator[1][i] = nnue.feature_bias[i];
   }
 
   const uint8_t out_bucket = calculate_output_bucket(pos);
@@ -428,32 +613,41 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
       int16_t black_idx =
           get_idx(black, piece, square, get_lsb(pos->bitboards[k]), 0, 0);
 
-      // updates all the pieces in the accumulators
       for (int i = 0; i < L1_SIZE; ++i)
-        accumulator->accumulator[white][i] +=
+        accumulator->psqt_accumulator[white][i] +=
             nnue.feature_weights[white_bucket][white_idx][i];
 
       for (int i = 0; i < L1_SIZE; ++i)
-        accumulator->accumulator[black][i] +=
+        accumulator->psqt_accumulator[black][i] +=
             nnue.feature_weights[black_bucket][black_idx][i];
 
       pop_bit(bitboard, square);
     }
   }
 
-  int16_t *stmAcc = accumulator->accumulator[pos->side];
-  int16_t *oppAcc = accumulator->accumulator[1 - pos->side];
+  rebuild_threats(pos, pos->mailbox, accumulator);
 
-  int8_t l1Neurons[L1_SIZE];
+  int16_t *stmPsqt = accumulator->psqt_accumulator[pos->side];
+  int16_t *oppPsqt = accumulator->psqt_accumulator[1 - pos->side];
+  int16_t *stmThrt = accumulator->threat_accumulator[pos->side];
+  int16_t *oppThrt = accumulator->threat_accumulator[1 - pos->side];
+
+  uint8_t l1Neurons[L1_SIZE];
   for (int l1 = 0; l1 < L1_SIZE / 2; l1++) {
-    const int16_t stmClipped1 = clamp((int)(stmAcc[l1]), 0, INPUT_QUANT);
-    const int16_t stmClipped2 =
-        clamp((int)(stmAcc[l1 + L1_SIZE / 2]), 0, INPUT_QUANT);
+    int32_t stm_val1 = (int32_t)stmPsqt[l1] + stmThrt[l1];
+    int32_t stm_val2 =
+        (int32_t)stmPsqt[l1 + L1_SIZE / 2] + stmThrt[l1 + L1_SIZE / 2];
+
+    const int16_t stmClipped1 = clamp(stm_val1, 0, INPUT_QUANT);
+    const int16_t stmClipped2 = clamp(stm_val2, 0, INPUT_QUANT);
     l1Neurons[l1] = (stmClipped1 * stmClipped2) >> INPUT_SHIFT;
 
-    const int16_t oppClipped1 = clamp((int)(oppAcc[l1]), 0, INPUT_QUANT);
-    const int16_t oppClipped2 =
-        clamp((int)(oppAcc[l1 + L1_SIZE / 2]), 0, INPUT_QUANT);
+    int32_t opp_val1 = (int32_t)oppPsqt[l1] + oppThrt[l1];
+    int32_t opp_val2 =
+        (int32_t)oppPsqt[l1 + L1_SIZE / 2] + oppThrt[l1 + L1_SIZE / 2];
+
+    const int16_t oppClipped1 = clamp(opp_val1, 0, INPUT_QUANT);
+    const int16_t oppClipped2 = clamp(opp_val2, 0, INPUT_QUANT);
     l1Neurons[l1 + L1_SIZE / 2] = (oppClipped1 * oppClipped2) >> INPUT_SHIFT;
   }
 
@@ -482,7 +676,7 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
 
   for (int l2 = 0; l2 < L2_SIZE; l2++) {
     const float l2Result = (float)(l2Neurons[l2]) * L1_NORMALISATION +
-                     (nnue.l1_bias[out_bucket][l2]);
+                           (nnue.l1_bias[out_bucket][l2]);
     const float crelu = crelu_float(l2Result);
     const float csrelu = crelu_float(l2Result * l2Result);
 
@@ -500,7 +694,6 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
     const float l3Activated = screlu_float(l3Neurons[l3]);
     result += l3Activated * nnue.l3_weights[out_bucket][l3];
   }
-  // TODO reduce add
 
   return (int16_t)(result * EVAL_SCALE);
 }
@@ -509,8 +702,11 @@ int nnue_evaluate(thread_t *thread, position_t *pos,
                   accumulator_t *accumulator) {
   apply_accumulator(thread, thread->ply);
   const uint8_t out_bucket = calculate_output_bucket(pos);
-  const int16_t *stmAcc = accumulator->accumulator[pos->side];
-  const int16_t *oppAcc = accumulator->accumulator[1 - pos->side];
+
+  const int16_t *stmPsqt = accumulator->psqt_accumulator[pos->side];
+  const int16_t *oppPsqt = accumulator->psqt_accumulator[1 - pos->side];
+  const int16_t *stmThrt = accumulator->threat_accumulator[pos->side];
+  const int16_t *oppThrt = accumulator->threat_accumulator[1 - pos->side];
 
   simd_t *layers = &thread->neurons;
 
@@ -518,10 +714,6 @@ int nnue_evaluate(thread_t *thread, position_t *pos,
       (float)(1 << INPUT_SHIFT) / (float)(INPUT_QUANT * INPUT_QUANT * L1_QUANT);
 
 #if defined(USE_SIMD)
-  // Stride constants derived from sizeof() work for all ISAs:
-  //   AVX2:   veci_t=256b → I16=16, I32=8, FLOAT=8   chunks=2
-  //   AVX512: veci_t=512b → I16=32, I32=16, FLOAT=16  chunks=1
-  //   NEON:   veci_t=128b → I16=8,  I32=4,  FLOAT=4   chunks=4
   const int FLOAT_VEC_SIZE = sizeof(vecf_t) / sizeof(float);
   const int I16_VEC_SIZE = sizeof(veci_t) / sizeof(int16_t);
   const int I32_STRIDE = sizeof(veci32_t) / sizeof(int32_t);
@@ -532,27 +724,46 @@ int nnue_evaluate(thread_t *thread, position_t *pos,
 
     for (int l1 = 0; l1 < L1_SIZE / 2; l1 += 2 * I16_VEC_SIZE) {
       // STM
-      veci_t c1 = clip_epi16(*((veci_t *)&stmAcc[l1]), i16_zero, i16_quant);
-      veci_t c2 = min_epi16(*((veci_t *)&stmAcc[l1 + L1_SIZE / 2]), i16_quant);
+      veci_t psqt1 = load((const int16_t *)&stmPsqt[l1]);
+      veci_t thrt1 = load((const int16_t *)&stmThrt[l1]);
+      veci_t c1 = clip_epi16(add_epi16(psqt1, thrt1), i16_zero, i16_quant);
+
+      veci_t psqt2 = load((const int16_t *)&stmPsqt[l1 + L1_SIZE / 2]);
+      veci_t thrt2 = load((const int16_t *)&stmThrt[l1 + L1_SIZE / 2]);
+      veci_t c2 = min_epi16(add_epi16(psqt2, thrt2), i16_quant);
+
       veci_t mul1 = mulhi_epi16(slli_epi16(c1, 16 - INPUT_SHIFT), c2);
 
-      c1 = clip_epi16(*((veci_t *)&stmAcc[l1 + I16_VEC_SIZE]), i16_zero,
-                      i16_quant);
-      c2 = min_epi16(*((veci_t *)&stmAcc[l1 + I16_VEC_SIZE + L1_SIZE / 2]),
-                     i16_quant);
+      veci_t psqt3 = load((const int16_t *)&stmPsqt[l1 + I16_VEC_SIZE]);
+      veci_t thrt3 = load((const int16_t *)&stmThrt[l1 + I16_VEC_SIZE]);
+      c1 = clip_epi16(add_epi16(psqt3, thrt3), i16_zero, i16_quant);
+
+      veci_t psqt4 =
+          load((const int16_t *)&stmPsqt[l1 + I16_VEC_SIZE + L1_SIZE / 2]);
+      veci_t thrt4 =
+          load((const int16_t *)&stmThrt[l1 + I16_VEC_SIZE + L1_SIZE / 2]);
+      c2 = min_epi16(add_epi16(psqt4, thrt4), i16_quant);
       veci_t mul2 = mulhi_epi16(slli_epi16(c1, 16 - INPUT_SHIFT), c2);
 
       vec_store_i((veci_t *)&layers->l1_neurons[l1], packus_epi16(mul1, mul2));
 
       // NSTM
-      c1 = clip_epi16(*((veci_t *)&oppAcc[l1]), i16_zero, i16_quant);
-      c2 = min_epi16(*((veci_t *)&oppAcc[l1 + L1_SIZE / 2]), i16_quant);
+      psqt1 = load((const int16_t *)&oppPsqt[l1]);
+      thrt1 = load((const int16_t *)&oppThrt[l1]);
+      c1 = clip_epi16(add_epi16(psqt1, thrt1), i16_zero, i16_quant);
+
+      psqt2 = load((const int16_t *)&oppPsqt[l1 + L1_SIZE / 2]);
+      thrt2 = load((const int16_t *)&oppThrt[l1 + L1_SIZE / 2]);
+      c2 = min_epi16(add_epi16(psqt2, thrt2), i16_quant);
       mul1 = mulhi_epi16(slli_epi16(c1, 16 - INPUT_SHIFT), c2);
 
-      c1 = clip_epi16(*((veci_t *)&oppAcc[l1 + I16_VEC_SIZE]), i16_zero,
-                      i16_quant);
-      c2 = min_epi16(*((veci_t *)&oppAcc[l1 + I16_VEC_SIZE + L1_SIZE / 2]),
-                     i16_quant);
+      psqt3 = load((const int16_t *)&oppPsqt[l1 + I16_VEC_SIZE]);
+      thrt3 = load((const int16_t *)&oppThrt[l1 + I16_VEC_SIZE]);
+      c1 = clip_epi16(add_epi16(psqt3, thrt3), i16_zero, i16_quant);
+
+      psqt4 = load((const int16_t *)&oppPsqt[l1 + I16_VEC_SIZE + L1_SIZE / 2]);
+      thrt4 = load((const int16_t *)&oppThrt[l1 + I16_VEC_SIZE + L1_SIZE / 2]);
+      c2 = min_epi16(add_epi16(psqt4, thrt4), i16_quant);
       mul2 = mulhi_epi16(slli_epi16(c1, 16 - INPUT_SHIFT), c2);
 
       vec_store_i((veci_t *)&layers->l1_neurons[l1 + L1_SIZE / 2],
@@ -634,9 +845,11 @@ int nnue_evaluate(thread_t *thread, position_t *pos,
     uint16x8_t base_v = vdupq_n_u16(0);
     for (int i = 0; i < NNZ_MAX; i += 8) {
       const uint32x4_t chunk0 = vld1q_u32((const uint32_t *)&l1Packs[i]);
-      const uint32_t lo = vaddvq_u32(vandq_u32(vtstq_u32(chunk0, chunk0), posmask));
+      const uint32_t lo =
+          vaddvq_u32(vandq_u32(vtstq_u32(chunk0, chunk0), posmask));
       const uint32x4_t chunk1 = vld1q_u32((const uint32_t *)&l1Packs[i + 4]);
-      const uint32_t hi = vaddvq_u32(vandq_u32(vtstq_u32(chunk1, chunk1), posmask));
+      const uint32_t hi =
+          vaddvq_u32(vandq_u32(vtstq_u32(chunk1, chunk1), posmask));
       const uint8_t byte = (uint8_t)(lo | (hi << 4));
       vst1q_u16(&nnz_indices[nnz_count],
                 vaddq_u16(vld1q_u16(NNZ_TABLE[byte]), base_v));
@@ -739,14 +952,20 @@ int nnue_evaluate(thread_t *thread, position_t *pos,
   memset(layers->l2_neurons, 0, sizeof(layers->l2_neurons));
 
   for (int l1 = 0; l1 < L1_SIZE / 2; l1++) {
-    const int16_t stmClipped1 = clamp((int)(stmAcc[l1]), 0, INPUT_QUANT);
-    const int16_t stmClipped2 =
-        clamp((int)(stmAcc[l1 + L1_SIZE / 2]), 0, INPUT_QUANT);
+    int32_t stm_val1 = (int32_t)stmPsqt[l1] + stmThrt[l1];
+    int32_t stm_val2 =
+        (int32_t)stmPsqt[l1 + L1_SIZE / 2] + stmThrt[l1 + L1_SIZE / 2];
+
+    const int16_t stmClipped1 = clamp(stm_val1, 0, INPUT_QUANT);
+    const int16_t stmClipped2 = clamp(stm_val2, 0, INPUT_QUANT);
     layers->l1_neurons[l1] = (stmClipped1 * stmClipped2) >> INPUT_SHIFT;
 
-    const int16_t oppClipped1 = clamp((int)(oppAcc[l1]), 0, INPUT_QUANT);
-    const int16_t oppClipped2 =
-        clamp((int)(oppAcc[l1 + L1_SIZE / 2]), 0, INPUT_QUANT);
+    int32_t opp_val1 = (int32_t)oppPsqt[l1] + oppThrt[l1];
+    int32_t opp_val2 =
+        (int32_t)oppPsqt[l1 + L1_SIZE / 2] + oppThrt[l1 + L1_SIZE / 2];
+
+    const int16_t oppClipped1 = clamp(opp_val1, 0, INPUT_QUANT);
+    const int16_t oppClipped2 = clamp(opp_val2, 0, INPUT_QUANT);
     layers->l1_neurons[l1 + L1_SIZE / 2] =
         (oppClipped1 * oppClipped2) >> INPUT_SHIFT;
   }
@@ -763,7 +982,7 @@ int nnue_evaluate(thread_t *thread, position_t *pos,
 
   for (int l2 = 0; l2 < L2_SIZE; l2++) {
     const float l2Result = (float)(layers->l2_neurons[l2]) * L1_NORMALISATION +
-                     (nnue.l1_bias[out_bucket][l2]);
+                           (nnue.l1_bias[out_bucket][l2]);
     const float crelu = crelu_float(l2Result);
     const float csrelu = crelu_float(l2Result * l2Result);
 
@@ -788,7 +1007,8 @@ int nnue_evaluate(thread_t *thread, position_t *pos,
 }
 
 static inline void
-accumulator_addsub(accumulator_t *restrict accumulator, const accumulator_t *restrict prev_accumulator,
+accumulator_addsub(accumulator_t *restrict accumulator,
+                   const accumulator_t *restrict prev_accumulator,
                    uint8_t white_king_square, uint8_t black_king_square,
                    uint8_t white_bucket, uint8_t black_bucket, uint8_t piece1,
                    uint8_t piece2, uint8_t from1, uint8_t to2,
@@ -797,8 +1017,10 @@ accumulator_addsub(accumulator_t *restrict accumulator, const accumulator_t *res
       get_idx(white, piece1, from1, white_king_square, 0, 0);
   const size_t black_idx_from =
       get_idx(black, piece1, from1, black_king_square, 0, 0);
-  const size_t white_idx_to = get_idx(white, piece2, to2, white_king_square, 0, 0);
-  const size_t black_idx_to = get_idx(black, piece2, to2, black_king_square, 0, 0);
+  const size_t white_idx_to =
+      get_idx(white, piece2, to2, white_king_square, 0, 0);
+  const size_t black_idx_to =
+      get_idx(black, piece2, to2, black_king_square, 0, 0);
 
   __builtin_prefetch(&nnue.feature_weights[white_bucket][white_idx_from][0], 0,
                      1);
@@ -811,16 +1033,16 @@ accumulator_addsub(accumulator_t *restrict accumulator, const accumulator_t *res
 
   if (color_flag == 0 || color_flag == 2) {
     for (int i = 0; i < L1_SIZE; ++i) {
-      accumulator->accumulator[white][i] =
-          prev_accumulator->accumulator[white][i] -
+      accumulator->psqt_accumulator[white][i] =
+          prev_accumulator->psqt_accumulator[white][i] -
           nnue.feature_weights[white_bucket][white_idx_from][i] +
           nnue.feature_weights[white_bucket][white_idx_to][i];
     }
   }
   if (color_flag == 1 || color_flag == 2) {
     for (int i = 0; i < L1_SIZE; ++i) {
-      accumulator->accumulator[black][i] =
-          prev_accumulator->accumulator[black][i] -
+      accumulator->psqt_accumulator[black][i] =
+          prev_accumulator->psqt_accumulator[black][i] -
           nnue.feature_weights[black_bucket][black_idx_from][i] +
           nnue.feature_weights[black_bucket][black_idx_to][i];
     }
@@ -828,10 +1050,11 @@ accumulator_addsub(accumulator_t *restrict accumulator, const accumulator_t *res
 }
 
 static inline void accumulator_addsubsub(
-    accumulator_t *restrict accumulator, const accumulator_t *restrict prev_accumulator,
-    uint8_t white_king_square, uint8_t black_king_square, uint8_t white_bucket,
-    uint8_t black_bucket, uint8_t piece1, uint8_t piece2, uint8_t piece3,
-    uint8_t from1, uint8_t from2, uint8_t to3, uint8_t color_flag) {
+    accumulator_t *restrict accumulator,
+    const accumulator_t *restrict prev_accumulator, uint8_t white_king_square,
+    uint8_t black_king_square, uint8_t white_bucket, uint8_t black_bucket,
+    uint8_t piece1, uint8_t piece2, uint8_t piece3, uint8_t from1,
+    uint8_t from2, uint8_t to3, uint8_t color_flag) {
   const size_t white_idx_from1 =
       get_idx(white, piece1, from1, white_king_square, 0, 0);
   const size_t black_idx_from1 =
@@ -840,13 +1063,15 @@ static inline void accumulator_addsubsub(
       get_idx(white, piece2, from2, white_king_square, 0, 0);
   const size_t black_idx_from2 =
       get_idx(black, piece2, from2, black_king_square, 0, 0);
-  const size_t white_idx_to = get_idx(white, piece3, to3, white_king_square, 0, 0);
-  const size_t black_idx_to = get_idx(black, piece3, to3, black_king_square, 0, 0);
+  const size_t white_idx_to =
+      get_idx(white, piece3, to3, white_king_square, 0, 0);
+  const size_t black_idx_to =
+      get_idx(black, piece3, to3, black_king_square, 0, 0);
 
   if (color_flag == 0 || color_flag == 2) {
     for (int i = 0; i < L1_SIZE; ++i) {
-      accumulator->accumulator[white][i] =
-          prev_accumulator->accumulator[white][i] -
+      accumulator->psqt_accumulator[white][i] =
+          prev_accumulator->psqt_accumulator[white][i] -
           nnue.feature_weights[white_bucket][white_idx_from1][i] -
           nnue.feature_weights[white_bucket][white_idx_from2][i] +
           nnue.feature_weights[white_bucket][white_idx_to][i];
@@ -854,8 +1079,8 @@ static inline void accumulator_addsubsub(
   }
   if (color_flag == 1 || color_flag == 2) {
     for (int i = 0; i < L1_SIZE; ++i) {
-      accumulator->accumulator[black][i] =
-          prev_accumulator->accumulator[black][i] -
+      accumulator->psqt_accumulator[black][i] =
+          prev_accumulator->psqt_accumulator[black][i] -
           nnue.feature_weights[black_bucket][black_idx_from1][i] -
           nnue.feature_weights[black_bucket][black_idx_from2][i] +
           nnue.feature_weights[black_bucket][black_idx_to][i];
@@ -863,12 +1088,14 @@ static inline void accumulator_addsubsub(
   }
 }
 
-static inline void accumulator_addaddsubsub(
-    accumulator_t *restrict accumulator, const accumulator_t *restrict prev_accumulator,
-    uint8_t white_king_square, uint8_t black_king_square, uint8_t white_bucket,
-    uint8_t black_bucket, uint8_t piece1, uint8_t piece2, uint8_t piece3,
-    uint8_t piece4, uint8_t from1, uint8_t from2, uint8_t to3, uint8_t to4,
-    uint8_t color_flag) {
+static inline void
+accumulator_addaddsubsub(accumulator_t *restrict accumulator,
+                         const accumulator_t *restrict prev_accumulator,
+                         uint8_t white_king_square, uint8_t black_king_square,
+                         uint8_t white_bucket, uint8_t black_bucket,
+                         uint8_t piece1, uint8_t piece2, uint8_t piece3,
+                         uint8_t piece4, uint8_t from1, uint8_t from2,
+                         uint8_t to3, uint8_t to4, uint8_t color_flag) {
   const size_t white_idx_from1 =
       get_idx(white, piece1, from1, white_king_square, 0, 0);
   const size_t black_idx_from1 =
@@ -877,15 +1104,19 @@ static inline void accumulator_addaddsubsub(
       get_idx(white, piece2, from2, white_king_square, 0, 0);
   const size_t black_idx_from2 =
       get_idx(black, piece2, from2, black_king_square, 0, 0);
-  const size_t white_idx_to1 = get_idx(white, piece3, to3, white_king_square, 0, 0);
-  const size_t black_idx_to1 = get_idx(black, piece3, to3, black_king_square, 0, 0);
-  const size_t white_idx_to2 = get_idx(white, piece4, to4, white_king_square, 0, 0);
-  const size_t black_idx_to2 = get_idx(black, piece4, to4, black_king_square, 0, 0);
+  const size_t white_idx_to1 =
+      get_idx(white, piece3, to3, white_king_square, 0, 0);
+  const size_t black_idx_to1 =
+      get_idx(black, piece3, to3, black_king_square, 0, 0);
+  const size_t white_idx_to2 =
+      get_idx(white, piece4, to4, white_king_square, 0, 0);
+  const size_t black_idx_to2 =
+      get_idx(black, piece4, to4, black_king_square, 0, 0);
 
   if (color_flag == 0 || color_flag == 2) {
     for (int i = 0; i < L1_SIZE; ++i) {
-      accumulator->accumulator[white][i] =
-          prev_accumulator->accumulator[white][i] -
+      accumulator->psqt_accumulator[white][i] =
+          prev_accumulator->psqt_accumulator[white][i] -
           nnue.feature_weights[white_bucket][white_idx_from1][i] -
           nnue.feature_weights[white_bucket][white_idx_from2][i] +
           nnue.feature_weights[white_bucket][white_idx_to1][i] +
@@ -894,8 +1125,8 @@ static inline void accumulator_addaddsubsub(
   }
   if (color_flag == 1 || color_flag == 2) {
     for (int i = 0; i < L1_SIZE; ++i) {
-      accumulator->accumulator[black][i] =
-          prev_accumulator->accumulator[black][i] -
+      accumulator->psqt_accumulator[black][i] =
+          prev_accumulator->psqt_accumulator[black][i] -
           nnue.feature_weights[black_bucket][black_idx_from1][i] -
           nnue.feature_weights[black_bucket][black_idx_from2][i] +
           nnue.feature_weights[black_bucket][black_idx_to1][i] +
@@ -904,11 +1135,13 @@ static inline void accumulator_addaddsubsub(
   }
 }
 
-static inline void accumulator_make_move(
-    accumulator_t *restrict accumulator, const accumulator_t *restrict prev_accumulator,
-    uint8_t white_king_square, uint8_t black_king_square, uint8_t white_bucket,
-    uint8_t black_bucket, uint8_t side, int move, uint8_t moving_piece,
-    uint8_t captured_piece, uint8_t color_flag) {
+static inline void
+accumulator_make_move(accumulator_t *restrict accumulator,
+                      const accumulator_t *restrict prev_accumulator,
+                      uint8_t white_king_square, uint8_t black_king_square,
+                      uint8_t white_bucket, uint8_t black_bucket, uint8_t side,
+                      int move, uint8_t moving_piece, uint8_t captured_piece,
+                      uint8_t color_flag) {
   const uint8_t from = get_move_source(move);
   const uint8_t to = get_move_target(move);
   const uint8_t promoted_piece = get_move_promoted(!side, move);
@@ -964,28 +1197,257 @@ static inline void accumulator_make_move(
   }
 }
 
+static inline void push_threat(threat_list_t *list, uint8_t w_ksq,
+                               uint8_t b_ksq, int attacker_pc, int victim_pc,
+                               int src, int dest) {
+  int w_idx = get_threat_index(white, w_ksq, attacker_pc, victim_pc, src, dest);
+  if (w_idx >= 0) {
+    list->w_idx[list->w_count++] = w_idx;
+  }
+
+  int b_idx = get_threat_index(black, b_ksq, attacker_pc, victim_pc, src, dest);
+  if (b_idx >= 0) {
+    list->b_idx[list->b_count++] = b_idx;
+  }
+}
+
+static void apply_threat_batches(accumulator_t *acc, threat_list_t *adds,
+                                 threat_list_t *subs) {
+  int16_t *w_acc =
+      (int16_t *)__builtin_assume_aligned(acc->threat_accumulator[white], 64);
+  int16_t *b_acc =
+      (int16_t *)__builtin_assume_aligned(acc->threat_accumulator[black], 64);
+
+  for (int i = 0; i < L1_SIZE; i += CHUNK_SIZE * CHUNK_ELTS) {
+    vec_s16 w_vecs[CHUNK_SIZE];
+    vec_s16 b_vecs[CHUNK_SIZE];
+
+    memcpy(w_vecs, w_acc + i, sizeof(w_vecs));
+    memcpy(b_vecs, b_acc + i, sizeof(b_vecs));
+
+    for (int j = 0; j < adds->w_count; ++j) {
+      for (int k = 0; k < CHUNK_SIZE; ++k) {
+        vec_s8 w8 = *(vec_s8 *)&nnue
+                         .feature_threats[adds->w_idx[j]][i + (k * CHUNK_ELTS)];
+        w_vecs[k] += __builtin_convertvector(w8, vec_s16);
+      }
+    }
+
+    for (int j = 0; j < adds->b_count; ++j) {
+      for (int k = 0; k < CHUNK_SIZE; ++k) {
+        vec_s8 w8 = *(vec_s8 *)&nnue
+                         .feature_threats[adds->b_idx[j]][i + (k * CHUNK_ELTS)];
+        b_vecs[k] += __builtin_convertvector(w8, vec_s16);
+      }
+    }
+
+    for (int j = 0; j < subs->w_count; ++j) {
+      for (int k = 0; k < CHUNK_SIZE; ++k) {
+        vec_s8 w8 = *(vec_s8 *)&nnue
+                         .feature_threats[subs->w_idx[j]][i + (k * CHUNK_ELTS)];
+        w_vecs[k] -= __builtin_convertvector(w8, vec_s16);
+      }
+    }
+
+    for (int j = 0; j < subs->b_count; ++j) {
+      for (int k = 0; k < CHUNK_SIZE; ++k) {
+        vec_s8 w8 = *(vec_s8 *)&nnue
+                         .feature_threats[subs->b_idx[j]][i + (k * CHUNK_ELTS)];
+        b_vecs[k] -= __builtin_convertvector(w8, vec_s16);
+      }
+    }
+
+    memcpy(w_acc + i, w_vecs, sizeof(w_vecs));
+    memcpy(b_acc + i, b_vecs, sizeof(b_vecs));
+  }
+}
+
+static inline uint64_t get_piece_attacks_fast(int pc, int sq, uint64_t occ) {
+  switch (pc) {
+  case P: return (sq >= 8 && sq <= 55) ? get_pawn_attacks(white, sq) : 0;
+  case p: return (sq >= 8 && sq <= 55) ? get_pawn_attacks(black, sq) : 0;
+  case N: case n: return get_knight_attacks(sq);
+  case B: case b: return get_bishop_attacks(sq, occ);
+  case R: case r: return get_rook_attacks(sq, occ);
+  case Q: case q: return get_queen_attacks(sq, occ);
+  default: return 0;
+  }
+}
+
+static void process_changed_squares(position_t *pos, uint64_t changed_sqs, threat_list_t *list) {
+  uint64_t occ = pos->occupancies[both];
+  uint8_t w_ksq = get_lsb(pos->bitboards[K]);
+  uint8_t b_ksq = get_lsb(pos->bitboards[k]);
+  uint64_t non_kings = occ & ~(pos->bitboards[K] | pos->bitboards[k]);
+
+  uint64_t sqs = changed_sqs & non_kings;
+  while (sqs) {
+    int src = poplsb(&sqs);
+    int pc = pos->mailbox[src];
+
+    uint64_t attacks = get_piece_attacks_fast(pc, src, occ) & non_kings;
+    while (attacks) {
+      int dest = poplsb(&attacks);
+      int victim = pos->mailbox[dest];
+      push_threat(list, w_ksq, b_ksq, pc, victim, src, dest);
+    }
+  }
+
+  sqs = changed_sqs & non_kings;
+  while (sqs) {
+    int dest = poplsb(&sqs);
+    int victim = pos->mailbox[dest];
+
+    uint64_t attackers = attackers_to(pos, dest, occ) & non_kings & ~changed_sqs;
+    while (attackers) {
+      int src = poplsb(&attackers);
+      int pc = pos->mailbox[src];
+      push_threat(list, w_ksq, b_ksq, pc, victim, src, dest);
+    }
+  }
+}
+
+static void process_slider_deltas(position_t *pos_before, position_t *pos_after,
+                                  uint64_t affected_sliders, uint64_t changed_sqs,
+                                  threat_list_t *adds, threat_list_t *subs) {
+  uint64_t occ_b = pos_before->occupancies[both];
+  uint64_t occ_a = pos_after->occupancies[both];
+  uint8_t w_ksq = get_lsb(pos_after->bitboards[K]);
+  uint8_t b_ksq = get_lsb(pos_after->bitboards[k]);
+
+  uint64_t non_kings_b = occ_b & ~(pos_before->bitboards[K] | pos_before->bitboards[k]);
+  uint64_t non_kings_a = occ_a & ~(pos_after->bitboards[K] | pos_after->bitboards[k]);
+
+  uint64_t sqs = affected_sliders & non_kings_a;
+  while (sqs) {
+    int src = poplsb(&sqs);
+    int pc = pos_after->mailbox[src];
+
+    uint64_t old_attacks = get_piece_attacks_fast(pc, src, occ_b) & non_kings_b & ~changed_sqs;
+    uint64_t new_attacks = get_piece_attacks_fast(pc, src, occ_a) & non_kings_a & ~changed_sqs;
+
+    uint64_t dropped = old_attacks & ~new_attacks;
+    uint64_t gained = new_attacks & ~old_attacks;
+
+    while (dropped) {
+      int dest = poplsb(&dropped);
+      int victim = pos_before->mailbox[dest];
+      push_threat(subs, w_ksq, b_ksq, pc, victim, src, dest);
+    }
+
+    while (gained) {
+      int dest = poplsb(&gained);
+      int victim = pos_after->mailbox[dest];
+      push_threat(adds, w_ksq, b_ksq, pc, victim, src, dest);
+    }
+  }
+}
+
+static void update_threats_incremental(accumulator_t *acc,
+                                       position_t *pos_before,
+                                       position_t *pos_after) {
+  uint64_t real_changed_sqs = 0;
+  for (int i = 0; i < 12; i++) {
+    real_changed_sqs |= (pos_before->bitboards[i] ^ pos_after->bitboards[i]);
+  }
+
+  uint64_t occ_b = pos_before->occupancies[both];
+  uint64_t occ_a = pos_after->occupancies[both];
+  uint64_t b_sliders_b = pos_before->bitboards[B] | pos_before->bitboards[b] | pos_before->bitboards[Q] | pos_before->bitboards[q];
+  uint64_t r_sliders_b = pos_before->bitboards[R] | pos_before->bitboards[r] | pos_before->bitboards[Q] | pos_before->bitboards[q];
+  uint64_t b_sliders_a = pos_after->bitboards[B] | pos_after->bitboards[b] | pos_after->bitboards[Q] | pos_after->bitboards[q];
+  uint64_t r_sliders_a = pos_after->bitboards[R] | pos_after->bitboards[r] | pos_after->bitboards[Q] | pos_after->bitboards[q];
+
+  uint64_t sliders_before = 0;
+  uint64_t sliders_after = 0;
+  uint64_t changed_copy = real_changed_sqs;
+
+  while (changed_copy) {
+    int sq = poplsb(&changed_copy);
+    sliders_before |= get_bishop_attacks(sq, occ_b) & b_sliders_b;
+    sliders_before |= get_rook_attacks(sq, occ_b) & r_sliders_b;
+    
+    sliders_after |= get_bishop_attacks(sq, occ_a) & b_sliders_a;
+    sliders_after |= get_rook_attacks(sq, occ_a) & r_sliders_a;
+  }
+
+  uint64_t affected_sliders = (sliders_before | sliders_after) & ~real_changed_sqs;
+
+  threat_list_t adds = {.w_count = 0, .b_count = 0};
+  threat_list_t subs = {.w_count = 0, .b_count = 0};
+
+  process_changed_squares(pos_before, real_changed_sqs, &subs);
+  process_changed_squares(pos_after, real_changed_sqs, &adds);
+  process_slider_deltas(pos_before, pos_after, affected_sliders, real_changed_sqs, &adds, &subs);
+
+  apply_threat_batches(acc, &adds, &subs);
+}
+
 void apply_accumulator(thread_t *thread, int ply) {
   if (ply == 0 || !thread->lazy[ply].dirty)
     return;
 
-  /* ensure ply-1 is ready before we read it as prev_accumulator */
   apply_accumulator(thread, ply - 1);
 
   lazy_acc_state_t *s = &thread->lazy[ply];
 
-  if (s->needs_refresh) {
-    /* rebuild a minimal position so refresh_accumulator can do its job */
+  if (s->psqt_needs_refresh) {
     position_t tmp;
     tmp.side = s->side;
     memcpy(tmp.bitboards, s->bitboards, 12 * sizeof(uint64_t));
+    tmp.occupancies[white] = tmp.bitboards[P] | tmp.bitboards[N] |
+                             tmp.bitboards[B] | tmp.bitboards[R] |
+                             tmp.bitboards[Q] | tmp.bitboards[K];
+    tmp.occupancies[black] = tmp.bitboards[p] | tmp.bitboards[n] |
+                             tmp.bitboards[b] | tmp.bitboards[r] |
+                             tmp.bitboards[q] | tmp.bitboards[k];
+    tmp.occupancies[both] = tmp.occupancies[white] | tmp.occupancies[black];
+
+    memset(tmp.mailbox, 12, 64);
+    for (int i = 0; i < 12; i++) {
+      uint64_t bb = s->bitboards[i];
+      while (bb)
+        tmp.mailbox[poplsb(&bb)] = i;
+    }
+
     refresh_accumulator(thread, &tmp, &thread->accumulator[ply]);
+
+    uint8_t opp = s->color_flag;
+    memcpy(thread->accumulator[ply].psqt_accumulator[opp],
+           thread->accumulator[ply - 1].psqt_accumulator[opp],
+           L1_SIZE * sizeof(int16_t));
+
+    accumulator_make_move(
+        &thread->accumulator[ply], &thread->accumulator[ply - 1],
+        s->white_king_sq, s->black_king_sq, s->white_bucket, s->black_bucket,
+        s->side, s->move, s->moving_piece, s->captured_piece, s->color_flag);
+  } else {
+    accumulator_make_move(
+        &thread->accumulator[ply], &thread->accumulator[ply - 1],
+        s->white_king_sq, s->black_king_sq, s->white_bucket, s->black_bucket,
+        s->side, s->move, s->moving_piece, s->captured_piece, both);
   }
 
-  accumulator_make_move(&thread->accumulator[ply],
-                        &thread->accumulator[ply - 1], s->white_king_sq,
-                        s->black_king_sq, s->white_bucket, s->black_bucket,
-                        s->side, s->move, s->moving_piece, s->captured_piece,
-                        s->needs_refresh ? s->color_flag : both);
+  if (s->threat_needs_refresh) {
+    for (int i = 0; i < L1_SIZE; ++i) {
+      thread->accumulator[ply].threat_accumulator[white][i] = 0;
+      thread->accumulator[ply].threat_accumulator[black][i] = 0;
+    }
+    rebuild_threats(&thread->positions[ply], thread->positions[ply].mailbox,
+                    &thread->accumulator[ply]);
+  } else {
+
+    memcpy(thread->accumulator[ply].threat_accumulator[white],
+           thread->accumulator[ply - 1].threat_accumulator[white],
+           L1_SIZE * sizeof(int16_t));
+    memcpy(thread->accumulator[ply].threat_accumulator[black],
+           thread->accumulator[ply - 1].threat_accumulator[black],
+           L1_SIZE * sizeof(int16_t));
+
+    update_threats_incremental(&thread->accumulator[ply],
+                               &thread->positions[ply - 1],
+                               &thread->positions[ply]);
+  }
 
   s->dirty = 0;
 }
@@ -1018,9 +1480,30 @@ void update_nnue(position_t *pos, thread_t *thread, uint8_t mailbox_copy[64],
     state->captured_piece = mailbox_copy[to];
   }
 
-  state->needs_refresh = need_refresh(mailbox_copy, move);
+  state->psqt_needs_refresh = 0;
+  state->threat_needs_refresh = 0;
+
+  if (state->moving_piece == K || state->moving_piece == k) {
+    uint8_t side = state->moving_piece >= 6;
+    uint8_t kdest =
+        get_move_castling(move)
+            ? castle_king_dest(side, castle_side(get_move_castling(move)))
+            : to;
+
+    uint8_t source_flip = (from & 7) >= 4;
+    uint8_t target_flip = (kdest & 7) >= 4;
+    uint8_t bucket_changed =
+        get_king_bucket(side, from) != get_king_bucket(side, kdest);
+    uint8_t mirror_flipped = source_flip != target_flip;
+
+    state->psqt_needs_refresh = bucket_changed || mirror_flipped;
+    state->threat_needs_refresh = mirror_flipped;
+  }
+
   state->color_flag =
-      state->needs_refresh ? (pos->side == black ? black : white) : both;
-  if (state->needs_refresh)
+      state->psqt_needs_refresh ? (pos->side == black ? black : white) : both;
+
+  if (state->psqt_needs_refresh) {
     memcpy(state->bitboards, pos->bitboards, 12 * sizeof(uint64_t));
+  }
 }
