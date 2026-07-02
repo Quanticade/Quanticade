@@ -140,7 +140,7 @@ endif
 
 # SPECIFIC BUILDS
 ifeq ($(build), native)
-	NATIVE     = -march=native
+	NATIVE     = -march=icelake-client
 	ARCH       = -x86-64-native
 	ifeq ($(ARCH_DETECTED), AVX512ICL)
 		CFLAGS += $(AVX512ICLFLAGS)
