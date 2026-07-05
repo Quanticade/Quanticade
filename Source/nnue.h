@@ -5,8 +5,6 @@
 #include "arch.h"
 #include <stdint.h>
 
-extern nnue_settings_t nnue_settings;
-
 typedef struct nnue {
   _Alignas(64) int8_t  feature_threats[THREAT_FEATURES][L1_SIZE];
   _Alignas(64) int16_t feature_weights[KING_BUCKETS][PSQT_FEATURES][L1_SIZE];
@@ -19,9 +17,9 @@ typedef struct nnue {
   _Alignas(64) float   l3_bias[OUTPUT_BUCKETS];
 } nnue_t;
 
-extern nnue_t nnue;
+extern const nnue_t *nnue;
 
-void nnue_init(const char *nnue_file_name);
+void nnue_init(void);
 void init_accumulator(position_t *pos, accumulator_t *accumulator);
 void init_finny_tables(thread_t *thread, position_t *pos);
 int nnue_evaluate(thread_t *thread, position_t *pos, accumulator_t *accumulator);

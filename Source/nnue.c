@@ -16,21 +16,7 @@
 
 int EVAL_SCALE = 296;
 
-nnue_t nnue;
-
-struct raw_net {
-  float feature_threats[THREAT_FEATURES][L1_SIZE];
-  float feature_weights[KING_BUCKETS][PSQT_FEATURES][L1_SIZE];
-  float feature_bias[L1_SIZE];
-  float l1_weights[OUTPUT_BUCKETS][L2_SIZE][L1_SIZE];
-  float l1_bias[OUTPUT_BUCKETS][L2_SIZE];
-  float l2_weights[OUTPUT_BUCKETS][L3_SIZE][2 * L2_SIZE];
-  float l2_bias[OUTPUT_BUCKETS][L3_SIZE];
-  float l3_weights[OUTPUT_BUCKETS][L3_SIZE];
-  float l3_bias[OUTPUT_BUCKETS];
-};
-
-struct raw_net net;
+const nnue_t *nnue;
 
 const int INT8_PER_INT32 = sizeof(int) / sizeof(int8_t);
 
@@ -124,12 +110,12 @@ static inline float crelu_float(float value) {
   return clamp_float(value, 0.0f, 1.0f);
 }
 
+#ifndef USE_SIMD
 static int32_t clamp_int32(int32_t d, int32_t min, int32_t max) {
   const int32_t t = d < min ? min : d;
   return t > max ? max : t;
 }
 
-#ifndef USE_SIMD
 static inline int32_t screlu(int16_t value) {
   const int32_t clipped = clamp_int32((int32_t)value, 0, INPUT_QUANT);
   return clipped * clipped;
@@ -232,147 +218,12 @@ static inline int get_threat_index(int perspective, int king_sq,
   return feature_base + sq_offset + piece_index;
 }
 
-static inline void transpose(void) {
-#if defined(USE_SIMD)
-  for (int b = 0; b < OUTPUT_BUCKETS; b++) {
-    for (int l1 = 0; l1 < L1_SIZE / INT8_PER_INT32; l1++) {
-      for (int l2 = 0; l2 < L2_SIZE; l2++) {
-        for (int c = 0; c < INT8_PER_INT32; c++) {
-          nnue.l1_weights[b][l1 * INT8_PER_INT32 * L2_SIZE +
-                             l2 * INT8_PER_INT32 + c] =
-              round(net.l1_weights[b][l2][l1 * INT8_PER_INT32 + c] * L1_QUANT);
-        }
-      }
-    }
-  }
-#else
-  for (int b = 0; b < OUTPUT_BUCKETS; b++) {
-    for (int l1 = 0; l1 < L1_SIZE; l1++) {
-      for (int l2 = 0; l2 < L2_SIZE; l2++) {
-        nnue.l1_weights[b][l1 * L2_SIZE + l2] =
-            round(net.l1_weights[b][l2][l1] * L1_QUANT);
-      }
-    }
-  }
-#endif
-  for (int b = 0; b < KING_BUCKETS; b++) {
-    for (int input = 0; input < PSQT_FEATURES; input++) {
-      for (int l1 = 0; l1 < L1_SIZE; l1++) {
-        nnue.feature_weights[b][input][l1] =
-            round(net.feature_weights[b][input][l1] * INPUT_QUANT);
-      }
-    }
-  }
-  for (int t = 0; t < THREAT_FEATURES; t++) {
-    for (int l1 = 0; l1 < L1_SIZE; l1++) {
-      nnue.feature_threats[t][l1] = (int8_t)clamp_int32(
-          round(net.feature_threats[t][l1] * INPUT_QUANT), -128, 127);
-    }
-  }
-  for (int l1 = 0; l1 < L1_SIZE; l1++) {
-    nnue.feature_bias[l1] = round(net.feature_bias[l1] * INPUT_QUANT);
-  }
-  for (int b = 0; b < OUTPUT_BUCKETS; b++) {
-    for (int l2 = 0; l2 < 2 * L2_SIZE; l2++) {
-      for (int l3 = 0; l3 < L3_SIZE; l3++) {
-        nnue.l2_weights[b][l2][l3] = net.l2_weights[b][l3][l2];
-      }
-    }
-  }
-  for (int b = 0; b < OUTPUT_BUCKETS; b++) {
-    for (int l3 = 0; l3 < L3_SIZE; l3++) {
-      nnue.l3_weights[b][l3] = net.l3_weights[b][l3];
-    }
-  }
-  memcpy(nnue.l1_bias, net.l1_bias, sizeof(net.l1_bias));
-  memcpy(nnue.l2_bias, net.l2_bias, sizeof(net.l2_bias));
-  memcpy(nnue.l3_bias, net.l3_bias, sizeof(net.l3_bias));
-}
-
-int nnue_init_incbin(void) {
-  uint64_t memoryIndex = 0;
-
-  memcpy(net.feature_weights, &gEVALData[memoryIndex],
-         sizeof(net.feature_weights));
-  memoryIndex += sizeof(net.feature_weights);
-
-  memcpy(net.feature_threats, &gEVALData[memoryIndex],
-         sizeof(net.feature_threats));
-  memoryIndex += sizeof(net.feature_threats);
-
-  memcpy(net.feature_bias, &gEVALData[memoryIndex], sizeof(net.feature_bias));
-  memoryIndex += sizeof(net.feature_bias);
-
-  memcpy(&net.l1_weights, &gEVALData[memoryIndex], sizeof(net.l1_weights));
-  memoryIndex += sizeof(net.l1_weights);
-  memcpy(&net.l1_bias, &gEVALData[memoryIndex], sizeof(net.l1_bias));
-  memoryIndex += sizeof(net.l1_bias);
-
-  memcpy(&net.l2_weights, &gEVALData[memoryIndex], sizeof(net.l2_weights));
-  memoryIndex += sizeof(net.l2_weights);
-  memcpy(&net.l2_bias, &gEVALData[memoryIndex], sizeof(net.l2_bias));
-  memoryIndex += sizeof(net.l2_bias);
-
-  memcpy(&net.l3_weights, &gEVALData[memoryIndex], sizeof(net.l3_weights));
-  memoryIndex += sizeof(net.l3_weights);
-  memcpy(&net.l3_bias, &gEVALData[memoryIndex], sizeof(net.l3_bias));
-  return 1;
-}
-
-void nnue_init(const char *nnue_file_name) {
+void nnue_init(void) {
+  nnue = (const nnue_t *)gEVALData;
   init_threat_tables();
-
-  FILE *nn = fopen(nnue_file_name, "rb");
-
-  if (nn) {
-    size_t read = 0;
-    size_t objectsExpected = 0;
-    objectsExpected += sizeof(net.feature_threats) / sizeof(float);
-    objectsExpected += sizeof(net.feature_weights) / sizeof(float);
-    objectsExpected += sizeof(net.feature_bias) / sizeof(float);
-    objectsExpected += sizeof(net.l1_weights) / sizeof(float);
-    objectsExpected += sizeof(net.l1_bias) / sizeof(float);
-    objectsExpected += sizeof(net.l2_weights) / sizeof(float);
-    objectsExpected += sizeof(net.l2_bias) / sizeof(float);
-    objectsExpected += sizeof(net.l3_weights) / sizeof(float);
-    objectsExpected += sizeof(net.l3_bias) / sizeof(float);
-
-    read += fread(net.feature_weights, sizeof(float),
-                  sizeof(net.feature_weights) / sizeof(float), nn);
-    read += fread(net.feature_threats, sizeof(float),
-                  sizeof(net.feature_threats) / sizeof(float), nn);
-    read += fread(net.feature_bias, sizeof(float),
-                  sizeof(net.feature_bias) / sizeof(float), nn);
-    read += fread(net.l1_weights, sizeof(float),
-                  sizeof(net.l1_weights) / sizeof(float), nn);
-    read += fread(&net.l1_bias, sizeof(float),
-                  sizeof(net.l1_bias) / sizeof(float), nn);
-    read += fread(net.l2_weights, sizeof(float),
-                  sizeof(net.l2_weights) / sizeof(float), nn);
-    read += fread(&net.l2_bias, sizeof(float),
-                  sizeof(net.l2_bias) / sizeof(float), nn);
-    read += fread(net.l3_weights, sizeof(float),
-                  sizeof(net.l3_weights) / sizeof(float), nn);
-    read += fread(&net.l3_bias, sizeof(float),
-                  sizeof(net.l3_bias) / sizeof(float), nn);
-
-    if (read != objectsExpected) {
-      printf("We read: %zu but the expected is %zu\n", read, objectsExpected);
-      printf("Error loading the net, aborting\n");
-      exit(1);
-    }
-    fclose(nn);
-  } else {
-    printf("NNUE file not found. Loading from incbin\n");
-    if (nnue_init_incbin() == 0) {
-      printf("Failed to load network from incbin. Exiting\n");
-      exit(1);
-    }
-  }
 #if defined(USE_SIMD) && !defined(USE_AVX512ICL)
   init_nnz_table();
 #endif
-  transpose();
 }
 
 static inline int16_t get_idx(uint8_t side, uint8_t piece, uint8_t square,
@@ -444,13 +295,13 @@ void rebuild_threats(position_t *pos, uint8_t *mailbox, accumulator_t *acc) {
           if (w_idx >= 0) {
             for (int i = 0; i < L1_SIZE; ++i) {
               acc->threat_accumulator[white][i] +=
-                  nnue.feature_threats[w_idx][i];
+                  nnue->feature_threats[w_idx][i];
             }
           }
           if (b_idx >= 0) {
             for (int i = 0; i < L1_SIZE; ++i) {
               acc->threat_accumulator[black][i] +=
-                  nnue.feature_threats[b_idx][i];
+                  nnue->feature_threats[b_idx][i];
             }
           }
         }
@@ -486,8 +337,8 @@ static inline void refresh_accumulator(thread_t *thread, position_t *pos,
 
       for (int i = 0; i < L1_SIZE; ++i)
         finny_accumulator->psqt_accumulator[side][i] +=
-            nnue.feature_weights[bucket][added_index][i] -
-            nnue.feature_weights[bucket][removed_index][i];
+            nnue->feature_weights[bucket][added_index][i] -
+            nnue->feature_weights[bucket][removed_index][i];
     }
 
     while (added) {
@@ -497,7 +348,7 @@ static inline void refresh_accumulator(thread_t *thread, position_t *pos,
 
       for (int i = 0; i < L1_SIZE; ++i)
         finny_accumulator->psqt_accumulator[side][i] +=
-            nnue.feature_weights[bucket][index][i];
+            nnue->feature_weights[bucket][index][i];
     }
 
     while (removed) {
@@ -507,7 +358,7 @@ static inline void refresh_accumulator(thread_t *thread, position_t *pos,
 
       for (int i = 0; i < L1_SIZE; ++i)
         finny_accumulator->psqt_accumulator[side][i] -=
-            nnue.feature_weights[bucket][index][i];
+            nnue->feature_weights[bucket][index][i];
     }
   }
   memcpy(accumulator->psqt_accumulator[side],
@@ -523,8 +374,8 @@ void init_accumulator(position_t *pos, accumulator_t *accumulator) {
   const uint8_t black_bucket =
       get_king_bucket(black, get_lsb(pos->bitboards[k]));
   for (int i = 0; i < L1_SIZE; ++i) {
-    accumulator->psqt_accumulator[0][i] = nnue.feature_bias[i];
-    accumulator->psqt_accumulator[1][i] = nnue.feature_bias[i];
+    accumulator->psqt_accumulator[0][i] = nnue->feature_bias[i];
+    accumulator->psqt_accumulator[1][i] = nnue->feature_bias[i];
   }
 
   for (int piece = P; piece <= k; ++piece) {
@@ -538,11 +389,11 @@ void init_accumulator(position_t *pos, accumulator_t *accumulator) {
 
       for (int i = 0; i < L1_SIZE; ++i)
         accumulator->psqt_accumulator[white][i] +=
-            nnue.feature_weights[white_bucket][white_idx][i];
+            nnue->feature_weights[white_bucket][white_idx][i];
 
       for (int i = 0; i < L1_SIZE; ++i)
         accumulator->psqt_accumulator[black][i] +=
-            nnue.feature_weights[black_bucket][black_idx][i];
+            nnue->feature_weights[black_bucket][black_idx][i];
 
       pop_bit(bitboard, square);
     }
@@ -553,8 +404,8 @@ void init_accumulator(position_t *pos, accumulator_t *accumulator) {
 void init_accumulator_bucket(position_t *pos, accumulator_t *accumulator,
                              uint8_t bucket, uint8_t do_hm) {
   for (int i = 0; i < L1_SIZE; ++i) {
-    accumulator->psqt_accumulator[0][i] = nnue.feature_bias[i];
-    accumulator->psqt_accumulator[1][i] = nnue.feature_bias[i];
+    accumulator->psqt_accumulator[0][i] = nnue->feature_bias[i];
+    accumulator->psqt_accumulator[1][i] = nnue->feature_bias[i];
   }
 
   for (int piece = P; piece <= k; ++piece) {
@@ -566,11 +417,11 @@ void init_accumulator_bucket(position_t *pos, accumulator_t *accumulator,
 
       for (int i = 0; i < L1_SIZE; ++i)
         accumulator->psqt_accumulator[white][i] +=
-            nnue.feature_weights[bucket][white_idx][i];
+            nnue->feature_weights[bucket][white_idx][i];
 
       for (int i = 0; i < L1_SIZE; ++i)
         accumulator->psqt_accumulator[black][i] +=
-            nnue.feature_weights[bucket][black_idx][i];
+            nnue->feature_weights[bucket][black_idx][i];
 
       pop_bit(bitboard, square);
     }
@@ -598,8 +449,8 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
   const uint8_t black_bucket =
       get_king_bucket(black, get_lsb(pos->bitboards[k]));
   for (int i = 0; i < L1_SIZE; ++i) {
-    accumulator->psqt_accumulator[0][i] = nnue.feature_bias[i];
-    accumulator->psqt_accumulator[1][i] = nnue.feature_bias[i];
+    accumulator->psqt_accumulator[0][i] = nnue->feature_bias[i];
+    accumulator->psqt_accumulator[1][i] = nnue->feature_bias[i];
   }
 
   const uint8_t out_bucket = calculate_output_bucket(pos);
@@ -615,11 +466,11 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
 
       for (int i = 0; i < L1_SIZE; ++i)
         accumulator->psqt_accumulator[white][i] +=
-            nnue.feature_weights[white_bucket][white_idx][i];
+            nnue->feature_weights[white_bucket][white_idx][i];
 
       for (int i = 0; i < L1_SIZE; ++i)
         accumulator->psqt_accumulator[black][i] +=
-            nnue.feature_weights[black_bucket][black_idx][i];
+            nnue->feature_weights[black_bucket][black_idx][i];
 
       pop_bit(bitboard, square);
     }
@@ -657,42 +508,42 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
   for (int l1 = 0; l1 < L1_SIZE; l1++)
     for (int l2 = 0; l2 < L2_SIZE; l2++)
       l2Neurons[l2] +=
-          l1Neurons[l1] * nnue.l1_weights[out_bucket][l1 * L2_SIZE + l2];
+          l1Neurons[l1] * nnue->l1_weights[out_bucket][l1 * L2_SIZE + l2];
 #else
   for (int l1 = 0; l1 < L1_SIZE; l1++)
     for (int l2 = 0; l2 < L2_SIZE; l2++)
       l2Neurons[l2] +=
           l1Neurons[l1] *
-          nnue.l1_weights[out_bucket]
+          nnue->l1_weights[out_bucket]
                          [(l1 / INT8_PER_INT32) * INT8_PER_INT32 * L2_SIZE +
                           l2 * INT8_PER_INT32 + (l1 % INT8_PER_INT32)];
 #endif
 
   float l3Neurons[L3_SIZE];
-  memcpy(l3Neurons, nnue.l2_bias[out_bucket], sizeof(l3Neurons));
+  memcpy(l3Neurons, nnue->l2_bias[out_bucket], sizeof(l3Neurons));
 
   const float L1_NORMALISATION =
       (float)(1 << INPUT_SHIFT) / (float)(INPUT_QUANT * INPUT_QUANT * L1_QUANT);
 
   for (int l2 = 0; l2 < L2_SIZE; l2++) {
     const float l2Result = (float)(l2Neurons[l2]) * L1_NORMALISATION +
-                           (nnue.l1_bias[out_bucket][l2]);
+                           (nnue->l1_bias[out_bucket][l2]);
     const float crelu = crelu_float(l2Result);
     const float csrelu = crelu_float(l2Result * l2Result);
 
     for (int l3 = 0; l3 < L3_SIZE; l3++) {
-      l3Neurons[l3] += crelu * nnue.l2_weights[out_bucket][l2][l3];
+      l3Neurons[l3] += crelu * nnue->l2_weights[out_bucket][l2][l3];
     }
 
     for (int l3 = 0; l3 < L3_SIZE; l3++) {
-      l3Neurons[l3] += csrelu * nnue.l2_weights[out_bucket][l2 + L2_SIZE][l3];
+      l3Neurons[l3] += csrelu * nnue->l2_weights[out_bucket][l2 + L2_SIZE][l3];
     }
   }
 
-  float result = nnue.l3_bias[out_bucket];
+  float result = nnue->l3_bias[out_bucket];
   for (int l3 = 0; l3 < L3_SIZE; l3++) {
     const float l3Activated = screlu_float(l3Neurons[l3]);
-    result += l3Activated * nnue.l3_weights[out_bucket][l3];
+    result += l3Activated * nnue->l3_weights[out_bucket][l3];
   }
 
   return (int16_t)(result * EVAL_SCALE);
@@ -875,10 +726,10 @@ int nnue_evaluate(thread_t *thread, position_t *pos,
     for (int r = 0; r < L2_VECS; r++) {
       const vecs8_t w0 =
           *((vecs8_t *)&nnue
-                .l1_weights[out_bucket][o0 + INT8_PER_INT32 * r * I32_STRIDE]);
+                ->l1_weights[out_bucket][o0 + INT8_PER_INT32 * r * I32_STRIDE]);
       const vecs8_t w1 =
           *((vecs8_t *)&nnue
-                .l1_weights[out_bucket][o1 + INT8_PER_INT32 * r * I32_STRIDE]);
+                ->l1_weights[out_bucket][o1 + INT8_PER_INT32 * r * I32_STRIDE]);
       regs[r] = dpbusd_epi32x2(regs[r], u0, w0, u1, w1);
     }
   }
@@ -889,7 +740,7 @@ int nnue_evaluate(thread_t *thread, position_t *pos,
     for (int r = 0; r < L2_VECS; r++) {
       const vecs8_t w0 =
           *((vecs8_t *)&nnue
-                .l1_weights[out_bucket][o0 + INT8_PER_INT32 * r * I32_STRIDE]);
+                ->l1_weights[out_bucket][o0 + INT8_PER_INT32 * r * I32_STRIDE]);
       regs[r] = dpbusd_epi32(regs[r], u0, w0);
     }
   }
@@ -897,7 +748,7 @@ int nnue_evaluate(thread_t *thread, position_t *pos,
     *((veci32_t *)&layers->l2_neurons[r * I32_STRIDE]) = regs[r];
 
   float result;
-  memcpy(layers->l3_neurons, nnue.l2_bias[out_bucket],
+  memcpy(layers->l3_neurons, nnue->l2_bias[out_bucket],
          sizeof(layers->l3_neurons));
   {
     const vecf_t norm_ps = set_ps1(L1_NORMALISATION);
@@ -909,7 +760,7 @@ int nnue_evaluate(thread_t *thread, position_t *pos,
           mul_ps(cvtepi32_ps(
                      *((veci32_t *)&layers->l2_neurons[l2 * FLOAT_VEC_SIZE])),
                  norm_ps),
-          *((vecf_t *)&nnue.l1_bias[out_bucket][l2 * FLOAT_VEC_SIZE]));
+          *((vecf_t *)&nnue->l1_bias[out_bucket][l2 * FLOAT_VEC_SIZE]));
       *((vecf_t *)&layers->l2_floats[l2 * FLOAT_VEC_SIZE]) =
           clip_ps(l2_result, one_ps, zero_ps);
       *((vecf_t *)&layers->l2_floats[l2 * FLOAT_VEC_SIZE + L2_SIZE]) =
@@ -921,7 +772,7 @@ int nnue_evaluate(thread_t *thread, position_t *pos,
       for (int l3 = 0; l3 < L3_SIZE / FLOAT_VEC_SIZE; l3++) {
         *((vecf_t *)&layers->l3_neurons[l3 * FLOAT_VEC_SIZE]) = fmadd_ps(
             act,
-            *((vecf_t *)&nnue.l2_weights[out_bucket][l2][l3 * FLOAT_VEC_SIZE]),
+            *((vecf_t *)&nnue->l2_weights[out_bucket][l2][l3 * FLOAT_VEC_SIZE]),
             *((vecf_t *)&layers->l3_neurons[l3 * FLOAT_VEC_SIZE]));
       }
     }
@@ -939,12 +790,12 @@ int nnue_evaluate(thread_t *thread, position_t *pos,
         result_sums[c] =
             fmadd_ps(mul_ps(clipped, clipped),
                      *((vecf_t *)&nnue
-                           .l3_weights[out_bucket][(l3 + c) * FLOAT_VEC_SIZE]),
+                           ->l3_weights[out_bucket][(l3 + c) * FLOAT_VEC_SIZE]),
                      result_sums[c]);
       }
     }
 
-    result = nnue.l3_bias[out_bucket] + reduce_add_ps(result_sums);
+    result = nnue->l3_bias[out_bucket] + reduce_add_ps(result_sums);
   }
 
 #else
@@ -973,33 +824,33 @@ int nnue_evaluate(thread_t *thread, position_t *pos,
   for (int l1 = 0; l1 < L1_SIZE; l1++) {
     for (int l2 = 0; l2 < L2_SIZE; l2++) {
       layers->l2_neurons[l2] += layers->l1_neurons[l1] *
-                                nnue.l1_weights[out_bucket][l1 * L2_SIZE + l2];
+                                nnue->l1_weights[out_bucket][l1 * L2_SIZE + l2];
     }
   }
 
-  memcpy(layers->l3_neurons, nnue.l2_bias[out_bucket],
+  memcpy(layers->l3_neurons, nnue->l2_bias[out_bucket],
          sizeof(layers->l3_neurons));
 
   for (int l2 = 0; l2 < L2_SIZE; l2++) {
     const float l2Result = (float)(layers->l2_neurons[l2]) * L1_NORMALISATION +
-                           (nnue.l1_bias[out_bucket][l2]);
+                           (nnue->l1_bias[out_bucket][l2]);
     const float crelu = crelu_float(l2Result);
     const float csrelu = crelu_float(l2Result * l2Result);
 
     for (int l3 = 0; l3 < L3_SIZE; l3++) {
-      layers->l3_neurons[l3] += crelu * nnue.l2_weights[out_bucket][l2][l3];
+      layers->l3_neurons[l3] += crelu * nnue->l2_weights[out_bucket][l2][l3];
     }
 
     for (int l3 = 0; l3 < L3_SIZE; l3++) {
       layers->l3_neurons[l3] +=
-          csrelu * nnue.l2_weights[out_bucket][l2 + L2_SIZE][l3];
+          csrelu * nnue->l2_weights[out_bucket][l2 + L2_SIZE][l3];
     }
   }
 
-  float result = nnue.l3_bias[out_bucket];
+  float result = nnue->l3_bias[out_bucket];
   for (int l3 = 0; l3 < L3_SIZE; l3++) {
     const float l3Activated = screlu_float(layers->l3_neurons[l3]);
-    result += l3Activated * nnue.l3_weights[out_bucket][l3];
+    result += l3Activated * nnue->l3_weights[out_bucket][l3];
   }
 
 #endif
@@ -1022,29 +873,29 @@ accumulator_addsub(accumulator_t *restrict accumulator,
   const size_t black_idx_to =
       get_idx(black, piece2, to2, black_king_square, 0, 0);
 
-  __builtin_prefetch(&nnue.feature_weights[white_bucket][white_idx_from][0], 0,
+  __builtin_prefetch(&nnue->feature_weights[white_bucket][white_idx_from][0], 0,
                      1);
-  __builtin_prefetch(&nnue.feature_weights[white_bucket][white_idx_to][0], 0,
+  __builtin_prefetch(&nnue->feature_weights[white_bucket][white_idx_to][0], 0,
                      1);
-  __builtin_prefetch(&nnue.feature_weights[black_bucket][black_idx_from][0], 0,
+  __builtin_prefetch(&nnue->feature_weights[black_bucket][black_idx_from][0], 0,
                      1);
-  __builtin_prefetch(&nnue.feature_weights[black_bucket][black_idx_to][0], 0,
+  __builtin_prefetch(&nnue->feature_weights[black_bucket][black_idx_to][0], 0,
                      1);
 
   if (color_flag == 0 || color_flag == 2) {
     for (int i = 0; i < L1_SIZE; ++i) {
       accumulator->psqt_accumulator[white][i] =
           prev_accumulator->psqt_accumulator[white][i] -
-          nnue.feature_weights[white_bucket][white_idx_from][i] +
-          nnue.feature_weights[white_bucket][white_idx_to][i];
+          nnue->feature_weights[white_bucket][white_idx_from][i] +
+          nnue->feature_weights[white_bucket][white_idx_to][i];
     }
   }
   if (color_flag == 1 || color_flag == 2) {
     for (int i = 0; i < L1_SIZE; ++i) {
       accumulator->psqt_accumulator[black][i] =
           prev_accumulator->psqt_accumulator[black][i] -
-          nnue.feature_weights[black_bucket][black_idx_from][i] +
-          nnue.feature_weights[black_bucket][black_idx_to][i];
+          nnue->feature_weights[black_bucket][black_idx_from][i] +
+          nnue->feature_weights[black_bucket][black_idx_to][i];
     }
   }
 }
@@ -1072,18 +923,18 @@ static inline void accumulator_addsubsub(
     for (int i = 0; i < L1_SIZE; ++i) {
       accumulator->psqt_accumulator[white][i] =
           prev_accumulator->psqt_accumulator[white][i] -
-          nnue.feature_weights[white_bucket][white_idx_from1][i] -
-          nnue.feature_weights[white_bucket][white_idx_from2][i] +
-          nnue.feature_weights[white_bucket][white_idx_to][i];
+          nnue->feature_weights[white_bucket][white_idx_from1][i] -
+          nnue->feature_weights[white_bucket][white_idx_from2][i] +
+          nnue->feature_weights[white_bucket][white_idx_to][i];
     }
   }
   if (color_flag == 1 || color_flag == 2) {
     for (int i = 0; i < L1_SIZE; ++i) {
       accumulator->psqt_accumulator[black][i] =
           prev_accumulator->psqt_accumulator[black][i] -
-          nnue.feature_weights[black_bucket][black_idx_from1][i] -
-          nnue.feature_weights[black_bucket][black_idx_from2][i] +
-          nnue.feature_weights[black_bucket][black_idx_to][i];
+          nnue->feature_weights[black_bucket][black_idx_from1][i] -
+          nnue->feature_weights[black_bucket][black_idx_from2][i] +
+          nnue->feature_weights[black_bucket][black_idx_to][i];
     }
   }
 }
@@ -1117,20 +968,20 @@ accumulator_addaddsubsub(accumulator_t *restrict accumulator,
     for (int i = 0; i < L1_SIZE; ++i) {
       accumulator->psqt_accumulator[white][i] =
           prev_accumulator->psqt_accumulator[white][i] -
-          nnue.feature_weights[white_bucket][white_idx_from1][i] -
-          nnue.feature_weights[white_bucket][white_idx_from2][i] +
-          nnue.feature_weights[white_bucket][white_idx_to1][i] +
-          nnue.feature_weights[white_bucket][white_idx_to2][i];
+          nnue->feature_weights[white_bucket][white_idx_from1][i] -
+          nnue->feature_weights[white_bucket][white_idx_from2][i] +
+          nnue->feature_weights[white_bucket][white_idx_to1][i] +
+          nnue->feature_weights[white_bucket][white_idx_to2][i];
     }
   }
   if (color_flag == 1 || color_flag == 2) {
     for (int i = 0; i < L1_SIZE; ++i) {
       accumulator->psqt_accumulator[black][i] =
           prev_accumulator->psqt_accumulator[black][i] -
-          nnue.feature_weights[black_bucket][black_idx_from1][i] -
-          nnue.feature_weights[black_bucket][black_idx_from2][i] +
-          nnue.feature_weights[black_bucket][black_idx_to1][i] +
-          nnue.feature_weights[black_bucket][black_idx_to2][i];
+          nnue->feature_weights[black_bucket][black_idx_from1][i] -
+          nnue->feature_weights[black_bucket][black_idx_from2][i] +
+          nnue->feature_weights[black_bucket][black_idx_to1][i] +
+          nnue->feature_weights[black_bucket][black_idx_to2][i];
     }
   }
 }
@@ -1228,7 +1079,7 @@ static void apply_threat_batches(accumulator_t *acc, threat_list_t *adds,
     for (int j = 0; j < adds->w_count; ++j) {
       for (int k = 0; k < CHUNK_SIZE; ++k) {
         vec_s8 w8 = *(vec_s8 *)&nnue
-                         .feature_threats[adds->w_idx[j]][i + (k * CHUNK_ELTS)];
+                         ->feature_threats[adds->w_idx[j]][i + (k * CHUNK_ELTS)];
         w_vecs[k] += __builtin_convertvector(w8, vec_s16);
       }
     }
@@ -1236,7 +1087,7 @@ static void apply_threat_batches(accumulator_t *acc, threat_list_t *adds,
     for (int j = 0; j < adds->b_count; ++j) {
       for (int k = 0; k < CHUNK_SIZE; ++k) {
         vec_s8 w8 = *(vec_s8 *)&nnue
-                         .feature_threats[adds->b_idx[j]][i + (k * CHUNK_ELTS)];
+                         ->feature_threats[adds->b_idx[j]][i + (k * CHUNK_ELTS)];
         b_vecs[k] += __builtin_convertvector(w8, vec_s16);
       }
     }
@@ -1244,7 +1095,7 @@ static void apply_threat_batches(accumulator_t *acc, threat_list_t *adds,
     for (int j = 0; j < subs->w_count; ++j) {
       for (int k = 0; k < CHUNK_SIZE; ++k) {
         vec_s8 w8 = *(vec_s8 *)&nnue
-                         .feature_threats[subs->w_idx[j]][i + (k * CHUNK_ELTS)];
+                         ->feature_threats[subs->w_idx[j]][i + (k * CHUNK_ELTS)];
         w_vecs[k] -= __builtin_convertvector(w8, vec_s16);
       }
     }
@@ -1252,7 +1103,7 @@ static void apply_threat_batches(accumulator_t *acc, threat_list_t *adds,
     for (int j = 0; j < subs->b_count; ++j) {
       for (int k = 0; k < CHUNK_SIZE; ++k) {
         vec_s8 w8 = *(vec_s8 *)&nnue
-                         .feature_threats[subs->b_idx[j]][i + (k * CHUNK_ELTS)];
+                         ->feature_threats[subs->b_idx[j]][i + (k * CHUNK_ELTS)];
         b_vecs[k] -= __builtin_convertvector(w8, vec_s16);
       }
     }

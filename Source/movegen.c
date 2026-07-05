@@ -10,7 +10,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-extern nnue_settings_t nnue_settings;
 extern keys_t keys;
 
 uint64_t between[64][64] = {0};

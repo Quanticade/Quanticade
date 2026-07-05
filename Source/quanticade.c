@@ -23,13 +23,11 @@
 #include "uci.h"
 
 position_t pos;
-nnue_settings_t nnue_settings;
 limits_t limits;
 keys_t keys;
 
 extern const int default_hash_size;
 extern int thread_count;
-extern nnue_t nnue;
 extern uint64_t between[64][64];
 extern uint64_t line[64][64];
 
@@ -86,7 +84,7 @@ void init_all(void) {
   // init hash table with default size
   init_hash_table(default_hash_size);
 
-  nnue_init(EVALFILE);
+  nnue_init();
 }
 
 /**********************************\
@@ -103,8 +101,6 @@ int main(int argc, char *argv[]) {
   limits.time = -1;
   tt.hash_entry = NULL;
   tt.num_of_entries = 0;
-  nnue_settings.nnue_file = malloc(sizeof(EVALFILE));
-  strcpy(nnue_settings.nnue_file, EVALFILE);
   // init all
   init_all();
 
@@ -113,7 +109,6 @@ int main(int argc, char *argv[]) {
 
   // free hash table memory on exit
   free_hash_table();
-  free(nnue_settings.nnue_file);
 
   return 0;
 }

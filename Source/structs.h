@@ -200,8 +200,4 @@ typedef struct searchstack {
   uint8_t tt_pv;
 } searchstack_t;
 
-typedef struct nnue_settings {
-  char *nnue_file;
-} nnue_settings_t;
-
 #endif

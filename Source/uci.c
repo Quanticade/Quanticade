@@ -24,8 +24,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-extern nnue_settings_t nnue_settings;
-
 static inline int istrncmp(const char *a, const char *b, size_t n) {
   for (size_t i = 0; i < n; i++) {
     const int diff =
@@ -561,7 +559,7 @@ static void handle_go(uci_ctx_t *ctx, char *args) {
   (void)args;
   if (*ctx->started)
     pthread_join(*ctx->search_thread, NULL);
-  printf("info string NNUE evaluation using %s\n", nnue_settings.nnue_file);
+  printf("info string NNUE evaluation using %s\n", NETWORK_NAME);
   strncpy(ctx->sti->line, ctx->input, sizeof(ctx->sti->line) - 1);
   ctx->sti->line[sizeof(ctx->sti->line) - 1] = '\0';
   pthread_create(ctx->search_thread, NULL, &parse_go, ctx->sti);
@@ -587,8 +585,6 @@ static void handle_uci(uci_ctx_t *ctx, char *args) {
   printf("option name Threads type spin default %d min %d max %d\n", 1, 1,
          1024);
   printf("option name MoveOverhead type spin default 10 min 0 max 5000\n");
-  printf("option name EvalFile type string default %s\n",
-         nnue_settings.nnue_file);
   printf("option name Clear Hash type button\n");
   printf("option name SoftNodes type check default false\n");
   printf("option name DisableNormalization type check default false\n");
@@ -648,16 +644,6 @@ static void setoption_threads(uci_ctx_t *ctx, char *value) {
   ctx->sti->threads = *ctx->threads;
 }
 
-static void setoption_eval_file(uci_ctx_t *ctx, char *value) {
-  (void)ctx;
-  char *new_path = strdup(value);
-  if (!new_path)
-    return;
-  free(nnue_settings.nnue_file);
-  nnue_settings.nnue_file = new_path;
-  nnue_init(nnue_settings.nnue_file);
-}
-
 static void setoption_clear_hash(uci_ctx_t *ctx, char *value) {
   (void)ctx;
   (void)value;
@@ -698,7 +684,6 @@ static const setoption_entry_t setoption_table[] = {
     {"Hash", setoption_hash},
     {"Threads", setoption_threads},
     {"MoveOverhead", setoption_move_overhead},
-    {"EvalFile", setoption_eval_file},
     {"Clear Hash", setoption_clear_hash},
     {"SyzygyPath", setoption_syzygy_path},
     {"SoftNodes", setoption_soft_nodes},
