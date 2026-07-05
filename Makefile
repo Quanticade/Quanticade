@@ -1,4 +1,4 @@
-NETWORK_NAME = net53.nnue
+NETWORK_NAME = net55.nnue
 PROCESSED_NET = processed.bin
 _THIS       := $(realpath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 _ROOT       := $(_THIS)
@@ -27,6 +27,12 @@ NNUE_URL := https://github.com/Quanticade/Networks/raw/refs/heads/main/$(EVALFIL
 
 CURL := $(shell command -v curl 2>/dev/null)
 WGET := $(shell command -v wget 2>/dev/null)
+
+GCC_VERSION := $(shell gcc -dumpfullversion 2>/dev/null)
+
+ifeq ($(GCC_VERSION),12.2.0)
+    $(error "Build aborted: GCC version 12.2.0 is strictly unsupported.")
+endif
 
 # Detect Clang
 ifeq ($(CC), clang)

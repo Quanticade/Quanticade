@@ -66,13 +66,21 @@ typedef struct simd {
 } simd_t;
 
 typedef struct accumulator {
-  _Alignas(64) int16_t accumulator[2][L1_SIZE];
+  _Alignas(64) int16_t psqt_accumulator[2][L1_SIZE];
+  _Alignas(64) int16_t threat_accumulator[2][L1_SIZE];
 } accumulator_t;
 
 typedef struct finny_table {
   accumulator_t accumulators;
   uint64_t bitboards[2][12];
 } finny_table_t;
+
+typedef struct {
+  int w_idx[256];
+  int b_idx[256];
+  int w_count;
+  int b_count;
+} threat_list_t;
 
 typedef struct hash_keys {
   uint64_t hash_key;
@@ -82,7 +90,8 @@ typedef struct hash_keys {
 
 typedef struct lazy_acc_state {
   uint8_t  dirty;
-  uint8_t  needs_refresh;
+  uint8_t  psqt_needs_refresh;   // Replaces needs_refresh
+  uint8_t  threat_needs_refresh; // New flag for unbucketed threats
   uint8_t  side;
   uint8_t  color_flag;
   uint8_t  white_king_sq;
