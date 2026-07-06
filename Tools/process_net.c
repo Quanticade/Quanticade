@@ -28,7 +28,11 @@ int main(int argc, char *argv[]) {
   nnue_t *processed = malloc(sizeof(nnue_t));
 
   FILE *in = fopen(argv[1], "rb");
-  fread(raw, sizeof(struct raw_net), 1, in);
+  int size = fread(raw, sizeof(struct raw_net), 1, in);
+  if (size != 1) {
+    fclose(in);
+    return -1;
+  }
   fclose(in);
 
 #if defined(USE_SIMD)
