@@ -1518,10 +1518,10 @@ void *iterative_deepening(void *thread_void) {
     uint8_t fail_high_count = 0;
 
     if (thread->depth >= ASP_DEPTH) {
-      window += thread->score * thread->score / ASP_WINDOW_DIVISER;
+      window += average_score * average_score / ASP_WINDOW_DIVISER;
 
-      alpha = MAX(-INF, thread->score - window);
-      beta = MIN(INF, thread->score + window);
+      alpha = MAX(-INF, average_score - window);
+      beta = MIN(INF, average_score + window);
     }
 
     while (true) {
