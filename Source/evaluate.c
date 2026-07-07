@@ -26,7 +26,7 @@ int16_t evaluate(thread_t *thread, position_t *pos,
                 EVAL_ROOK * popcount(pos->bitboards[r] | pos->bitboards[R]) +
                 EVAL_QUEEN * popcount(pos->bitboards[q] | pos->bitboards[Q]);
 
-    eval = eval * (EVAL_SCALE_BASE + phase) / 32768;
+    eval = (eval * (EVAL_SCALE_BASE + phase) + thread->optimism[pos->side] * (150 + phase)) / 32768;
   }
 
   int16_t final_eval = clamp(eval, -MATE_SCORE + 1, MATE_SCORE - 1);

@@ -1517,6 +1517,11 @@ void *iterative_deepening(void *thread_void) {
 
     uint8_t fail_high_count = 0;
 
+    const int32_t optimism = 2000 * average_score / (abs(average_score) + 100);
+    thread->optimism[pos->side] = optimism;
+    thread->optimism[pos->side ^ 1] = -optimism;
+
+
     if (thread->depth >= ASP_DEPTH) {
       window += thread->score * thread->score / ASP_WINDOW_DIVISER;
 
