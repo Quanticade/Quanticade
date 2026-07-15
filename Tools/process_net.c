@@ -9,7 +9,7 @@
 
 struct raw_net {
   float feature_weights[KING_BUCKETS][PSQT_FEATURES][L1_SIZE];
-  float feature_threats[THREAT_FEATURES][L1_SIZE];
+  float feature_aux[AUX_FEATURES][L1_SIZE];
   float feature_bias[L1_SIZE];
   float l1_weights[OUTPUT_BUCKETS][L2_SIZE][L1_SIZE];
   float l1_bias[OUTPUT_BUCKETS][L2_SIZE];
@@ -65,11 +65,11 @@ int main(int argc, char *argv[]) {
       }
     }
   }
-  for (int t = 0; t < THREAT_FEATURES; t++) {
+  for (int t = 0; t < AUX_FEATURES; t++) {
     for (int l1 = 0; l1 < L1_SIZE; l1++) {
-      float q = round(raw->feature_threats[t][l1] * INPUT_QUANT);
+      float q = round(raw->feature_aux[t][l1] * INPUT_QUANT);
       q = q < -128 ? -128 : q > 127 ? 127 : q;
-      processed->feature_threats[t][l1] = (int8_t)q;
+      processed->feature_aux[t][l1] = (int8_t)q;
     }
   }
   for (int l1 = 0; l1 < L1_SIZE; l1++) {

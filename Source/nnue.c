@@ -25,11 +25,31 @@ static uint8_t precomputed_piece_index[12][64][64];
 
 static int PIECE_TARGET_COUNT[6] = {6, 10, 8, 8, 10, 0};
 static int PIECE_TARGET_MAP[6][6] = {
-    {0, 1, -1, 2, -1, -1}, {0, 1, 2, 3, 4, -1}, {0, 1, 2, 3, -1, -1},
+    {-1, 0, -1, 1, -1, -1}, {0, 1, 2, 3, 4, -1}, {0, 1, 2, 3, -1, -1},
     {0, 1, 2, 3, -1, -1},  {0, 1, 2, 3, 4, -1}, {-1, -1, -1, -1, -1, -1}};
 static const uint8_t swap_color_pc[2][12] = {
     {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11},
     {6, 7, 8, 9, 10, 11, 0, 1, 2, 3, 4, 5}};
+
+#define FILE_A 0x0101010101010101ULL
+#define FILE_B 0x0202020202020202ULL
+#define FILE_C 0x0404040404040404ULL
+#define FILE_D 0x0808080808080808ULL
+#define FILE_E 0x1010101010101010ULL
+#define FILE_F 0x2020202020202020ULL
+#define FILE_G 0x4040404040404040ULL
+#define FILE_H 0x8080808080808080ULL
+
+static const uint64_t PAWN_PAWN_MASKS[8] = {
+    FILE_A | FILE_B,
+    FILE_A | FILE_B | FILE_C,
+    FILE_B | FILE_C | FILE_D,
+    FILE_C | FILE_D | FILE_E,
+    FILE_D | FILE_E | FILE_F,
+    FILE_E | FILE_F | FILE_G,
+    FILE_F | FILE_G | FILE_H,
+    FILE_G | FILE_H,
+};
 
 static int threat_offsets[12];
 static int threat_piece_offsets[12];
@@ -248,10 +268,10 @@ static inline int16_t get_idx(uint8_t side, uint8_t piece, uint8_t square,
   return idx;
 }
 
-void rebuild_threats(position_t *pos, uint8_t *mailbox, accumulator_t *acc) {
+void rebuild_aux(position_t *pos, uint8_t *mailbox, accumulator_t *acc) {
   for (int i = 0; i < L1_SIZE; ++i) {
-    acc->threat_accumulator[white][i] = 0;
-    acc->threat_accumulator[black][i] = 0;
+    acc->aux_accumulator[white][i] = 0;
+    acc->aux_accumulator[black][i] = 0;
   }
 
   uint64_t occ = pos->occupancies[both];
@@ -294,14 +314,14 @@ void rebuild_threats(position_t *pos, uint8_t *mailbox, accumulator_t *acc) {
 
           if (w_idx >= 0) {
             for (int i = 0; i < L1_SIZE; ++i) {
-              acc->threat_accumulator[white][i] +=
-                  nnue->feature_threats[w_idx][i];
+              acc->aux_accumulator[white][i] +=
+                  nnue->feature_aux[w_idx][i];
             }
           }
           if (b_idx >= 0) {
             for (int i = 0; i < L1_SIZE; ++i) {
-              acc->threat_accumulator[black][i] +=
-                  nnue->feature_threats[b_idx][i];
+              acc->aux_accumulator[black][i] +=
+                  nnue->feature_aux[b_idx][i];
             }
           }
         }
@@ -365,7 +385,7 @@ static inline void refresh_accumulator(thread_t *thread, position_t *pos,
          finny_accumulator->psqt_accumulator[side], L1_SIZE * sizeof(int16_t));
   memcpy(finny_bitboards, pos->bitboards, 12 * sizeof(uint64_t));
 
-  rebuild_threats(pos, pos->mailbox, accumulator);
+  rebuild_aux(pos, pos->mailbox, accumulator);
 }
 
 void init_accumulator(position_t *pos, accumulator_t *accumulator) {
@@ -398,7 +418,7 @@ void init_accumulator(position_t *pos, accumulator_t *accumulator) {
       pop_bit(bitboard, square);
     }
   }
-  rebuild_threats(pos, pos->mailbox, accumulator);
+  rebuild_aux(pos, pos->mailbox, accumulator);
 }
 
 void init_accumulator_bucket(position_t *pos, accumulator_t *accumulator,
@@ -426,7 +446,7 @@ void init_accumulator_bucket(position_t *pos, accumulator_t *accumulator,
       pop_bit(bitboard, square);
     }
   }
-  rebuild_threats(pos, pos->mailbox, accumulator);
+  rebuild_aux(pos, pos->mailbox, accumulator);
 }
 
 void init_finny_tables(thread_t *thread, position_t *pos) {
@@ -476,26 +496,26 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
     }
   }
 
-  rebuild_threats(pos, pos->mailbox, accumulator);
+  rebuild_aux(pos, pos->mailbox, accumulator);
 
   int16_t *stmPsqt = accumulator->psqt_accumulator[pos->side];
   int16_t *oppPsqt = accumulator->psqt_accumulator[1 - pos->side];
-  int16_t *stmThrt = accumulator->threat_accumulator[pos->side];
-  int16_t *oppThrt = accumulator->threat_accumulator[1 - pos->side];
+  int16_t *stmAux = accumulator->aux_accumulator[pos->side];
+  int16_t *oppAux = accumulator->aux_accumulator[1 - pos->side];
 
   uint8_t l1Neurons[L1_SIZE];
   for (int l1 = 0; l1 < L1_SIZE / 2; l1++) {
-    int32_t stm_val1 = (int32_t)stmPsqt[l1] + stmThrt[l1];
+    int32_t stm_val1 = (int32_t)stmPsqt[l1] + stmAux[l1];
     int32_t stm_val2 =
-        (int32_t)stmPsqt[l1 + L1_SIZE / 2] + stmThrt[l1 + L1_SIZE / 2];
+        (int32_t)stmPsqt[l1 + L1_SIZE / 2] + stmAux[l1 + L1_SIZE / 2];
 
     const int16_t stmClipped1 = clamp(stm_val1, 0, INPUT_QUANT);
     const int16_t stmClipped2 = clamp(stm_val2, 0, INPUT_QUANT);
     l1Neurons[l1] = (stmClipped1 * stmClipped2) >> INPUT_SHIFT;
 
-    int32_t opp_val1 = (int32_t)oppPsqt[l1] + oppThrt[l1];
+    int32_t opp_val1 = (int32_t)oppPsqt[l1] + oppAux[l1];
     int32_t opp_val2 =
-        (int32_t)oppPsqt[l1 + L1_SIZE / 2] + oppThrt[l1 + L1_SIZE / 2];
+        (int32_t)oppPsqt[l1 + L1_SIZE / 2] + oppAux[l1 + L1_SIZE / 2];
 
     const int16_t oppClipped1 = clamp(opp_val1, 0, INPUT_QUANT);
     const int16_t oppClipped2 = clamp(opp_val2, 0, INPUT_QUANT);
@@ -556,8 +576,8 @@ int nnue_evaluate(thread_t *thread, position_t *pos,
 
   const int16_t *stmPsqt = accumulator->psqt_accumulator[pos->side];
   const int16_t *oppPsqt = accumulator->psqt_accumulator[1 - pos->side];
-  const int16_t *stmThrt = accumulator->threat_accumulator[pos->side];
-  const int16_t *oppThrt = accumulator->threat_accumulator[1 - pos->side];
+  const int16_t *stmAux = accumulator->aux_accumulator[pos->side];
+  const int16_t *oppAux = accumulator->aux_accumulator[1 - pos->side];
 
   simd_t *layers = &thread->neurons;
 
@@ -576,23 +596,23 @@ int nnue_evaluate(thread_t *thread, position_t *pos,
     for (int l1 = 0; l1 < L1_SIZE / 2; l1 += 2 * I16_VEC_SIZE) {
       // STM
       veci_t psqt1 = load((const int16_t *)&stmPsqt[l1]);
-      veci_t thrt1 = load((const int16_t *)&stmThrt[l1]);
+      veci_t thrt1 = load((const int16_t *)&stmAux[l1]);
       veci_t c1 = clip_epi16(add_epi16(psqt1, thrt1), i16_zero, i16_quant);
 
       veci_t psqt2 = load((const int16_t *)&stmPsqt[l1 + L1_SIZE / 2]);
-      veci_t thrt2 = load((const int16_t *)&stmThrt[l1 + L1_SIZE / 2]);
+      veci_t thrt2 = load((const int16_t *)&stmAux[l1 + L1_SIZE / 2]);
       veci_t c2 = min_epi16(add_epi16(psqt2, thrt2), i16_quant);
 
       veci_t mul1 = mulhi_epi16(slli_epi16(c1, 16 - INPUT_SHIFT), c2);
 
       veci_t psqt3 = load((const int16_t *)&stmPsqt[l1 + I16_VEC_SIZE]);
-      veci_t thrt3 = load((const int16_t *)&stmThrt[l1 + I16_VEC_SIZE]);
+      veci_t thrt3 = load((const int16_t *)&stmAux[l1 + I16_VEC_SIZE]);
       c1 = clip_epi16(add_epi16(psqt3, thrt3), i16_zero, i16_quant);
 
       veci_t psqt4 =
           load((const int16_t *)&stmPsqt[l1 + I16_VEC_SIZE + L1_SIZE / 2]);
       veci_t thrt4 =
-          load((const int16_t *)&stmThrt[l1 + I16_VEC_SIZE + L1_SIZE / 2]);
+          load((const int16_t *)&stmAux[l1 + I16_VEC_SIZE + L1_SIZE / 2]);
       c2 = min_epi16(add_epi16(psqt4, thrt4), i16_quant);
       veci_t mul2 = mulhi_epi16(slli_epi16(c1, 16 - INPUT_SHIFT), c2);
 
@@ -600,20 +620,20 @@ int nnue_evaluate(thread_t *thread, position_t *pos,
 
       // NSTM
       psqt1 = load((const int16_t *)&oppPsqt[l1]);
-      thrt1 = load((const int16_t *)&oppThrt[l1]);
+      thrt1 = load((const int16_t *)&oppAux[l1]);
       c1 = clip_epi16(add_epi16(psqt1, thrt1), i16_zero, i16_quant);
 
       psqt2 = load((const int16_t *)&oppPsqt[l1 + L1_SIZE / 2]);
-      thrt2 = load((const int16_t *)&oppThrt[l1 + L1_SIZE / 2]);
+      thrt2 = load((const int16_t *)&oppAux[l1 + L1_SIZE / 2]);
       c2 = min_epi16(add_epi16(psqt2, thrt2), i16_quant);
       mul1 = mulhi_epi16(slli_epi16(c1, 16 - INPUT_SHIFT), c2);
 
       psqt3 = load((const int16_t *)&oppPsqt[l1 + I16_VEC_SIZE]);
-      thrt3 = load((const int16_t *)&oppThrt[l1 + I16_VEC_SIZE]);
+      thrt3 = load((const int16_t *)&oppAux[l1 + I16_VEC_SIZE]);
       c1 = clip_epi16(add_epi16(psqt3, thrt3), i16_zero, i16_quant);
 
       psqt4 = load((const int16_t *)&oppPsqt[l1 + I16_VEC_SIZE + L1_SIZE / 2]);
-      thrt4 = load((const int16_t *)&oppThrt[l1 + I16_VEC_SIZE + L1_SIZE / 2]);
+      thrt4 = load((const int16_t *)&oppAux[l1 + I16_VEC_SIZE + L1_SIZE / 2]);
       c2 = min_epi16(add_epi16(psqt4, thrt4), i16_quant);
       mul2 = mulhi_epi16(slli_epi16(c1, 16 - INPUT_SHIFT), c2);
 
@@ -803,17 +823,17 @@ int nnue_evaluate(thread_t *thread, position_t *pos,
   memset(layers->l2_neurons, 0, sizeof(layers->l2_neurons));
 
   for (int l1 = 0; l1 < L1_SIZE / 2; l1++) {
-    int32_t stm_val1 = (int32_t)stmPsqt[l1] + stmThrt[l1];
+    int32_t stm_val1 = (int32_t)stmPsqt[l1] + stmAux[l1];
     int32_t stm_val2 =
-        (int32_t)stmPsqt[l1 + L1_SIZE / 2] + stmThrt[l1 + L1_SIZE / 2];
+        (int32_t)stmPsqt[l1 + L1_SIZE / 2] + stmAux[l1 + L1_SIZE / 2];
 
     const int16_t stmClipped1 = clamp(stm_val1, 0, INPUT_QUANT);
     const int16_t stmClipped2 = clamp(stm_val2, 0, INPUT_QUANT);
     layers->l1_neurons[l1] = (stmClipped1 * stmClipped2) >> INPUT_SHIFT;
 
-    int32_t opp_val1 = (int32_t)oppPsqt[l1] + oppThrt[l1];
+    int32_t opp_val1 = (int32_t)oppPsqt[l1] + oppAux[l1];
     int32_t opp_val2 =
-        (int32_t)oppPsqt[l1 + L1_SIZE / 2] + oppThrt[l1 + L1_SIZE / 2];
+        (int32_t)oppPsqt[l1 + L1_SIZE / 2] + oppAux[l1 + L1_SIZE / 2];
 
     const int16_t oppClipped1 = clamp(opp_val1, 0, INPUT_QUANT);
     const int16_t oppClipped2 = clamp(opp_val2, 0, INPUT_QUANT);
@@ -1065,9 +1085,9 @@ static inline void push_threat(threat_list_t *list, uint8_t w_ksq,
 static void apply_threat_batches(accumulator_t *acc, threat_list_t *adds,
                                  threat_list_t *subs) {
   int16_t *w_acc =
-      (int16_t *)__builtin_assume_aligned(acc->threat_accumulator[white], 64);
+      (int16_t *)__builtin_assume_aligned(acc->aux_accumulator[white], 64);
   int16_t *b_acc =
-      (int16_t *)__builtin_assume_aligned(acc->threat_accumulator[black], 64);
+      (int16_t *)__builtin_assume_aligned(acc->aux_accumulator[black], 64);
 
   for (int i = 0; i < L1_SIZE; i += CHUNK_SIZE * CHUNK_ELTS) {
     vec_s16 w_vecs[CHUNK_SIZE];
@@ -1079,7 +1099,7 @@ static void apply_threat_batches(accumulator_t *acc, threat_list_t *adds,
     for (int j = 0; j < adds->w_count; ++j) {
       for (int k = 0; k < CHUNK_SIZE; ++k) {
         vec_s8 w8 = *(vec_s8 *)&nnue
-                         ->feature_threats[adds->w_idx[j]][i + (k * CHUNK_ELTS)];
+                         ->feature_aux[adds->w_idx[j]][i + (k * CHUNK_ELTS)];
         w_vecs[k] += __builtin_convertvector(w8, vec_s16);
       }
     }
@@ -1087,7 +1107,7 @@ static void apply_threat_batches(accumulator_t *acc, threat_list_t *adds,
     for (int j = 0; j < adds->b_count; ++j) {
       for (int k = 0; k < CHUNK_SIZE; ++k) {
         vec_s8 w8 = *(vec_s8 *)&nnue
-                         ->feature_threats[adds->b_idx[j]][i + (k * CHUNK_ELTS)];
+                         ->feature_aux[adds->b_idx[j]][i + (k * CHUNK_ELTS)];
         b_vecs[k] += __builtin_convertvector(w8, vec_s16);
       }
     }
@@ -1095,7 +1115,7 @@ static void apply_threat_batches(accumulator_t *acc, threat_list_t *adds,
     for (int j = 0; j < subs->w_count; ++j) {
       for (int k = 0; k < CHUNK_SIZE; ++k) {
         vec_s8 w8 = *(vec_s8 *)&nnue
-                         ->feature_threats[subs->w_idx[j]][i + (k * CHUNK_ELTS)];
+                         ->feature_aux[subs->w_idx[j]][i + (k * CHUNK_ELTS)];
         w_vecs[k] -= __builtin_convertvector(w8, vec_s16);
       }
     }
@@ -1103,7 +1123,7 @@ static void apply_threat_batches(accumulator_t *acc, threat_list_t *adds,
     for (int j = 0; j < subs->b_count; ++j) {
       for (int k = 0; k < CHUNK_SIZE; ++k) {
         vec_s8 w8 = *(vec_s8 *)&nnue
-                         ->feature_threats[subs->b_idx[j]][i + (k * CHUNK_ELTS)];
+                         ->feature_aux[subs->b_idx[j]][i + (k * CHUNK_ELTS)];
         b_vecs[k] -= __builtin_convertvector(w8, vec_s16);
       }
     }
@@ -1194,7 +1214,7 @@ static void process_slider_deltas(position_t *pos_before, position_t *pos_after,
   }
 }
 
-static void update_threats_incremental(accumulator_t *acc,
+static void update_aux_incremental(accumulator_t *acc,
                                        position_t *pos_before,
                                        position_t *pos_after) {
   uint64_t real_changed_sqs = 0;
@@ -1281,21 +1301,21 @@ void apply_accumulator(thread_t *thread, int ply) {
 
   if (s->threat_needs_refresh) {
     for (int i = 0; i < L1_SIZE; ++i) {
-      thread->accumulator[ply].threat_accumulator[white][i] = 0;
-      thread->accumulator[ply].threat_accumulator[black][i] = 0;
+      thread->accumulator[ply].aux_accumulator[white][i] = 0;
+      thread->accumulator[ply].aux_accumulator[black][i] = 0;
     }
-    rebuild_threats(&thread->positions[ply], thread->positions[ply].mailbox,
+    rebuild_aux(&thread->positions[ply], thread->positions[ply].mailbox,
                     &thread->accumulator[ply]);
   } else {
 
-    memcpy(thread->accumulator[ply].threat_accumulator[white],
-           thread->accumulator[ply - 1].threat_accumulator[white],
+    memcpy(thread->accumulator[ply].aux_accumulator[white],
+           thread->accumulator[ply - 1].aux_accumulator[white],
            L1_SIZE * sizeof(int16_t));
-    memcpy(thread->accumulator[ply].threat_accumulator[black],
-           thread->accumulator[ply - 1].threat_accumulator[black],
+    memcpy(thread->accumulator[ply].aux_accumulator[black],
+           thread->accumulator[ply - 1].aux_accumulator[black],
            L1_SIZE * sizeof(int16_t));
 
-    update_threats_incremental(&thread->accumulator[ply],
+    update_aux_incremental(&thread->accumulator[ply],
                                &thread->positions[ply - 1],
                                &thread->positions[ply]);
   }

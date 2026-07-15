@@ -67,7 +67,7 @@ typedef struct simd {
 
 typedef struct accumulator {
   _Alignas(64) int16_t psqt_accumulator[2][L1_SIZE];
-  _Alignas(64) int16_t threat_accumulator[2][L1_SIZE];
+  _Alignas(64) int16_t aux_accumulator[2][L1_SIZE];
 } accumulator_t;
 
 typedef struct finny_table {
