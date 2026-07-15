@@ -1539,7 +1539,7 @@ void *iterative_deepening(void *thread_void) {
       // negamax reads root position from thread->positions[0] via
       // thread->ply==0
       thread->score = negamax(thread, ss + 7, alpha, beta,
-                              thread->depth - fail_high_count, 0, PV_NODE);
+                              MAX(thread->depth - fail_high_count, 1), 0, PV_NODE);
 
       // We hit an aspiration window cut-off before time ran out and we jumped
       // to another depth with wider search which we didnt finish
