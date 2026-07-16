@@ -1193,7 +1193,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       // Futility Pruning
       if (lmr_depth <= FP_DEPTH && !in_check && quiet &&
           ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION +
-                  ss->history_score / FP_HISTORY_DIVISOR <=
+                  ss->history_score / FP_HISTORY_DIVISOR + 84 * (ss->static_eval >= beta) + 512 * abs(correction) / 1024 <=
               alpha &&
           !is_direct_check(pos, &check_info, move)) {
         picker.skip_quiets = 1;
