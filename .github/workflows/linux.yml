@@ -23,7 +23,7 @@ jobs:
     - name: Install build tools
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential clang make
+        sudo apt-get install -y build-essential clang make gcc
 
     - name: Build with ${{ matrix.compiler }} for ${{ matrix.arch }}
       run: |
