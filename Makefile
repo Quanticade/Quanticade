@@ -239,6 +239,11 @@ endif
 # Add network name and Evalfile
 CFLAGS += -DNETWORK_NAME=\"$(NETWORK_NAME)\" -DEVALFILE=\"$(PROCESSED_NET)\"
 
+ifneq ($(findstring -DUSE_SIMD,$(CFLAGS)),)
+	PROCESS_NET_SIMD = -DUSE_SIMD
+endif
+PROCESS_NET_CFLAGS = -g -std=gnu11 -funroll-loops -O3 -flto -fno-exceptions -DIS_64BIT -DNDEBUG -DGIT_HASH=\"$(shell git rev-parse --short HEAD)\" $(WARNINGS) $(PROCESS_NET_SIMD) -DNETWORK_NAME=\"$(NETWORK_NAME)\" -DEVALFILE=\"$(PROCESSED_NET)\"
+
 SOURCES := $(wildcard Source/*.c) $(wildcard Source/nnue/*.cpp)
 OBJECTS := $(patsubst %.c,$(TMPDIR)/%.o,$(SOURCES))
 DEPENDS := $(patsubst %.c,$(TMPDIR)/%.d,$(SOURCES))
@@ -260,7 +265,7 @@ $(EVALFILE):
 	@echo "Downloaded $(EVALFILE)"
 
 $(PROCESSED_NET): Tools/process_net.c | $(EVALFILE)
-	$(CC) $(CFLAGS) $(NATIVE) -o Tools/process_net Tools/process_net.c $(FLAGS)
+	$(CC) $(PROCESS_NET_CFLAGS) -o Tools/process_net Tools/process_net.c $(FLAGS)
 	./Tools/process_net $(EVALFILE) $(PROCESSED_NET)
 
 $(OBJECTS): | $(PROCESSED_NET)
