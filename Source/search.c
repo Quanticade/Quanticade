@@ -194,6 +194,14 @@ TUNABLE(double bestmove_scale[5] = {2.4132984943657214, 1.3700453510729038, 1.09
 
 uint64_t nodes_spent_table[4096] = {0};
 
+#define VALUABLE_MASK ( \
+    (1u << N) | (1u << B) | (1u << R) | (1u << Q) | \
+    (1u << n) | (1u << b) | (1u << r) | (1u << q) )
+
+  static inline bool is_valuable(uint8_t p) {
+    return (VALUABLE_MASK >> p) & 1u;
+  }
+
 // Initializes the late move reduction array
 void init_reductions(void) {
   for (int depth = 0; depth <= MAX_PLY; depth++) {
@@ -896,7 +904,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   if (cutnode && !in_check && !ss->excluded_move && !ss->null_move &&
       ply > thread->nmp_min_ply && ss->eval >= beta &&
       ss->static_eval >= beta - NMP_MULTIPLIER * depth + NMP_BASE_ADD &&
-      ss->eval >= ss->static_eval && !is_loss(beta) && !only_pawns(pos)) {
+      ss->eval >= ss->static_eval && !is_loss(beta) && !only_pawns(pos) && !(tt_flag != HASH_FLAG_LOWER_BOUND && tt_move && get_move_capture(tt_move) && is_valuable(pos->mailbox[get_move_target(tt_move)]))) {
     const int R = MIN((depth * NMP_DIVISER + NMP_BASE_REDUCTION) / 256, depth);
 
     // Copy current position to the next ply slot and advance.
