@@ -18,6 +18,7 @@
 #include "transposition.h"
 #include "uci.h"
 #include "utils.h"
+#include "wdl.h"
 #include <inttypes.h>
 #include <limits.h>
 #include <math.h>
@@ -1456,7 +1457,14 @@ static void print_thinking(thread_t *thread, int16_t score,
     if (disable_norm) {
       printf("cp %d ", score);
     } else {
-      printf("cp %d ", 100 * score / 215);
+      position_t *pos = &thread->positions[thread->ply];
+      const uint16_t material = 1 * popcount(pos->bitboards[p] | pos->bitboards[P]) +
+                                3 * popcount(pos->bitboards[n] | pos->bitboards[N]) + 
+                                3 * popcount(pos->bitboards[b] | pos->bitboards[B]) + 
+                                5 * popcount(pos->bitboards[r] | pos->bitboards[R]) + 
+                                9 * popcount(pos->bitboards[q] | pos->bitboards[Q]);
+      const int16_t norm_score = wdl_normalize_score(score, material);
+      printf("cp %d ", norm_score);
     }
   }
   printf("nodes %" PRIu64 " ", nodes);
