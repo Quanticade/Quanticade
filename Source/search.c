@@ -794,7 +794,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   // If we arent in excluded move or PV node and we hit requirements for cutoff
   // we can return early from search
   if (!ss->excluded_move && !pv_node && tt_depth >= depth &&
-      can_use_score(alpha, beta, tt_score, tt_flag)) {
+      can_use_score(alpha, beta, tt_score, tt_flag) && (tt_score <= alpha || cutnode)) {
     if (tt_move != 0 &&
         !(is_move_promotion(tt_move) || get_move_capture(tt_move)) &&
         tt_score >= beta) {
