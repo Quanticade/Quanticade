@@ -884,7 +884,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   }
 
   // Reverse Futility Pruning
-  if (!ss->tt_pv && !ss->excluded_move && depth <= RFP_DEPTH &&
+  if (!ss->tt_pv && !ss->excluded_move && depth <= RFP_DEPTH + 2 * improving &&
       !is_loss(beta) && !is_win(ss->eval) &&
       ss->eval >= beta + RFP_BASE_MARGIN + RFP_MARGIN * depth -
                       RFP_IMPROVING * improving -
