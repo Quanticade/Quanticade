@@ -605,7 +605,7 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
 
     moves_seen++;
 
-    if (!is_loss(best_score)) {
+    if (!in_check && !is_loss(best_score)) {
       if (!SEE(pos, move, -QS_SEE_THRESHOLD))
         continue;
 
