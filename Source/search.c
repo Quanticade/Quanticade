@@ -547,7 +547,7 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
     if (tt_hit && tt_static_eval != NO_SCORE) {
       raw_static_eval = tt_static_eval;
       ss->static_eval = best_score =
-          adjust_static_eval(thread, raw_static_eval);
+          adjust_static_eval(thread, ss, raw_static_eval);
 
       if (tt_score != NO_SCORE && ((tt_flag == HASH_FLAG_EXACT) ||
                                    ((tt_flag == HASH_FLAG_UPPER_BOUND) &&
@@ -559,7 +559,7 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
     } else {
       raw_static_eval = evaluate(thread, pos, &thread->accumulator[ply]);
       ss->static_eval = best_score =
-          adjust_static_eval(thread, raw_static_eval);
+          adjust_static_eval(thread, ss, raw_static_eval);
     }
 
     // fail-hard beta cutoff
@@ -641,6 +641,9 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
     ss->move = move;
     ss->piece = pos->mailbox[get_move_source(move)];
     ss->continuation_history = thread->continuation_history[ss->piece][get_history_target(move)];
+    ss->continuation_correction_history =
+        thread->continuation_correction_history[ss->piece]
+                                               [get_history_target(move)];
 
     thread->nodes++;
 
@@ -816,7 +819,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     raw_static_eval = tt_static_eval != NO_SCORE
                           ? tt_static_eval
                           : evaluate(thread, pos, &thread->accumulator[ply]);
-    ss->eval = ss->static_eval = adjust_static_eval(thread, raw_static_eval);
+    ss->eval = ss->static_eval =
+        adjust_static_eval(thread, ss, raw_static_eval);
 
     if (tt_score != NO_SCORE &&
         ((tt_flag == HASH_FLAG_UPPER_BOUND && tt_score < ss->eval) ||
@@ -826,13 +830,14 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     }
   } else {
     raw_static_eval = evaluate(thread, pos, &thread->accumulator[ply]);
-    ss->eval = ss->static_eval = adjust_static_eval(thread, raw_static_eval);
+    ss->eval = ss->static_eval =
+        adjust_static_eval(thread, ss, raw_static_eval);
 
     write_hash_entry(tt_entry, pos, ply, NO_SCORE, raw_static_eval, 0, 0,
                      HASH_FLAG_NONE, ss->tt_pv);
   }
 
-  const int16_t correction = correction_value(thread);
+  const int16_t correction = correction_value(thread, ss);
 
   const uint8_t initial_depth = depth;
   int32_t improvement = 0;
@@ -936,6 +941,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     null_pos->checker_count = 0;
     (ss + 1)->null_move = 1;
     ss->continuation_history = thread->continuation_history[0][0];
+    ss->continuation_correction_history =
+        thread->continuation_correction_history[NO_PIECE][0];
 
     calculate_threats(null_pos, ss + 1);
 
@@ -1019,6 +1026,9 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       ss->move = move;
       ss->piece = pos->mailbox[get_move_source(move)];
       ss->continuation_history = thread->continuation_history[ss->piece][get_history_target(move)];
+      ss->continuation_correction_history =
+          thread->continuation_correction_history[ss->piece]
+                                                 [get_history_target(move)];
 
       thread->nodes++;
 
@@ -1246,6 +1256,9 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     ss->move = move;
     ss->piece = pos->mailbox[get_move_source(move)];
     ss->continuation_history = thread->continuation_history[ss->piece][get_history_target(move)];
+    ss->continuation_correction_history =
+        thread->continuation_correction_history[ss->piece]
+                                               [get_history_target(move)];
 
     // increment nodes count
     thread->nodes++;
@@ -1433,7 +1446,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       !(get_move_capture(best_move) || is_move_promotion(best_move)) &&
       (bound != HASH_FLAG_LOWER_BOUND || best_score > raw_static_eval) &&
       (bound != HASH_FLAG_UPPER_BOUND || best_score <= raw_static_eval)) {
-    update_corrhist(thread, raw_static_eval, best_score, depth);
+    update_corrhist(thread, ss, raw_static_eval, best_score, depth);
   }
 
   // node (position) fails low
@@ -1517,6 +1530,8 @@ void *iterative_deepening(void *thread_void) {
       ss[i].reduction = 0;
       ss[i].tt_pv = 0;
       ss[i].cutoff_cnt = 0;
+      ss[i].continuation_correction_history =
+          thread->continuation_correction_history[NO_PIECE][0];
     }
 
     calculate_threats(pos, ss + 7);

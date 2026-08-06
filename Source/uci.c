@@ -546,6 +546,8 @@ static void handle_ucinewgame(uci_ctx_t *ctx, char *args) {
     memset(t->quiet_history, 0, sizeof(t->quiet_history));
     memset(t->capture_history, 0, sizeof(t->capture_history));
     memset(t->continuation_history, 0, sizeof(t->continuation_history));
+    memset(t->continuation_correction_history, 0,
+           sizeof(t->continuation_correction_history));
     memset(t->correction_history, 0, sizeof(t->correction_history));
     memset(t->pawn_history, 0, sizeof(t->pawn_history));
     memset(t->w_non_pawn_correction_history, 0,

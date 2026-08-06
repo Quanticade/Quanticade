@@ -142,6 +142,7 @@ typedef struct searchinfo {
   int16_t correction_history[2][16384];
   int16_t b_non_pawn_correction_history[2][16384];
   int16_t w_non_pawn_correction_history[2][16384];
+  int16_t continuation_correction_history[13][64][12][64];
   int16_t quiet_history[2][64][64][2][2];
   int16_t continuation_history[13][64][12][64];
   int16_t capture_history[12][13][64][2][2];
@@ -194,6 +195,7 @@ typedef struct searchstack {
   int16_t eval;
   int16_t reduction;
   int16_t (*continuation_history)[64];
+  int16_t (*continuation_correction_history)[64];
   int history_score;
   uint8_t piece;
   uint8_t null_move;
