@@ -1274,6 +1274,10 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         R -= 512 + 440 * (beta - alpha) / thread->root_delta;
       }
 
+      if (!!pos->checkers) {
+        R -= 1024;
+      }
+
       ss->reduction = R;
 
       R = R / 1024;
