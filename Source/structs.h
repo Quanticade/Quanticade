@@ -4,6 +4,7 @@
 #include "arch.h"
 #include "bitboards.h"
 #include <stdint.h>
+#include <stddef.h>
 
 #define MAX_PLY 254
 
