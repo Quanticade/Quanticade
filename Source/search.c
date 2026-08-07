@@ -1276,6 +1276,10 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         R -= 150 * ss->history_score / 1024;
       }
 
+      if (pv_node) {
+        R -= 512 + 440 * (beta - alpha) / thread->root_delta;
+      }
+
       ss->reduction = R;
 
       R = R / 1024;
@@ -1537,6 +1541,8 @@ void *iterative_deepening(void *thread_void) {
       if (thread->stopped) {
         break;
       }
+
+      thread->root_delta = beta - alpha;
 
       // find best move within a given position
       // negamax reads root position from thread->positions[0] via
