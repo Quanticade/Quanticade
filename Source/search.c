@@ -1266,29 +1266,6 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       int R = reduction;
       (void)correction;
 
-      if (quiet) {
-        R -= 198 * ss->history_score / 1024;
-      } else {
-        R -= 150 * ss->history_score / 1024;
-      }
-
-      if (pv_node) {
-        R -= 512 + 440 * (beta - alpha) / thread->root_delta;
-      }
-
-      if (!!next_pos->checkers) {
-        R -= 1024;
-      }
-
-      if (cutnode) {
-        R += 1536;
-        R += (tt_move == 0) * 2048;
-      }
-
-      if ((ss + 1)->cutoff_cnt > 2) {
-        R += 1024;
-      }
-
       ss->reduction = R;
 
       R = R / 1024;
