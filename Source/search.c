@@ -1266,6 +1266,12 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       int R = reduction * 1024;
       (void)correction;
 
+      if (quiet) {
+        R -= 198 * ss->history_score / 1024;
+      } else {
+        R -= 150 * ss->history_score / 1024;
+      }
+
       ss->reduction = R;
 
       R = R / 1024;
