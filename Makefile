@@ -1,4 +1,4 @@
-NETWORK_NAME = net55.nnue
+NETWORK_NAME = net56.nnue
 PROCESSED_NET = processed.bin
 _THIS       := $(realpath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 _ROOT       := $(_THIS)
