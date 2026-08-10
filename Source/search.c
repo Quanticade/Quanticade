@@ -189,6 +189,13 @@ TUNABLE(int SEEPieceValues[] = {67, 326, 320, 603, 1653, 0, 0});
 
 TUNABLE(int mvv[] = {111, 364, 329, 475, 1394, 0});
 
+TUNABLE(int kQueenRookThreatScorePos = 19500);
+TUNABLE(int kQueenRookThreatScoreNeg = 17500);
+TUNABLE(int kRookMinorThreatScorePos = 13000);
+TUNABLE(int kRookMinorThreatScoreNeg = 13500);
+TUNABLE(int kMinorPawnThreatScorePos = 7800);
+TUNABLE(int kMinorPawnThreatScoreNeg = 8500);
+
 int lmr[2][MAX_PLY + 1][256];
 
 TUNABLE(double bestmove_scale[5] = {2.4132984943657214, 1.3700453510729038, 1.099063865295098, 0.8862855915603673, 0.7146573470978642});
@@ -342,6 +349,11 @@ static inline void score_noisy(thread_t *thread, searchstack_t *ss,
 static inline void score_quiet(thread_t *thread, searchstack_t *ss,
                                moves *quiet_list, uint16_t tt_move) {
   position_t *pos = &thread->positions[thread->ply];
+  
+  const uint64_t pawn_threats = ss->threats.pawn_threats;
+  const uint64_t minor_threats = pawn_threats | ss->threats.knight_threats | ss->threats.bishop_threats;
+  const uint64_t rook_threats = minor_threats | ss->threats.rook_threats;
+
   for (uint32_t i = 0; i < quiet_list->count; i++) {
     move_t *entry = &quiet_list->entry[i];
     const uint16_t move = entry->move;
@@ -366,7 +378,28 @@ static inline void score_quiet(thread_t *thread, searchstack_t *ss,
         thread->pawn_history[pos->hash_keys.pawn_key % 2048]
                             [pos->mailbox[source]][target] *
             MO_PAWN_HIST_MULT;
+            
     entry->score /= 1024;
+    
+    const uint8_t piece_type = pos->mailbox[source] % 6;
+    
+    switch (piece_type) {
+      case 4: // Queen
+        if (rook_threats & (1ULL << source)) entry->score += kQueenRookThreatScorePos;
+        if (rook_threats & (1ULL << target)) entry->score -= kQueenRookThreatScoreNeg;
+        break;
+      case 3: // Rook
+        if (minor_threats & (1ULL << source)) entry->score += kRookMinorThreatScorePos;
+        if (minor_threats & (1ULL << target)) entry->score -= kRookMinorThreatScoreNeg;
+        break;
+      case 2: // Bishop
+      case 1: // Knight
+        if (pawn_threats & (1ULL << source)) entry->score += kMinorPawnThreatScorePos;
+        if (pawn_threats & (1ULL << target)) entry->score -= kMinorPawnThreatScoreNeg;
+        break;
+      default:
+        break;
+    }
   }
 }
 
