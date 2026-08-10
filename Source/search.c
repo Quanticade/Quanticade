@@ -581,9 +581,14 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
     futility_score = best_score + QS_FUTILITY_THRESHOLD;
   }
 
+  // Play quiet moves in QS if the TT move was quiet and not from a fail-low
+  const uint8_t evasions =
+      !pv_node && tt_move != 0 && tt_flag != HASH_FLAG_UPPER_BOUND &&
+      !(get_move_capture(tt_move) || is_move_promotion(tt_move));
+
   check_info_t check_info = {.valid = 0};
   picker_t picker;
-  init_picker(&picker, thread, ss, tt_move, in_check, &check_info);
+  init_picker(&picker, thread, ss, tt_move, in_check || evasions, &check_info);
 
   moves capture_list[1];
   capture_list->count = 0;
