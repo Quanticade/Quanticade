@@ -173,10 +173,10 @@ TUNABLE(double LMP_MARGIN_IMPROVING_BASE = 2.962567719064795);
 TUNABLE(double LMP_MARGIN_IMPROVING_FACTOR = 0.8870838683749601);
 TUNABLE(double LMP_MARGIN_IMPROVING_POWER = 1.9150028026113521);
 
-TUNABLE(double LMR_OFFSET_QUIET = 0.7098977514366015);
-TUNABLE(double LMR_DIVISOR_QUIET = 1.8521212691282878);
-TUNABLE(double LMR_OFFSET_NOISY = -0.10735908152686365);
-TUNABLE(double LMR_DIVISOR_NOISY = 2.4029334693518853);
+TUNABLE(int LMR_OFFSET_QUIET = 727);
+TUNABLE(int LMR_MULT_QUIET   = 553);
+TUNABLE(int LMR_OFFSET_NOISY = -110);
+TUNABLE(int LMR_MULT_NOISY   = 426);
 
 TUNABLE(double NODE_TIME_MULTIPLIER = 2.438019236884991);
 TUNABLE(double NODE_TIME_ADDITION = 0.4643725989219111);
@@ -205,9 +205,9 @@ void init_reductions(void) {
         continue;
       }
       lmr[0][depth][move] =
-          LMR_OFFSET_NOISY + log(depth) * log(move) / LMR_DIVISOR_NOISY;
+        LMR_OFFSET_NOISY + log(depth) * log(move) * LMR_MULT_NOISY;
       lmr[1][depth][move] =
-          LMR_OFFSET_QUIET + log(depth) * log(move) / LMR_DIVISOR_QUIET;
+        LMR_OFFSET_QUIET + log(depth) * log(move) * LMR_MULT_QUIET;
     }
   }
 }
@@ -1186,7 +1186,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         picker.skip_quiets = 1;
       }
 
-      const int lmr_depth = MAX(1, depth - 1 - MAX(reduction, 1));
+      const int lmr_depth = MAX(1, depth - 1 - MAX(reduction / 1024, 1));
       // Futility Pruning
       if (lmr_depth <= FP_DEPTH && !in_check && quiet &&
           ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION +
@@ -1263,7 +1263,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
     // LMR
     if (depth >= 2 && moves_seen > 1 + root_node) {
-      int R = reduction * 1024;
+      int R = reduction;
       R += !pv_node * LMR_PV_NODE;
       R -= ss->history_score * (quiet ? LMR_HISTORY_QUIET : LMR_HISTORY_NOISY) /
            (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
