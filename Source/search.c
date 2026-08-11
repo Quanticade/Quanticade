@@ -1103,12 +1103,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     }
 
     // Negative Extensions
-    else if (tt_score >= beta) {
-      extensions -= 2 + !pv_node;
-    }
-
-    else if (cutnode) {
-      extensions -= 2;
+    else if (tt_score >= beta || cutnode) {
+      extensions -= 3;
     }
   }
   // Low Depth Singular Extensions (LDSE)
