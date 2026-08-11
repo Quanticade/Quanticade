@@ -1,33 +1,12 @@
 #include "evaluate.h"
 #include "bitboards.h"
-#include "enums.h"
 #include "nnue.h"
-#include "spsa.h"
 #include "structs.h"
 #include "utils.h"
-
-TUNABLE(int EVAL_KNIGHT = 384);
-TUNABLE(int EVAL_BISHOP = 384);
-TUNABLE(int EVAL_ROOK = 640);
-TUNABLE(int EVAL_QUEEN = 1280);
-TUNABLE(int EVAL_SCALE_BASE = 25600);
-
-extern uint8_t disable_norm;
 
 int16_t evaluate(thread_t *thread, position_t *pos,
                  accumulator_t *accumulator) {
   int eval = nnue_evaluate(thread, pos, accumulator);
-  /*(void)thread;
-  int eval = nnue_eval_pos(pos, accumulator);*/
-
-  if (!disable_norm) {
-    int phase = EVAL_KNIGHT * popcount(pos->bitboards[n] | pos->bitboards[N]) +
-                EVAL_BISHOP * popcount(pos->bitboards[b] | pos->bitboards[B]) +
-                EVAL_ROOK * popcount(pos->bitboards[r] | pos->bitboards[R]) +
-                EVAL_QUEEN * popcount(pos->bitboards[q] | pos->bitboards[Q]);
-
-    eval = eval * (EVAL_SCALE_BASE + phase) / 32768;
-  }
 
   int16_t final_eval = clamp(eval, -MATE_SCORE + 1, MATE_SCORE - 1);
   return final_eval;

@@ -1,7 +1,7 @@
+#include "history.h"
 #include "attacks.h"
 #include "bitboards.h"
 #include "enums.h"
-#include "history.h"
 #include "move.h"
 #include "spsa.h"
 #include "structs.h"
@@ -20,9 +20,16 @@ TUNABLE(int CORR_HISTORY_BONUS_SCALER = 134);
 
 TUNABLE(int HISTORY_MAX = 8192);
 
+TUNABLE(int EVAL_KNIGHT = 384);
+TUNABLE(int EVAL_BISHOP = 384);
+TUNABLE(int EVAL_ROOK = 640);
+TUNABLE(int EVAL_QUEEN = 1280);
+TUNABLE(int EVAL_SCALE_BASE = 25600);
+
 const uint8_t cont_hist_updates[] = {1, 2, 4};
 
 extern keys_t keys;
+extern uint8_t disable_norm;
 
 uint64_t generate_pawn_key(position_t *pos) {
   // final hash key
@@ -124,8 +131,9 @@ uint64_t generate_black_non_pawn_key(position_t *pos) {
 
 int16_t calculate_corrhist_bonus(int16_t static_eval, int16_t search_score,
                                  uint8_t depth) {
-  return clamp((search_score - static_eval) * depth * CORR_HISTORY_BONUS_SCALER / 1024, -CORR_HISTORY_MINMAX,
-               CORR_HISTORY_MINMAX);
+  return clamp((search_score - static_eval) * depth *
+                   CORR_HISTORY_BONUS_SCALER / 1024,
+               -CORR_HISTORY_MINMAX, CORR_HISTORY_MINMAX);
 }
 
 int16_t scale_corrhist_bonus(int16_t score, int16_t bonus) {
@@ -142,6 +150,16 @@ uint8_t static_eval_within_bounds(int16_t static_eval, int16_t score,
 
 int16_t adjust_static_eval(thread_t *thread, int16_t static_eval) {
   position_t *pos = &thread->positions[thread->ply];
+
+  if (!disable_norm) {
+    int phase = EVAL_KNIGHT * popcount(pos->bitboards[n] | pos->bitboards[N]) +
+                EVAL_BISHOP * popcount(pos->bitboards[b] | pos->bitboards[B]) +
+                EVAL_ROOK * popcount(pos->bitboards[r] | pos->bitboards[R]) +
+                EVAL_QUEEN * popcount(pos->bitboards[q] | pos->bitboards[Q]);
+
+    static_eval = static_eval * (EVAL_SCALE_BASE + phase) / 32768;
+  }
+
   const float fifty_move_scaler =
       (float)((FIFTY_MOVE_SCALING - (float)pos->fifty) / FIFTY_MOVE_SCALING);
   static_eval = static_eval * fifty_move_scaler;
@@ -182,7 +200,7 @@ int16_t correction_value(thread_t *thread) {
       NON_PAWN_CORR_HISTORY_MULTIPLIER;
   const int correction =
       pawn_correction + white_non_pawn_correction + black_non_pawn_correction;
-      
+
   return correction / 65536;
 }
 
@@ -240,11 +258,10 @@ void update_capture_history(thread_t *thread, searchstack_t *ss, int move,
   thread->capture_history[pos->mailbox[from]][prev_target_piece][target]
                          [is_square_threatened(ss, from)]
                          [is_square_threatened(ss, target)] +=
-      bonus -
-      thread->capture_history[pos->mailbox[from]][prev_target_piece]
-                             [target][is_square_threatened(ss, from)]
-                             [is_square_threatened(ss, target)] *
-          abs(bonus) / HISTORY_MAX;
+      bonus - thread->capture_history[pos->mailbox[from]][prev_target_piece]
+                                     [target][is_square_threatened(ss, from)]
+                                     [is_square_threatened(ss, target)] *
+                  abs(bonus) / HISTORY_MAX;
 }
 
 void update_continuation_histories(thread_t *thread, searchstack_t *ss,
@@ -259,7 +276,7 @@ void update_continuation_histories(thread_t *thread, searchstack_t *ss,
     if (thread->ply >= cont_hist_updates[i] && prev_piece != NO_PIECE) {
       int piece = pos->mailbox[get_move_source(move)];
       int target = get_history_target(move);
-    (ss-cont_hist_updates[i])->continuation_history[piece][target] +=
+      (ss - cont_hist_updates[i])->continuation_history[piece][target] +=
           bonus - total_score * abs(bonus) / HISTORY_MAX;
     }
   }
