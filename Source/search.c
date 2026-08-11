@@ -1263,7 +1263,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
     // LMR
     if (depth >= 2 && moves_seen > 1 + root_node) {
-      int R = reduction * 1024;
+      int R = reduction;
       (void)correction;
 
       if (quiet) {
