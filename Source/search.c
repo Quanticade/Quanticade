@@ -1289,6 +1289,10 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         R += (tt_move == 0) * 2048;
       }
 
+      if ((ss + 1)->cutoff_cnt > 2) {
+        R += 1024;
+      }
+
       ss->reduction = R;
 
       R = R / 1024;
