@@ -1287,6 +1287,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
       if ((ss + 1)->cutoff_cnt > 2) {
         R += 1024;
+        R += 400 * (!pv_node && !cutnode);
       }
 
       ss->reduction = R;
