@@ -1266,6 +1266,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       int R = reduction;
       (void)correction;
 
+      R += 1536 * (bound == HASH_FLAG_EXACT);
+
       R += 464 * (tt_score != NO_SCORE && tt_score <= alpha);
       R += 326 * (tt_score != NO_SCORE && tt_depth < depth);
 
