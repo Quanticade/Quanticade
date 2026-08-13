@@ -1266,6 +1266,9 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       int R = reduction;
       (void)correction;
 
+      R += 464 * (tt_score != NO_SCORE && tt_score <= alpha);
+      R += 326 * (tt_score != NO_SCORE && tt_depth < depth);
+
       if (quiet) {
         R -= 198 * ss->history_score / 1024;
       } else {
