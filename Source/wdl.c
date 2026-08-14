@@ -4,8 +4,8 @@
 #include "utils.h"
 
 static wdl_params_t wdl_params(uint16_t material) {
-    static const double kAs[4] = {-132.82800816, 372.72079222, -354.81691410, 329.92413018};
-    static const double kBs[4] = {68.24072080, -111.17718819, 74.50316570, 71.16566713};
+    static const double kAs[4] = {-132.58138477, 304.95768740, -253.72271437, 314.07178702};
+    static const double kBs[4] = {-4.48934629, 55.82867674, -77.14738184, 78.69367103};
 
     const double m = (double)clamp(material, (uint16_t)17, (uint16_t)78) / 58.0;
 
