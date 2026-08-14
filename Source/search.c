@@ -1282,7 +1282,9 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       if (!!next_pos->checkers) {
         R -= 1024;
       }
-
+      if (ss->tt_pv) {
+        R -= 768;
+      }
       if (cutnode) {
         R += 1536;
         R += (tt_move == 0) * 2048;
