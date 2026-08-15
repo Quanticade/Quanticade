@@ -1284,6 +1284,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       }
       if (ss->tt_pv) {
         R -= 768;
+        R -= 512 * (tt_score != NO_SCORE && tt_score > alpha);
       }
       if (cutnode) {
         R += 1536;
