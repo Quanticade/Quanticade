@@ -136,10 +136,10 @@ typedef struct searchinfo {
   uint64_t repetition_table[2000];
   uint32_t repetition_index;
   uint32_t nmp_min_ply;
+  int32_t root_delta;
   PV_t pv;
   uint16_t index;
   int16_t score;
-  int16_t root_delta;
   int16_t correction_history[2][16384];
   int16_t b_non_pawn_correction_history[2][16384];
   int16_t w_non_pawn_correction_history[2][16384];
