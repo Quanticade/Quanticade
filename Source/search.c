@@ -90,27 +90,23 @@ TUNABLE(int SE_BETA_BASE = 59);
 TUNABLE(int SE_BETA_MULTIPLIER = 63);
 TUNABLE(int SE_BETA_DIVISOR = 59);
 TUNABLE(int LDSE_MARGIN = 25);
-TUNABLE(int LMR_PV_NODE = 923);
-TUNABLE(int LMR_HISTORY_QUIET = 1195);
-TUNABLE(int LMR_HISTORY_NOISY = 1168);
-TUNABLE(int LMR_WAS_IN_CHECK = 811);
-TUNABLE(int LMR_IN_CHECK = 961);
-TUNABLE(int LMR_CUTNODE = 1552);
-TUNABLE(int LMR_TT_DEPTH = 1114);
-TUNABLE(int LMR_TT_PV = 1002);
-TUNABLE(int LMR_TT_PV_CUTNODE = 877);
-TUNABLE(int LMR_TT_SCORE = 868);
-TUNABLE(int LMR_CUTOFF_CNT = 888);
-TUNABLE(int LMR_IMPROVING = 998);
+TUNABLE(int LMR_TT_SCORE = 464);
+TUNABLE(int LMR_TT_DEPTH = 326);
+TUNABLE(int LMR_HISTORY_QUIET = 198);
+TUNABLE(int LMR_HISTORY_NOISY = 150);
+TUNABLE(int LMR_PV_NODE = 512);
+TUNABLE(int LMR_PV_NODE_MULTIPLIER = 440);
+TUNABLE(int LMR_IN_CHECK = 1024);
+TUNABLE(int LMR_TT_PV = 768);
+TUNABLE(int LMR_TT_PV_SCORE = 512);
+TUNABLE(int LMR_CUTNODE = 1536);
+TUNABLE(int LMR_CUTNODE_NO_TT_MOVE = 2048);
+TUNABLE(int LMR_CUTOFF_CNT = 1024);
 TUNABLE(int LMR_DEEPER_MARGIN = 35);
 TUNABLE(int LMP_BETA_MARGIN = 15);
-TUNABLE(int LMR_CORRECTION = 1825);
-TUNABLE(int LMR_HASH_FLAG_EXACT = 982);
 TUNABLE(int ASP_WINDOW = 15);
 TUNABLE(int QS_FUTILITY_THRESHOLD = 90);
 TUNABLE(int MO_SEE_THRESHOLD = 101);
-TUNABLE(int LMR_QUIET_HIST_DIV = 6177);
-TUNABLE(int LMR_CAPT_HIST_DIV = 8000);
 TUNABLE(int LMP_HISTORY_DIVISOR = 7640);
 TUNABLE(int ASP_WINDOW_DIVISER = 28447);
 TUNABLE(int ASP_WINDOW_FAIL_LOW = 27);
@@ -1266,33 +1262,34 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       int R = reduction;
       (void)correction;
 
-      R += 464 * (tt_score != NO_SCORE && tt_score <= alpha);
-      R += 326 * (tt_score != NO_SCORE && tt_depth < depth);
+      R += LMR_TT_SCORE * (tt_score != NO_SCORE && tt_score <= alpha);
+      R += LMR_TT_DEPTH * (tt_score != NO_SCORE && tt_depth < depth);
 
       if (quiet) {
-        R -= 198 * ss->history_score / 1024;
+        R -= LMR_HISTORY_QUIET * ss->history_score / 1024;
       } else {
-        R -= 150 * ss->history_score / 1024;
+        R -= LMR_HISTORY_NOISY * ss->history_score / 1024;
       }
 
       if (pv_node) {
-        R -= 512 + 440 * (beta - alpha) / thread->root_delta;
+        R -= LMR_PV_NODE +
+             LMR_PV_NODE_MULTIPLIER * (beta - alpha) / thread->root_delta;
       }
 
       if (!!next_pos->checkers) {
-        R -= 1024;
+        R -= LMR_IN_CHECK;
       }
       if (ss->tt_pv) {
-        R -= 768;
-        R -= 512 * (tt_score != NO_SCORE && tt_score > alpha);
+        R -= LMR_TT_PV;
+        R -= LMR_TT_PV_SCORE * (tt_score != NO_SCORE && tt_score > alpha);
       }
       if (cutnode) {
-        R += 1536;
-        R += (tt_move == 0) * 2048;
+        R += LMR_CUTNODE;
+        R += LMR_CUTNODE_NO_TT_MOVE * (tt_move == 0);
       }
 
       if ((ss + 1)->cutoff_cnt > 2) {
-        R += 1024;
+        R += LMR_CUTOFF_CNT;
       }
 
       ss->reduction = R;
