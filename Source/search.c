@@ -1264,7 +1264,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     // LMR
     if (depth >= 2 && moves_seen > 1 + root_node) {
       int R = reduction;
-      R += !pv_node * LMR_PV_NODE;
+      R -= pv_node * LMR_PV_NODE;
       R -= ss->history_score * (quiet ? LMR_HISTORY_QUIET : LMR_HISTORY_NOISY) /
            (quiet ? LMR_QUIET_HIST_DIV : LMR_CAPT_HIST_DIV);
       R += cutnode * LMR_CUTNODE;
