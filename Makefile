@@ -28,12 +28,6 @@ NNUE_URL := https://github.com/Quanticade/Networks/raw/refs/heads/main/$(EVALFIL
 CURL := $(shell command -v curl 2>/dev/null)
 WGET := $(shell command -v wget 2>/dev/null)
 
-GCC_VERSION := $(shell gcc -dumpfullversion 2>/dev/null)
-
-ifeq ($(GCC_VERSION),12.2.0)
-    $(error "Build aborted: GCC version 12.2.0 is strictly unsupported.")
-endif
-
 # Detect Clang
 ifeq ($(CC), clang)
 	CFLAGS = -g -std=gnu11 -fuse-ld=lld -funroll-loops -O3 -flto -fno-exceptions -DIS_64BIT -DNDEBUG -DGIT_HASH=\"$(shell git rev-parse --short HEAD)\" $(WARNINGS)

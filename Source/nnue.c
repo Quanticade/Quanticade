@@ -1065,9 +1065,9 @@ static inline void push_threat(threat_list_t *list, uint8_t w_ksq,
 static void apply_threat_batches(accumulator_t *acc, threat_list_t *adds,
                                  threat_list_t *subs) {
   int16_t *w_acc =
-      (int16_t *)__builtin_assume_aligned(acc->threat_accumulator[white], 64);
+      (int16_t *)acc->threat_accumulator[white];
   int16_t *b_acc =
-      (int16_t *)__builtin_assume_aligned(acc->threat_accumulator[black], 64);
+      (int16_t *)acc->threat_accumulator[black];
 
   for (int i = 0; i < L1_SIZE; i += CHUNK_SIZE * CHUNK_ELTS) {
     vec_s16 w_vecs[CHUNK_SIZE];
