@@ -4,7 +4,6 @@
 #include "structs.h"
 #include "uci.h"
 #include <inttypes.h>
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -39,6 +38,7 @@ extern int FP_DEPTH;
 extern int FP_MULTIPLIER;
 extern int FP_ADDITION;
 extern int FP_HISTORY_DIVISOR;
+extern int PROBCUT_DEPTH;
 extern int NMP_BASE_ADD;
 extern int NMP_MULTIPLIER;
 extern int NMP_BASE_REDUCTION;
@@ -64,7 +64,6 @@ extern int LDSE_MARGIN;
 extern int LMR_PV_NODE;
 extern int LMR_HISTORY_QUIET;
 extern int LMR_HISTORY_NOISY;
-extern int LMR_WAS_IN_CHECK;
 extern int LMR_IN_CHECK;
 extern int LMR_CUTNODE;
 extern int LMR_TT_DEPTH;
@@ -83,8 +82,6 @@ extern int ASP_DEPTH;
 extern int QS_SEE_THRESHOLD;
 extern int QS_FUTILITY_THRESHOLD;
 extern int MO_SEE_THRESHOLD;
-extern int LMR_QUIET_HIST_DIV;
-extern int LMR_CAPT_HIST_DIV;
 extern int LMP_HISTORY_DIVISOR;
 extern int ASP_WINDOW_DIVISER;
 extern int ASP_WINDOW_FAIL_LOW;
@@ -95,7 +92,6 @@ extern int HINDSIGH_REDUCTION_RED;
 extern int HINDSIGN_REDUCTION_EVAL_MARGIN;
 extern int PROBCUT_MARGIN;
 extern int PROBCUT_SHALLOW_DEPTH;
-extern int PROBCUT_SEE_THRESHOLD;
 extern int MO_SEE_HISTORY_DIVISER;
 extern int MO_QUIET_HIST_MULT;
 extern int MO_CONT1_HIST_MULT;
@@ -104,12 +100,9 @@ extern int MO_CONT4_HIST_MULT;
 extern int MO_PAWN_HIST_MULT;
 extern int MO_CAPT_HIST_MULT;
 extern int MO_MVV_MULT;
-extern int MO_CHECK_SEE;
-extern int MO_QUIET_SEE;
 extern int SEARCH_QUIET_HIST_MULT;
 extern int SEARCH_CONT1_HIST_MULT;
 extern int SEARCH_CONT2_HIST_MULT;
-extern int SEARCH_PAWN_HIST_MULT;
 extern int SEARCH_CAPT_HIST_MULT;
 extern int SEARCH_MVV_MULT;
 extern int HISTORY_PRUNING_MARGIN;
@@ -122,10 +115,10 @@ extern double LMP_MARGIN_IMPROVING_BASE;
 extern double LMP_MARGIN_IMPROVING_FACTOR;
 extern double LMP_MARGIN_IMPROVING_POWER;
 
-extern double LMR_OFFSET_QUIET;
-extern double LMR_DIVISOR_QUIET;
-extern double LMR_OFFSET_NOISY;
-extern double LMR_DIVISOR_NOISY;
+extern int LMR_OFFSET_QUIET;
+extern int LMR_MULT_QUIET;
+extern int LMR_OFFSET_NOISY;
+extern int LMR_MULT_NOISY;
 
 // history.c
 extern int QUIET_HISTORY_MALUS_MAX;
@@ -167,6 +160,14 @@ extern int FIFTY_MOVE_SCALING;
 extern int CORR_HISTORY_BONUS_SCALER;
 extern int HISTORY_MAX;
 
+// evaluate.c
+extern int EVAL_KNIGHT;
+extern int EVAL_BISHOP;
+extern int EVAL_ROOK;
+extern int EVAL_QUEEN;
+extern int EVAL_SCALE_BASE;
+
+// nnue.c
 extern int EVAL_SCALE;
 
 // TM
@@ -246,6 +247,7 @@ void init_spsa_table(void) {
   SPSA_INT(FP_MULTIPLIER, 1);
   SPSA_INT(FP_ADDITION, 1);
   SPSA_INT(FP_HISTORY_DIVISOR, 1);
+  SPSA_INT_POISON(PROBCUT_DEPTH, 0);
   SPSA_INT(NMP_BASE_ADD, 1);
   SPSA_INT(NMP_MULTIPLIER, 1);
   SPSA_INT(NMP_BASE_REDUCTION, 1);
@@ -271,7 +273,6 @@ void init_spsa_table(void) {
   SPSA_INT(LMR_PV_NODE, 1);
   SPSA_INT(LMR_HISTORY_QUIET, 1);
   SPSA_INT(LMR_HISTORY_NOISY, 1);
-  SPSA_INT(LMR_WAS_IN_CHECK, 1);
   SPSA_INT(LMR_IN_CHECK, 1);
   SPSA_INT(LMR_CUTNODE, 1);
   SPSA_INT(LMR_TT_DEPTH, 1);
@@ -290,8 +291,6 @@ void init_spsa_table(void) {
   SPSA_INT(QS_SEE_THRESHOLD, 0);
   SPSA_INT(QS_FUTILITY_THRESHOLD, 1);
   SPSA_INT(MO_SEE_THRESHOLD, 1);
-  SPSA_INT(LMR_QUIET_HIST_DIV, 1);
-  SPSA_INT(LMR_CAPT_HIST_DIV, 1);
   SPSA_INT(LMP_HISTORY_DIVISOR, 1);
   SPSA_INT(ASP_WINDOW_DIVISER, 1);
   SPSA_INT(ASP_WINDOW_FAIL_LOW, 1);
@@ -302,7 +301,6 @@ void init_spsa_table(void) {
   SPSA_INT(HINDSIGN_REDUCTION_EVAL_MARGIN, 1);
   SPSA_INT(PROBCUT_MARGIN, 1);
   SPSA_INT(PROBCUT_SHALLOW_DEPTH, 0);
-  SPSA_INT(PROBCUT_SEE_THRESHOLD, 1);
   SPSA_INT(MO_SEE_HISTORY_DIVISER, 1);
   SPSA_INT(MO_QUIET_HIST_MULT, 1);
   SPSA_INT(MO_CONT1_HIST_MULT, 1);
@@ -311,12 +309,9 @@ void init_spsa_table(void) {
   SPSA_INT(MO_PAWN_HIST_MULT, 1);
   SPSA_INT(MO_CAPT_HIST_MULT, 1);
   SPSA_INT(MO_MVV_MULT, 1);
-  SPSA_INT(MO_CHECK_SEE, 1);
-  SPSA_INT(MO_QUIET_SEE, 1);
   SPSA_INT(SEARCH_QUIET_HIST_MULT, 0);
   SPSA_INT(SEARCH_CONT1_HIST_MULT, 0);
   SPSA_INT(SEARCH_CONT2_HIST_MULT, 0);
-  SPSA_INT(SEARCH_PAWN_HIST_MULT, 0);
   SPSA_INT(SEARCH_CAPT_HIST_MULT, 0);
   SPSA_INT(SEARCH_MVV_MULT, 0);
   SPSA_INT(HISTORY_PRUNING_MARGIN, 1);
@@ -361,6 +356,11 @@ void init_spsa_table(void) {
   SPSA_INT(FIFTY_MOVE_SCALING, 1);
   SPSA_INT(CORR_HISTORY_BONUS_SCALER, 1);
   SPSA_INT(HISTORY_MAX, 0);
+  SPSA_INT(EVAL_KNIGHT, 0);
+  SPSA_INT(EVAL_BISHOP, 0);
+  SPSA_INT(EVAL_ROOK, 0);
+  SPSA_INT(EVAL_QUEEN, 0);
+  SPSA_INT(EVAL_SCALE_BASE, 0);
   SPSA_INT(EVAL_SCALE, 1);
   SPSA_INT_NAME("SEE_PAWN", SEEPieceValues[PAWN], 1);
   SPSA_INT_NAME("SEE_KNIGHT", SEEPieceValues[KNIGHT], 1);
@@ -398,18 +398,13 @@ void init_spsa_table(void) {
                   SPSA_MAX(LMP_MARGIN_IMPROVING_POWER),
                   RATE_DOUBLE(LMP_MARGIN_IMPROVING_POWER), init_reductions, 1);
 
-  add_double_spsa(STRINGIFY(LMR_OFFSET_QUIET), &LMR_OFFSET_QUIET, 0.1,
-                  SPSA_MAX(LMR_OFFSET_QUIET), RATE_DOUBLE(LMR_OFFSET_QUIET),
-                  init_reductions, 1);
-  add_double_spsa(STRINGIFY(LMR_DIVISOR_QUIET), &LMR_DIVISOR_QUIET, 1,
-                  SPSA_MAX(LMR_DIVISOR_QUIET), RATE_DOUBLE(LMR_DIVISOR_QUIET),
-                  init_reductions, 1);
-  add_double_spsa(STRINGIFY(LMR_OFFSET_NOISY), &LMR_OFFSET_NOISY, -1,
-                  fabs(LMR_OFFSET_NOISY), RATE_DOUBLE(LMR_OFFSET_NOISY),
-                  init_reductions, 1);
-  add_double_spsa(STRINGIFY(LMR_DIVISOR_NOISY), &LMR_DIVISOR_NOISY, 1,
-                  SPSA_MAX(LMR_DIVISOR_NOISY), RATE_DOUBLE(LMR_DIVISOR_NOISY),
-                  init_reductions, 1);
+  SPSA_INT_FUNC(LMR_OFFSET_QUIET, init_reductions, 1);
+  SPSA_INT_FUNC(LMR_MULT_QUIET, init_reductions, 1);
+  add_int_spsa(STRINGIFY(LMR_OFFSET_NOISY), &LMR_OFFSET_NOISY,
+               -SPSA_MAX(abs(LMR_OFFSET_NOISY)),
+               SPSA_MAX(abs(LMR_OFFSET_NOISY)), RATE(abs(LMR_OFFSET_NOISY)),
+               init_reductions, 1);
+  SPSA_INT_FUNC(LMR_MULT_NOISY, init_reductions, 1);
   // TM
   add_double_spsa(STRINGIFY(DEF_TIME_MULTIPLIER), &DEF_TIME_MULTIPLIER, 0,
                   SPSA_MAX(DEF_TIME_MULTIPLIER),
@@ -466,8 +461,8 @@ void print_spsa_table_uci(void) {
       printf("option name %s type string default %lf\n", spsa[i].name,
              *(double *)spsa[i].value);
     } else {
-      printf("option name %s type spin default %d min %" PRIu64 " "
-             "max %" PRIu64 "\n",
+            printf("option name %s type spin default %d min %" PRId64 " "
+              "max %" PRId64 "\n",
              spsa[i].name, *(int *)spsa[i].value, spsa[i].min.min_int,
              spsa[i].max.max_int);
     }
