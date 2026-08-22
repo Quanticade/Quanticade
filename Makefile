@@ -221,13 +221,13 @@ endif
 
 ifneq ($(findstring gcc, $(CC)),)
 	PGOGEN   = -fprofile-generate
-	PGOUSE   = -fprofile-use
+	PGOUSE   = -fprofile-use -Wno-error=coverage-mismatch -Wno-error=missing-profile
 endif
 
 ifneq ($(findstring clang, $(CC)),)
 	PGOMERGE = llvm-profdata merge -output=quanticade.profdata *.profraw
 	PGOGEN   = -fprofile-instr-generate
-	PGOUSE   = -fprofile-instr-use=quanticade.profdata
+	PGOUSE   = -fprofile-instr-use=quanticade.profdata -Wno-error=profile-instr-out-of-date -Wno-error=profile-instr-missing
 endif
 
 # Add network name and Evalfile
@@ -243,6 +243,8 @@ OBJECTS := $(patsubst %.c,$(TMPDIR)/%.o,$(SOURCES))
 DEPENDS := $(patsubst %.c,$(TMPDIR)/%.d,$(SOURCES))
 
 EXE	    := $(NAME)$(SUFFIX)
+
+.PHONY: all clean pgo
 
 $(EVALFILE):
 	@echo "NNUE network '$(EVALFILE)' not found."
@@ -266,7 +268,7 @@ $(OBJECTS): | $(PROCESSED_NET)
 
 all: $(TARGET)
 clean:
-	@rm -rf $(TMPDIR) *.o *.d $(TARGET) $(PROCESSED_NET) Tools/process_net
+	@rm -rf $(TMPDIR) *.o *.d $(TARGET) $(PROCESSED_NET) Tools/process_net *.gcda *.profraw *.profdata
 
 $(TARGET): $(OBJECTS)
 	$(CC) $(CFLAGS) $(NATIVE) -MMD -MP -o $(EXE) $^ $(FLAGS)
@@ -280,8 +282,9 @@ $(TMPDIR):
 
 # Usual disservin yoink for makefile related stuff
 pgo: $(PROCESSED_NET)
-	$(CC) $(CFLAGS) $(PGO_GEN) $(NATIVE) $(INSTRUCTIONS) -MMD -MP -o $(EXE) $(SOURCES) -lm $(LDFLAGS)
+	@rm -f *.gcda *.profraw *.profdata
+	$(CC) $(CFLAGS) $(PGOGEN) $(NATIVE) $(INSTRUCTIONS) -MMD -MP -o $(EXE) $(SOURCES) $(FLAGS) $(LDFLAGS)
 	./$(EXE) bench
-	$(PGO_MERGE)
-	$(CC) $(CFLAGS) $(NATIVE) $(INSTRUCTIONS) $(PGO_USE) -MMD -MP -o $(EXE) $(SOURCES) -lm $(LDFLAGS)
-	@rm -f *.gcda *.profraw *.o *.d  profdata
+	$(PGOMERGE)
+	$(CC) $(CFLAGS) $(NATIVE) $(INSTRUCTIONS) $(PGOUSE) -MMD -MP -o $(EXE) $(SOURCES) $(FLAGS) $(LDFLAGS)
+	@rm -f *.gcda *.profraw *.o *.d *.profdata
