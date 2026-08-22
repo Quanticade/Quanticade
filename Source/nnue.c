@@ -66,14 +66,14 @@ const unsigned int gEVALSize = 1;
 
 #if defined(__AVX512F__) || defined(USE_AVX512)
 #define VECTOR_BYTES 64
-#define REGISTERS 32
+#define REGISTERS 16
 #elif defined(__AVX2__) || defined(USE_AVX2)
 #define VECTOR_BYTES 32
-#define REGISTERS 16
+#define REGISTERS 8
 #elif defined(__ARM_NEON) || defined(USE_NEON) || defined(__aarch64__)
 // aarch64 has 32 registers
 #define VECTOR_BYTES 16
-#define REGISTERS 32
+#define REGISTERS 16
 #else
 #define VECTOR_BYTES 16
 #define REGISTERS 8
@@ -248,15 +248,15 @@ static inline int16_t get_idx(uint8_t side, uint8_t piece, uint8_t square,
   return idx;
 }
 
-void rebuild_threats(position_t *pos, uint8_t *mailbox, accumulator_t *acc) {
-  for (int i = 0; i < L1_SIZE; ++i) {
-    acc->threat_accumulator[white][i] = 0;
-    acc->threat_accumulator[black][i] = 0;
-  }
+static void maybe_push_white_threat(threat_list_t*, int);
+static void maybe_push_black_threat(threat_list_t*, int);
 
+void rebuild_threats(position_t *pos, uint8_t *mailbox, accumulator_t *acc) {
   uint64_t occ = pos->occupancies[both];
   uint8_t white_king_sq = get_lsb(pos->bitboards[K]);
   uint8_t black_king_sq = get_lsb(pos->bitboards[k]);
+
+  threat_list_t added = { .w_count = 0, .b_count = 0 };
 
   for (int c = 0; c < 2; ++c) {
     for (int pt = 0; pt < 5; ++pt) {
@@ -292,23 +292,72 @@ void rebuild_threats(position_t *pos, uint8_t *mailbox, accumulator_t *acc) {
           int b_idx =
               get_threat_index(black, black_king_sq, pc, victim_pc, src, dest);
 
-          if (w_idx >= 0) {
-            for (int i = 0; i < L1_SIZE; ++i) {
-              acc->threat_accumulator[white][i] +=
-                  nnue->feature_threats[w_idx][i];
-            }
-          }
-          if (b_idx >= 0) {
-            for (int i = 0; i < L1_SIZE; ++i) {
-              acc->threat_accumulator[black][i] +=
-                  nnue->feature_threats[b_idx][i];
-            }
-          }
+          maybe_push_white_threat(&added, w_idx);
+          maybe_push_black_threat(&added, b_idx);
         }
       }
     }
   }
+
+  if (added.w_count) {
+    for (int i = 0; i < L1_SIZE; i += CHUNK_SIZE * CHUNK_ELTS) {
+      vec_s16 vecs[CHUNK_SIZE];
+
+      const vec_s8* m = (const vec_s8 *)&nnue->feature_threats[added.w_idx[0]][i];
+
+#pragma GCC unroll 16
+      for (int k = 0; k < CHUNK_SIZE; ++k) {
+        vec_s8 w8 = *m++;
+        vecs[k] = __builtin_convertvector(w8, vec_s16);
+      }
+
+      for (int j = 1; j < added.w_count; ++j) {
+        const vec_s8* m = (const vec_s8 *)&nnue->feature_threats[added.w_idx[j]][i];
+#pragma GCC unroll 16
+        for (int k = 0; k < CHUNK_SIZE; ++k) {
+          vec_s8 w8 = *m++;
+          vecs[k] += __builtin_convertvector(w8, vec_s16);
+        }
+      }
+
+      memcpy(&acc->threat_accumulator[white][i], vecs, sizeof(vecs));
+    }
+  } else
+    for (int i = 0; i < L1_SIZE; ++i)
+      acc->threat_accumulator[white][i] = 0;
+
+  if (added.b_count) {
+    for (int i = 0; i < L1_SIZE; i += CHUNK_SIZE * CHUNK_ELTS) {
+      vec_s16 vecs[CHUNK_SIZE];
+
+      const vec_s8* m = (const vec_s8 *)&nnue->feature_threats[added.b_idx[0]][i];
+
+#pragma GCC unroll 16
+      for (int k = 0; k < CHUNK_SIZE; ++k) {
+        vec_s8 w8 = *m++;
+        vecs[k] = __builtin_convertvector(w8, vec_s16);
+      }
+
+      for (int j = 1; j < added.b_count; ++j) {
+        const vec_s8* m = (const vec_s8 *)&nnue->feature_threats[added.b_idx[j]][i];
+#pragma GCC unroll 16
+        for (int k = 0; k < CHUNK_SIZE; ++k) {
+          vec_s8 w8 = *m++;
+          vecs[k] += __builtin_convertvector(w8, vec_s16);
+        }
+      }
+
+      memcpy(&acc->threat_accumulator[black][i], vecs, sizeof(vecs));
+    }
+  } else
+    for (int i = 0; i < L1_SIZE; ++i)
+      acc->threat_accumulator[black][i] = 0;
 }
+
+typedef struct psqt_list_s {
+  int count;
+  unsigned indices[32];
+} psqt_list_t;
 
 static inline void refresh_accumulator(thread_t *thread, position_t *pos,
                                        accumulator_t *accumulator) {
@@ -321,34 +370,19 @@ static inline void refresh_accumulator(thread_t *thread, position_t *pos,
   uint64_t *finny_bitboards =
       thread->finny_tables[do_hm][bucket].bitboards[side];
 
+  psqt_list_t added_list = { .count = 0 };
+  psqt_list_t removed_list = { .count = 0 };
+
   for (uint8_t piece = P; piece <= k; ++piece) {
     uint64_t added = pos->bitboards[piece] & ~finny_bitboards[piece];
     uint64_t removed = finny_bitboards[piece] & ~pos->bitboards[piece];
-
-    while (added && removed) {
-      const uint8_t added_square = get_lsb(added);
-      pop_bit(added, added_square);
-      const uint8_t removed_square = get_lsb(removed);
-      pop_bit(removed, removed_square);
-      const size_t added_index =
-          get_idx(side, piece, added_square, king_square, 0, 0);
-      const size_t removed_index =
-          get_idx(side, piece, removed_square, king_square, 0, 0);
-
-      for (int i = 0; i < L1_SIZE; ++i)
-        finny_accumulator->psqt_accumulator[side][i] +=
-            nnue->feature_weights[bucket][added_index][i] -
-            nnue->feature_weights[bucket][removed_index][i];
-    }
 
     while (added) {
       const uint8_t square = get_lsb(added);
       pop_bit(added, square);
       const size_t index = get_idx(side, piece, square, king_square, 0, 0);
 
-      for (int i = 0; i < L1_SIZE; ++i)
-        finny_accumulator->psqt_accumulator[side][i] +=
-            nnue->feature_weights[bucket][index][i];
+      added_list.indices[added_list.count++] = index;
     }
 
     while (removed) {
@@ -356,13 +390,33 @@ static inline void refresh_accumulator(thread_t *thread, position_t *pos,
       pop_bit(removed, square);
       const size_t index = get_idx(side, piece, square, king_square, 0, 0);
 
-      for (int i = 0; i < L1_SIZE; ++i)
-        finny_accumulator->psqt_accumulator[side][i] -=
-            nnue->feature_weights[bucket][index][i];
+      removed_list.indices[removed_list.count++] = index;
     }
   }
-  memcpy(accumulator->psqt_accumulator[side],
-         finny_accumulator->psqt_accumulator[side], L1_SIZE * sizeof(int16_t));
+
+  for (int i = 0; i < L1_SIZE; i += CHUNK_SIZE * CHUNK_ELTS) {
+    vec_s16 vecs[CHUNK_SIZE];
+    memcpy(vecs, &finny_accumulator->psqt_accumulator[side][i], sizeof(vecs));
+
+    for (int j = 0; j < added_list.count; ++j) {
+      const vec_s16* m = (const vec_s16 *)&nnue->feature_weights[bucket][added_list.indices[j]][i];
+#pragma GCC unroll 16
+      for (int k = 0; k < CHUNK_SIZE; ++k) {
+        vecs[k] += *m++;
+      }
+    }
+
+    for (int j = 0; j < removed_list.count; ++j) {
+      const vec_s16* m = (const vec_s16 *)&nnue->feature_weights[bucket][removed_list.indices[j]][i];
+      for (int k = 0; k < CHUNK_SIZE; ++k) {
+        vecs[k] -= *m++;
+      }
+    }
+
+    memcpy(&finny_accumulator->psqt_accumulator[side][i], vecs, sizeof(vecs));
+    memcpy(&accumulator->psqt_accumulator[side][i], vecs, sizeof(vecs));
+  }
+
   memcpy(finny_bitboards, pos->bitboards, 12 * sizeof(uint64_t));
 
   rebuild_threats(pos, pos->mailbox, accumulator);
@@ -883,19 +937,19 @@ accumulator_addsub(accumulator_t *restrict accumulator,
                      1);
 
   if (color_flag == 0 || color_flag == 2) {
-    for (int i = 0; i < L1_SIZE; ++i) {
-      accumulator->psqt_accumulator[white][i] =
-          prev_accumulator->psqt_accumulator[white][i] -
-          nnue->feature_weights[white_bucket][white_idx_from][i] +
-          nnue->feature_weights[white_bucket][white_idx_to][i];
+    for (int i = 0; i < L1_SIZE; i += CHUNK_ELTS) {
+      *(vec_s16*)&accumulator->psqt_accumulator[white][i] =
+          *(const vec_s16*)&prev_accumulator->psqt_accumulator[white][i] -
+          *(const vec_s16*)&nnue->feature_weights[white_bucket][white_idx_from][i] +
+          *(const vec_s16*)&nnue->feature_weights[white_bucket][white_idx_to][i];
     }
   }
   if (color_flag == 1 || color_flag == 2) {
-    for (int i = 0; i < L1_SIZE; ++i) {
-      accumulator->psqt_accumulator[black][i] =
-          prev_accumulator->psqt_accumulator[black][i] -
-          nnue->feature_weights[black_bucket][black_idx_from][i] +
-          nnue->feature_weights[black_bucket][black_idx_to][i];
+    for (int i = 0; i < L1_SIZE; i += CHUNK_ELTS) {
+      *(vec_s16*)&accumulator->psqt_accumulator[black][i] =
+          *(const vec_s16*)&prev_accumulator->psqt_accumulator[black][i] -
+          *(const vec_s16*)&nnue->feature_weights[black_bucket][black_idx_from][i] +
+          *(const vec_s16*)&nnue->feature_weights[black_bucket][black_idx_to][i];
     }
   }
 }
@@ -920,21 +974,21 @@ static inline void accumulator_addsubsub(
       get_idx(black, piece3, to3, black_king_square, 0, 0);
 
   if (color_flag == 0 || color_flag == 2) {
-    for (int i = 0; i < L1_SIZE; ++i) {
-      accumulator->psqt_accumulator[white][i] =
-          prev_accumulator->psqt_accumulator[white][i] -
-          nnue->feature_weights[white_bucket][white_idx_from1][i] -
-          nnue->feature_weights[white_bucket][white_idx_from2][i] +
-          nnue->feature_weights[white_bucket][white_idx_to][i];
+    for (int i = 0; i < L1_SIZE; i += CHUNK_ELTS) {
+      *(vec_s16*)&accumulator->psqt_accumulator[white][i] =
+          *(const vec_s16*)&prev_accumulator->psqt_accumulator[white][i] -
+          *(const vec_s16*)&nnue->feature_weights[white_bucket][white_idx_from1][i] -
+          *(const vec_s16*)&nnue->feature_weights[white_bucket][white_idx_from2][i] +
+          *(const vec_s16*)&nnue->feature_weights[white_bucket][white_idx_to][i];
     }
   }
   if (color_flag == 1 || color_flag == 2) {
-    for (int i = 0; i < L1_SIZE; ++i) {
-      accumulator->psqt_accumulator[black][i] =
-          prev_accumulator->psqt_accumulator[black][i] -
-          nnue->feature_weights[black_bucket][black_idx_from1][i] -
-          nnue->feature_weights[black_bucket][black_idx_from2][i] +
-          nnue->feature_weights[black_bucket][black_idx_to][i];
+    for (int i = 0; i < L1_SIZE; i += CHUNK_ELTS) {
+      *(vec_s16*)&accumulator->psqt_accumulator[black][i] =
+          *(const vec_s16*)&prev_accumulator->psqt_accumulator[black][i] -
+          *(const vec_s16*)&nnue->feature_weights[black_bucket][black_idx_from1][i] -
+          *(const vec_s16*)&nnue->feature_weights[black_bucket][black_idx_from2][i] +
+          *(const vec_s16*)&nnue->feature_weights[black_bucket][black_idx_to][i];
     }
   }
 }
@@ -965,23 +1019,23 @@ accumulator_addaddsubsub(accumulator_t *restrict accumulator,
       get_idx(black, piece4, to4, black_king_square, 0, 0);
 
   if (color_flag == 0 || color_flag == 2) {
-    for (int i = 0; i < L1_SIZE; ++i) {
-      accumulator->psqt_accumulator[white][i] =
-          prev_accumulator->psqt_accumulator[white][i] -
-          nnue->feature_weights[white_bucket][white_idx_from1][i] -
-          nnue->feature_weights[white_bucket][white_idx_from2][i] +
-          nnue->feature_weights[white_bucket][white_idx_to1][i] +
-          nnue->feature_weights[white_bucket][white_idx_to2][i];
+    for (int i = 0; i < L1_SIZE; i += CHUNK_ELTS) {
+      *(vec_s16*)&accumulator->psqt_accumulator[white][i] =
+          *(const vec_s16*)&prev_accumulator->psqt_accumulator[white][i] -
+          *(const vec_s16*)&nnue->feature_weights[white_bucket][white_idx_from1][i] -
+          *(const vec_s16*)&nnue->feature_weights[white_bucket][white_idx_from2][i] +
+          *(const vec_s16*)&nnue->feature_weights[white_bucket][white_idx_to1][i] +
+          *(const vec_s16*)&nnue->feature_weights[white_bucket][white_idx_to2][i];
     }
   }
   if (color_flag == 1 || color_flag == 2) {
-    for (int i = 0; i < L1_SIZE; ++i) {
-      accumulator->psqt_accumulator[black][i] =
-          prev_accumulator->psqt_accumulator[black][i] -
-          nnue->feature_weights[black_bucket][black_idx_from1][i] -
-          nnue->feature_weights[black_bucket][black_idx_from2][i] +
-          nnue->feature_weights[black_bucket][black_idx_to1][i] +
-          nnue->feature_weights[black_bucket][black_idx_to2][i];
+    for (int i = 0; i < L1_SIZE; i += CHUNK_ELTS) {
+      *(vec_s16*)&accumulator->psqt_accumulator[black][i] =
+          *(const vec_s16*)&prev_accumulator->psqt_accumulator[black][i] -
+          *(const vec_s16*)&nnue->feature_weights[black_bucket][black_idx_from1][i] -
+          *(const vec_s16*)&nnue->feature_weights[black_bucket][black_idx_from2][i] +
+          *(const vec_s16*)&nnue->feature_weights[black_bucket][black_idx_to1][i] +
+          *(const vec_s16*)&nnue->feature_weights[black_bucket][black_idx_to2][i];
     }
   }
 }
@@ -1048,68 +1102,87 @@ accumulator_make_move(accumulator_t *restrict accumulator,
   }
 }
 
+static inline void maybe_push_white_threat(threat_list_t* out, int w_idx) {
+  int* c = &out->w_count;
+  out->w_idx[*c] = w_idx;
+  *c += w_idx >= 0;
+}
+
+static inline void maybe_push_black_threat(threat_list_t* out, int b_idx) {
+  int* c = &out->b_count;
+  out->b_idx[*c] = b_idx;
+  *c += b_idx >= 0;
+}
+
 static inline void push_threat(threat_list_t *list, uint8_t w_ksq,
                                uint8_t b_ksq, int attacker_pc, int victim_pc,
                                int src, int dest) {
   int w_idx = get_threat_index(white, w_ksq, attacker_pc, victim_pc, src, dest);
-  if (w_idx >= 0) {
-    list->w_idx[list->w_count++] = w_idx;
-  }
+  maybe_push_white_threat(list, w_idx);
 
   int b_idx = get_threat_index(black, b_ksq, attacker_pc, victim_pc, src, dest);
-  if (b_idx >= 0) {
-    list->b_idx[list->b_count++] = b_idx;
-  }
+  maybe_push_black_threat(list, b_idx);
 }
 
-static void apply_threat_batches(accumulator_t *acc, threat_list_t *adds,
-                                 threat_list_t *subs) {
+static void apply_threat_batches(accumulator_t *acc, const accumulator_t* acc_before,
+                                 threat_list_t *adds, threat_list_t *subs) {
   int16_t *w_acc =
       (int16_t *)__builtin_assume_aligned(acc->threat_accumulator[white], 64);
+  int16_t *w_acc_before =
+      (int16_t *)__builtin_assume_aligned(acc_before->threat_accumulator[white], 64);
   int16_t *b_acc =
-      (int16_t *)__builtin_assume_aligned(acc->threat_accumulator[black], 64);
+    (int16_t *)__builtin_assume_aligned(acc->threat_accumulator[black], 64);
+  int16_t *b_acc_before =
+      (int16_t *)__builtin_assume_aligned(acc_before->threat_accumulator[black], 64);
 
   for (int i = 0; i < L1_SIZE; i += CHUNK_SIZE * CHUNK_ELTS) {
-    vec_s16 w_vecs[CHUNK_SIZE];
-    vec_s16 b_vecs[CHUNK_SIZE];
+    {
+      vec_s16 w_vecs[CHUNK_SIZE];
+      memcpy(w_vecs, w_acc_before + i, sizeof(w_vecs));
 
-    memcpy(w_vecs, w_acc + i, sizeof(w_vecs));
-    memcpy(b_vecs, b_acc + i, sizeof(b_vecs));
-
-    for (int j = 0; j < adds->w_count; ++j) {
-      for (int k = 0; k < CHUNK_SIZE; ++k) {
-        vec_s8 w8 = *(vec_s8 *)&nnue
-                         ->feature_threats[adds->w_idx[j]][i + (k * CHUNK_ELTS)];
-        w_vecs[k] += __builtin_convertvector(w8, vec_s16);
+      for (int j = 0; j < adds->w_count; ++j) {
+        const vec_s8* m = (const vec_s8 *)&nnue->feature_threats[adds->w_idx[j]][i];
+#pragma GCC unroll 16
+        for (int k = 0; k < CHUNK_SIZE; ++k) {
+          vec_s8 w8 = *m++;
+          w_vecs[k] += __builtin_convertvector(w8, vec_s16);
+        }
       }
+
+      for (int j = 0; j < subs->w_count; ++j) {
+        const vec_s8* m = (const vec_s8 *)&nnue->feature_threats[subs->w_idx[j]][i];
+        for (int k = 0; k < CHUNK_SIZE; ++k) {
+          vec_s8 w8 = *m++;
+          w_vecs[k] -= __builtin_convertvector(w8, vec_s16);
+        }
+      }
+
+      memcpy(w_acc + i, w_vecs, sizeof(w_vecs));
     }
 
-    for (int j = 0; j < adds->b_count; ++j) {
-      for (int k = 0; k < CHUNK_SIZE; ++k) {
-        vec_s8 w8 = *(vec_s8 *)&nnue
-                         ->feature_threats[adds->b_idx[j]][i + (k * CHUNK_ELTS)];
-        b_vecs[k] += __builtin_convertvector(w8, vec_s16);
+    {
+      vec_s16 b_vecs[CHUNK_SIZE];
+      memcpy(b_vecs, b_acc_before + i, sizeof(b_vecs));
+      for (int j = 0; j < adds->b_count; ++j) {
+        const vec_s8* m = (const vec_s8 *)&nnue->feature_threats[adds->b_idx[j]][i];
+#pragma GCC unroll 16
+        for (int k = 0; k < CHUNK_SIZE; ++k) {
+          vec_s8 w8 = *m++;
+          b_vecs[k] += __builtin_convertvector(w8, vec_s16);
+        }
       }
-    }
 
-    for (int j = 0; j < subs->w_count; ++j) {
-      for (int k = 0; k < CHUNK_SIZE; ++k) {
-        vec_s8 w8 = *(vec_s8 *)&nnue
-                         ->feature_threats[subs->w_idx[j]][i + (k * CHUNK_ELTS)];
-        w_vecs[k] -= __builtin_convertvector(w8, vec_s16);
+      for (int j = 0; j < subs->b_count; ++j) {
+        const vec_s8* m = (const vec_s8 *)&nnue->feature_threats[subs->b_idx[j]][i];
+#pragma GCC unroll 16
+        for (int k = 0; k < CHUNK_SIZE; ++k) {
+          vec_s8 w8 = *m++;
+          b_vecs[k] -= __builtin_convertvector(w8, vec_s16);
+        }
       }
-    }
 
-    for (int j = 0; j < subs->b_count; ++j) {
-      for (int k = 0; k < CHUNK_SIZE; ++k) {
-        vec_s8 w8 = *(vec_s8 *)&nnue
-                         ->feature_threats[subs->b_idx[j]][i + (k * CHUNK_ELTS)];
-        b_vecs[k] -= __builtin_convertvector(w8, vec_s16);
-      }
+      memcpy(b_acc + i, b_vecs, sizeof(b_vecs));
     }
-
-    memcpy(w_acc + i, w_vecs, sizeof(w_vecs));
-    memcpy(b_acc + i, b_vecs, sizeof(b_vecs));
   }
 }
 
@@ -1194,7 +1267,9 @@ static void process_slider_deltas(position_t *pos_before, position_t *pos_after,
   }
 }
 
+__attribute__((always_inline))
 static void update_threats_incremental(accumulator_t *acc,
+                                       accumulator_t *acc_before,
                                        position_t *pos_before,
                                        position_t *pos_after) {
   uint64_t real_changed_sqs = 0;
@@ -1231,7 +1306,7 @@ static void update_threats_incremental(accumulator_t *acc,
   process_changed_squares(pos_after, real_changed_sqs, &adds);
   process_slider_deltas(pos_before, pos_after, affected_sliders, real_changed_sqs, &adds, &subs);
 
-  apply_threat_batches(acc, &adds, &subs);
+  apply_threat_batches(acc, acc_before, &adds, &subs);
 }
 
 void apply_accumulator(thread_t *thread, int ply) {
@@ -1280,22 +1355,12 @@ void apply_accumulator(thread_t *thread, int ply) {
   }
 
   if (s->threat_needs_refresh) {
-    for (int i = 0; i < L1_SIZE; ++i) {
-      thread->accumulator[ply].threat_accumulator[white][i] = 0;
-      thread->accumulator[ply].threat_accumulator[black][i] = 0;
-    }
     rebuild_threats(&thread->positions[ply], thread->positions[ply].mailbox,
                     &thread->accumulator[ply]);
   } else {
 
-    memcpy(thread->accumulator[ply].threat_accumulator[white],
-           thread->accumulator[ply - 1].threat_accumulator[white],
-           L1_SIZE * sizeof(int16_t));
-    memcpy(thread->accumulator[ply].threat_accumulator[black],
-           thread->accumulator[ply - 1].threat_accumulator[black],
-           L1_SIZE * sizeof(int16_t));
-
     update_threats_incremental(&thread->accumulator[ply],
+                          &thread->accumulator[ply - 1],
                                &thread->positions[ply - 1],
                                &thread->positions[ply]);
   }
