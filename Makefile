@@ -266,7 +266,7 @@ $(PROCESSED_NET): Tools/process_net.c | $(EVALFILE)
 
 $(OBJECTS): | $(PROCESSED_NET)
 
-all: $(TARGET)
+all: pgo
 clean:
 	@rm -rf $(TMPDIR) *.o *.d $(TARGET) $(PROCESSED_NET) Tools/process_net *.gcda *.profraw *.profdata
 
