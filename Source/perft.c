@@ -64,6 +64,7 @@ void perft_test(position_t *pos, thread_t *searchinfo, int depth) {
 
   // init start time
   const long start = get_time_ms();
+  searchinfo->nodes = 0;
 
   // loop over generated moves
   for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
