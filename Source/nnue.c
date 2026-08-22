@@ -50,6 +50,8 @@ static void init_nnz_table(void) {
 }
 #endif
 
+#define GCC_VERSION (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)
+
 const uint8_t buckets[64] = {14, 14, 15, 15, 15, 15, 14, 14, 14, 14, 15, 15, 15,
                              15, 14, 14, 12, 12, 13, 13, 13, 13, 12, 12, 12, 12,
                              13, 13, 13, 13, 12, 12, 8,  9,  10, 11, 11, 10, 9,
@@ -1126,14 +1128,22 @@ static inline void push_threat(threat_list_t *list, uint8_t w_ksq,
 
 static void apply_threat_batches(accumulator_t *acc, const accumulator_t* acc_before,
                                  threat_list_t *adds, threat_list_t *subs) {
+// A way to get around GCC 12.2.0 or lower bug with assume_aligned
+#if GCC_VERSION > 120200 && !defined(__clang__)
   int16_t *w_acc =
       (int16_t *)__builtin_assume_aligned(acc->threat_accumulator[white], 64);
-  int16_t *w_acc_before =
-      (int16_t *)__builtin_assume_aligned(acc_before->threat_accumulator[white], 64);
+  int16_t *w_acc_before = (int16_t *)__builtin_assume_aligned(
+      acc_before->threat_accumulator[white], 64);
   int16_t *b_acc =
-    (int16_t *)__builtin_assume_aligned(acc->threat_accumulator[black], 64);
-  int16_t *b_acc_before =
-      (int16_t *)__builtin_assume_aligned(acc_before->threat_accumulator[black], 64);
+      (int16_t *)__builtin_assume_aligned(acc->threat_accumulator[black], 64);
+  int16_t *b_acc_before = (int16_t *)__builtin_assume_aligned(
+      acc_before->threat_accumulator[black], 64);
+#else
+  int16_t *w_acc = (int16_t *)(acc->threat_accumulator[white]);
+  int16_t *w_acc_before = (int16_t *)(acc_before->threat_accumulator[white]);
+  int16_t *b_acc = (int16_t *)(acc->threat_accumulator[black]);
+  int16_t *b_acc_before = (int16_t *)(acc_before->threat_accumulator[black]);
+#endif
 
   for (int i = 0; i < L1_SIZE; i += CHUNK_SIZE * CHUNK_ELTS) {
     {
