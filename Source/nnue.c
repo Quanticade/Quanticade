@@ -1268,7 +1268,7 @@ static void process_slider_deltas(position_t *pos_before, position_t *pos_after,
 }
 
 __attribute__((always_inline))
-static void update_threats_incremental(accumulator_t *acc,
+static inline void update_threats_incremental(accumulator_t *acc,
                                        accumulator_t *acc_before,
                                        position_t *pos_before,
                                        position_t *pos_after) {
