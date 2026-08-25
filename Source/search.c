@@ -1529,6 +1529,9 @@ void *iterative_deepening(void *thread_void) {
       beta = MIN(INF, thread->score + window);
     }
 
+    const int16_t prev_score = thread->score;
+    const uint8_t pv_length = thread->pv.pv_length[0];
+
     while (true) {
 
       if (check_time(thread)) {
@@ -1549,6 +1552,8 @@ void *iterative_deepening(void *thread_void) {
       // We hit an aspiration window cut-off before time ran out and we jumped
       // to another depth with wider search which we didnt finish
       if (thread->stopped) {
+        thread->score = prev_score;
+        thread->pv.pv_length[0] = pv_length;
         return NULL;
       }
 
