@@ -1531,6 +1531,8 @@ void *iterative_deepening(void *thread_void) {
 
     const int16_t prev_score = thread->score;
     const uint8_t pv_length = thread->pv.pv_length[0];
+    uint16_t prev_pv[MAX_PLY];
+    memcpy(prev_pv, thread->pv.pv_table[0], pv_length * sizeof(int16_t));
 
     while (true) {
 
@@ -1554,6 +1556,7 @@ void *iterative_deepening(void *thread_void) {
       if (thread->stopped) {
         thread->score = prev_score;
         thread->pv.pv_length[0] = pv_length;
+        memcpy(thread->pv.pv_table[0], prev_pv, pv_length * sizeof(int16_t));
         return NULL;
       }
 
