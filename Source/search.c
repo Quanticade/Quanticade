@@ -190,6 +190,7 @@ TUNABLE(int SEEPieceValues[] = {67, 326, 320, 603, 1653, 0, 0});
 TUNABLE(int mvv[] = {111, 364, 329, 475, 1394, 0});
 
 int lmr[2][MAX_PLY + 1][256];
+int lmp_margin[2][256];
 
 TUNABLE(double bestmove_scale[5] = {2.4132984943657214, 1.3700453510729038, 1.099063865295098, 0.8862855915603673, 0.7146573470978642});
 
@@ -209,6 +210,12 @@ void init_reductions(void) {
       lmr[1][depth][move] =
         LMR_OFFSET_QUIET + log(depth) * log(move) * LMR_MULT_QUIET;
     }
+    lmp_margin[0][depth] = LMP_MARGIN_WORSENING_BASE +
+                       LMP_MARGIN_WORSENING_FACTOR *
+                           pow(depth, LMP_MARGIN_WORSENING_POWER);
+    lmp_margin[1][depth] = LMP_MARGIN_IMPROVING_BASE +
+                       LMP_MARGIN_IMPROVING_FACTOR *
+                           pow(depth, LMP_MARGIN_IMPROVING_POWER);
   }
 }
 
@@ -1169,17 +1176,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     int reduction = lmr[quiet][depth][MIN(255, moves_seen)];
 
     if (!root_node && !is_loss(best_score)) {
-      int lmp_treshold;
-
-      if (improving || ss->static_eval >= beta + LMP_BETA_MARGIN) {
-        lmp_treshold = LMP_MARGIN_IMPROVING_BASE +
-                       LMP_MARGIN_IMPROVING_FACTOR *
-                           pow(initial_depth, LMP_MARGIN_IMPROVING_POWER);
-      } else {
-        lmp_treshold = LMP_MARGIN_WORSENING_BASE +
-                       LMP_MARGIN_WORSENING_FACTOR *
-                           pow(initial_depth, LMP_MARGIN_WORSENING_POWER);
-      }
+      const int lmp_treshold = lmp_margin[improving || ss->static_eval >= beta + LMP_BETA_MARGIN][initial_depth];
 
       // Late Move Pruning
       if (!pv_node && quiet && moves_seen >= lmp_treshold + ss->history_score / LMP_HISTORY_DIVISOR && !only_pawns(pos)) {
