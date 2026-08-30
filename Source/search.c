@@ -64,6 +64,8 @@ TUNABLE(int SEARCH_CONT1_HIST_MULT = 1024);
 TUNABLE(int SEARCH_CONT2_HIST_MULT = 1024);
 TUNABLE(int SEARCH_CAPT_HIST_MULT = 1024);
 TUNABLE(int SEARCH_MVV_MULT = 1024);
+TUNABLE(int LDSE_DEPTH = 7);
+TUNABLE(int BNFP_DEPTH = 10);
 
 // SPSA Tuned params
 TUNABLE(int RAZOR_MARGIN = 315);
@@ -125,6 +127,7 @@ TUNABLE(int MO_CAPT_HIST_MULT = 1347);
 TUNABLE(int MO_MVV_MULT = 15649);
 TUNABLE(int HISTORY_PRUNING_MARGIN = 2574);
 TUNABLE(int BNFP_MARGIN = 146);
+TUNABLE(int BNFP_HISTORY_DIVIDER = 29);
 
 TUNABLE(int QUIET_HISTORY_MALUS_MAX = 1030);
 TUNABLE(int QUIET_HISTORY_BONUS_MAX = 1236);
@@ -1104,7 +1107,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     }
   }
   // Low Depth Singular Extensions (LDSE)
-  else if (depth <= 7 && !in_check && ss->static_eval <= alpha - LDSE_MARGIN &&
+  else if (depth <= LDSE_DEPTH && !in_check && ss->static_eval <= alpha - LDSE_MARGIN &&
            tt_flag == HASH_FLAG_LOWER_BOUND) {
     extensions = 1;
   }
@@ -1189,8 +1192,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         continue;
       }
 
-      int noisy_futility_margin = ss->static_eval + BNFP_MARGIN * depth + ss->history_score / 29;
-      if (!in_check && depth < 10 && picker.stage == STAGE_BAD_NOISY &&
+      int noisy_futility_margin = ss->static_eval + BNFP_MARGIN * depth + ss->history_score / BNFP_HISTORY_DIVIDER;
+      if (!in_check && depth < BNFP_DEPTH && picker.stage == STAGE_BAD_NOISY &&
           noisy_futility_margin <= alpha && !is_direct_check(pos, &check_info, move)) {
         break;
       }
