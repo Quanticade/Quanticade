@@ -261,6 +261,7 @@ void make_move(position_t *pos, uint16_t move) {
   uint64_t approximate_key = pos->hash_keys.hash_key;
   approximate_key ^= keys.piece_keys[bb_piece][target_square];
   approximate_key ^= keys.piece_keys[piece][source_square] ^ keys.piece_keys[piece][target_square];
+  approximate_key ^= keys.side_key;
 
   prefetch_hash_entry(approximate_key);
 
