@@ -253,12 +253,17 @@ static inline int16_t get_idx(uint8_t side, uint8_t piece, uint8_t square,
 static void maybe_push_white_threat(threat_list_t*, int);
 static void maybe_push_black_threat(threat_list_t*, int);
 
+static void init_threat_list(threat_list_t* l) {
+    l->w_count = l->b_count = 0;
+}
+
 void rebuild_threats(position_t *pos, uint8_t *mailbox, accumulator_t *acc) {
   uint64_t occ = pos->occupancies[both];
   uint8_t white_king_sq = get_lsb(pos->bitboards[K]);
   uint8_t black_king_sq = get_lsb(pos->bitboards[k]);
 
-  threat_list_t added = { .w_count = 0, .b_count = 0 };
+  threat_list_t added;
+  init_threat_list(&added);
 
   for (int c = 0; c < 2; ++c) {
     for (int pt = 0; pt < 5; ++pt) {
@@ -1309,8 +1314,10 @@ static inline void update_threats_incremental(accumulator_t *acc,
 
   uint64_t affected_sliders = (sliders_before | sliders_after) & ~real_changed_sqs;
 
-  threat_list_t adds = {.w_count = 0, .b_count = 0};
-  threat_list_t subs = {.w_count = 0, .b_count = 0};
+  threat_list_t adds;
+  init_threat_list(&adds);
+  threat_list_t subs;
+  init_threat_list(&subs);
 
   process_changed_squares(pos_before, real_changed_sqs, &subs);
   process_changed_squares(pos_after, real_changed_sqs, &adds);
