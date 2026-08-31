@@ -243,6 +243,8 @@ pinners:;
   return !pinned || (line[source][target] & BB(king));
 }
 
+extern void prefetch_hash_entry(uint64_t);
+
 void make_move(position_t *pos, uint16_t move) {
   // parse move
   uint8_t capture        = get_move_capture(move);
@@ -254,6 +256,13 @@ void make_move(position_t *pos, uint16_t move) {
   uint8_t enpass         = get_move_enpassant(move);
   uint8_t castling       = get_move_castling(move);
   uint8_t stm            = pos->side;
+  uint8_t bb_piece = pos->mailbox[target_square];
+
+  uint64_t approximate_key = pos->hash_keys.hash_key;
+  approximate_key ^= keys.piece_keys[bb_piece][target_square];
+  approximate_key ^= keys.piece_keys[piece][source_square] ^ keys.piece_keys[piece][target_square];
+
+  prefetch_hash_entry(approximate_key);
 
   // increment fifty move rule counter
   pos->fifty++;
@@ -264,7 +273,6 @@ void make_move(position_t *pos, uint16_t move) {
   // handling capture moves
   if (capture && !enpass) {
     pos->fifty = 0;
-    uint8_t bb_piece = pos->mailbox[target_square];
     if (bb_piece != NO_PIECE && get_bit(pos->bitboards[bb_piece], target_square)) {
       pop_bit(pos->bitboards[bb_piece], target_square);
       pos->hash_keys.hash_key ^= keys.piece_keys[bb_piece][target_square];
