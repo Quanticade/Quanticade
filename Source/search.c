@@ -648,8 +648,6 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
       add_move(capture_list, move);
     }
 
-    prefetch_hash_entry(next_pos->hash_keys.hash_key);
-
     // score current move
     score = -quiescence(thread, ss + 1, -beta, -alpha, pv_node);
 
@@ -1022,8 +1020,6 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
       thread->nodes++;
 
-      prefetch_hash_entry(next_pos->hash_keys.hash_key);
-
       // Shallow search with raised beta
       int16_t probcut_score =
           -quiescence(thread, ss + 1, -probcut_beta, -probcut_beta + 1, NON_PV);
@@ -1241,8 +1237,6 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     } else {
       add_move(capture_list, move);
     }
-
-    prefetch_hash_entry(next_pos->hash_keys.hash_key);
 
     const uint64_t nodes_before_search = thread->nodes;
 

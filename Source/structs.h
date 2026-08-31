@@ -53,7 +53,7 @@ typedef struct moves {
 } moves;
 
 typedef struct keys {
-  uint64_t piece_keys[12][64];
+  uint64_t piece_keys[13][64];
   uint64_t enpassant_keys[64];
   uint64_t castle_keys[16];
   uint64_t side_key;
