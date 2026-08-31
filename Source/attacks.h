@@ -3,6 +3,11 @@
 
 #include "structs.h"
 #include <stdint.h>
+#include "pext_magics.h"
+
+#ifdef __BMI2__
+#include <immintrin.h>  // pdep/pext
+#endif
 
 extern const int bishop_relevant_bits[64];
 extern const int rook_relevant_bits[64];
@@ -29,6 +34,15 @@ void init_leapers_attacks(void);
 
 // get bishop attacks
 static inline uint64_t get_bishop_attacks(int square, uint64_t occupancy) {
+#ifdef __BMI2__
+  uint64_t attacks = BishopEmptyAttacks[square];
+  if (__builtin_constant_p(occupancy) && occupancy == 0) return attacks;
+
+  const pext_magic_t* magic = &PextMagics[square];
+  size_t idx = _pext_u64(occupancy, magic->bishop_mask);
+  uint16_t active = PextHeap[idx + magic->bishop_offset];
+  return _pdep_u64(active, attacks);
+#else
   // get bishop attacks assuming current board occupancy
   occupancy &= bishop_masks[square];
   occupancy *= bishop_magic_numbers[square];
@@ -36,10 +50,20 @@ static inline uint64_t get_bishop_attacks(int square, uint64_t occupancy) {
 
   // return bishop attacks
   return bishop_attacks[square][occupancy];
+#endif
 }
 
 // get rook attacks
 static inline uint64_t get_rook_attacks(int square, uint64_t occupancy) {
+#ifdef __BMI2__
+  uint64_t attacks = RookEmptyAttacks[square];
+  if (__builtin_constant_p(occupancy) && occupancy == 0) return attacks;
+
+  const pext_magic_t* magic = &PextMagics[square];
+  size_t idx = _pext_u64(occupancy, magic->rook_mask);
+  uint16_t active = PextHeap[idx + magic->rook_offset];
+  return _pdep_u64(active, attacks);
+#else
   // get rook attacks assuming current board occupancy
   occupancy &= rook_masks[square];
   occupancy *= rook_magic_numbers[square];
@@ -47,37 +71,12 @@ static inline uint64_t get_rook_attacks(int square, uint64_t occupancy) {
 
   // return rook attacks
   return rook_attacks[square][occupancy];
+#endif
 }
 
 // get queen attacks
 static inline uint64_t get_queen_attacks(int square, uint64_t occupancy) {
-  // init result attacks bitboard
-  uint64_t queen_attacks = 0ULL;
-
-  // init bishop occupancies
-  uint64_t bishop_occupancy = occupancy;
-
-  // init rook occupancies
-  uint64_t rook_occupancy = occupancy;
-
-  // get bishop attacks assuming current board occupancy
-  bishop_occupancy &= bishop_masks[square];
-  bishop_occupancy *= bishop_magic_numbers[square];
-  bishop_occupancy >>= 64 - bishop_relevant_bits[square];
-
-  // get bishop attacks
-  queen_attacks = bishop_attacks[square][bishop_occupancy];
-
-  // get rook attacks assuming current board occupancy
-  rook_occupancy &= rook_masks[square];
-  rook_occupancy *= rook_magic_numbers[square];
-  rook_occupancy >>= 64 - rook_relevant_bits[square];
-
-  // get rook attacks
-  queen_attacks |= rook_attacks[square][rook_occupancy];
-
-  // return queen attacks
-  return queen_attacks;
+  return get_bishop_attacks(square, occupancy) | get_rook_attacks(square, occupancy);
 }
 
 static inline uint64_t get_pawn_attacks(uint8_t side, int square) {
