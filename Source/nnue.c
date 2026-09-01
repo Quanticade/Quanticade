@@ -386,7 +386,7 @@ static inline void refresh_accumulator(thread_t *thread, position_t *pos,
 
     while (added) {
       const uint8_t square = get_lsb(added);
-      pop_bit(added, square);
+      pop_lowest(added);
       const size_t index = get_idx(side, piece, square, king_square, 0, 0);
 
       added_list.indices[added_list.count++] = index;
@@ -394,7 +394,7 @@ static inline void refresh_accumulator(thread_t *thread, position_t *pos,
 
     while (removed) {
       const uint8_t square = get_lsb(removed);
-      pop_bit(removed, square);
+      pop_lowest(removed);
       const size_t index = get_idx(side, piece, square, king_square, 0, 0);
 
       removed_list.indices[removed_list.count++] = index;
@@ -456,7 +456,7 @@ void init_accumulator(position_t *pos, accumulator_t *accumulator) {
         accumulator->psqt_accumulator[black][i] +=
             nnue->feature_weights[black_bucket][black_idx][i];
 
-      pop_bit(bitboard, square);
+      pop_lowest(bitboard);
     }
   }
   rebuild_threats(pos, pos->mailbox, accumulator);
@@ -484,7 +484,7 @@ void init_accumulator_bucket(position_t *pos, accumulator_t *accumulator,
         accumulator->psqt_accumulator[black][i] +=
             nnue->feature_weights[bucket][black_idx][i];
 
-      pop_bit(bitboard, square);
+      pop_lowest(bitboard);
     }
   }
   rebuild_threats(pos, pos->mailbox, accumulator);
@@ -533,7 +533,7 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
         accumulator->psqt_accumulator[black][i] +=
             nnue->feature_weights[black_bucket][black_idx][i];
 
-      pop_bit(bitboard, square);
+      pop_lowest(bitboard);
     }
   }
 
