@@ -366,7 +366,7 @@ typedef struct psqt_list_s {
   unsigned indices[32];
 } psqt_list_t;
 
-static inline void refresh_accumulator(thread_t *thread, position_t *pos,
+static inline void refresh_accumulator(thread_t *thread, lazy_acc_state_t *pos,
                                        accumulator_t *accumulator) {
   const uint8_t side = pos->side ^ 1;
   const uint8_t king_square = get_lsb(pos->bitboards[side == white ? K : k]);
@@ -415,6 +415,7 @@ static inline void refresh_accumulator(thread_t *thread, position_t *pos,
 
     for (int j = 0; j < removed_list.count; ++j) {
       const vec_s16* m = (const vec_s16 *)&nnue->feature_weights[bucket][removed_list.indices[j]][i];
+#pragma GCC unroll 16
       for (int k = 0; k < CHUNK_SIZE; ++k) {
         vecs[k] -= *m++;
       }
@@ -425,8 +426,6 @@ static inline void refresh_accumulator(thread_t *thread, position_t *pos,
   }
 
   memcpy(finny_bitboards, pos->bitboards, 12 * sizeof(uint64_t));
-
-  rebuild_threats(pos, pos->mailbox, accumulator);
 }
 
 void init_accumulator(position_t *pos, accumulator_t *accumulator) {
@@ -1335,30 +1334,7 @@ void apply_accumulator(thread_t *thread, int ply) {
   lazy_acc_state_t *s = &thread->lazy[ply];
 
   if (s->psqt_needs_refresh) {
-    position_t tmp;
-    tmp.side = s->side;
-    memcpy(tmp.bitboards, s->bitboards, 12 * sizeof(uint64_t));
-    tmp.occupancies[white] = tmp.bitboards[P] | tmp.bitboards[N] |
-                             tmp.bitboards[B] | tmp.bitboards[R] |
-                             tmp.bitboards[Q] | tmp.bitboards[K];
-    tmp.occupancies[black] = tmp.bitboards[p] | tmp.bitboards[n] |
-                             tmp.bitboards[b] | tmp.bitboards[r] |
-                             tmp.bitboards[q] | tmp.bitboards[k];
-    tmp.occupancies[both] = tmp.occupancies[white] | tmp.occupancies[black];
-
-    memset(tmp.mailbox, 12, 64);
-    for (int i = 0; i < 12; i++) {
-      uint64_t bb = s->bitboards[i];
-      while (bb)
-        tmp.mailbox[poplsb(&bb)] = i;
-    }
-
-    refresh_accumulator(thread, &tmp, &thread->accumulator[ply]);
-
-    uint8_t opp = s->color_flag;
-    memcpy(thread->accumulator[ply].psqt_accumulator[opp],
-           thread->accumulator[ply - 1].psqt_accumulator[opp],
-           L1_SIZE * sizeof(int16_t));
+    refresh_accumulator(thread, s, &thread->accumulator[ply]);
 
     accumulator_make_move(
         &thread->accumulator[ply], &thread->accumulator[ply - 1],
@@ -1371,7 +1347,7 @@ void apply_accumulator(thread_t *thread, int ply) {
         s->side, s->move, s->moving_piece, s->captured_piece, both);
   }
 
-  if (s->threat_needs_refresh) {
+  if (s->threat_needs_refresh || s->psqt_needs_refresh) {
     rebuild_threats(&thread->positions[ply], thread->positions[ply].mailbox,
                     &thread->accumulator[ply]);
   } else {
