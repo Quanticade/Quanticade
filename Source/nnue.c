@@ -1334,24 +1334,6 @@ void apply_accumulator(thread_t *thread, int ply) {
   lazy_acc_state_t *s = &thread->lazy[ply];
 
   if (s->psqt_needs_refresh) {
-    position_t tmp;
-    tmp.side = s->side;
-    memcpy(tmp.bitboards, s->bitboards, 12 * sizeof(uint64_t));
-    tmp.occupancies[white] = tmp.bitboards[P] | tmp.bitboards[N] |
-                             tmp.bitboards[B] | tmp.bitboards[R] |
-                             tmp.bitboards[Q] | tmp.bitboards[K];
-    tmp.occupancies[black] = tmp.bitboards[p] | tmp.bitboards[n] |
-                             tmp.bitboards[b] | tmp.bitboards[r] |
-                             tmp.bitboards[q] | tmp.bitboards[k];
-    tmp.occupancies[both] = tmp.occupancies[white] | tmp.occupancies[black];
-
-    memset(tmp.mailbox, 12, 64);
-    for (int i = 0; i < 12; i++) {
-      uint64_t bb = s->bitboards[i];
-      while (bb)
-        tmp.mailbox[poplsb(&bb)] = i;
-    }
-
     refresh_accumulator(thread, s, &thread->accumulator[ply]);
 
     accumulator_make_move(
