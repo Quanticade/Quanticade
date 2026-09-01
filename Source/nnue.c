@@ -386,7 +386,7 @@ static inline void refresh_accumulator(thread_t *thread, lazy_acc_state_t *pos,
 
     while (added) {
       const uint8_t square = get_lsb(added);
-      pop_bit(added, square);
+      pop_lowest(added);
       const size_t index = get_idx(side, piece, square, king_square, 0, 0);
 
       added_list.indices[added_list.count++] = index;
@@ -394,7 +394,7 @@ static inline void refresh_accumulator(thread_t *thread, lazy_acc_state_t *pos,
 
     while (removed) {
       const uint8_t square = get_lsb(removed);
-      pop_bit(removed, square);
+      pop_lowest(removed);
       const size_t index = get_idx(side, piece, square, king_square, 0, 0);
 
       removed_list.indices[removed_list.count++] = index;
@@ -455,7 +455,7 @@ void init_accumulator(position_t *pos, accumulator_t *accumulator) {
         accumulator->psqt_accumulator[black][i] +=
             nnue->feature_weights[black_bucket][black_idx][i];
 
-      pop_bit(bitboard, square);
+      pop_lowest(bitboard);
     }
   }
   rebuild_threats(pos, pos->mailbox, accumulator);
@@ -483,7 +483,7 @@ void init_accumulator_bucket(position_t *pos, accumulator_t *accumulator,
         accumulator->psqt_accumulator[black][i] +=
             nnue->feature_weights[bucket][black_idx][i];
 
-      pop_bit(bitboard, square);
+      pop_lowest(bitboard);
     }
   }
   rebuild_threats(pos, pos->mailbox, accumulator);
@@ -532,7 +532,7 @@ int nnue_eval_pos(position_t *pos, accumulator_t *accumulator) {
         accumulator->psqt_accumulator[black][i] +=
             nnue->feature_weights[black_bucket][black_idx][i];
 
-      pop_bit(bitboard, square);
+      pop_lowest(bitboard);
     }
   }
 
@@ -1202,8 +1202,8 @@ static void apply_threat_batches(accumulator_t *acc, const accumulator_t* acc_be
 
 static inline uint64_t get_piece_attacks_fast(int pc, int sq, uint64_t occ) {
   switch (pc) {
-  case P: return (sq >= 8 && sq <= 55) ? get_pawn_attacks(white, sq) : 0;
-  case p: return (sq >= 8 && sq <= 55) ? get_pawn_attacks(black, sq) : 0;
+  case P: return get_pawn_attacks(white, sq);
+  case p: return get_pawn_attacks(black, sq);
   case N: case n: return get_knight_attacks(sq);
   case B: case b: return get_bishop_attacks(sq, occ);
   case R: case r: return get_rook_attacks(sq, occ);
