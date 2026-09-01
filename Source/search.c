@@ -894,7 +894,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   // Null Move Pruning
   if (cutnode && !in_check && !ss->excluded_move && !ss->null_move &&
       ply > thread->nmp_min_ply && ss->eval >= beta &&
-      ss->static_eval >= beta - NMP_MULTIPLIER * depth + NMP_BASE_ADD &&
+      ss->static_eval >= beta - NMP_MULTIPLIER * depth - 50 * improving + NMP_BASE_ADD &&
       ss->eval >= ss->static_eval && !is_loss(beta) && !only_pawns(pos)) {
     const int R = MIN((depth * NMP_DIVISER + NMP_BASE_REDUCTION) / 256, depth);
 
