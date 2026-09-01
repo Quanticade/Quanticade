@@ -1095,6 +1095,11 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     // beta we can assume the main search will also fail high and thus we can
     // just cutoff here
     else if (s_beta >= beta) {
+
+      if (in_check && s_score > ss->static_eval) {
+        update_corrhist(thread, ss->static_eval, s_score, s_depth);
+      }
+
       return s_beta;
     }
 
