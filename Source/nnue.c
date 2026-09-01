@@ -228,6 +228,20 @@ void nnue_init(void) {
 #endif
 }
 
+static inline void chunk_copy_to(void* dest, vec_s16 chunk[static CHUNK_SIZE]) {
+#pragma GCC unroll 16
+  for (int i = 0; i < CHUNK_SIZE; i++) {
+    ((vec_s16*)dest)[i] = chunk[i];
+  }
+}
+
+static inline void chunk_copy_from(vec_s16 chunk[static CHUNK_SIZE], void* src) {
+#pragma GCC unroll 16
+  for (int i = 0; i < CHUNK_SIZE; i++) {
+    chunk[i] = ((const vec_s16*)src)[i];
+  }
+}
+
 static inline int16_t get_idx(uint8_t side, uint8_t piece, uint8_t square,
                               uint8_t king_square, uint8_t force_hm,
                               uint8_t mirror) {
@@ -327,7 +341,7 @@ void rebuild_threats(position_t *pos, uint8_t *mailbox, accumulator_t *acc) {
         }
       }
 
-      memcpy(&acc->threat_accumulator[white][i], vecs, sizeof(vecs));
+      chunk_copy_to(&acc->threat_accumulator[white][i], vecs);
     }
   } else
     for (int i = 0; i < L1_SIZE; ++i)
@@ -354,7 +368,7 @@ void rebuild_threats(position_t *pos, uint8_t *mailbox, accumulator_t *acc) {
         }
       }
 
-      memcpy(&acc->threat_accumulator[black][i], vecs, sizeof(vecs));
+      chunk_copy_to(&acc->threat_accumulator[black][i], vecs);
     }
   } else
     for (int i = 0; i < L1_SIZE; ++i)
@@ -403,7 +417,7 @@ static inline void refresh_accumulator(thread_t *thread, lazy_acc_state_t *pos,
 
   for (int i = 0; i < L1_SIZE; i += CHUNK_SIZE * CHUNK_ELTS) {
     vec_s16 vecs[CHUNK_SIZE];
-    memcpy(vecs, &finny_accumulator->psqt_accumulator[side][i], sizeof(vecs));
+    chunk_copy_from(vecs, &finny_accumulator->psqt_accumulator[side][i]);
 
     for (int j = 0; j < added_list.count; ++j) {
       const vec_s16* m = (const vec_s16 *)&nnue->feature_weights[bucket][added_list.indices[j]][i];
@@ -421,8 +435,8 @@ static inline void refresh_accumulator(thread_t *thread, lazy_acc_state_t *pos,
       }
     }
 
-    memcpy(&finny_accumulator->psqt_accumulator[side][i], vecs, sizeof(vecs));
-    memcpy(&accumulator->psqt_accumulator[side][i], vecs, sizeof(vecs));
+    chunk_copy_to(&finny_accumulator->psqt_accumulator[side][i], vecs);
+    chunk_copy_to(&accumulator->psqt_accumulator[side][i], vecs);
   }
 
   memcpy(finny_bitboards, pos->bitboards, 12 * sizeof(uint64_t));
@@ -1152,7 +1166,7 @@ static void apply_threat_batches(accumulator_t *acc, const accumulator_t* acc_be
   for (int i = 0; i < L1_SIZE; i += CHUNK_SIZE * CHUNK_ELTS) {
     {
       vec_s16 w_vecs[CHUNK_SIZE];
-      memcpy(w_vecs, w_acc_before + i, sizeof(w_vecs));
+      chunk_copy_from(w_vecs, w_acc_before + i);
 
       for (int j = 0; j < adds->w_count; ++j) {
         const vec_s8* m = (const vec_s8 *)&nnue->feature_threats[adds->w_idx[j]][i];
@@ -1171,12 +1185,12 @@ static void apply_threat_batches(accumulator_t *acc, const accumulator_t* acc_be
         }
       }
 
-      memcpy(w_acc + i, w_vecs, sizeof(w_vecs));
+      chunk_copy_to(w_acc + i, w_vecs);
     }
 
     {
       vec_s16 b_vecs[CHUNK_SIZE];
-      memcpy(b_vecs, b_acc_before + i, sizeof(b_vecs));
+      chunk_copy_from(b_vecs, b_acc_before + i);
       for (int j = 0; j < adds->b_count; ++j) {
         const vec_s8* m = (const vec_s8 *)&nnue->feature_threats[adds->b_idx[j]][i];
 #pragma GCC unroll 16
@@ -1195,7 +1209,7 @@ static void apply_threat_batches(accumulator_t *acc, const accumulator_t* acc_be
         }
       }
 
-      memcpy(b_acc + i, b_vecs, sizeof(b_vecs));
+      chunk_copy_to(b_acc + i, b_vecs);
     }
   }
 }
