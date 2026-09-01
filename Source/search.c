@@ -1266,7 +1266,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
       R = R / 1024;
       int reduced_depth =
-          MAX(1, MIN(new_depth - R, new_depth + cutnode)) + pv_node;
+          MAX(1, MIN(new_depth - R, new_depth + 1)) + pv_node;
 
       score = -negamax(thread, ss + 1, -alpha - 1, -alpha, reduced_depth, 1,
                        NON_PV);
