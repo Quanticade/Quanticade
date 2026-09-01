@@ -1203,8 +1203,8 @@ static void apply_threat_batches(accumulator_t *acc, const accumulator_t* acc_be
 
 static inline uint64_t get_piece_attacks_fast(int pc, int sq, uint64_t occ) {
   switch (pc) {
-  case P: return (sq >= 8 && sq <= 55) ? get_pawn_attacks(white, sq) : 0;
-  case p: return (sq >= 8 && sq <= 55) ? get_pawn_attacks(black, sq) : 0;
+  case P: return get_pawn_attacks(white, sq);
+  case p: return get_pawn_attacks(black, sq);
   case N: case n: return get_knight_attacks(sq);
   case B: case b: return get_bishop_attacks(sq, occ);
   case R: case r: return get_rook_attacks(sq, occ);
