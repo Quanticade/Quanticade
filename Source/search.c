@@ -1164,6 +1164,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
     int reduction = lmr[quiet][depth][MIN(255, moves_seen)];
 
+    reduction += 512 * ss->tt_pv;
+
     if (!root_node && !is_loss(best_score)) {
       const int lmp_treshold = lmp_margin[improving || ss->static_eval >= beta + LMP_BETA_MARGIN][initial_depth];
 
