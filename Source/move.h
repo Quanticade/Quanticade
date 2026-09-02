@@ -57,4 +57,12 @@ static inline uint8_t get_history_target(uint16_t move) {
   return get_move_target(move);
 }
 
+static inline uint8_t is_quiet(uint16_t move) {
+    return (move & 12) == 0;
+}
+
+static inline uint8_t is_noisy(uint16_t move) {
+    return (move & 12) != 0;
+}
+
 #endif

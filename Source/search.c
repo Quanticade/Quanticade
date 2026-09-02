@@ -794,7 +794,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   if (!ss->excluded_move && !pv_node && tt_depth >= depth &&
       can_use_score(alpha, beta, tt_score, tt_flag)) {
     if (tt_move != 0 &&
-        !(is_move_promotion(tt_move) || get_move_capture(tt_move)) &&
+        is_quiet(tt_move) &&
         tt_score >= beta) {
       int16_t bonus =
           MIN(QUIET_HISTORY_MAX_TT,
@@ -1126,8 +1126,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   // loop over moves within a movelist
   uint16_t move;
   while ((move = select_next(&picker)) != 0) {
-    uint8_t quiet =
-        (get_move_capture(move) == 0 && is_move_promotion(move) == 0);
+    uint8_t quiet = is_quiet(move);
 
     if (move == ss->excluded_move) {
       continue;
