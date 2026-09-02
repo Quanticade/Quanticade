@@ -423,8 +423,7 @@ static inline uint16_t select_next(picker_t *picker) {
   case STAGE_TABLE:
     picker->stage = STAGE_GENERATE_NOISY;
     if (picker->tt_move != 0 &&
-        (picker->generate_all || get_move_capture(picker->tt_move) ||
-         is_move_promotion(picker->tt_move)) &&
+        (picker->generate_all || is_noisy(picker->tt_move)) &&
         is_pseudo_legal(pos, picker->tt_move) && is_legal(pos, picker->tt_move))
       return picker->tt_move;
     /* fallthrough */
