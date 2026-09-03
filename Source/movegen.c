@@ -408,16 +408,16 @@ void make_move(position_t *pos, uint16_t move) {
 }
 
 // add move to the move list
-void add_move(moves *move_list, int move) {
+void add_move(unscored_moves *move_list, int move) {
   // store move
-  move_list->entry[move_list->count].move = move;
+  move_list->entry[move_list->count] = move;
 
   // increment move count
   move_list->count++;
 }
 
 // generate only quiet moves
-void generate_quiets(position_t *pos, moves *move_list, uint8_t no_reset) {
+void generate_quiets(position_t *pos, unscored_moves *move_list, uint8_t no_reset) {
   if (!no_reset)
     move_list->count = 0;
 
@@ -556,7 +556,7 @@ void generate_quiets(position_t *pos, moves *move_list, uint8_t no_reset) {
   }
 }
 
-void generate_noisy(position_t *pos, moves *move_list, uint8_t no_reset) {
+void generate_noisy(position_t *pos, unscored_moves *move_list, uint8_t no_reset) {
   if (!no_reset)
     move_list->count = 0;
 
