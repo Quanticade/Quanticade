@@ -1322,7 +1322,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         if (alpha >= beta) {
           bound = HASH_FLAG_LOWER_BOUND;
           // on quiet moves
-          if (!(get_move_capture(best_move) || is_move_promotion(best_move))) {
+          if (is_quiet(best_move)) {
             const int history_depth = depth + (!in_check && ss->eval <= alpha);
             const int cont_bonus = MIN(CONT_HISTORY_BASE_BONUS +
                                      CONT_HISTORY_FACTOR_BONUS * history_depth,
