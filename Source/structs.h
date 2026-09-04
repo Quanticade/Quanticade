@@ -83,8 +83,8 @@ typedef struct finny_table {
 } finny_table_t;
 
 typedef struct {
-  int w_idx[256];
-  int b_idx[256];
+  int w_idx[384];
+  int b_idx[384];
   int w_count;
   int b_count;
 } threat_list_t;
