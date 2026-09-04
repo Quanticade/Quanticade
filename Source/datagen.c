@@ -44,14 +44,14 @@ static void free_book(fen_book_t *book) {
 }
 
 uint8_t play_rand_moves(position_t *pos, thread_t *thread, uint8_t rand_moves) {
-    moves pseudo_moves[1];
-    moves legal_moves[1];
+    unscored_moves pseudo_moves[1];
+    unscored_moves legal_moves[1];
     legal_moves->count = 0;
     generate_noisy(pos, pseudo_moves, 0);
     generate_quiets(pos, pseudo_moves, 1);
     for (uint16_t moves = 0; moves < pseudo_moves->count; ++moves) {
-        if (is_pseudo_legal(pos, pseudo_moves->entry[moves].move) && is_legal(pos, pseudo_moves->entry[moves].move)) {
-            add_move(legal_moves, pseudo_moves->entry[moves].move);
+        if (is_pseudo_legal(pos, pseudo_moves->entry[moves]) && is_legal(pos, pseudo_moves->entry[moves])) {
+            add_move(legal_moves, pseudo_moves->entry[moves]);
         }
     }
     if (legal_moves->count == 0) {
@@ -74,7 +74,7 @@ uint8_t play_rand_moves(position_t *pos, thread_t *thread, uint8_t rand_moves) {
         printf("info string genfens %s\n", fen);
         return 1;
     }
-    uint16_t move = legal_moves->entry[rand() % legal_moves->count].move;
+    uint16_t move = legal_moves->entry[rand() % legal_moves->count];
     position_t pos_copy = *pos;
     make_move(&pos_copy, move);
     return play_rand_moves(&pos_copy, thread, rand_moves - 1);

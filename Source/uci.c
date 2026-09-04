@@ -127,7 +127,7 @@ const char promoted_pieces[] = {[Q] = 'q', [R] = 'r', [B] = 'b', [N] = 'n',
 
 static inline int parse_move(position_t *pos, thread_t *thread,
                              char *move_string) {
-  moves move_list[1];
+  unscored_moves move_list[1];
   generate_noisy(pos, move_list, 0);
   generate_quiets(pos, move_list, 1);
 
@@ -138,7 +138,7 @@ static inline int parse_move(position_t *pos, thread_t *thread,
       (move_string[2] - 'a') + (8 - (move_string[3] - '0')) * 8;
 
   for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
-    const int move = move_list->entry[move_count].move;
+    const int move = move_list->entry[move_count];
 
     if (source_square != get_move_source(move))
       continue;

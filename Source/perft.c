@@ -11,11 +11,11 @@
 static inline void perft_driver(position_t *pos, thread_t *thread, int depth) {
 
   if (depth == 1) {
-    moves move_list[1];
+    unscored_moves move_list[1];
     generate_noisy(pos, move_list, 0);
     generate_quiets(pos, move_list, 1);
     for (uint32_t i = 0; i < move_list->count; i++) {
-      if (is_legal(pos, move_list->entry[i].move)) {
+      if (is_legal(pos, move_list->entry[i])) {
         thread->nodes++;
       }
     }
@@ -30,7 +30,7 @@ static inline void perft_driver(position_t *pos, thread_t *thread, int depth) {
   }
 
   // create move list instance
-  moves move_list[1];
+  unscored_moves move_list[1];
 
   // generate moves
   generate_noisy(pos, move_list, 0);
@@ -38,13 +38,13 @@ static inline void perft_driver(position_t *pos, thread_t *thread, int depth) {
 
   // loop over generated moves
   for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
-    if (!is_legal(pos, move_list->entry[move_count].move)) {
+    if (!is_legal(pos, move_list->entry[move_count])) {
       continue;
     }
     position_t pos_copy = *pos;
 
     // make move
-    make_move(&pos_copy, move_list->entry[move_count].move);
+    make_move(&pos_copy, move_list->entry[move_count]);
 
     // call perft driver recursively
     perft_driver(&pos_copy, thread, depth - 1);
@@ -56,7 +56,7 @@ void perft_test(position_t *pos, thread_t *searchinfo, int depth) {
   printf("\n     Performance test\n\n");
 
   // create move list instance
-  moves move_list[1];
+  unscored_moves move_list[1];
 
   // generate moves
   generate_noisy(pos, move_list, 0);
@@ -68,13 +68,13 @@ void perft_test(position_t *pos, thread_t *searchinfo, int depth) {
 
   // loop over generated moves
   for (uint32_t move_count = 0; move_count < move_list->count; move_count++) {
-    if (!is_legal(pos, move_list->entry[move_count].move)) {
+    if (!is_legal(pos, move_list->entry[move_count])) {
       continue;
     }
     position_t pos_copy = *pos;
 
     // make move
-    make_move(&pos_copy, move_list->entry[move_count].move);
+    make_move(&pos_copy, move_list->entry[move_count]);
 
     // cummulative nodes
     const long cummulative_nodes = searchinfo->nodes;
@@ -86,7 +86,7 @@ void perft_test(position_t *pos, thread_t *searchinfo, int depth) {
     const long old_nodes = searchinfo->nodes - cummulative_nodes;
 
     printf("     move: ");
-    print_move(move_list->entry[move_count].move);
+    print_move(move_list->entry[move_count]);
     printf("  nodes: %ld\n", old_nodes);
   }
 

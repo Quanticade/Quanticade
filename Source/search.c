@@ -301,14 +301,14 @@ static inline move_t pick_next_best_move(moves *move_list, uint16_t *index) {
 
 // Scores noisy moves and splits them into good/bad lists based on SEE
 static inline void score_noisy(thread_t *thread, searchstack_t *ss,
-                               moves *noisy_list, moves *good_noisy,
+                               const unscored_moves *noisy_list, moves *good_noisy,
                                moves *bad_noisy, uint16_t tt_move) {
   position_t *pos = &thread->positions[thread->ply];
   for (uint32_t i = 0; i < noisy_list->count; i++) {
-    move_t entry = noisy_list->entry[i];
-    const uint16_t move = entry.move;
+    move_t entry;
+    uint16_t move = entry.move = noisy_list->entry[i];
 
-    if (move == tt_move)
+    if (entry.move == tt_move)
       continue;
 
     const uint8_t source = get_move_source(move);
@@ -340,11 +340,14 @@ static inline void score_noisy(thread_t *thread, searchstack_t *ss,
 
 // Scores quiet moves in place
 static inline void score_quiet(thread_t *thread, searchstack_t *ss,
+                               const unscored_moves* quiet_in,
                                moves *quiet_list, uint16_t tt_move) {
   position_t *pos = &thread->positions[thread->ply];
-  for (uint32_t i = 0; i < quiet_list->count; i++) {
+  quiet_list->count = quiet_in->count;
+  for (uint32_t i = 0; i < quiet_in->count; i++) {
     move_t *entry = &quiet_list->entry[i];
-    const uint16_t move = entry->move;
+    const uint16_t move = quiet_in->entry[i];
+    entry->move = move;
 
     if (move == tt_move) {
       entry->score = -(1 << 20);
@@ -429,7 +432,7 @@ static inline uint16_t select_next(picker_t *picker) {
     /* fallthrough */
 
   case STAGE_GENERATE_NOISY: {
-    moves tmp;
+    unscored_moves tmp;
     generate_noisy(pos, &tmp, 0);
     score_noisy(picker->thread, picker->ss, &tmp, &picker->good_noisy,
                 &picker->bad_noisy, picker->tt_move);
@@ -452,8 +455,9 @@ static inline uint16_t select_next(picker_t *picker) {
     if (picker->skip_quiets) {
       picker->stage = STAGE_BAD_NOISY;
     } else {
-      generate_quiets(pos, &picker->quiets, 0);
-      score_quiet(picker->thread, picker->ss, &picker->quiets, picker->tt_move);
+      unscored_moves tmp;
+      generate_quiets(pos, &tmp, 0);
+      score_quiet(picker->thread, picker->ss, &tmp, &picker->quiets, picker->tt_move);
       picker->stage = STAGE_QUIET;
     }
     /* fallthrough */
@@ -584,7 +588,7 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
   picker_t picker;
   init_picker(&picker, thread, ss, tt_move, in_check, &check_info);
 
-  moves capture_list[1];
+  unscored_moves capture_list[1];
   capture_list->count = 0;
 
   uint16_t previous_square = 0;
@@ -671,10 +675,10 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
           const int capt_bonus = CAPTURE_HISTORY_QS_BONUS;
           const int capt_malus = -CAPTURE_HISTORY_QS_MALUS;
           for (uint32_t i = 0; i < capture_list->count; ++i) {
-            if (capture_list->entry[i].move == best_move) {
+            if (capture_list->entry[i] == best_move) {
               update_capture_history(thread, ss, best_move, capt_bonus);
             } else {
-              update_capture_history(thread, ss, capture_list->entry[i].move,
+              update_capture_history(thread, ss, capture_list->entry[i],
                                      capt_malus);
             }
           }
@@ -1111,8 +1115,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   picker_t picker;
   init_picker(&picker, thread, ss, tt_move, 1, &check_info);
 
-  moves quiet_list[1];
-  moves capture_list[1];
+  unscored_moves quiet_list[1];
+  unscored_moves capture_list[1];
   quiet_list->count = 0;
   capture_list->count = 0;
 
@@ -1347,7 +1351,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
                                       PAWN_HISTORY_FACTOR_MALUS * history_depth,
                                   PAWN_HISTORY_MALUS_MAX);
             for (uint32_t i = 0; i < quiet_list->count; ++i) {
-              const uint16_t move = quiet_list->entry[i].move;
+              const uint16_t move = quiet_list->entry[i];
               if (move == best_move) {
                 update_continuation_histories(thread, ss, best_move,
                                               cont_bonus);
@@ -1368,10 +1372,10 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
                                     CAPTURE_HISTORY_FACTOR_MALUS * depth,
                                 CAPTURE_HISTORY_MALUS_MAX);
           for (uint32_t i = 0; i < capture_list->count; ++i) {
-            if (capture_list->entry[i].move == best_move) {
+            if (capture_list->entry[i] == best_move) {
               update_capture_history(thread, ss, best_move, capt_bonus);
             } else {
-              update_capture_history(thread, ss, capture_list->entry[i].move,
+              update_capture_history(thread, ss, capture_list->entry[i],
                                      capt_malus);
             }
           }

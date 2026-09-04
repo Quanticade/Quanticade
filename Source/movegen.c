@@ -408,20 +408,71 @@ void make_move(position_t *pos, uint16_t move) {
 }
 
 // add move to the move list
-void add_move(moves *move_list, int move) {
+void add_move(unscored_moves *move_list, int move) {
   // store move
-  move_list->entry[move_list->count].move = move;
+  move_list->entry[move_list->count] = move;
 
   // increment move count
   move_list->count++;
 }
 
+_Alignas(64) static const uint8_t AllSquares[64] = {
+  0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+  21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
+  40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58,
+  59, 60, 61, 62, 63
+};
+
+static void add_pawn_moves(unscored_moves *move_list, int step, uint64_t dest, int move_type) {
+  (void) AllSquares;
+
+#ifdef USE_AVX512ICL
+  __m512i All = _mm512_load_si512(AllSquares);
+  __m256i destv = _mm256_cvtepi8_epi16(_mm512_castsi512_si128(_mm512_maskz_compress_epi8(dest, All)));
+
+  __m256i srcv = _mm256_sub_epi16(destv, _mm256_set1_epi16(step));
+  __m256i assembled = _mm256_set1_epi16(move_type);
+  assembled = _mm256_or_si256(assembled, _mm256_slli_epi16(destv, 4));
+  assembled = _mm256_or_si256(assembled, _mm256_slli_epi16(srcv, 10));
+
+  _mm256_storeu_si256((void*)&move_list->entry[move_list->count], assembled);
+
+  move_list->count += __builtin_popcountll(dest);
+#else
+  while (dest) {
+    int target_square = __builtin_ctzll(dest);
+    add_move(move_list, encode_move(target_square - step, target_square, move_type));
+    pop_lowest(dest);
+  }
+#endif
+}
+
+static void add_moves(unscored_moves *move_list, int source, uint64_t dest, int move_type) {
+#ifdef USE_AVX512ICL
+  __m512i All = _mm512_load_si512(AllSquares);
+  __m512i destv = _mm512_cvtepi8_epi16(_mm512_castsi512_si256(_mm512_maskz_compress_epi8(dest, All)));
+
+  __m512i assembled = _mm512_set1_epi16(source << 10 | move_type);
+  assembled = _mm512_or_si512(assembled, _mm512_slli_epi16(destv, 4));
+
+  _mm512_storeu_si512((void*)&move_list->entry[move_list->count], assembled);
+
+  move_list->count += __builtin_popcountll(dest);
+#else
+  while (dest) {
+    int target_square = __builtin_ctzll(dest);
+    add_move(move_list, encode_move(source, target_square, move_type));
+    pop_lowest(dest);
+  }
+#endif
+}
+
 // generate only quiet moves
-void generate_quiets(position_t *pos, moves *move_list, uint8_t no_reset) {
+void generate_quiets(position_t *pos, unscored_moves *move_list, uint8_t no_reset) {
   if (!no_reset)
     move_list->count = 0;
 
-  int source_square, target_square;
+  int source_square;
   uint64_t bitboard, attacks;
 
   const uint8_t PAWN_PC   = pos->side == white ? P : p;
@@ -441,31 +492,19 @@ void generate_quiets(position_t *pos, moves *move_list, uint8_t no_reset) {
   uint64_t singles = pos->side == white
       ? ((pawns & ~promo_mask) >> 8) & empty
       : ((pawns & ~promo_mask) << 8) & empty;
-  while (singles) {
-    target_square = __builtin_ctzll(singles);
-    add_move(move_list, encode_move(target_square - step, target_square, QUIET));
-    pop_lowest(singles);
-  }
+  add_pawn_moves(move_list, step, singles, QUIET);
 
   uint64_t doubles = pos->side == white
       ? (((pawns & start_mask) >> 8) & empty) >> 8 & empty
       : (((pawns & start_mask) << 8) & empty) << 8 & empty;
-  while (doubles) {
-    target_square = __builtin_ctzll(doubles);
-    add_move(move_list, encode_move(target_square - 2 * step, target_square, DOUBLE_PUSH));
-    pop_lowest(doubles);
-  }
+  add_pawn_moves(move_list, 2 * step, doubles, DOUBLE_PUSH);
 
   // knights
   bitboard = pos->bitboards[KNIGHT_PC];
   while (bitboard) {
     source_square = __builtin_ctzll(bitboard);
     attacks = knight_attacks[source_square] & empty;
-    while (attacks) {
-      target_square = __builtin_ctzll(attacks);
-      add_move(move_list, encode_move(source_square, target_square, QUIET));
-      pop_lowest(attacks);
-    }
+    add_moves(move_list, source_square, attacks, QUIET);
     pop_lowest(bitboard);
   }
 
@@ -474,11 +513,7 @@ void generate_quiets(position_t *pos, moves *move_list, uint8_t no_reset) {
   while (bitboard) {
     source_square = __builtin_ctzll(bitboard);
     attacks = get_bishop_attacks(source_square, pos->occupancies[both]) & empty;
-    while (attacks) {
-      target_square = __builtin_ctzll(attacks);
-      add_move(move_list, encode_move(source_square, target_square, QUIET));
-      pop_lowest(attacks);
-    }
+    add_moves(move_list, source_square, attacks, QUIET);
     pop_lowest(bitboard);
   }
 
@@ -487,11 +522,7 @@ void generate_quiets(position_t *pos, moves *move_list, uint8_t no_reset) {
   while (bitboard) {
     source_square = __builtin_ctzll(bitboard);
     attacks = get_rook_attacks(source_square, pos->occupancies[both]) & empty;
-    while (attacks) {
-      target_square = __builtin_ctzll(attacks);
-      add_move(move_list, encode_move(source_square, target_square, QUIET));
-      pop_lowest(attacks);
-    }
+    add_moves(move_list, source_square, attacks, QUIET);
     pop_lowest(bitboard);
   }
 
@@ -500,11 +531,7 @@ void generate_quiets(position_t *pos, moves *move_list, uint8_t no_reset) {
   while (bitboard) {
     source_square = __builtin_ctzll(bitboard);
     attacks = get_queen_attacks(source_square, pos->occupancies[both]) & empty;
-    while (attacks) {
-      target_square = __builtin_ctzll(attacks);
-      add_move(move_list, encode_move(source_square, target_square, QUIET));
-      pop_lowest(attacks);
-    }
+    add_moves(move_list, source_square, attacks, QUIET);
     pop_lowest(bitboard);
   }
 
@@ -513,11 +540,7 @@ void generate_quiets(position_t *pos, moves *move_list, uint8_t no_reset) {
   while (bitboard) {
     source_square = __builtin_ctzll(bitboard);
     attacks = king_attacks[source_square] & empty;
-    while (attacks) {
-      target_square = __builtin_ctzll(attacks);
-      add_move(move_list, encode_move(source_square, target_square, QUIET));
-      pop_lowest(attacks);
-    }
+    add_moves(move_list, source_square, attacks, QUIET);
     pop_lowest(bitboard);
   }
 
@@ -556,7 +579,7 @@ void generate_quiets(position_t *pos, moves *move_list, uint8_t no_reset) {
   }
 }
 
-void generate_noisy(position_t *pos, moves *move_list, uint8_t no_reset) {
+void generate_noisy(position_t *pos, unscored_moves *move_list, uint8_t no_reset) {
   if (!no_reset)
     move_list->count = 0;
 
@@ -618,11 +641,7 @@ void generate_noisy(position_t *pos, moves *move_list, uint8_t no_reset) {
   while (bitboard) {
     source_square = __builtin_ctzll(bitboard);
     attacks = knight_attacks[source_square] & enemy;
-    while (attacks) {
-      target_square = __builtin_ctzll(attacks);
-      add_move(move_list, encode_move(source_square, target_square, CAPTURE));
-      pop_lowest(attacks);
-    }
+    add_moves(move_list, source_square, attacks, CAPTURE);
     pop_lowest(bitboard);
   }
 
@@ -631,11 +650,7 @@ void generate_noisy(position_t *pos, moves *move_list, uint8_t no_reset) {
   while (bitboard) {
     source_square = __builtin_ctzll(bitboard);
     attacks = get_bishop_attacks(source_square, pos->occupancies[both]) & enemy;
-    while (attacks) {
-      target_square = __builtin_ctzll(attacks);
-      add_move(move_list, encode_move(source_square, target_square, CAPTURE));
-      pop_lowest(attacks);
-    }
+    add_moves(move_list, source_square, attacks, CAPTURE);
     pop_lowest(bitboard);
   }
 
@@ -644,11 +659,7 @@ void generate_noisy(position_t *pos, moves *move_list, uint8_t no_reset) {
   while (bitboard) {
     source_square = __builtin_ctzll(bitboard);
     attacks = get_rook_attacks(source_square, pos->occupancies[both]) & enemy;
-    while (attacks) {
-      target_square = __builtin_ctzll(attacks);
-      add_move(move_list, encode_move(source_square, target_square, CAPTURE));
-      pop_lowest(attacks);
-    }
+    add_moves(move_list, source_square, attacks, CAPTURE);
     pop_lowest(bitboard);
   }
 
@@ -657,11 +668,7 @@ void generate_noisy(position_t *pos, moves *move_list, uint8_t no_reset) {
   while (bitboard) {
     source_square = __builtin_ctzll(bitboard);
     attacks = get_queen_attacks(source_square, pos->occupancies[both]) & enemy;
-    while (attacks) {
-      target_square = __builtin_ctzll(attacks);
-      add_move(move_list, encode_move(source_square, target_square, CAPTURE));
-      pop_lowest(attacks);
-    }
+    add_moves(move_list, source_square, attacks, CAPTURE);
     pop_lowest(bitboard);
   }
 
@@ -670,11 +677,7 @@ void generate_noisy(position_t *pos, moves *move_list, uint8_t no_reset) {
   while (bitboard) {
     source_square = __builtin_ctzll(bitboard);
     attacks = king_attacks[source_square] & enemy;
-    while (attacks) {
-      target_square = __builtin_ctzll(attacks);
-      add_move(move_list, encode_move(source_square, target_square, CAPTURE));
-      pop_lowest(attacks);
-    }
+    add_moves(move_list, source_square, attacks, CAPTURE);
     pop_lowest(bitboard);
   }
 }
