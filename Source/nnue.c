@@ -23,9 +23,9 @@ const int INT8_PER_INT32 = sizeof(int) / sizeof(int8_t);
 static int feature_base_lut[12][12][2];
 static uint8_t precomputed_piece_index[12][64][64];
 
-static int PIECE_TARGET_COUNT[6] = {6, 10, 8, 8, 10, 0};
+static int PIECE_TARGET_COUNT[6] = {4, 10, 8, 8, 10, 0};
 static int PIECE_TARGET_MAP[6][6] = {
-    {0, 1, -1, 2, -1, -1}, {0, 1, 2, 3, 4, -1}, {0, 1, 2, 3, -1, -1},
+    {-1, 0, -1, 1, -1, -1}, {0, 1, 2, 3, 4, -1}, {0, 1, 2, 3, -1, -1},
     {0, 1, 2, 3, -1, -1},  {0, 1, 2, 3, 4, -1}, {-1, -1, -1, -1, -1, -1}};
 static const uint8_t swap_color_pc[2][12] = {
     {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11},
@@ -217,12 +217,48 @@ static inline int get_threat_index(int perspective, int king_sq,
 
   int piece_index = precomputed_piece_index[attacker_pc][src][dest];
 
-  return feature_base + sq_offset + piece_index;
+  return feature_base + sq_offset + piece_index + PAWN_TUPLE_FEATURES;
+}
+
+static uint64_t PAWN_PAWN_MASKS[8];
+
+static inline uint64_t pp_file_bb(int file) {
+  return 0x0101010101010101ULL << file;
+}
+
+static void init_pawn_pawn_masks(void) {
+  for (int f = 0; f < 8; f++) {
+    uint64_t m = 0;
+    for (int g = f - 1; g <= f + 1; g++) {
+      if (g >= 0 && g <= 7)
+        m |= pp_file_bb(g);
+    }
+    PAWN_PAWN_MASKS[f] = m;
+  }
+}
+
+static inline int pawn_compressed_index(int perspective, int king_sq,
+                                        int pawn_colour, int sq) {
+  int flip = (perspective == white ? 56 : 0) ^ ((king_sq & 7) >= 4 ? 7 : 0);
+  sq ^= flip;
+  int offset = (perspective != pawn_colour) ? 48 : 0;
+  return offset + (sq - 8);
+}
+
+static inline int get_pawn_pawn_index(int perspective, int king_sq,
+                                      int a_colour, int a_sq, int b_colour,
+                                      int b_sq) {
+  int a_idx = pawn_compressed_index(perspective, king_sq, a_colour, a_sq);
+  int b_idx = pawn_compressed_index(perspective, king_sq, b_colour, b_sq);
+  int hi = a_idx > b_idx ? a_idx : b_idx;
+  int lo = a_idx > b_idx ? b_idx : a_idx;
+  return (hi * (hi - 1)) / 2 + lo;
 }
 
 void nnue_init(void) {
   nnue = (const nnue_t *)gEVALData;
   init_threat_tables();
+  init_pawn_pawn_masks();
 #if defined(USE_SIMD) && !defined(USE_AVX512ICL)
   init_nnz_table();
 #endif
@@ -266,9 +302,48 @@ static inline int16_t get_idx(uint8_t side, uint8_t piece, uint8_t square,
 
 static void maybe_push_white_threat(threat_list_t*, int);
 static void maybe_push_black_threat(threat_list_t*, int);
+static inline void push_pawn_pair(threat_list_t *list, uint8_t w_ksq,
+                                  uint8_t b_ksq, int a_colour, int a_sq,
+                                  int b_colour, int b_sq);
 
 static void init_threat_list(threat_list_t* l) {
     l->w_count = l->b_count = 0;
+}
+
+static void add_pawn_pairs(position_t *pos, threat_list_t *list,
+                           uint8_t w_ksq, uint8_t b_ksq) {
+  uint64_t white_pawns = pos->bitboards[P];
+  uint64_t black_pawns = pos->bitboards[p];
+
+  uint64_t remaining = white_pawns;
+  while (remaining) {
+    int a = poplsb(&remaining);
+    uint64_t mask = PAWN_PAWN_MASKS[a & 7];
+
+    uint64_t ww = remaining & mask;
+    while (ww) {
+      int b = poplsb(&ww);
+      push_pawn_pair(list, w_ksq, b_ksq, white, a, white, b);
+    }
+
+    uint64_t wb = black_pawns & mask;
+    while (wb) {
+      int b = poplsb(&wb);
+      push_pawn_pair(list, w_ksq, b_ksq, white, a, black, b);
+    }
+  }
+
+  remaining = black_pawns;
+  while (remaining) {
+    int a = poplsb(&remaining);
+    uint64_t mask = PAWN_PAWN_MASKS[a & 7];
+
+    uint64_t bb = remaining & mask;
+    while (bb) {
+      int b = poplsb(&bb);
+      push_pawn_pair(list, w_ksq, b_ksq, black, a, black, b);
+    }
+  }
 }
 
 void rebuild_threats(position_t *pos, uint8_t *mailbox, accumulator_t *acc) {
@@ -319,6 +394,8 @@ void rebuild_threats(position_t *pos, uint8_t *mailbox, accumulator_t *acc) {
       }
     }
   }
+
+  add_pawn_pairs(pos, &added, white_king_sq, black_king_sq);
 
   if (added.w_count) {
     for (int i = 0; i < L1_SIZE; i += CHUNK_SIZE * CHUNK_ELTS) {
@@ -1144,6 +1221,16 @@ static inline void push_threat(threat_list_t *list, uint8_t w_ksq,
   maybe_push_black_threat(list, b_idx);
 }
 
+static inline void push_pawn_pair(threat_list_t *list, uint8_t w_ksq,
+                                  uint8_t b_ksq, int a_colour, int a_sq,
+                                  int b_colour, int b_sq) {
+  int w_idx = get_pawn_pawn_index(white, w_ksq, a_colour, a_sq, b_colour, b_sq);
+  maybe_push_white_threat(list, w_idx);
+
+  int b_idx = get_pawn_pawn_index(black, b_ksq, a_colour, a_sq, b_colour, b_sq);
+  maybe_push_black_threat(list, b_idx);
+}
+
 static void apply_threat_batches(accumulator_t *acc, const accumulator_t* acc_before,
                                  threat_list_t *adds, threat_list_t *subs) {
 // A way to get around GCC 12.2.0 or lower bug with assume_aligned
@@ -1295,6 +1382,68 @@ static void process_slider_deltas(position_t *pos_before, position_t *pos_after,
   }
 }
 
+static void process_pawn_pair_deltas(position_t *pos_before,
+                                     position_t *pos_after,
+                                     threat_list_t *adds,
+                                     threat_list_t *subs) {
+  uint64_t wb_before = pos_before->bitboards[P];
+  uint64_t bb_before = pos_before->bitboards[p];
+  uint64_t wb_after = pos_after->bitboards[P];
+  uint64_t bb_after = pos_after->bitboards[p];
+
+  if (wb_before == wb_after && bb_before == bb_after)
+    return;
+
+  uint8_t w_ksq = get_lsb(pos_after->bitboards[K]);
+  uint8_t b_ksq = get_lsb(pos_after->bitboards[k]);
+
+  uint64_t after_remaining = wb_after | bb_after;
+  uint64_t before_remaining = wb_before | bb_before;
+
+  uint64_t added[2] = {wb_after & ~wb_before, bb_after & ~bb_before};
+  uint64_t removed[2] = {wb_before & ~wb_after, bb_before & ~bb_after};
+
+  for (int ci = 0; ci < 2; ci++) {
+    int a_colour = ci == 0 ? white : black;
+
+    uint64_t add_bb = added[ci];
+    while (add_bb) {
+      int a = poplsb(&add_bb);
+      after_remaining &= ~(1ULL << a);
+      uint64_t mask = PAWN_PAWN_MASKS[a & 7] & after_remaining;
+
+      uint64_t wm = wb_after & mask;
+      while (wm) {
+        int b = poplsb(&wm);
+        push_pawn_pair(adds, w_ksq, b_ksq, a_colour, a, white, b);
+      }
+      uint64_t bm = bb_after & mask;
+      while (bm) {
+        int b = poplsb(&bm);
+        push_pawn_pair(adds, w_ksq, b_ksq, a_colour, a, black, b);
+      }
+    }
+
+    uint64_t rem_bb = removed[ci];
+    while (rem_bb) {
+      int a = poplsb(&rem_bb);
+      before_remaining &= ~(1ULL << a);
+      uint64_t mask = PAWN_PAWN_MASKS[a & 7] & before_remaining;
+
+      uint64_t wm = wb_before & mask;
+      while (wm) {
+        int b = poplsb(&wm);
+        push_pawn_pair(subs, w_ksq, b_ksq, a_colour, a, white, b);
+      }
+      uint64_t bm = bb_before & mask;
+      while (bm) {
+        int b = poplsb(&bm);
+        push_pawn_pair(subs, w_ksq, b_ksq, a_colour, a, black, b);
+      }
+    }
+  }
+}
+
 __attribute__((always_inline))
 static inline void update_threats_incremental(accumulator_t *acc,
                                        accumulator_t *acc_before,
@@ -1335,6 +1484,7 @@ static inline void update_threats_incremental(accumulator_t *acc,
   process_changed_squares(pos_before, real_changed_sqs, &subs);
   process_changed_squares(pos_after, real_changed_sqs, &adds);
   process_slider_deltas(pos_before, pos_after, affected_sliders, real_changed_sqs, &adds, &subs);
+  process_pawn_pair_deltas(pos_before, pos_after, &adds, &subs);
 
   apply_threat_batches(acc, acc_before, &adds, &subs);
 }
