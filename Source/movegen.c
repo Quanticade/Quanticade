@@ -424,6 +424,8 @@ _Alignas(64) static const uint8_t AllSquares[64] = {
 };
 
 static void add_pawn_moves(unscored_moves *move_list, int step, uint64_t dest, int move_type) {
+  (void) AllSquares;
+
 #ifdef USE_AVX512ICL
   __m512i All = _mm512_load_si512(AllSquares);
   __m256i destv = _mm256_cvtepi8_epi16(_mm512_castsi512_si128(_mm512_maskz_compress_epi8(dest, All)));
@@ -458,8 +460,8 @@ static void add_moves(unscored_moves *move_list, int source, uint64_t dest, int 
   move_list->count += __builtin_popcountll(dest);
 #else
   while (dest) {
-    target_square = __builtin_ctzll(dest);
-    add_move(move_list, encode_move(source, target_square, QUIET));
+    int target_square = __builtin_ctzll(dest);
+    add_move(move_list, encode_move(source, target_square, move_type));
     pop_lowest(dest);
   }
 #endif
