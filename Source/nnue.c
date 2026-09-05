@@ -35,6 +35,7 @@ static int threat_offsets[12];
 static int threat_piece_offsets[12];
 static int threat_sq_offsets[12][64];
 static uint64_t threat_attacks[12][64];
+static uint8_t pawn_idx_table[2][2][2][64];
 
 #if defined(USE_SIMD) && !defined(USE_AVX512ICL)
 static uint16_t NNZ_TABLE[256][8];
@@ -208,7 +209,7 @@ static inline int get_threat_index(int perspective, int king_sq,
   attacker_pc = swap_color_pc[perspective][attacker_pc];
   victim_pc = swap_color_pc[perspective][victim_pc];
 
-  int flip = (perspective == white ? 56 : 0) ^ ((king_sq & 7) >= 4 ? 7 : 0);
+  int flip = (((perspective ^ white) ^ 1) * 56) ^ (((king_sq >> 2) & 1) * 7);
   src ^= flip;
   dest ^= flip;
 
@@ -237,12 +238,25 @@ static void init_pawn_pawn_masks(void) {
   }
 }
 
+static void init_pawn_idx_table(void) {
+    for (int persp = 0; persp < 2; persp++) {
+      for (int file_bit = 0; file_bit < 2; file_bit++) {
+        for (int pc = 0; pc < 2; pc++) {
+          for (int sq = 0; sq < 64; sq++) {
+              int flip = (persp == white ? 56 : 0) ^ (file_bit ? 7 : 0);
+              int s = sq ^ flip;
+              int offset = (persp != pc) ? 48 : 0;
+              pawn_idx_table[persp][file_bit][pc][sq] = (uint8_t)(offset + s - 8);
+          }
+        }
+      }
+    }
+}
+
 static inline int pawn_compressed_index(int perspective, int king_sq,
                                         int pawn_colour, int sq) {
-  int flip = (perspective == white ? 56 : 0) ^ ((king_sq & 7) >= 4 ? 7 : 0);
-  sq ^= flip;
-  int offset = (perspective != pawn_colour) ? 48 : 0;
-  return offset + (sq - 8);
+    int file_bit = (king_sq >> 2) & 1;
+    return pawn_idx_table[perspective][file_bit][pawn_colour][sq];
 }
 
 static inline int get_pawn_pawn_index(int perspective, int king_sq,
@@ -259,6 +273,7 @@ void nnue_init(void) {
   nnue = (const nnue_t *)gEVALData;
   init_threat_tables();
   init_pawn_pawn_masks();
+  init_pawn_idx_table();
 #if defined(USE_SIMD) && !defined(USE_AVX512ICL)
   init_nnz_table();
 #endif
