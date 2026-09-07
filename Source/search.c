@@ -878,7 +878,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   uint16_t moves_seen = 0;
 
   // Use static evaluation difference to improve quiet move ordering
-  if (((ss - 1)->move) != 0 && !(ss - 1)->in_check && !prev_capture)
+  if (!ss->in_check && ((ss - 1)->move) != 0 && !(ss - 1)->in_check && !prev_capture)
   {
       int eval_diff = clamp(-(int)((ss - 1)->static_eval + ss->static_eval), -189, 195) + -60;
       update_quiet_history(thread, ss - 1, (ss - 1)->move, eval_diff * 11);
