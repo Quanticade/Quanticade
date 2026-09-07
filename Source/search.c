@@ -802,7 +802,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       int16_t bonus =
           MIN(QUIET_HISTORY_MAX_TT,
               (QUIET_HISTORY_TT_FACTOR * depth - QUIET_HISTORY_TT_BASE));
-      update_quiet_history(thread, ss, tt_move, bonus);
+      update_quiet_history(thread, ss, thread->ply, tt_move, bonus);
     }
     return tt_score;
   }
@@ -879,7 +879,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   if (!root_node && !ss->in_check && ((ss - 1)->move) != 0 && !(ss - 1)->in_check && is_quiet((ss - 1)->move))
   {
       int eval_diff = clamp(-(int)((ss - 1)->static_eval + ss->static_eval), -189, 195) + -60;
-      update_quiet_history(thread, ss - 1, (ss - 1)->move, eval_diff * 11);
+      update_quiet_history(thread, ss - 1, thread->ply - 1, (ss - 1)->move, eval_diff * 11);
   }
 
   // Razoring
@@ -1363,11 +1363,11 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
                 update_continuation_histories(thread, ss, best_move,
                                               cont_bonus);
                 update_pawn_history(thread, best_move, pawn_bonus);
-                update_quiet_history(thread, ss, best_move, quiet_bonus);
+                update_quiet_history(thread, ss, thread->ply, best_move, quiet_bonus);
               } else {
                 update_continuation_histories(thread, ss, move, cont_malus);
                 update_pawn_history(thread, move, pawn_malus);
-                update_quiet_history(thread, ss, move, quiet_malus);
+                update_quiet_history(thread, ss, thread->ply, move, quiet_malus);
               }
             }
           }
