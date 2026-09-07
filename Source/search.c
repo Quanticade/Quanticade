@@ -751,6 +751,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   const uint8_t root_node = ply == 0;
   const uint8_t all_node = !(pv_node || cutnode);
 
+  const uint8_t prev_capture = (pos - 1)->mailbox[get_move_target((ss - 1)->move)];
+
   // Limit depth to MAX_PLY - 1 in case extensions make it too big
   depth = clamp(depth, 0, MAX_PLY - 1);
 
@@ -773,7 +775,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   }
 
   // is king in check
-  const uint8_t in_check = !!pos->checkers;
+  ss->in_check = !!pos->checkers;
 
   // recursion escape condition
   if (depth <= 0) {
@@ -807,7 +809,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     return tt_score;
   }
 
-  if (in_check) {
+  if (ss->in_check) {
     ss->static_eval = NO_SCORE;
     raw_static_eval = NO_SCORE;
     ss->eval = NO_SCORE;
@@ -843,10 +845,10 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       depth >= SE_DEPTH && tt_depth >= depth - SE_DEPTH_REDUCTION &&
       tt_flag != HASH_FLAG_UPPER_BOUND && tt_score != NO_SCORE && !is_loss(tt_score);
 
-  if ((ss - 2)->static_eval != NO_SCORE && !in_check) {
+  if ((ss - 2)->static_eval != NO_SCORE && !ss->in_check) {
     improvement = ss->static_eval - (ss - 2)->static_eval;
   }
-  if (!in_check) {
+  if (!ss->in_check) {
     opponent_worsening = ss->static_eval + (ss - 1)->static_eval > 1;
   }
 
@@ -860,7 +862,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     return 0;
   }
 
-  if (!root_node && !in_check && !ss->excluded_move) {
+  if (!root_node && !ss->in_check && !ss->excluded_move) {
     if ((ss - 1)->reduction >= HINDSIGH_REDUCTION_ADD && !opponent_worsening) {
       ++depth;
     }
@@ -875,8 +877,15 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   // moves seen counter
   uint16_t moves_seen = 0;
 
+  // Use static evaluation difference to improve quiet move ordering
+  if (((ss - 1)->move) != 0 && !(ss - 1)->in_check && !prev_capture)
+  {
+      int eval_diff = clamp(-(int)((ss - 1)->static_eval + ss->static_eval), -189, 195) + -60;
+      update_quiet_history(thread, ss - 1, (ss - 1)->move, eval_diff * 11);
+  }
+
   // Razoring
-  if (!pv_node && !in_check && !ss->excluded_move && depth <= RAZOR_DEPTH &&
+  if (!pv_node && !ss->in_check && !ss->excluded_move && depth <= RAZOR_DEPTH &&
       ss->static_eval + RAZOR_MARGIN * depth < alpha) {
     const int16_t razor_score = quiescence(thread, ss, alpha, beta, NON_PV);
     if (razor_score <= alpha) {
@@ -895,7 +904,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   }
 
   // Null Move Pruning
-  if (cutnode && !in_check && !ss->excluded_move && !ss->null_move &&
+  if (cutnode && !ss->in_check && !ss->excluded_move && !ss->null_move &&
       ply > thread->nmp_min_ply && ss->eval >= beta &&
       ss->static_eval >= beta - NMP_MULTIPLIER * depth + NMP_BASE_ADD &&
       ss->eval >= ss->static_eval && !is_loss(beta) && !only_pawns(pos)) {
@@ -979,7 +988,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   check_info_t check_info = {.valid = 0};
 
   // ProbCut pruning
-  if (!pv_node && !in_check && !ss->excluded_move && depth >= PROBCUT_DEPTH &&
+  if (!pv_node && !ss->in_check && !ss->excluded_move && depth >= PROBCUT_DEPTH &&
       !is_win(beta) &&
       (!tt_hit || tt_depth + 3 < depth ||
        (tt_score >= probcut_beta && !is_decisive(tt_score)))) {
@@ -1107,7 +1116,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     }
   }
   // Low Depth Singular Extensions (LDSE)
-  else if (depth <= 7 && !in_check && ss->static_eval <= alpha - LDSE_MARGIN &&
+  else if (depth <= 7 && !ss->in_check && ss->static_eval <= alpha - LDSE_MARGIN &&
            tt_flag == HASH_FLAG_LOWER_BOUND) {
     extensions = 1;
   }
@@ -1176,7 +1185,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
       const int lmr_depth = MAX(1, depth - 1 - MAX(reduction / 1024, 1));
       // Futility Pruning
-      if (lmr_depth <= FP_DEPTH && !in_check && quiet &&
+      if (lmr_depth <= FP_DEPTH && !ss->in_check && quiet &&
           ss->static_eval + lmr_depth * FP_MULTIPLIER + FP_ADDITION +
                   ss->history_score / FP_HISTORY_DIVISOR <=
               alpha &&
@@ -1192,7 +1201,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       }
 
       int noisy_futility_margin = ss->static_eval + BNFP_MARGIN * depth + ss->history_score / 29;
-      if (!in_check && depth < 10 && picker.stage == STAGE_BAD_NOISY &&
+      if (!ss->in_check && depth < 10 && picker.stage == STAGE_BAD_NOISY &&
           noisy_futility_margin <= alpha && !is_direct_check(pos, &check_info, move)) {
         break;
       }
@@ -1327,7 +1336,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
           bound = HASH_FLAG_LOWER_BOUND;
           // on quiet moves
           if (is_quiet(best_move)) {
-            const int history_depth = depth + (!in_check && ss->eval <= alpha);
+            const int history_depth = depth + (!ss->in_check && ss->eval <= alpha);
             const int cont_bonus = MIN(CONT_HISTORY_BASE_BONUS +
                                      CONT_HISTORY_FACTOR_BONUS * history_depth,
                                  CONT_HISTORY_BONUS_MAX);
@@ -1389,7 +1398,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   // we don't have any legal moves to make in the current postion
   if (moves_seen == 0) {
     // king is in check
-    if (in_check)
+    if (ss->in_check)
       // return mating score (assuming closest distance to mating position)
       return -MATE_VALUE + ply;
 
@@ -1410,7 +1419,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
                      best_move, bound, ss->tt_pv);
   }
 
-  if (!in_check &&
+  if (!ss->in_check &&
       !(get_move_capture(best_move) || is_move_promotion(best_move)) &&
       (bound != HASH_FLAG_LOWER_BOUND || best_score > raw_static_eval) &&
       (bound != HASH_FLAG_UPPER_BOUND || best_score <= raw_static_eval)) {
