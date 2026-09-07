@@ -751,8 +751,6 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   const uint8_t root_node = ply == 0;
   const uint8_t all_node = !(pv_node || cutnode);
 
-  const uint8_t prev_capture = (pos - 1)->mailbox[get_move_target((ss - 1)->move)];
-
   // Limit depth to MAX_PLY - 1 in case extensions make it too big
   depth = clamp(depth, 0, MAX_PLY - 1);
 
@@ -878,7 +876,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   uint16_t moves_seen = 0;
 
   // Use static evaluation difference to improve quiet move ordering
-  if (!ss->in_check && ((ss - 1)->move) != 0 && !(ss - 1)->in_check && !prev_capture)
+  if (!root_node && !ss->in_check && ((ss - 1)->move) != 0 && !(ss - 1)->in_check && is_quiet((ss - 1)->move))
   {
       int eval_diff = clamp(-(int)((ss - 1)->static_eval + ss->static_eval), -189, 195) + -60;
       update_quiet_history(thread, ss - 1, (ss - 1)->move, eval_diff * 11);
