@@ -1316,14 +1316,11 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         best_move = move;
         bound = HASH_FLAG_EXACT;
 
-        // PV node (position)
-        alpha = score;
-
         if (pv_node)
           update_pv(&thread->pv, ply, move);
 
         // fail-hard beta cutoff
-        if (alpha >= beta) {
+        if (score >= beta) {
           bound = HASH_FLAG_LOWER_BOUND;
           // on quiet moves
           if (is_quiet(best_move)) {
@@ -1382,6 +1379,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
           ss->cutoff_cnt++;
           break;
         }
+
+        alpha = score;
       }
     }
   }
