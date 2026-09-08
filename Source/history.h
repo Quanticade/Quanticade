@@ -23,7 +23,7 @@ static inline int16_t get_conthist_score(thread_t *thread, searchstack_t *ss,
     return 0;
   }
 }
-void update_quiet_history(thread_t *thread, searchstack_t *ss, int move,
+void update_quiet_history(thread_t *thread, searchstack_t *ss, uint8_t ply, int move,
                           int bonus);
 void update_capture_history(thread_t *thread, searchstack_t *ss, int move,
                             int bonus);
