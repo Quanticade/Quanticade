@@ -84,6 +84,10 @@ TUNABLE(int SEE_QUIET_CONST = 292);
 TUNABLE(int SEE_CAPTURE = 27);
 TUNABLE(int SEE_QUIET_HISTORY_DIVISOR = 34);
 TUNABLE(int SEE_NOISY_HISTORY_DIVISOR = 37);
+TUNABLE(int SED_MIN = -189);
+TUNABLE(int SED_MAX = 195);
+TUNABLE(int SED_OFFSET = -60);
+TUNABLE(int SED_MULTIPLIER = 11);
 TUNABLE(int SE_TRIPLE_MARGIN = 37);
 TUNABLE(int SE_BETA_BASE = 59);
 TUNABLE(int SE_BETA_MULTIPLIER = 60);
@@ -880,8 +884,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   // Use static evaluation difference to improve quiet move ordering
   if (!ss->in_check && ((ss - 1)->move) != 0 && !(ss - 1)->in_check && !prev_capture)
   {
-      int eval_diff = clamp(-(int)((ss - 1)->static_eval + ss->static_eval), -189, 195) + -60;
-      update_quiet_history(thread, ss - 1, (ss - 1)->move, thread->ply - 1, eval_diff * 11);
+      int eval_diff = clamp(-(int)((ss - 1)->static_eval + ss->static_eval), SED_MIN, SED_MAX) + SED_OFFSET;
+      update_quiet_history(thread, ss - 1, (ss - 1)->move, thread->ply - 1, eval_diff * SED_MULTIPLIER);
   }
 
   // Razoring
