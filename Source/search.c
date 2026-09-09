@@ -1382,6 +1382,10 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
           ss->cutoff_cnt++;
           break;
         }
+
+        if (depth > 2 && depth < 12 && !is_loss(score)) {
+          depth -= 1;
+        }
       }
     }
   }
