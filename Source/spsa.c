@@ -195,6 +195,7 @@ extern double bestmove_scale[5];
 #define RATE_DOUBLE(VALUE) MAX(0.05, MAX(1, ((VALUE * 2) - 1)) / 20)
 #define RATE_DOUBLE_TIME(VALUE) MAX(0.001, (MAX(1, ((VALUE * 2) - 1)) / 20) / 5)
 #define SPSA_MAX(VALUE) VALUE * 2
+#define SPSA_MIN(VARIABLE) ((VARIABLE) > 0 ? 1 : (VARIABLE) * 2)
 #define STRINGIFY(VARIABLE) (#VARIABLE)
 
 void add_double_spsa(char name[], double *value, double min, double max,
@@ -224,7 +225,7 @@ void add_int_spsa(char name[], int *value, int min, int max, double rate,
 }
 
 #define SPSA_INT(VARIABLE, TUNABLE)                                            \
-  add_int_spsa(STRINGIFY(VARIABLE), &VARIABLE, 1, SPSA_MAX(VARIABLE),          \
+  add_int_spsa(STRINGIFY(VARIABLE), &VARIABLE, SPSA_MIN(VARIABLE), SPSA_MAX(VARIABLE), \
                RATE(VARIABLE), NULL, TUNABLE)
 #define SPSA_INT_MINMAX(VARIABLE, TUNABLE, MINIMUM, MAXIMUM)                   \
   add_int_spsa(STRINGIFY(VARIABLE), &VARIABLE, MINIMUM, MAXIMUM,               \
