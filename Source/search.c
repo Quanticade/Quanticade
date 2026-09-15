@@ -1085,8 +1085,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     // No move beat tt score so we extend the search
     if (s_score < s_beta) {
       const int16_t double_margin =
-          SE_DOUBLE_MARGIN + SE_PV_DOUBLE_MARGIN * pv_node;
-      const int16_t triple_margin = SE_TRIPLE_MARGIN;
+          SE_DOUBLE_MARGIN + SE_PV_DOUBLE_MARGIN * pv_node - 1 * !get_move_capture(tt_move);
+      const int16_t triple_margin = SE_TRIPLE_MARGIN + 300 * pv_node - 200 * !get_move_capture(tt_move);
       extensions++;
       extensions += s_score < s_beta - double_margin;
       if (!get_move_capture(tt_move)) {
