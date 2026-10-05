@@ -20,7 +20,7 @@ TUNABLE(int CORR_HISTORY_BONUS_SCALER = 134);
 
 TUNABLE(int HISTORY_MAX = 8192);
 
-const uint8_t cont_hist_updates[] = {1, 2, 4};
+const uint8_t cont_hist_updates[] = {1, 2, 4, 6};
 
 extern keys_t keys;
 
@@ -253,7 +253,8 @@ void update_continuation_histories(thread_t *thread, searchstack_t *ss,
   uint8_t count = sizeof(cont_hist_updates) / sizeof(uint8_t);
   int64_t total_score = get_conthist_score(thread, ss, move, 1) +
                         get_conthist_score(thread, ss, move, 2) +
-                        get_conthist_score(thread, ss, move, 4);
+                        get_conthist_score(thread, ss, move, 4) +
+                        get_conthist_score(thread, ss, move, 6);
   for (uint8_t i = 0; i < count; ++i) {
     int prev_piece = (ss - cont_hist_updates[i])->piece;
     if (thread->ply >= cont_hist_updates[i] && prev_piece != NO_PIECE) {
