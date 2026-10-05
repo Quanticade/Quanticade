@@ -340,6 +340,7 @@ static inline void score_noisy(thread_t *thread, searchstack_t *ss,
 
 // Scores quiet moves in place
 static inline void score_quiet(thread_t *thread, searchstack_t *ss,
+                               check_info_t *check_info,
                                const unscored_moves* quiet_in,
                                moves *quiet_list, uint16_t tt_move) {
   position_t *pos = &thread->positions[thread->ply];
@@ -370,6 +371,7 @@ static inline void score_quiet(thread_t *thread, searchstack_t *ss,
                             [pos->mailbox[source]][target] *
             MO_PAWN_HIST_MULT;
     entry->score /= 1024;
+    entry->score += is_direct_check(pos, check_info, move) * 10000;
   }
 }
 
@@ -457,7 +459,7 @@ static inline uint16_t select_next(picker_t *picker) {
     } else {
       unscored_moves tmp;
       generate_quiets(pos, &tmp, 0);
-      score_quiet(picker->thread, picker->ss, &tmp, &picker->quiets, picker->tt_move);
+      score_quiet(picker->thread, picker->ss, picker->check_info, &tmp, &picker->quiets, picker->tt_move);
       picker->stage = STAGE_QUIET;
     }
     /* fallthrough */
