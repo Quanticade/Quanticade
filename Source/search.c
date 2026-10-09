@@ -698,12 +698,8 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
       return -MATE_VALUE + ply;
   }
 
-  uint8_t hash_flag = HASH_FLAG_NONE;
-  if (alpha >= beta) {
-    hash_flag = HASH_FLAG_LOWER_BOUND;
-  } else {
-    hash_flag = HASH_FLAG_UPPER_BOUND;
-  }
+  const uint8_t hash_flag = best_score >= beta ? HASH_FLAG_LOWER_BOUND
+                                             : HASH_FLAG_UPPER_BOUND;
 
   write_hash_entry(tt_entry, pos, ply, best_score, raw_static_eval, 0,
                    best_move, hash_flag, tt_was_pv);
