@@ -668,10 +668,12 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
       best_score = score;
       // found a better move
       if (score > alpha) {
-        alpha = score;
         best_move = move;
-        // fail-hard beta cutoff
-        if (alpha >= beta) {
+        // beta cutoff
+        if (score < beta) {
+          alpha = score;
+        }
+        else {
           const int capt_bonus = CAPTURE_HISTORY_QS_BONUS;
           const int capt_malus = -CAPTURE_HISTORY_QS_MALUS;
           for (uint32_t i = 0; i < capture_list->count; ++i) {
