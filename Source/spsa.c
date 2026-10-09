@@ -27,6 +27,7 @@ spsa_t spsa[500];
 uint8_t spsa_index = 0;
 
 // search.c
+extern int SE_TRIPLE_NOISY;
 extern int RAZOR_DEPTH;
 extern int RAZOR_MARGIN;
 extern int RFP_DEPTH;
@@ -236,6 +237,7 @@ void add_int_spsa(char name[], int *value, int min, int max, double rate,
                TUNABLE)
 
 void init_spsa_table(void) {
+  SPSA_INT_MINMAX(SE_TRIPLE_NOISY, 1, 0, 200);
   SPSA_INT_POISON(RAZOR_DEPTH, 0);
   SPSA_INT(RAZOR_MARGIN, 1);
   SPSA_INT_POISON(RFP_DEPTH, 0);

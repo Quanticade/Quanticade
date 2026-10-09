@@ -66,6 +66,7 @@ TUNABLE(int SEARCH_CAPT_HIST_MULT = 1024);
 TUNABLE(int SEARCH_MVV_MULT = 1024);
 
 // SPSA Tuned params
+TUNABLE(int SE_TRIPLE_NOISY = 150);
 TUNABLE(int RAZOR_MARGIN = 315);
 TUNABLE(int RFP_MARGIN = 58);
 TUNABLE(int RFP_BASE_MARGIN = 25);
@@ -1086,7 +1087,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     if (s_score < s_beta) {
       const int16_t double_margin =
           SE_DOUBLE_MARGIN + SE_PV_DOUBLE_MARGIN * pv_node - 20 * abs(correction) / 128;
-      const int16_t triple_margin = SE_TRIPLE_MARGIN - 25 * abs(correction) / 128;
+      const int16_t triple_margin = SE_TRIPLE_MARGIN + SE_TRIPLE_NOISY * is_noisy(tt_move) - 25 * abs(correction) / 128;
       extensions++;
       extensions += s_score < s_beta - double_margin;
       extensions += s_score < s_beta - triple_margin;
