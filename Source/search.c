@@ -1378,6 +1378,11 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
           break;
         }
 
+
+        // Reduce other moves if we have found at least one score improvement
+        if (depth > 1 && depth < 12 && !is_decisive(score))
+          depth -= 1;
+
         bound = HASH_FLAG_EXACT;
         alpha = score;
       }
