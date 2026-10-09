@@ -668,10 +668,12 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
       best_score = score;
       // found a better move
       if (score > alpha) {
-        alpha = score;
         best_move = move;
-        // fail-hard beta cutoff
-        if (alpha >= beta) {
+        // beta cutoff
+        if (score < beta) {
+          alpha = score;
+        }
+        else {
           const int capt_bonus = CAPTURE_HISTORY_QS_BONUS;
           const int capt_malus = -CAPTURE_HISTORY_QS_MALUS;
           for (uint32_t i = 0; i < capture_list->count; ++i) {
@@ -696,12 +698,8 @@ static inline int16_t quiescence(thread_t *thread, searchstack_t *ss,
       return -MATE_VALUE + ply;
   }
 
-  uint8_t hash_flag = HASH_FLAG_NONE;
-  if (alpha >= beta) {
-    hash_flag = HASH_FLAG_LOWER_BOUND;
-  } else {
-    hash_flag = HASH_FLAG_UPPER_BOUND;
-  }
+  const uint8_t hash_flag = best_score >= beta ? HASH_FLAG_LOWER_BOUND
+                                             : HASH_FLAG_UPPER_BOUND;
 
   write_hash_entry(tt_entry, pos, ply, best_score, raw_static_eval, 0,
                    best_move, hash_flag, tt_was_pv);
@@ -1312,20 +1310,16 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       best_score = score;
       if (score > alpha) {
         best_move = move;
-        bound = HASH_FLAG_EXACT;
-
-        // PV node (position)
-        alpha = score;
 
         if (pv_node)
           update_pv(&thread->pv, ply, move);
 
         // fail-hard beta cutoff
-        if (alpha >= beta) {
+        if (score >= beta) {
           bound = HASH_FLAG_LOWER_BOUND;
           // on quiet moves
           if (is_quiet(best_move)) {
-            const int history_depth = depth + (!in_check && ss->eval <= alpha);
+            const int history_depth = depth + (!in_check && ss->eval <= score);
             const int cont_bonus = MIN(CONT_HISTORY_BASE_BONUS +
                                      CONT_HISTORY_FACTOR_BONUS * history_depth,
                                  CONT_HISTORY_BONUS_MAX);
@@ -1380,6 +1374,9 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
           ss->cutoff_cnt++;
           break;
         }
+
+        bound = HASH_FLAG_EXACT;
+        alpha = score;
       }
     }
   }
@@ -1397,8 +1394,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       return 0;
   }
 
-  if (!root_node && best_score >= beta && !is_decisive(best_score) &&
-      !is_decisive(alpha)) {
+  if (!root_node && best_score >= beta && !is_decisive(best_score)) {
     best_score = (best_score * depth + beta) / (depth + 1);
   }
 
