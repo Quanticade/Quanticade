@@ -154,6 +154,8 @@ void free_hash_table(void) {
     free(tt.hash_entry);
   }
 #else
+  (void)tt_alloc_size;
+  (void)tt_used_huge_pages;
   free(tt.hash_entry);
 #endif
 
