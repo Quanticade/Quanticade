@@ -1203,7 +1203,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       }
 
       // SEE PVS Pruning
-      if (depth <= SEE_DEPTH && !SEE(pos, move, see_treshold))
+      if (!SEE(pos, move, see_treshold))
         continue;
     }
 
