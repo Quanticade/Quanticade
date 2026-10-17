@@ -1108,6 +1108,20 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     extensions = 1;
   }
 
+  int16_t small_probcut_beta = beta + 370;
+  if (!pv_node
+      && !ss->excluded_move
+      && !in_check
+      && tt_score != NO_SCORE
+      && !is_decisive(tt_score)
+      && !is_decisive(beta)
+      && !is_decisive(small_probcut_beta)
+      && (tt_flag == HASH_FLAG_LOWER_BOUND || tt_flag == HASH_FLAG_EXACT)
+      && tt_score >= small_probcut_beta
+      && tt_depth >= depth - 3) {
+        return tt_score;
+  }
+
   picker_t picker;
   init_picker(&picker, thread, ss, tt_move, 1, &check_info);
 
