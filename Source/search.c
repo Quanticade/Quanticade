@@ -1105,7 +1105,10 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   // Low Depth Singular Extensions (LDSE)
   else if (depth <= 7 && !in_check && ss->static_eval <= alpha - LDSE_MARGIN &&
            tt_flag == HASH_FLAG_LOWER_BOUND) {
-    extensions = 1;
+    const int ldse_margin = alpha - 25 + 100 * abs(correction) / 1024;
+    if (ss->eval <= ldse_margin) {
+      extensions++;
+    }
   }
 
   picker_t picker;
