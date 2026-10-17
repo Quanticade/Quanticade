@@ -17,7 +17,6 @@ void print_spsa_table(void) {}
 void handle_spsa_change(char input[10000]) {
   (void)input;
   fputs("cant set tunables when tuning is disabled\n", stderr);
-  abort();
 }
 
 #else
