@@ -1259,6 +1259,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       R -= improving * LMR_IMPROVING;
       R += (bound == HASH_FLAG_EXACT) * LMR_HASH_FLAG_EXACT;
       R -= LMR_CORRECTION * abs(correction) / 1024;
+      R -= thread->pawn_history[pos->hash_keys.pawn_key % 2048]
+                            [pos->mailbox[get_move_source(move)]][get_move_target(move)] * 175 / 1024;
 
       ss->reduction = R;
 
