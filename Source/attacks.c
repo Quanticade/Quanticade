@@ -5,6 +5,15 @@
 #include "structs.h"
 #include <stdint.h>
 
+// Clang/GCC>=12 have __builtin_shufflevector
+#if defined(__clang__) || (defined(__GNUC__) && __GNUC__ >= 12)
+#define PERM8(v, ...) __builtin_shufflevector(v, v, __VA_ARGS__)
+#define PERM4(v, ...) __builtin_shufflevector(v, v, __VA_ARGS__)
+#else
+#define PERM8(v, ...) __builtin_shuffle(v, (u64x8){__VA_ARGS__})
+#define PERM4(v, ...) __builtin_shuffle(v, (u64x4){__VA_ARGS__})
+#endif
+
 uint64_t pawn_attacks[2][64];
 uint64_t knight_attacks[64];
 uint64_t king_attacks[64];
@@ -518,9 +527,9 @@ static inline uint64_t knight_threats_setwise(uint64_t knights) {
   u64x8 g = {knights, knights, knights, knights,
              knights, knights, knights, knights};
   g = rotl_u64x8(g & ~masks, shifts);
-  g |= __builtin_shufflevector(g, g, 4, 5, 6, 7, 0, 1, 2, 3);
-  g |= __builtin_shufflevector(g, g, 2, 3, 0, 1, 6, 7, 4, 5);
-  g |= __builtin_shufflevector(g, g, 1, 0, 3, 2, 5, 4, 7, 6);
+  g |= PERM8(g, 4, 5, 6, 7, 0, 1, 2, 3);
+  g |= PERM8(g, 2, 3, 0, 1, 6, 7, 4, 5);
+  g |= PERM8(g, 1, 0, 3, 2, 5, 4, 7, 6);
   return g[0];
 }
 
@@ -559,8 +568,8 @@ static inline void slider_threats_setwise(uint64_t orthogonal,
   // hits all the blockers
   g    = ~edge & rotl_u64x8(g, r1);
 
-  g |= __builtin_shufflevector(g, g, 2, 3, 0, 1, 6, 7, 4, 5);
-  g |= __builtin_shufflevector(g, g, 1, 0, 3, 2, 5, 4, 7, 6);
+  g |= PERM8(g, 2, 3, 0, 1, 6, 7, 4, 5);
+  g |= PERM8(g, 1, 0, 3, 2, 5, 4, 7, 6);
   *diagonal_threats   = g[0];
   *orthogonal_threats = g[4];
 }
@@ -585,8 +594,8 @@ static inline uint64_t knight_threats_setwise(uint64_t knights) {
   };
   const u64x4 k = {knights, knights, knights, knights};
   u64x4 g = ((k & ~masks_left) << shifts) | ((k & ~masks_right) >> shifts);
-  g |= __builtin_shufflevector(g, g, 2, 3, 0, 1);
-  g |= __builtin_shufflevector(g, g, 1, 0, 3, 2);
+  g |= PERM4(g, 2, 3, 0, 1);
+  g |= PERM4(g, 1, 0, 3, 2);
   return g[0];
 }
 
@@ -629,7 +638,7 @@ static inline void slider_threats_setwise(uint64_t orthogonal,
   gr = ~edge_right & (gr >> r1);
 
   u64x4 g = gl | gr;
-  g |= __builtin_shufflevector(g, g, 1, 0, 3, 2);
+  g |= PERM4(g, 1, 0, 3, 2);
   *diagonal_threats   = g[0];
   *orthogonal_threats = g[2];
 }
@@ -683,4 +692,3 @@ uint8_t is_square_threatened(searchstack_t *ss, int square) {
                         threats->queen_threats |
                         threats->king_threats));
 }
-
