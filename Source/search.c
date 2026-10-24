@@ -1181,12 +1181,6 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         continue;
       }
 
-      if (quiet && depth <= 10 &&
-          ss->history_score < -HISTORY_PRUNING_MARGIN * depth * depth) {
-        picker.skip_quiets = 1;
-        continue;
-      }
-
       int noisy_futility_margin = ss->static_eval + BNFP_MARGIN * depth + ss->history_score / 29;
       if (!in_check && depth < 10 && picker.stage == STAGE_BAD_NOISY &&
           noisy_futility_margin <= alpha && !is_direct_check(pos, &check_info, move)) {
