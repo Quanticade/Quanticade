@@ -1196,6 +1196,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
                        ss->history_score / SEE_NOISY_HISTORY_DIVISOR;
       }
 
+      see_treshold = MIN(see_treshold, 0);
+
       // SEE PVS Pruning
       if (depth <= SEE_DEPTH && !SEE(pos, move, see_treshold))
         continue;
