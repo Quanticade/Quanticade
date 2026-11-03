@@ -125,15 +125,13 @@ const char piece_chars[] = {[P] = 'P', [N] = 'N', [B] = 'B', [R] = 'R',
 const char promoted_pieces[] = {[Q] = 'q', [R] = 'r', [B] = 'b', [N] = 'n',
                           [q] = 'q', [r] = 'r', [b] = 'b', [n] = 'n'};
 
-static inline int parse_move(position_t *pos, thread_t *thread,
-                             char *move_string) {
+static inline int parse_move(position_t *pos, char *move_string) {
   unscored_moves move_list[1];
   generate_noisy(pos, move_list, 0);
   generate_quiets(pos, move_list, 1);
 
   const int source_square =
       (move_string[0] - 'a') + (8 - (move_string[1] - '0')) * 8;
-  thread->starttime = 0;
   const int target_square =
       (move_string[2] - 'a') + (8 - (move_string[3] - '0')) * 8;
 
@@ -380,7 +378,8 @@ void parse_position(position_t *pos, thread_t *thread, char *command) {
 
   moves += 6;
   while (*moves) {
-    const int move = parse_move(pos, thread, moves);
+    const int move = parse_move(pos, moves);
+    thread->starttime = 0;
     if (!move)
       break;
 
@@ -474,6 +473,45 @@ void time_control(position_t *pos, thread_t *threads, char *line) {
   }
 }
 
+static uint8_t parse_search_moves(position_t *pos, char *line) {
+  char *token = strtok(line, " \t\r\n");
+  while (token && strcmp(token, "searchmoves"))
+    token = strtok(NULL, " \t\r\n");
+  if (!token)
+    return 1;
+
+  limits.search_moves_set = 1;
+  static const char *const keywords[] = {
+      "searchmoves", "ponder", "wtime", "btime", "winc", "binc", "movestogo",
+      "depth", "nodes", "mate", "movetime", "infinite", "perft"};
+  while ((token = strtok(NULL, " \t\r\n"))) {
+    for (size_t i = 0; i < sizeof(keywords) / sizeof(keywords[0]); ++i)
+      if (!strcmp(token, keywords[i]))
+        return 1;
+
+    const size_t length = strlen(token);
+    int move = 0;
+    if ((length == 4 || length == 5) &&
+        token[0] >= 'a' && token[0] <= 'h' &&
+        token[1] >= '1' && token[1] <= '8' &&
+        token[2] >= 'a' && token[2] <= 'h' &&
+        token[3] >= '1' && token[3] <= '8' &&
+        (length == 4 || strchr("nbrq", token[4])))
+      move = parse_move(pos, token);
+    if (!move || (length == 5 && !is_move_promotion(move)) || !is_legal(pos, move)) {
+      printf("info string Invalid searchmove: %s\n", token);
+      return 0;
+    }
+
+    uint32_t i = 0;
+    while (i < limits.search_moves.count && limits.search_moves.entry[i] != move)
+      ++i;
+    if (i == limits.search_moves.count)
+      add_move(&limits.search_moves, move);
+  }
+  return 1;
+}
+
 static inline void *parse_go(void *searchthread_info) {
   searchthreadinfo_t *sti = (searchthreadinfo_t *)searchthread_info;
   char *perft_arg = strstr(sti->line, "perft");
@@ -485,6 +523,11 @@ static inline void *parse_go(void *searchthread_info) {
   }
 
   time_control(sti->pos, sti->threads, sti->line);
+  if (!parse_search_moves(sti->pos, sti->line) ||
+      (limits.search_moves_set && !limits.search_moves.count)) {
+    printf("bestmove (none)\n");
+    return NULL;
+  }
   search_position(sti->pos, sti->threads);
   return NULL;
 }
