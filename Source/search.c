@@ -1125,6 +1125,13 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
   // loop over moves within a movelist
   uint16_t move;
   while ((move = select_next(&picker)) != 0) {
+    if (root_node && limits.search_moves_set) {
+      uint32_t i = 0;
+      while (i < limits.search_moves.count && limits.search_moves.entry[i] != move)
+        ++i;
+      if (i == limits.search_moves.count)
+        continue;
+    }
     uint8_t quiet = is_quiet(move);
 
     if (move == ss->excluded_move) {
@@ -1623,6 +1630,8 @@ void search_position(position_t *pos, thread_t *threads) {
     threads[i].nmp_min_ply = 0;
     threads[i].completed_depth = 0;
     memset(&threads[i].pv, 0, sizeof(threads[i].pv));
+    if (limits.search_moves_set)
+      threads[i].pv.pv_table[0][0] = limits.search_moves.entry[0];
     memset(&threads[i].neurons, 0, sizeof(simd_t));
     init_accumulator(pos, threads[i].accumulator);
     init_finny_tables(&threads[i], pos);

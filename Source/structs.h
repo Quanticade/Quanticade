@@ -171,6 +171,8 @@ typedef struct threats {
 } threats_t;
 
 typedef struct limits {
+  unscored_moves search_moves;
+  uint8_t search_moves_set;
   uint64_t soft_limit;
   uint64_t hard_limit;
   uint64_t node_limit_soft;
