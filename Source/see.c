@@ -5,6 +5,7 @@
 #include "structs.h"
 
 extern TUNABLE(int SEEPieceValues[]);
+extern uint64_t line[64][64];
 
 static inline int move_estimated_value(position_t *pos, int move) {
 
@@ -68,16 +69,11 @@ int SEE(position_t *pos, int move, int threshold) {
 
   // A piece is pinned but can still capture if the target lies on its
   // pin ray (between the king and the pinner, or the pinner itself).
-  // The pin ray is the intersection of empty-board slider attacks from
-  // the king and from the pinned piece's square.
   if (!get_move_castling(move)) {
     const int stm      = pos->side;
     const int stm_king = get_lsb(pos->bitboards[KING + 6 * stm]);
     if ((1ULL << from) & pos->blockers[stm]) {
-      uint64_t pin_line =
-          (get_bishop_attacks(stm_king, 0ULL) & get_bishop_attacks(from, 0ULL)) |
-          (get_rook_attacks(stm_king, 0ULL)   & get_rook_attacks(from, 0ULL));
-      if (!((1ULL << to) & pin_line))
+      if (!((1ULL << to) & line[stm_king][from]))
         return 0;
     }
   }
@@ -151,10 +147,7 @@ int SEE(position_t *pos, int move, int threshold) {
         }
 
         // Pinned piece: legal only if 'to' lies on the pin ray
-        uint64_t pin_line =
-            (get_bishop_attacks(colour_king, 0ULL) & get_bishop_attacks(sq, 0ULL)) |
-            (get_rook_attacks(colour_king, 0ULL)   & get_rook_attacks(sq, 0ULL));
-        if ((1ULL << to) & pin_line) {
+        if ((1ULL << to) & line[colour_king][sq]) {
           pieceSq = sq;
           break;
         }
