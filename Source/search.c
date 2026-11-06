@@ -1144,6 +1144,11 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
 
     moves_seen++;
 
+    uint8_t target_square = get_move_enpassant(move) == 0
+                              ? get_move_target(move)
+                          : pos->side ? get_move_target(move) - 8
+                                      : get_move_target(move) + 8;
+
     ss->history_score =
         quiet
             ? thread->quiet_history[pos->side][get_move_source(move)]
@@ -1158,12 +1163,12 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
                       SEARCH_CONT2_HIST_MULT
             : thread->capture_history
                           [pos->mailbox[get_move_source(move)]]
-                          [pos->mailbox[get_move_target(move)]]
-                          [get_move_target(move)]
+                          [pos->mailbox[target_square]]
+                          [target_square]
                           [is_square_threatened(ss, get_move_source(move))]
-                          [is_square_threatened(ss, get_move_target(move))] *
+                          [is_square_threatened(ss, target_square)] *
                       SEARCH_CAPT_HIST_MULT +
-                  mvv[pos->mailbox[get_move_target(move)] % 6] *
+                  mvv[pos->mailbox[target_square] % 6] *
                       SEARCH_MVV_MULT;
     ss->history_score /= 1024;
 
