@@ -85,13 +85,18 @@ TUNABLE(int SEE_CAPTURE = 27);
 TUNABLE(int SEE_QUIET_HISTORY_DIVISOR = 34);
 TUNABLE(int SEE_NOISY_HISTORY_DIVISOR = 37);
 TUNABLE(int SE_TRIPLE_MARGIN = 37);
+TUNABLE(int SE_DOUBLE_CORR_MARGIN = 160);
+TUNABLE(int SE_TRIPLE_CORR_MARGIN = 200);
 TUNABLE(int SE_BETA_BASE = 59);
 TUNABLE(int SE_BETA_MULTIPLIER = 60);
 TUNABLE(int SE_BETA_DIVISOR = 66);
 TUNABLE(int LDSE_MARGIN = 25);
 TUNABLE(int LMR_PV_NODE = 888);
 TUNABLE(int LMR_HISTORY_QUIET = 192);
+TUNABLE(int LMR_HISTORY_CONT1 = 192);
+TUNABLE(int LMR_HISTORY_CONT2 = 192);
 TUNABLE(int LMR_HISTORY_NOISY = 152);
+TUNABLE(int LMR_HISTORY_MVV = 152);
 TUNABLE(int LMR_IN_CHECK = 991);
 TUNABLE(int LMR_CUTNODE = 1710);
 TUNABLE(int LMR_TT_DEPTH = 1212);
@@ -125,6 +130,7 @@ TUNABLE(int MO_CAPT_HIST_MULT = 1347);
 TUNABLE(int MO_MVV_MULT = 15649);
 TUNABLE(int HISTORY_PRUNING_MARGIN = 2574);
 TUNABLE(int BNFP_MARGIN = 146);
+TUNABLE(int BNFP_DIVISOR = 29);
 
 TUNABLE(int QUIET_HISTORY_MALUS_MAX = 1030);
 TUNABLE(int QUIET_HISTORY_BONUS_MAX = 1236);
@@ -1083,8 +1089,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     // No move beat tt score so we extend the search
     if (s_score < s_beta) {
       const int16_t double_margin =
-          SE_DOUBLE_MARGIN + SE_PV_DOUBLE_MARGIN * pv_node - 20 * abs(correction) / 128;
-      const int16_t triple_margin = SE_TRIPLE_MARGIN - 25 * abs(correction) / 128;
+          SE_DOUBLE_MARGIN + SE_PV_DOUBLE_MARGIN * pv_node - SE_DOUBLE_CORR_MARGIN * abs(correction) / 1024;
+      const int16_t triple_margin = SE_TRIPLE_MARGIN - SE_TRIPLE_CORR_MARGIN * abs(correction) / 1024;
       extensions++;
       extensions += s_score < s_beta - double_margin;
       extensions += s_score < s_beta - triple_margin;
@@ -1148,27 +1154,33 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
                               ? get_move_target(move)
                           : pos->side ? get_move_target(move) - 8
                                       : get_move_target(move) + 8;
-
-    ss->history_score =
-        quiet
-            ? thread->quiet_history[pos->side][get_move_source(move)]
+    
+    const int16_t quiet_history = thread->quiet_history[pos->side][get_move_source(move)]
                                    [get_history_target(move)][is_square_threatened(
                                        ss, get_move_source(move))]
                                    [is_square_threatened(
-                                       ss, get_history_target(move))] *
-                      SEARCH_QUIET_HIST_MULT +
-                  get_conthist_score(thread, ss, move, 1) *
-                      SEARCH_CONT1_HIST_MULT +
-                  get_conthist_score(thread, ss, move, 2) *
-                      SEARCH_CONT2_HIST_MULT
-            : thread->capture_history
+                                       ss, get_history_target(move))];
+    const int16_t conthist_1ply = get_conthist_score(thread, ss, move, 1);
+    const int16_t conthist_2ply = get_conthist_score(thread, ss, move, 2);
+    const int16_t capture_history = thread->capture_history
                           [pos->mailbox[get_move_source(move)]]
                           [pos->mailbox[target_square]]
                           [target_square]
                           [is_square_threatened(ss, get_move_source(move))]
-                          [is_square_threatened(ss, target_square)] *
+                          [is_square_threatened(ss, target_square)];
+    const int16_t mvv_value = mvv[pos->mailbox[target_square] % 6];
+
+    ss->history_score =
+        quiet
+            ? quiet_history *
+                      SEARCH_QUIET_HIST_MULT +
+                  conthist_1ply *
+                      SEARCH_CONT1_HIST_MULT +
+                  conthist_2ply *
+                      SEARCH_CONT2_HIST_MULT
+            : capture_history *
                       SEARCH_CAPT_HIST_MULT +
-                  mvv[pos->mailbox[target_square] % 6] *
+                  mvv_value *
                       SEARCH_MVV_MULT;
     ss->history_score /= 1024;
 
@@ -1193,7 +1205,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         continue;
       }
 
-      int noisy_futility_margin = ss->static_eval + BNFP_MARGIN * depth + ss->history_score / 29;
+      int noisy_futility_margin = ss->static_eval + BNFP_MARGIN * depth + ss->history_score / BNFP_DIVISOR;
       if (!in_check && depth < 10 && picker.stage == STAGE_BAD_NOISY &&
           noisy_futility_margin <= alpha && !is_direct_check(pos, &check_info, move)) {
         break;
@@ -1255,8 +1267,11 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     if (depth >= 2 && moves_seen > 1 + root_node) {
       int R = reduction;
       R += !pv_node * LMR_PV_NODE;
-      R -= ss->history_score *
-           (quiet ? LMR_HISTORY_QUIET : LMR_HISTORY_NOISY) / 1024;
+      if (quiet) {
+        R -= (quiet_history * LMR_HISTORY_QUIET + conthist_1ply * LMR_HISTORY_QUIET + conthist_2ply * LMR_HISTORY_QUIET) / 1024;
+      } else {
+        R -= (capture_history * LMR_HISTORY_NOISY + mvv_value * LMR_HISTORY_NOISY) / 1024;
+      }
       R += cutnode * LMR_CUTNODE;
       R -= (tt_depth >= depth) * LMR_TT_DEPTH;
       R -= ss->tt_pv * LMR_TT_PV;
