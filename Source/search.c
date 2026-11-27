@@ -66,126 +66,132 @@ TUNABLE(int SEARCH_CAPT_HIST_MULT = 1024);
 TUNABLE(int SEARCH_MVV_MULT = 1024);
 
 // SPSA Tuned params
-TUNABLE(int RAZOR_MARGIN = 315);
+TUNABLE(int RAZOR_MARGIN = 322);
 TUNABLE(int RFP_MARGIN = 58);
-TUNABLE(int RFP_BASE_MARGIN = 25);
-TUNABLE(int RFP_IMPROVING = 65);
+TUNABLE(int RFP_BASE_MARGIN = 26);
+TUNABLE(int RFP_IMPROVING = 71);
 TUNABLE(int RFP_OPP_WORSENING = 15);
-TUNABLE(int FP_MULTIPLIER = 144);
-TUNABLE(int FP_ADDITION = 169);
-TUNABLE(int FP_HISTORY_DIVISOR = 29);
-TUNABLE(int NMP_BASE_ADD = 236);
+TUNABLE(int FP_MULTIPLIER = 145);
+TUNABLE(int FP_ADDITION = 185);
+TUNABLE(int FP_HISTORY_DIVISOR = 26);
+TUNABLE(int NMP_BASE_ADD = 240);
 TUNABLE(int NMP_MULTIPLIER = 17);
-TUNABLE(int NMP_BASE_REDUCTION = 1426);
-TUNABLE(int NMP_DIVISER = 85);
+TUNABLE(int NMP_BASE_REDUCTION = 1401);
+TUNABLE(int NMP_DIVISER = 84);
 TUNABLE(int SEE_QUIET_QUAD = 10);
-TUNABLE(int SEE_QUIET_LINEAR = 10229);
-TUNABLE(int SEE_QUIET_CONST = 292);
-TUNABLE(int SEE_CAPTURE = 27);
-TUNABLE(int SEE_QUIET_HISTORY_DIVISOR = 34);
-TUNABLE(int SEE_NOISY_HISTORY_DIVISOR = 37);
-TUNABLE(int SE_TRIPLE_MARGIN = 37);
-TUNABLE(int SE_BETA_BASE = 59);
-TUNABLE(int SE_BETA_MULTIPLIER = 60);
-TUNABLE(int SE_BETA_DIVISOR = 66);
+TUNABLE(int SEE_QUIET_LINEAR = 10234);
+TUNABLE(int SEE_QUIET_CONST = 276);
+TUNABLE(int SEE_CAPTURE = 23);
+TUNABLE(int SEE_QUIET_HISTORY_DIVISOR = 32);
+TUNABLE(int SEE_NOISY_HISTORY_DIVISOR = 41);
+TUNABLE(int SE_TRIPLE_MARGIN = 39);
+TUNABLE(int SE_DOUBLE_CORR_MARGIN = 161);
+TUNABLE(int SE_TRIPLE_CORR_MARGIN = 187);
+TUNABLE(int SE_BETA_BASE = 63);
+TUNABLE(int SE_BETA_MULTIPLIER = 62);
+TUNABLE(int SE_BETA_DIVISOR = 62);
 TUNABLE(int LDSE_MARGIN = 25);
-TUNABLE(int LMR_PV_NODE = 888);
+TUNABLE(int LMR_PV_NODE = 825);
 TUNABLE(int LMR_HISTORY_QUIET = 192);
-TUNABLE(int LMR_HISTORY_NOISY = 152);
-TUNABLE(int LMR_IN_CHECK = 991);
-TUNABLE(int LMR_CUTNODE = 1710);
-TUNABLE(int LMR_TT_DEPTH = 1212);
-TUNABLE(int LMR_TT_PV = 999);
-TUNABLE(int LMR_TT_PV_CUTNODE = 908);
-TUNABLE(int LMR_TT_SCORE = 889);
-TUNABLE(int LMR_CUTOFF_CNT = 881);
-TUNABLE(int LMR_IMPROVING = 985);
-TUNABLE(int LMR_DEEPER_MARGIN = 38);
-TUNABLE(int LMP_BETA_MARGIN = 14);
-TUNABLE(int LMR_CORRECTION = 1888);
-TUNABLE(int LMR_HASH_FLAG_EXACT = 971);
-TUNABLE(int ASP_WINDOW = 15);
-TUNABLE(int QS_FUTILITY_THRESHOLD = 90);
-TUNABLE(int MO_SEE_THRESHOLD = 95);
-TUNABLE(int LMP_HISTORY_DIVISOR = 7966);
-TUNABLE(int ASP_WINDOW_DIVISER = 26584);
-TUNABLE(int ASP_WINDOW_FAIL_LOW = 26);
-TUNABLE(int ASP_WINDOW_FAIL_HIGH = 63);
-TUNABLE(int HINDSIGH_REDUCTION_ADD = 2763);
-TUNABLE(int HINDSIGH_REDUCTION_RED = 1787);
-TUNABLE(int HINDSIGN_REDUCTION_EVAL_MARGIN = 85);
-TUNABLE(int PROBCUT_MARGIN = 258);
+TUNABLE(int LMR_HISTORY_CONT1 = 212);
+TUNABLE(int LMR_HISTORY_CONT2 = 176);
+TUNABLE(int LMR_HISTORY_NOISY = 155);
+TUNABLE(int LMR_HISTORY_MVV = 142);
+TUNABLE(int LMR_IN_CHECK = 870);
+TUNABLE(int LMR_CUTNODE = 1905);
+TUNABLE(int LMR_TT_DEPTH = 1172);
+TUNABLE(int LMR_TT_PV = 984);
+TUNABLE(int LMR_TT_PV_CUTNODE = 904);
+TUNABLE(int LMR_TT_SCORE = 833);
+TUNABLE(int LMR_CUTOFF_CNT = 822);
+TUNABLE(int LMR_IMPROVING = 967);
+TUNABLE(int LMR_DEEPER_MARGIN = 40);
+TUNABLE(int LMP_BETA_MARGIN = 15);
+TUNABLE(int LMR_CORRECTION = 1844);
+TUNABLE(int LMR_HASH_FLAG_EXACT = 1005);
+TUNABLE(int ASP_WINDOW = 13);
+TUNABLE(int QS_FUTILITY_THRESHOLD = 87);
+TUNABLE(int MO_SEE_THRESHOLD = 88);
+TUNABLE(int LMP_HISTORY_DIVISOR = 7994);
+TUNABLE(int ASP_WINDOW_DIVISER = 29906);
+TUNABLE(int ASP_WINDOW_FAIL_LOW = 25);
+TUNABLE(int ASP_WINDOW_FAIL_HIGH = 61);
+TUNABLE(int HINDSIGH_REDUCTION_ADD = 2669);
+TUNABLE(int HINDSIGH_REDUCTION_RED = 1650);
+TUNABLE(int HINDSIGN_REDUCTION_EVAL_MARGIN = 83);
+TUNABLE(int PROBCUT_MARGIN = 266);
 TUNABLE(int MO_SEE_HISTORY_DIVISER = 30);
-TUNABLE(int MO_QUIET_HIST_MULT = 919);
-TUNABLE(int MO_CONT1_HIST_MULT = 984);
-TUNABLE(int MO_CONT2_HIST_MULT = 996);
-TUNABLE(int MO_CONT4_HIST_MULT = 1047);
-TUNABLE(int MO_PAWN_HIST_MULT = 996);
-TUNABLE(int MO_CAPT_HIST_MULT = 1347);
-TUNABLE(int MO_MVV_MULT = 15649);
-TUNABLE(int HISTORY_PRUNING_MARGIN = 2574);
-TUNABLE(int BNFP_MARGIN = 146);
+TUNABLE(int MO_QUIET_HIST_MULT = 944);
+TUNABLE(int MO_CONT1_HIST_MULT = 1052);
+TUNABLE(int MO_CONT2_HIST_MULT = 992);
+TUNABLE(int MO_CONT4_HIST_MULT = 944);
+TUNABLE(int MO_PAWN_HIST_MULT = 1058);
+TUNABLE(int MO_CAPT_HIST_MULT = 1477);
+TUNABLE(int MO_MVV_MULT = 16713);
+TUNABLE(int HISTORY_PRUNING_MARGIN = 2691);
+TUNABLE(int BNFP_MARGIN = 160);
+TUNABLE(int BNFP_DIVISOR = 27);
 
-TUNABLE(int QUIET_HISTORY_MALUS_MAX = 1030);
-TUNABLE(int QUIET_HISTORY_BONUS_MAX = 1236);
+TUNABLE(int QUIET_HISTORY_MALUS_MAX = 1088);
+TUNABLE(int QUIET_HISTORY_BONUS_MAX = 1140);
 TUNABLE(int QUIET_HISTORY_BASE_BONUS = 11);
-TUNABLE(int QUIET_HISTORY_FACTOR_BONUS = 167);
+TUNABLE(int QUIET_HISTORY_FACTOR_BONUS = 170);
 TUNABLE(int QUIET_HISTORY_BASE_MALUS = 7);
-TUNABLE(int QUIET_HISTORY_FACTOR_MALUS = 271);
-TUNABLE(int QUIET_HISTORY_MAX_TT = 1503);
+TUNABLE(int QUIET_HISTORY_FACTOR_MALUS = 282);
+TUNABLE(int QUIET_HISTORY_MAX_TT = 1420);
 TUNABLE(int QUIET_HISTORY_TT_FACTOR = 138);
-TUNABLE(int QUIET_HISTORY_TT_BASE = 79);
+TUNABLE(int QUIET_HISTORY_TT_BASE = 84);
 
-TUNABLE(int CAPTURE_HISTORY_MALUS_MAX = 947);
-TUNABLE(int CAPTURE_HISTORY_BONUS_MAX = 1618);
+TUNABLE(int CAPTURE_HISTORY_MALUS_MAX = 971);
+TUNABLE(int CAPTURE_HISTORY_BONUS_MAX = 1755);
 TUNABLE(int CAPTURE_HISTORY_BASE_BONUS = 10);
 TUNABLE(int CAPTURE_HISTORY_FACTOR_BONUS = 140);
 TUNABLE(int CAPTURE_HISTORY_BASE_MALUS = 10);
-TUNABLE(int CAPTURE_HISTORY_FACTOR_MALUS = 285);
-TUNABLE(int CAPTURE_HISTORY_QS_BONUS = 184);
-TUNABLE(int CAPTURE_HISTORY_QS_MALUS = 268);
+TUNABLE(int CAPTURE_HISTORY_FACTOR_MALUS = 286);
+TUNABLE(int CAPTURE_HISTORY_QS_BONUS = 170);
+TUNABLE(int CAPTURE_HISTORY_QS_MALUS = 273);
 
-TUNABLE(int CONT_HISTORY_MALUS_MAX = 1259);
-TUNABLE(int CONT_HISTORY_BONUS_MAX = 2639);
+TUNABLE(int CONT_HISTORY_MALUS_MAX = 1219);
+TUNABLE(int CONT_HISTORY_BONUS_MAX = 2738);
 TUNABLE(int CONT_HISTORY_BASE_BONUS = 9);
 TUNABLE(int CONT_HISTORY_FACTOR_BONUS = 190);
 TUNABLE(int CONT_HISTORY_BASE_MALUS = 9);
-TUNABLE(int CONT_HISTORY_FACTOR_MALUS = 224);
+TUNABLE(int CONT_HISTORY_FACTOR_MALUS = 235);
 
-TUNABLE(int PAWN_HISTORY_MALUS_MAX = 829);
-TUNABLE(int PAWN_HISTORY_BONUS_MAX = 1462);
+TUNABLE(int PAWN_HISTORY_MALUS_MAX = 833);
+TUNABLE(int PAWN_HISTORY_BONUS_MAX = 1403);
 TUNABLE(int PAWN_HISTORY_BASE_BONUS = 8);
 TUNABLE(int PAWN_HISTORY_FACTOR_BONUS = 184);
 TUNABLE(int PAWN_HISTORY_BASE_MALUS = 11);
-TUNABLE(int PAWN_HISTORY_FACTOR_MALUS = 134);
+TUNABLE(int PAWN_HISTORY_FACTOR_MALUS = 138);
 
-TUNABLE(double LMP_MARGIN_WORSENING_BASE = 1.3244842935696652);
-TUNABLE(double LMP_MARGIN_WORSENING_FACTOR = 0.4153107743897989);
-TUNABLE(double LMP_MARGIN_WORSENING_POWER = 1.6802561236054137);
-TUNABLE(double LMP_MARGIN_IMPROVING_BASE = 3.029707591843873);
-TUNABLE(double LMP_MARGIN_IMPROVING_FACTOR = 0.9075632435174102);
-TUNABLE(double LMP_MARGIN_IMPROVING_POWER = 1.8248229242641987);
+TUNABLE(double LMP_MARGIN_WORSENING_BASE = 1.4069522776296088);
+TUNABLE(double LMP_MARGIN_WORSENING_FACTOR = 0.40997254430020075);
+TUNABLE(double LMP_MARGIN_WORSENING_POWER = 1.7389636629447756);
+TUNABLE(double LMP_MARGIN_IMPROVING_BASE = 2.832917680924425);
+TUNABLE(double LMP_MARGIN_IMPROVING_FACTOR = 0.8708760931060716);
+TUNABLE(double LMP_MARGIN_IMPROVING_POWER = 1.859717391204355);
 
-TUNABLE(int LMR_OFFSET_QUIET = 687);
-TUNABLE(int LMR_MULT_QUIET   = 504);
-TUNABLE(int LMR_OFFSET_NOISY = -111);
-TUNABLE(int LMR_MULT_NOISY   = 426);
+TUNABLE(int LMR_OFFSET_QUIET = 736);
+TUNABLE(int LMR_MULT_QUIET   = 482);
+TUNABLE(int LMR_OFFSET_NOISY = -119);
+TUNABLE(int LMR_MULT_NOISY   = 431);
 
-TUNABLE(double NODE_TIME_MULTIPLIER = 2.405948581069286);
-TUNABLE(double NODE_TIME_ADDITION = 0.4675415262243798);
-TUNABLE(double NODE_TIME_MIN = 0.5495010322592324);
+TUNABLE(double NODE_TIME_MULTIPLIER = 2.4051728309835916);
+TUNABLE(double NODE_TIME_ADDITION = 0.4668439260776529);
+TUNABLE(double NODE_TIME_MIN = 0.55344713929795);
 
-TUNABLE(double EVAL_TIME_ADDITION = 1.1969988338317266);
-TUNABLE(double EVAL_TIME_MULTIPLIER = 0.05692703096153312);
+TUNABLE(double EVAL_TIME_ADDITION = 1.1957827234197818);
+TUNABLE(double EVAL_TIME_MULTIPLIER = 0.0606536324287245);
 
-TUNABLE(int SEEPieceValues[] = {60, 319, 337, 626, 1696, 0, 0});
+TUNABLE(int SEEPieceValues[] = {58, 315, 341, 637, 1617, 0, 0});
 
-TUNABLE(int mvv[] = {113, 340, 335, 473, 1442, 0});
+TUNABLE(int mvv[] = {124, 319, 341, 482, 1163, 0});
 
 int lmr[2][MAX_PLY + 1][256];
 int lmp_margin[2][256];
 
-TUNABLE(double bestmove_scale[5] = {2.3878500937182063, 1.368278765100542, 1.1030583527265865, 0.8856767225891453, 0.722055610875697});
+TUNABLE(double bestmove_scale[5] = {2.3812808137782557, 1.3624648049411983, 1.0956192815806722, 0.8938533977945867, 0.7205011820100148});
 
 uint64_t nodes_spent_table[4096] = {0};
 
@@ -1083,8 +1089,8 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     // No move beat tt score so we extend the search
     if (s_score < s_beta) {
       const int16_t double_margin =
-          SE_DOUBLE_MARGIN + SE_PV_DOUBLE_MARGIN * pv_node - 20 * abs(correction) / 128;
-      const int16_t triple_margin = SE_TRIPLE_MARGIN - 25 * abs(correction) / 128;
+          SE_DOUBLE_MARGIN + SE_PV_DOUBLE_MARGIN * pv_node - SE_DOUBLE_CORR_MARGIN * abs(correction) / 1024;
+      const int16_t triple_margin = SE_TRIPLE_MARGIN - SE_TRIPLE_CORR_MARGIN * abs(correction) / 1024;
       extensions++;
       extensions += s_score < s_beta - double_margin;
       extensions += s_score < s_beta - triple_margin;
@@ -1148,27 +1154,33 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
                               ? get_move_target(move)
                           : pos->side ? get_move_target(move) - 8
                                       : get_move_target(move) + 8;
-
-    ss->history_score =
-        quiet
-            ? thread->quiet_history[pos->side][get_move_source(move)]
+    
+    const int16_t quiet_history = thread->quiet_history[pos->side][get_move_source(move)]
                                    [get_history_target(move)][is_square_threatened(
                                        ss, get_move_source(move))]
                                    [is_square_threatened(
-                                       ss, get_history_target(move))] *
-                      SEARCH_QUIET_HIST_MULT +
-                  get_conthist_score(thread, ss, move, 1) *
-                      SEARCH_CONT1_HIST_MULT +
-                  get_conthist_score(thread, ss, move, 2) *
-                      SEARCH_CONT2_HIST_MULT
-            : thread->capture_history
+                                       ss, get_history_target(move))];
+    const int16_t conthist_1ply = get_conthist_score(thread, ss, move, 1);
+    const int16_t conthist_2ply = get_conthist_score(thread, ss, move, 2);
+    const int16_t capture_history = thread->capture_history
                           [pos->mailbox[get_move_source(move)]]
                           [pos->mailbox[target_square]]
                           [target_square]
                           [is_square_threatened(ss, get_move_source(move))]
-                          [is_square_threatened(ss, target_square)] *
+                          [is_square_threatened(ss, target_square)];
+    const int16_t mvv_value = mvv[pos->mailbox[target_square] % 6];
+
+    ss->history_score =
+        quiet
+            ? quiet_history *
+                      SEARCH_QUIET_HIST_MULT +
+                  conthist_1ply *
+                      SEARCH_CONT1_HIST_MULT +
+                  conthist_2ply *
+                      SEARCH_CONT2_HIST_MULT
+            : capture_history *
                       SEARCH_CAPT_HIST_MULT +
-                  mvv[pos->mailbox[target_square] % 6] *
+                  mvv_value *
                       SEARCH_MVV_MULT;
     ss->history_score /= 1024;
 
@@ -1193,7 +1205,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
         continue;
       }
 
-      int noisy_futility_margin = ss->static_eval + BNFP_MARGIN * depth + ss->history_score / 29;
+      int noisy_futility_margin = ss->static_eval + BNFP_MARGIN * depth + ss->history_score / BNFP_DIVISOR;
       if (!in_check && depth < 10 && picker.stage == STAGE_BAD_NOISY &&
           noisy_futility_margin <= alpha && !is_direct_check(pos, &check_info, move)) {
         break;
@@ -1255,8 +1267,11 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     if (depth >= 2 && moves_seen > 1 + root_node) {
       int R = reduction;
       R += !pv_node * LMR_PV_NODE;
-      R -= ss->history_score *
-           (quiet ? LMR_HISTORY_QUIET : LMR_HISTORY_NOISY) / 1024;
+      if (quiet) {
+        R -= (quiet_history * LMR_HISTORY_QUIET + conthist_1ply * LMR_HISTORY_QUIET + conthist_2ply * LMR_HISTORY_QUIET) / 1024;
+      } else {
+        R -= (capture_history * LMR_HISTORY_NOISY + mvv_value * LMR_HISTORY_NOISY) / 1024;
+      }
       R += cutnode * LMR_CUTNODE;
       R -= (tt_depth >= depth) * LMR_TT_DEPTH;
       R -= ss->tt_pv * LMR_TT_PV;
