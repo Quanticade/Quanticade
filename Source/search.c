@@ -806,7 +806,7 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
       int16_t bonus =
           MIN(QUIET_HISTORY_MAX_TT,
               (QUIET_HISTORY_TT_FACTOR * depth - QUIET_HISTORY_TT_BASE));
-      update_quiet_history(thread, ss, tt_move, bonus);
+      update_quiet_history(thread, ss, pos->side, tt_move, bonus);
     }
     return tt_score;
   }
@@ -864,7 +864,13 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
     return 0;
   }
 
-  if (!root_node && !in_check && !ss->excluded_move) {
+  if (!root_node && !in_check && !ss->excluded_move && (ss - 1)->eval != NO_SCORE) {
+    if (is_quiet((ss - 1)->move) && depth < 6) {
+      int value = -(ss->static_eval + (ss - 1)->static_eval);
+      int bonus = clamp(value, -65, 200);
+      update_quiet_history(thread, ss - 1, pos->side ^ 1, (ss - 1)->move, bonus);
+    }
+
     if ((ss - 1)->reduction >= HINDSIGH_REDUCTION_ADD && !opponent_worsening) {
       ++depth;
     }
@@ -1371,11 +1377,11 @@ static inline int16_t negamax(thread_t *thread, searchstack_t *ss,
                 update_continuation_histories(thread, ss, best_move,
                                               cont_bonus);
                 update_pawn_history(thread, best_move, pawn_bonus);
-                update_quiet_history(thread, ss, best_move, quiet_bonus);
+                update_quiet_history(thread, ss, pos->side, best_move, quiet_bonus);
               } else {
                 update_continuation_histories(thread, ss, move, cont_malus);
                 update_pawn_history(thread, move, pawn_malus);
-                update_quiet_history(thread, ss, move, quiet_malus);
+                update_quiet_history(thread, ss, pos->side, move, quiet_malus);
               }
             }
           }
