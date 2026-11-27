@@ -1665,7 +1665,7 @@ void search_position(position_t *pos, thread_t *threads) {
         for (int to = 0; to < 64; to++) {
           for (int from_att = 0; from_att < 2; from_att++) {
             for (int to_att = 0; to_att < 2; to_att++) {
-              threads[i].quiet_history[side][from][to][from_att][to_att] *= (768 / 1024);  
+              threads[i].quiet_history[side][from][to][from_att][to_att] *= (float)((float)768 / (float)1024);  
             }
           }
         }
