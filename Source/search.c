@@ -1660,6 +1660,17 @@ void search_position(position_t *pos, thread_t *threads) {
       memcpy(threads[i].repetition_table, threads[0].repetition_table,
              sizeof(threads[0].repetition_table));
     }
+    for (int side = 0; side < 2; side++) {
+      for (int from = 0; from < 64; from++) {
+        for (int to = 0; to < 64; to++) {
+          for (int from_att = 0; from_att < 2; from_att++) {
+            for (int to_att = 0; to_att < 2; to_att++) {
+              threads[i].quiet_history[side][from][to][from_att][to_att] *= (768 / 1024);  
+            }
+          }
+        }
+      }
+    }
   }
 
   // clear helper data structures for search
